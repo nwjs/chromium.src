@@ -21,11 +21,13 @@ class BrowserAdapterImpl : public BrowserAdapter {
   BrowserAdapterImpl operator=(const BrowserAdapterImpl&) = delete;
   ~BrowserAdapterImpl() override = default;
 
-  tabs::TabHandle AddTabAt(
-      const GURL& url,
-      std::optional<int> index,
-      std::optional<tab_groups::TabGroupId> group = std::nullopt,
-      bool pinned = false) override;
+  std::vector<std::unique_ptr<TabStripModelAdapter>>
+  CreateAllTabStripModelAdaptersForProfile() override;
+
+  tabs::TabHandle AddTabAt(const GURL& url,
+                           std::optional<int> index,
+                           std::optional<tab_groups::TabGroupId> group,
+                           bool pinned) override;
 
  private:
   raw_ptr<BrowserWindowInterface> browser_;

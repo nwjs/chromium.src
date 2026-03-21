@@ -17,6 +17,7 @@ include_rules = [
   "+chrome/browser/ash/borealis",
   "+chrome/browser/ash/bruschetta",
   "+chrome/browser/ash/crostini",
+  "+chrome/browser/ash/dbus",
   "+chrome/browser/ash/exo",
   "+chrome/browser/ash/guest_os",
   "+chrome/browser/ash/plugin_vm",
@@ -26,10 +27,8 @@ include_rules = [
   "+chrome/browser/profiles",
   "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/chrome_select_file_policy.h",
-  "+chrome/browser/ui/settings_window_manager_chromeos.h",
   "+chrome/browser/ui/webui/ash/settings/app_management",
   "+chrome/common/pref_names.h",
-  "+chrome/common/webui_url_constants.h",
 ]
 
 specific_include_rules = {

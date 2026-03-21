@@ -87,6 +87,7 @@ public class NotificationUmaTracker {
         SystemNotificationType.TRACING,
         SystemNotificationType.SERIAL,
         SystemNotificationType.SAFETY_HUB_UNSUBSCRIBED_NOTIFICATIONS,
+        SystemNotificationType.ACTOR,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface SystemNotificationType {
@@ -135,8 +136,9 @@ public class NotificationUmaTracker {
         int TRACING = 41;
         int SERIAL = 42;
         int SAFETY_HUB_UNSUBSCRIBED_NOTIFICATIONS = 43;
+        int ACTOR = 44;
 
-        int NUM_ENTRIES = 44;
+        int NUM_ENTRIES = 45;
     }
 
     /*
@@ -176,7 +178,10 @@ public class NotificationUmaTracker {
         ActionType.REPORT_AS_SAFE,
         ActionType.REPORT_WARNED_NOTIFICATION_AS_SPAM,
         ActionType.REPORT_UNWARNED_NOTIFICATION_AS_SPAM,
-        ActionType.DOWNLOAD_DELETE_FROM_HISTORY
+        ActionType.DOWNLOAD_DELETE_FROM_HISTORY,
+        ActionType.ACTOR_PAUSE,
+        ActionType.ACTOR_RESUME,
+        ActionType.ACTOR_CANCEL,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ActionType {
@@ -279,8 +284,15 @@ public class NotificationUmaTracker {
         // Delete from history button on user download notification.
         int DOWNLOAD_DELETE_FROM_HISTORY = 41;
 
+        // Pause button on actor notification.
+        int ACTOR_PAUSE = 42;
+        // Resume button on actor notification.
+        int ACTOR_RESUME = 43;
+        // Cancel button on actor notification.
+        int ACTOR_CANCEL = 44;
+
         // Number of real entries, excluding `UNKNOWN`.
-        int NUM_ENTRIES = 41;
+        int NUM_ENTRIES = 45;
     }
 
     /**
@@ -294,13 +306,13 @@ public class NotificationUmaTracker {
         NotificationRationaleResult.NAVIGATE_BACK_OR_TOUCH_OUTSIDE,
         NotificationRationaleResult.NOT_ATTACHED_TO_WINDOW,
         NotificationRationaleResult.ACTIVITY_DESTROYED,
-        NotificationRationaleResult.BOTTOM_SHEET_BACK_PRESS,
-        NotificationRationaleResult.BOTTOM_SHEET_SWIPE,
-        NotificationRationaleResult.BOTTOM_SHEET_TAP_SCRIM,
-        NotificationRationaleResult.BOTTOM_SHEET_FAILED_TO_OPEN,
-        NotificationRationaleResult.BOTTOM_SHEET_DESTROYED,
-        NotificationRationaleResult.BOTTOM_SHEET_CLOSED_UNKNOWN,
-        NotificationRationaleResult.BOTTOM_SHEET_NEVER_OPENED,
+        // NotificationRationaleResult.BOTTOM_SHEET_BACK_PRESS,
+        // NotificationRationaleResult.BOTTOM_SHEET_SWIPE,
+        // NotificationRationaleResult.BOTTOM_SHEET_TAP_SCRIM,
+        // NotificationRationaleResult.BOTTOM_SHEET_FAILED_TO_OPEN,
+        // NotificationRationaleResult.BOTTOM_SHEET_DESTROYED,
+        // NotificationRationaleResult.BOTTOM_SHEET_CLOSED_UNKNOWN,
+        // NotificationRationaleResult.BOTTOM_SHEET_NEVER_OPENED,
         NotificationRationaleResult.NUM_ENTRIES
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -310,13 +322,13 @@ public class NotificationUmaTracker {
         int NAVIGATE_BACK_OR_TOUCH_OUTSIDE = 2;
         int ACTIVITY_DESTROYED = 3;
         int NOT_ATTACHED_TO_WINDOW = 4;
-        int BOTTOM_SHEET_BACK_PRESS = 5;
-        int BOTTOM_SHEET_SWIPE = 6;
-        int BOTTOM_SHEET_TAP_SCRIM = 7;
-        int BOTTOM_SHEET_FAILED_TO_OPEN = 8;
-        int BOTTOM_SHEET_DESTROYED = 9;
-        int BOTTOM_SHEET_CLOSED_UNKNOWN = 10;
-        int BOTTOM_SHEET_NEVER_OPENED = 11;
+        // int BOTTOM_SHEET_BACK_PRESS = 5; Obsolete
+        // int BOTTOM_SHEET_SWIPE = 6; Obsolete
+        // int BOTTOM_SHEET_TAP_SCRIM = 7; Obsolete
+        // int BOTTOM_SHEET_FAILED_TO_OPEN = 8; Obsolete
+        // int BOTTOM_SHEET_DESTROYED = 9; Obsolete
+        // int BOTTOM_SHEET_CLOSED_UNKNOWN = 10; Obsolete
+        // int BOTTOM_SHEET_NEVER_OPENED = 11; Obsolete
 
         int NUM_ENTRIES = 12;
     }
@@ -456,6 +468,10 @@ public class NotificationUmaTracker {
                         "Mobile.SystemNotification.Content.Click.Age.PriceDropUserManaged",
                         createTime);
                 break;
+            case SystemNotificationType.ACTOR:
+                recordNotificationAgeHistogram(
+                        "Mobile.SystemNotification.Content.Click.Age.Actor", createTime);
+                break;
         }
     }
 
@@ -498,6 +514,10 @@ public class NotificationUmaTracker {
             case SystemNotificationType.PRICE_DROP_ALERTS_USER_MANAGED:
                 recordNotificationAgeHistogram(
                         "Mobile.SystemNotification.Dismiss.Age.PriceDropUserManaged", createTime);
+                break;
+            case SystemNotificationType.ACTOR:
+                recordNotificationAgeHistogram(
+                        "Mobile.SystemNotification.Dismiss.Age.Actor", createTime);
                 break;
         }
     }
@@ -547,6 +567,10 @@ public class NotificationUmaTracker {
                 recordNotificationAgeHistogram(
                         "Mobile.SystemNotification.Action.Click.Age.PriceDropUserManaged",
                         createTime);
+                break;
+            case SystemNotificationType.ACTOR:
+                recordNotificationAgeHistogram(
+                        "Mobile.SystemNotification.Action.Click.Age.Actor", createTime);
                 break;
         }
     }
@@ -822,6 +846,8 @@ public class NotificationUmaTracker {
         switch (channelId) {
             case ChannelId.BROWSER:
                 return "Browser";
+            case ChannelId.ACTOR:
+                return "Actor";
             case ChannelId.COLLABORATION:
                 return "Collaboration";
             case ChannelId.DOWNLOADS:

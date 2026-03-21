@@ -7,11 +7,14 @@
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/browser_manager_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 #if !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
+#include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -126,8 +129,59 @@ IN_PROC_BROWSER_TEST_F(BrowserManagerServiceTest,
   testing::Mock::VerifyAndClearExpectations(&primary_observer);
   testing::Mock::VerifyAndClearExpectations(&secondary_observer);
 
-  // Close secondary browser and expect events.
+  // Close secondary browser and expect events. Ensure the secondary profile is
+  // not destroyed before the end of the test to prevent UAF crashes.
+  ScopedProfileKeepAlive profile_keep_alive(
+      secondary_browser->GetProfile(), ProfileKeepAliveOrigin::kBrowserWindow);
   EXPECT_CALL(secondary_observer, OnBrowserClosed(secondary_browser)).Times(1);
   CloseBrowserSynchronously(secondary_browser);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserManagerServiceTest,
+                       OTRProfileShutdownNotifiesObserver) {
+  GlobalBrowserCollection* global_collection =
+      GlobalBrowserCollection::GetInstance();
+  ASSERT_NE(global_collection, nullptr);
+  const size_t initial_size = global_collection->GetSize();
+
+  // Primary test browser.
+  ASSERT_GE(initial_size, 1u);
+
+  // Create an OTR profile.
+  Profile* original_profile = GetProfile()->GetOriginalProfile();
+  Profile* otr_profile = original_profile->GetOffTheRecordProfile(
+      Profile::OTRProfileID::CreateUniqueForDevTools(),
+      /*create_if_needed=*/true);
+  ASSERT_NE(otr_profile, nullptr);
+
+  Browser* otr_browser =
+      Browser::Create(Browser::CreateParams(otr_profile, true));
+  EXPECT_EQ(global_collection->GetSize(), initial_size + 1);
+
+  // Observe the GlobalBrowserCollection to verify close events are emitted.
+  MockBrowserCollectionObserver global_observer;
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      global_observation{&global_observer};
+  global_observation.Observe(global_collection);
+
+  // Expect that GlobalBrowserCollection is notified of the browser closing
+  // when the OTR profile is destroyed.
+  EXPECT_CALL(global_observer, OnBrowserClosed(otr_browser)).Times(1);
+
+  original_profile->DestroyOffTheRecordProfile(otr_profile);
+  testing::Mock::VerifyAndClearExpectations(&global_observer);
+
+  // GlobalBrowserCollection should no longer reference the destroyed browser.
+  EXPECT_EQ(global_collection->GetSize(), initial_size);
+
+  // Access the browser's profile to trigger the dangling pointer dereference
+  // (if there's any).
+  size_t count = 0;
+  global_collection->ForEach([&count](BrowserWindowInterface* browser) {
+    EXPECT_NE(browser->GetProfile(), nullptr);
+    count++;
+    return true;
+  });
+  EXPECT_EQ(count, initial_size);
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)

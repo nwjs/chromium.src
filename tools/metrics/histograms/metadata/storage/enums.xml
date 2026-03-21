@@ -70,6 +70,16 @@ chromium-metrics-reviews@google.com.
              TopLevelStorageAccess and StorageAccess"/>
 </enum>
 
+<!-- LINT.IfChange(AsyncVirtualFileExtractionError) -->
+
+<enum name="AsyncVirtualFileExtractionError">
+  <int value="0" label="CoGetInterfaceAndReleaseStream failed"/>
+  <int value="1" label="CoMarshalInterThreadInterfaceInStream failed"/>
+  <int value="2" label="Source stream returned S_OK with zero bytes read"/>
+</enum>
+
+<!-- LINT.ThenChange(//ui/base/clipboard/clipboard_util_win.cc:AsyncVirtualFileExtractionError) -->
+
 <!-- LINT.IfChange(BlobBuildFromStreamResult) -->
 
 <enum name="BlobBuildFromStreamResult">
@@ -149,6 +159,20 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Svg"/>
   <int value="9" label="Filenames"/>
 </enum>
+
+<!-- LINT.IfChange(DomStorageDbStatusType) -->
+
+<enum name="DomStorageDbStatusType">
+  <int value="0" label="OK"/>
+  <int value="1" label="Not found"/>
+  <int value="2" label="Corruption"/>
+  <int value="3" label="Not supported"/>
+  <int value="4" label="Invalid argument"/>
+  <int value="5" label="IO error"/>
+  <int value="6" label="Database engine error"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/services/storage/dom_storage/db_status.h:DomStorageDbStatusType) -->
 
 <!-- LINT.IfChange(FileErrorCode) -->
 
@@ -310,6 +334,20 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//content/browser/indexed_db/instance/sqlite/database_connection.h:SpecificEvent) -->
 
+<!-- LINT.IfChange(IndexedDbSqliteVacuumEvent) -->
+
+<enum name="IndexedDbSqliteVacuumEvent">
+  <int value="0" label="Vacuum needed because conditions were met"/>
+  <int value="1" label="Vacuum skipped due to force close"/>
+  <int value="2" label="Vacuum requested in cleanup task"/>
+  <int value="3" label="Vacuum succeeded"/>
+  <int value="4" label="Error while determining required/available disk space"/>
+  <int value="5" label="Vacuum skipped due to insufficient disk space"/>
+  <int value="6" label="Vacuum failed at SQLite layer"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/indexed_db/instance/sqlite/database_connection.cc:VacuumEvent) -->
+
 <!-- LINT.IfChange(IndexedDbStatusType) -->
 
 <enum name="IndexedDbStatusType">
@@ -418,14 +456,6 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Approved with a new or existing grant"/>
   <int value="13" label="Rejected due to fenced frame"/>
   <int value="14" label="Rejected due to invalid origin"/>
-</enum>
-
-<enum name="SecFetchStorageAccessOutcome">
-  <int value="0" label="Omitted: storage access status missing"/>
-  <int value="1" label="Omitted: request credentials mode is not 'include'"/>
-  <int value="2" label="Value: none"/>
-  <int value="3" label="Value: inactive"/>
-  <int value="4" label="Value: active"/>
 </enum>
 
 <enum name="SharedStorageHeaderObserverPermissionsPolicyDoubleCheckStatus">

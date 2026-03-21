@@ -7,14 +7,15 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_everything_menu.h"
+#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_combo_button.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_flat_edge_button.h"
 #include "chrome/browser/ui/views/tabs/vertical/top_container_button.h"
+#include "components/saved_tab_groups/public/features.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/actions/action_view_controller.h"
 #include "ui/views/controls/button/label_button.h"
@@ -36,57 +37,30 @@ VerticalTabStripTopContainer::VerticalTabStripTopContainer(
               kVerticalTabStripTopContainerElementId);
   SetLayoutManager(std::make_unique<views::DelegatingLayoutManager>(this));
 
-  collapsed_state_changed_subscription_ =
-      state_controller->RegisterOnCollapseChanged(base::BindRepeating(
-          &VerticalTabStripTopContainer::OnCollapsedStateChanged,
-          base::Unretained(this)));
-
-  collapse_button_ =
-      AddTopContainerChildButtonFor(kActionToggleCollapseVertical);
+  collapse_button_ = AddChildButtonFor(kActionToggleCollapseVertical);
   collapse_button_->SetProperty(views::kElementIdentifierKey,
                                 kVerticalTabStripCollapseButtonElementId);
 
   if (base::FeatureList::IsEnabled(features::kTabGroupsFocusing)) {
-    unfocus_button_ = AddTopContainerChildButtonFor(kActionUnfocusTabGroup);
+    unfocus_button_ = AddChildButtonFor(kActionUnfocusTabGroup);
     unfocus_button_->SetProperty(views::kElementIdentifierKey,
                                  kUnfocusTabGroupButtonElementId);
     unfocus_button_->SetVisible(false);
   }
 
-  std::unique_ptr<TabStripFlatEdgeButton> tab_group_button;
-  if (tabs::IsProjectsPanelFeatureEnabled()) {
-    tab_group_button = CreateFlatEdgeButtonFor(kActionToggleProjectsPanel);
-    tab_group_button->SetProperty(views::kElementIdentifierKey,
-                                  kVerticalTabStripProjectsButtonElementId);
-  } else if (tab_groups::SavedTabGroupUtils::IsEnabledForProfile(
-                 browser_->GetProfile())) {
-    tab_group_button = CreateFlatEdgeButtonFor(kActionTabGroupsMenu);
-    // Creating MenuButtonController because tab_group_button is a LabelButton.
-    auto controller = std::make_unique<views::MenuButtonController>(
-        tab_group_button.get(),
-        base::BindRepeating(&VerticalTabStripTopContainer::ShowEverythingMenu,
-                            base::Unretained(this)),
-        std::make_unique<views::Button::DefaultButtonControllerDelegate>(
-            tab_group_button.get()));
-    everything_menu_controller_ = controller.get();
-
-    tab_group_button->SetButtonController(std::move(controller));
-    tab_group_button->SetProperty(views::kElementIdentifierKey,
-                                  kSavedTabGroupButtonElementId);
-  }
-
-  auto tab_search_button = CreateFlatEdgeButtonFor(kActionTabSearch);
-  tab_search_button->SetProperty(views::kElementIdentifierKey,
-                                 kTabSearchButtonElementId);
-
-  combo_button_ = AddChildView(std::make_unique<TabStripComboButton>(
-      std::move(tab_group_button), std::move(tab_search_button)));
-  combo_button_->SetOrientation(state_controller->IsCollapsed()
-                                    ? views::LayoutOrientation::kVertical
-                                    : views::LayoutOrientation::kHorizontal);
+  combo_button_ = AddChildView(std::make_unique<TabStripComboButton>(browser_));
+  combo_button_->SetOrientation(
+      combo_button_orientation_ = state_controller->IsCollapsed()
+                                      ? views::LayoutOrientation::kVertical
+                                      : views::LayoutOrientation::kHorizontal);
 }
 
 VerticalTabStripTopContainer::~VerticalTabStripTopContainer() = default;
+
+void VerticalTabStripTopContainer::Layout(PassKey) {
+  LayoutSuperclass<views::View>(this);
+  combo_button_->SetOrientation(combo_button_orientation_);
+}
 
 views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
     const views::SizeBounds& size_bounds) const {
@@ -96,22 +70,19 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
                                                  : parent()->width(),
                 toolbar_height_);
 
-  std::vector<views::View*> container_views;
+  // If we're trying to get the minimum size, it will ask for layout for size
+  // bounds {0, 0}, but overflow is based on available size.
+  const int available_width =
+      host_size.width() > 0
+          ? host_size.width()
+          : parent()->GetAvailableSize(this).width().value_or(0);
 
-  CHECK(combo_button_);
-  container_views.push_back(combo_button_);
-
-  CHECK(collapse_button_);
-  container_views.push_back(collapse_button_);
-
-  if (unfocus_button_ && unfocus_button_->GetVisible()) {
-    container_views.push_back(unfocus_button_);
-  }
-
-  const int padding =
-      GetLayoutConstant(LayoutConstant::kVerticalTabStripTopButtonPadding);
-
-  if (state_controller_->IsCollapsed()) {
+  if (combo_button_
+              ->GetPreferredSizeForOrientation(
+                  views::LayoutOrientation::kHorizontal)
+              .width() >= available_width ||
+      available_width <= VerticalTabStripRegionView::kCollapsedWidth) {
+    combo_button_orientation_ = views::LayoutOrientation::kVertical;
     int current_y = 0;
 
     if (unfocus_button_ && unfocus_button_->GetVisible()) {
@@ -127,7 +98,7 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
           GetLayoutConstant(LayoutConstant::kVerticalTabStripCollapsedPadding);
     }
 
-    if (collapse_button_) {
+    if (collapse_button_ && collapse_button_->GetVisible()) {
       const gfx::Size pref_size = collapse_button_->GetPreferredSize();
       gfx::Rect bounds(std::max(0, (host_size.width() - pref_size.width()) / 2),
                        current_y, pref_size.width(), pref_size.height());
@@ -141,7 +112,8 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
     }
 
     if (combo_button_) {
-      const gfx::Size pref_size = combo_button_->GetPreferredSize();
+      const gfx::Size pref_size = combo_button_->GetPreferredSizeForOrientation(
+          combo_button_orientation_);
       gfx::Rect bounds(std::max(0, (host_size.width() - pref_size.width()) / 2),
                        current_y, pref_size.width(), pref_size.height());
       layout.child_layouts.emplace_back(combo_button_.get(),
@@ -158,12 +130,23 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
     // If the vertical tab strip is uncollapsed, then lay out the buttons
     // horizontally. The exact y-level of the buttons depends on if they can lay
     // on one line or not.
-    int total_width = caption_button_width_;
+    combo_button_orientation_ = views::LayoutOrientation::kHorizontal;
+    const int padding =
+        GetLayoutConstant(LayoutConstant::kVerticalTabStripTopButtonPadding);
     int min_height = 0;
-    for (views::View* container_view : container_views) {
-      const auto preferred = container_view->GetPreferredSize();
-      total_width += preferred.width();
-      min_height = std::max(min_height, preferred.height());
+    if (unfocus_button_ && unfocus_button_->GetVisible()) {
+      min_height =
+          std::max(min_height, unfocus_button_->GetPreferredSize().height());
+    }
+    if (collapse_button_ && collapse_button_->GetVisible()) {
+      min_height =
+          std::max(min_height, collapse_button_->GetPreferredSize().height());
+    }
+    if (combo_button_) {
+      min_height = std::max(min_height, combo_button_
+                                            ->GetPreferredSizeForOrientation(
+                                                combo_button_orientation_)
+                                            .height());
     }
 
     // Guarantee that the height of the container is at least the height of the
@@ -174,20 +157,11 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
     }
     host_size.SetToMax(gfx::Size(0, min_height));
 
-    total_width += (container_views.size() - 1) * padding;
-
-    // If we're trying to get the minimum size, it will ask for layout for size
-    // bounds {0, 0}, but overflow is based on available size.
-    const int available_width =
-        host_size.width() > 0
-            ? host_size.width()
-            : parent()->GetAvailableSize(this).width().value_or(0);
-
     // If there is not enough space for the buttons on a single line with
     // caption buttons, shift them below.
-    const bool wrapped_due_to_overflow = size_bounds.width().is_bounded() &&
-                                         caption_button_width_ > 0 &&
-                                         total_width > available_width;
+    const bool wrapped_due_to_overflow =
+        size_bounds.width().is_bounded() && caption_button_width_ > 0 &&
+        GetPreferredWidth() + caption_button_width_ > available_width;
 
     int y_baseline = host_size.height() / 2;
     // If there is not enough space for all of the buttons to be on the same
@@ -203,6 +177,7 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
                        2;
     }
 
+    int current_y = 0;
     if (unfocus_button_ && unfocus_button_->GetVisible()) {
       const gfx::Size pref_size = unfocus_button_->GetPreferredSize();
       gfx::Rect bounds(wrapped_due_to_overflow ? 0 : caption_button_width_,
@@ -210,9 +185,12 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
                        pref_size.width(), pref_size.height());
       layout.child_layouts.emplace_back(unfocus_button_.get(),
                                         unfocus_button_->GetVisible(), bounds);
+      current_y =
+          bounds.bottom() +
+          GetLayoutConstant(LayoutConstant::kVerticalTabStripCollapsedPadding);
     }
 
-    if (collapse_button_) {
+    if (collapse_button_ && collapse_button_->GetVisible()) {
       const gfx::Size pref_size = collapse_button_->GetPreferredSize();
       const int x = layout.child_layouts.empty()
                         ? (wrapped_due_to_overflow ? 0 : caption_button_width_)
@@ -221,21 +199,27 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
                        pref_size.width(), pref_size.height());
       layout.child_layouts.emplace_back(collapse_button_.get(),
                                         collapse_button_->GetVisible(), bounds);
+      current_y =
+          bounds.bottom() +
+          GetLayoutConstant(LayoutConstant::kVerticalTabStripCollapsedPadding);
     }
 
     int right_alignment = host_size.width();
 
+    bool wrap_during_animation =
+        caption_button_width_ != 0 && available_width < GetPreferredWidth();
+
     if (combo_button_) {
-      const gfx::Size pref_size = combo_button_->GetPreferredSize();
+      const gfx::Size pref_size = combo_button_->GetPreferredSizeForOrientation(
+          combo_button_orientation_);
       right_alignment -= pref_size.width();
-      gfx::Rect bounds(right_alignment,
-                       std::max(0, y_baseline - pref_size.height() / 2),
+      gfx::Rect bounds(wrap_during_animation ? 0 : right_alignment,
+                       wrap_during_animation
+                           ? current_y
+                           : std::max(0, y_baseline - pref_size.height() / 2),
                        pref_size.width(), pref_size.height());
       layout.child_layouts.emplace_back(combo_button_.get(),
                                         combo_button_->GetVisible(), bounds);
-
-      right_alignment -= GetLayoutConstant(
-          LayoutConstant::kVerticalTabStripFlatEdgeButtonPadding);
     }
   }
 
@@ -244,7 +228,7 @@ views::ProposedLayout VerticalTabStripTopContainer::CalculateProposedLayout(
   return layout;
 }
 
-views::LabelButton* VerticalTabStripTopContainer::AddTopContainerChildButtonFor(
+views::LabelButton* VerticalTabStripTopContainer::AddChildButtonFor(
     actions::ActionId action_id) {
   std::unique_ptr<TopContainerButton> container_button =
       std::make_unique<TopContainerButton>();
@@ -259,26 +243,6 @@ views::LabelButton* VerticalTabStripTopContainer::AddTopContainerChildButtonFor(
       AddChildView(std::move(container_button));
 
   return container_button_ptr;
-}
-
-std::unique_ptr<TabStripFlatEdgeButton>
-VerticalTabStripTopContainer::CreateFlatEdgeButtonFor(
-    actions::ActionId action_id) {
-  std::unique_ptr<TabStripFlatEdgeButton> container_button =
-      std::make_unique<TabStripFlatEdgeButton>();
-  actions::ActionItem* action_item =
-      actions::ActionManager::Get().FindAction(action_id, root_action_item_);
-  CHECK(action_item);
-
-  action_view_controller_->CreateActionViewRelationship(
-      container_button.get(), action_item->GetAsWeakPtr());
-
-  const int raw_container_button_size = GetLayoutConstant(
-      LayoutConstant::kVerticalTabStripTopContainerButtonSize);
-  container_button->SetPreferredSize(
-      gfx::Size(raw_container_button_size, raw_container_button_size));
-
-  return container_button;
 }
 
 TabStripComboButton* VerticalTabStripTopContainer::GetComboButton() {
@@ -324,26 +288,28 @@ void VerticalTabStripTopContainer::SetCaptionButtonWidthForLayout(
   InvalidateLayout();
 }
 
-void VerticalTabStripTopContainer::ShowEverythingMenu() {
-  if (everything_menu_ && everything_menu_->IsShowing()) {
-    return;
+int VerticalTabStripTopContainer::GetPreferredWidth() const {
+  int total_width = 0;
+  int padding =
+      GetLayoutConstant(LayoutConstant::kVerticalTabStripTopButtonPadding);
+
+  // Combo Button
+  total_width += combo_button_
+                     ->GetPreferredSizeForOrientation(
+                         views::LayoutOrientation::kHorizontal)
+                     .width();
+
+  // Collapse Button
+  if (collapse_button_ && collapse_button_->GetVisible()) {
+    total_width += collapse_button_->GetPreferredSize().width() + padding;
   }
 
-  // Creating everything menu.
-  everything_menu_ = std::make_unique<tab_groups::STGEverythingMenu>(
-      everything_menu_controller_, browser_->GetBrowserForMigrationOnly(),
-      tab_groups::STGEverythingMenu::MenuContext::kVerticalTabStrip);
-
-  everything_menu_->RunMenu();
-}
-
-void VerticalTabStripTopContainer::OnCollapsedStateChanged(
-    tabs::VerticalTabStripStateController* controller) {
-  if (combo_button_) {
-    combo_button_->SetOrientation(controller->IsCollapsed()
-                                      ? views::LayoutOrientation::kVertical
-                                      : views::LayoutOrientation::kHorizontal);
+  // Unfocus Button
+  if (unfocus_button_ && unfocus_button_->GetVisible()) {
+    total_width += unfocus_button_->GetPreferredSize().width() + padding;
   }
+
+  return total_width;
 }
 
 BEGIN_METADATA(VerticalTabStripTopContainer)

@@ -104,7 +104,7 @@ FormControlState FormControlState::Deserialize(
   if (index >= state_vector.size()) {
     return FormControlState(kTypeFailure);
   }
-  unsigned value_size = StringToUint(state_vector[index++]).value_or(0);
+  unsigned value_size = StringToUintLoose(state_vector[index++]).value_or(0);
   if (!value_size) {
     return FormControlState();
   }
@@ -159,7 +159,7 @@ std::unique_ptr<SavedFormState> SavedFormState::Deserialize(
   if (index >= state_vector.size()) {
     return nullptr;
   }
-  wtf_size_t item_count = StringToUint(state_vector[index++]).value_or(0);
+  wtf_size_t item_count = StringToUintLoose(state_vector[index++]).value_or(0);
   if (!item_count) {
     return nullptr;
   }
@@ -237,7 +237,7 @@ Vector<String> SavedFormState::GetReferencedFilePaths() const {
     }
     const Deque<FormControlState>& queue = form_control.value;
     for (const FormControlState& form_control_state : queue) {
-      to_return.AppendVector(
+      to_return.append_range(
           HTMLInputElement::FilesFromFileInputFormControlState(
               form_control_state));
     }
@@ -566,7 +566,7 @@ Vector<String> FormController::GetReferencedFilePaths(
   SavedFormStateMap map;
   ControlStatesFromStateVector(state_vector, map);
   for (const auto& saved_form_state : map)
-    to_return.AppendVector(saved_form_state.value->GetReferencedFilePaths());
+    to_return.append_range(saved_form_state.value->GetReferencedFilePaths());
   return to_return;
 }
 

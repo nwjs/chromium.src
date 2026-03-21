@@ -8,13 +8,13 @@ rust_static_library("bindings") {
     "message.rs",
     "message_header.rs",
     "message_pipe_watcher.rs",
+    "receiver.rs",
+    "remote.rs",
   ]
 
   deps = [
     ":helper_functions_cxx",
     "../mojom_value_parser",
-
-    # "../mojom_value_parser:mojom_value_parser_core",
     "../sequences",
     "../system",
     "//third_party/rust/anyhow/v1:lib",
@@ -41,20 +41,4 @@ rust_static_library("helper_functions_cxx") {
 
   allow_unsafe = true
   visibility = [ ":*" ]
-}
-
-rust_static_library("bindings_unittests") {
-  testonly = true
-  is_gtest_unittests = true
-  crate_root = "test/lib.rs"
-  sources = [ "test/lib.rs" ]
-
-  deps = [
-    ":bindings",
-    "../sequences",
-    "../sequences:test_cxx",
-    "../system",
-    "../system/test_util",
-    "//testing/rust_gtest_interop",
-  ]
 }

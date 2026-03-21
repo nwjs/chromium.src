@@ -6,13 +6,13 @@
 
 #include <memory>
 
+#include "ash/constants/ash_pref_names.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash_factory.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/system/system_clock_observer.h"
-#include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
@@ -73,7 +73,7 @@ void SystemClock::SetProfile(Profile* profile) {
   PrefService* prefs = profile->GetPrefs();
   user_pref_registrar_ = std::make_unique<PrefChangeRegistrar>();
   user_pref_registrar_->Init(prefs);
-  user_pref_registrar_->Add(prefs::kUse24HourClock,
+  user_pref_registrar_->Add(ash::prefs::kUse24HourClock,
                             base::BindRepeating(&SystemClock::OnUserPrefChanged,
                                                 base::Unretained(this)));
   NotifySystemClockTypeChanged();
@@ -130,7 +130,7 @@ bool SystemClock::ShouldUse24HourClockForUser(const AccountId& user_id) const {
   }
 
   const PrefService::Preference* user_pref =
-      user->GetProfilePrefs()->FindPreference(prefs::kUse24HourClock);
+      user->GetProfilePrefs()->FindPreference(ash::prefs::kUse24HourClock);
   if (user_pref->IsDefaultValue()) {
     // Non-regular users or owner use `system_value`. Owner uses `system_value`
     // to mitigate the edge case where owner data is lost because `system_value`
@@ -170,7 +170,7 @@ void SystemClock::OnSystemPrefChanged() {
 void SystemClock::OnUserPrefChanged() {
   // It apparently sometimes takes a while after login before the current user
   // is recognized as the owner. Make sure that the system-wide clock setting
-  // is updated when the recognition eventually happens (crbug.com/278601).
+  // is updated when the recognition eventually happens (crbug.com/41040754).
   // This also works for enterprise-managed devices because they never have
   // a local owner.
   const AccountId* user_id =

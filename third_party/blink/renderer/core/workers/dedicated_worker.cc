@@ -375,6 +375,7 @@ void DedicatedWorker::OnScriptLoadStarted(
   ContinueStart(script_request_url_, std::move(worker_main_script_load_params),
                 network::mojom::ReferrerPolicy::kDefault,
                 Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
+                DocumentPolicy::DocumentPolicyBundle{},
                 std::move(back_forward_cache_controller_host),
                 std::move(coep_reporting_observer),
                 std::move(dip_reporting_observer));
@@ -441,6 +442,7 @@ void DedicatedWorker::OnFinished(
             ? mojo::Clone(classic_script_loader_->GetContentSecurityPolicy()
                               ->GetParsedPolicies())
             : Vector<network::mojom::blink::ContentSecurityPolicyPtr>(),
+        classic_script_loader_->GetDocumentPolicy(),
         std::move(back_forward_cache_controller_host),
         /*coep_reporting_observer=*/mojo::NullReceiver(),
         /*dip_reporting_observer=*/mojo::NullReceiver());
@@ -458,6 +460,7 @@ void DedicatedWorker::ContinueStart(
     network::mojom::ReferrerPolicy referrer_policy,
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         response_content_security_policies,
+    DocumentPolicy::DocumentPolicyBundle response_document_policy,
     mojo::PendingRemote<mojom::blink::BackForwardCacheControllerHost>
         back_forward_cache_controller_host,
     mojo::PendingReceiver<mojom::blink::ReportingObserver>
@@ -482,6 +485,7 @@ void DedicatedWorker::ContinueStart(
                      std::move(worker_main_script_load_params),
                      std::move(referrer_policy),
                      std::move(response_content_security_policies),
+                     std::move(response_document_policy),
                      std::move(back_forward_cache_controller_host),
                      std::move(coep_reporting_observer),
                      std::move(dip_reporting_observer)),
@@ -491,6 +495,7 @@ void DedicatedWorker::ContinueStart(
   ContinueStartInternal(
       script_url, std::move(worker_main_script_load_params),
       std::move(referrer_policy), std::move(response_content_security_policies),
+      std::move(response_document_policy),
       std::move(back_forward_cache_controller_host),
       std::move(coep_reporting_observer), std::move(dip_reporting_observer));
 }
@@ -502,6 +507,7 @@ void DedicatedWorker::ContinueStartInternal(
     network::mojom::ReferrerPolicy referrer_policy,
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         response_content_security_policies,
+    DocumentPolicy::DocumentPolicyBundle document_policy,
     mojo::PendingRemote<mojom::blink::BackForwardCacheControllerHost>
         back_forward_cache_controller_host,
     mojo::PendingReceiver<mojom::blink::ReportingObserver>
@@ -516,7 +522,7 @@ void DedicatedWorker::ContinueStartInternal(
       CreateGlobalScopeCreationParams(
           script_url, referrer_policy,
           std::move(response_content_security_policies),
-          std::move(coep_reporting_observer),
+          std::move(document_policy), std::move(coep_reporting_observer),
           std::move(dip_reporting_observer)),
       std::move(worker_main_script_load_params), options_, script_url,
       *outside_fetch_client_settings_object_, v8_stack_trace_id_, token_,
@@ -554,6 +560,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
     network::mojom::ReferrerPolicy referrer_policy,
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         response_content_security_policies,
+    DocumentPolicy::DocumentPolicyBundle document_policy,
     mojo::PendingReceiver<mojom::blink::ReportingObserver>
         coep_reporting_observer,
     mojo::PendingReceiver<mojom::blink::ReportingObserver>
@@ -613,7 +620,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
       mojo::Clone(
           execution_context->GetContentSecurityPolicy()->GetParsedPolicies()),
       std::move(response_content_security_policies), referrer_policy,
-      execution_context->GetSecurityOrigin(),
+      std::move(document_policy), execution_context->GetSecurityOrigin(),
       execution_context->IsSecureContext(), execution_context->GetHttpsState(),
       MakeGarbageCollected<WorkerClients>(), CreateWebContentSettingsClient(),
       OriginTrialContext::GetInheritedTrialFeatures(execution_context).get(),

@@ -1276,7 +1276,12 @@ void DiskCacheBackendTest::BackendLoad() {
   EXPECT_EQ(0, GetEntryCount());
 }
 
-TEST_P(DiskCacheGenericBackendTest, Load) {
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_Load DISABLED_Load
+#else
+#define MAYBE_Load Load
+#endif
+TEST_P(DiskCacheGenericBackendTest, MAYBE_Load) {
   BackendLoad();
 }
 
@@ -4375,15 +4380,6 @@ class MockCacheEncryptionDelegate : public net::CacheEncryptionDelegate {
 
   void Init(base::OnceCallback<void(net::Error)> callback) override {
     std::move(callback).Run(net::OK);
-  }
-
-  bool EncryptData(base::span<const uint8_t> plaintext,
-                   std::vector<uint8_t>* ciphertext) override {
-    return false;
-  }
-  bool DecryptData(base::span<const uint8_t> ciphertext,
-                   std::vector<uint8_t>* plaintext) override {
-    return false;
   }
   disk_cache::BackendFileOperationsFactory* GetEncryptionFileOperationsFactory(
       scoped_refptr<disk_cache::BackendFileOperationsFactory>

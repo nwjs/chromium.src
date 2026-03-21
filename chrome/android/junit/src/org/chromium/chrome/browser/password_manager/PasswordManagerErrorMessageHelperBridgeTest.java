@@ -16,7 +16,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.accounts.Account;
 import android.app.Activity;
 import android.app.PendingIntent;
 
@@ -29,7 +28,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.FakeTimeTestRule;
@@ -38,6 +36,7 @@ import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -185,10 +184,7 @@ public class PasswordManagerErrorMessageHelperBridgeTest {
                             return null;
                         })
                 .when(mFakeAccountManagerFacade)
-                .updateCredentials(
-                        eq(CoreAccountInfo.getAndroidAccountFrom(TestAccounts.ACCOUNT1)),
-                        eq(activity),
-                        any());
+                .updateCredentials(eq(TestAccounts.ACCOUNT1), eq(activity), any());
 
         PasswordManagerErrorMessageHelperBridge.startUpdateAccountCredentialsFlow(
                 mWindowAndroidMock, mProfile);
@@ -213,10 +209,7 @@ public class PasswordManagerErrorMessageHelperBridgeTest {
                             return null;
                         })
                 .when(mFakeAccountManagerFacade)
-                .updateCredentials(
-                        eq(CoreAccountInfo.getAndroidAccountFrom(TestAccounts.ACCOUNT1)),
-                        eq(activity),
-                        any());
+                .updateCredentials(eq(TestAccounts.ACCOUNT1), eq(activity), any());
 
         PasswordManagerErrorMessageHelperBridge.startUpdateAccountCredentialsFlow(
                 mWindowAndroidMock, mProfile);
@@ -259,7 +252,8 @@ public class PasswordManagerErrorMessageHelperBridgeTest {
         PasswordManagerErrorMessageHelperBridge.startUpdateAccountCredentialsFlow(
                 mWindowAndroidMock, mProfile);
         verify(mFakeAccountManagerFacade, never())
-                .updateCredentials(any(Account.class), any(Activity.class), any(Callback.class));
+                .updateCredentials(
+                        any(CoreAccountInfo.class), any(Activity.class), any(Callback.class));
     }
 
     @Test
@@ -275,7 +269,7 @@ public class PasswordManagerErrorMessageHelperBridgeTest {
                 mWindowAndroidMock, mProfile, TrustedVaultUserActionTriggerForUMA.ACCOUNT_MENU);
 
         intentPromise.fulfill(mPendingIntent);
-        ShadowLooper.idleMainLooper();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(activity).startActivity(any(), any());
     }

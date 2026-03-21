@@ -844,27 +844,6 @@ float ShapeResult::ForEachGlyph(float initial_advance,
   return total_advance;
 }
 
-unsigned ShapeResult::CountGraphemesInClusterDeprecated(
-    base::span<const UChar> str,
-    uint16_t start_index,
-    uint16_t end_index) {
-  if (start_index > end_index)
-    std::swap(start_index, end_index);
-  uint16_t length = end_index - start_index;
-  TextBreakIterator* cursor_pos_iterator =
-      CursorMovementIteratorDeprecated(str.subspan(start_index, length));
-  if (!cursor_pos_iterator)
-    return 0;
-
-  int cursor_pos = cursor_pos_iterator->current();
-  int num_graphemes = -1;
-  while (0 <= cursor_pos) {
-    cursor_pos = cursor_pos_iterator->next();
-    num_graphemes++;
-  }
-  return std::max(0, num_graphemes);
-}
-
 float ShapeResult::ForEachGraphemeClusters(const StringView& text,
                                            float initial_advance,
                                            unsigned from,
@@ -924,15 +903,10 @@ float ShapeResult::ForEachGraphemeClusters(const StringView& text,
               is_run_end ? run->start_index_ + run->num_characters_ + run_offset
                          : run->GlyphToCharacterIndex(i + 1) + run_offset);
         }
-        if (RuntimeEnabledFeatures::DeprecateCursorMovementIteratorEnabled()) {
-          graphemes_in_cluster = NumGraphemeClusters(
-              cluster_end >= cluster_start
-                  ? StringView(text, cluster_start, cluster_end - cluster_start)
-                  : StringView(text, cluster_end, cluster_start - cluster_end));
-        } else {
-          graphemes_in_cluster = ShapeResult::CountGraphemesInClusterDeprecated(
-              text.Span16(), cluster_start, cluster_end);
-        }
+        graphemes_in_cluster = NumGraphemeClusters(
+            cluster_end >= cluster_start
+                ? StringView(text, cluster_start, cluster_end - cluster_start)
+                : StringView(text, cluster_end, cluster_start - cluster_end));
         if (!graphemes_in_cluster || !cluster_advance)
           continue;
 
@@ -1565,7 +1539,9 @@ void ShapeResult::ComputeGlyphPositions(ShapeResultRun* run,
 
   run->width_ = total_advance.ClampNegativeToZero().ToFloat();
   has_vertical_offsets_ |= has_vertical_offsets;
+#if EXPENSIVE_DCHECKS_ARE_ON()
   run->CheckConsistency();
+#endif
 }
 
 void ShapeResult::InsertRun(ShapeResultRun* run,
@@ -1796,6 +1772,8 @@ unsigned ShapeResult::CopyRangeInternal(unsigned run_index,
   DCHECK_EQ(
       target->num_characters_ - target_num_characters_before,
       std::min(end_offset, EndIndex()) - std::max(start_offset, StartIndex()));
+#endif
+#if EXPENSIVE_DCHECKS_ARE_ON()
   target->CheckConsistency();
 #endif
 
@@ -1829,6 +1807,25 @@ const ShapeResult* ShapeResult::CopyAdjustedOffset(unsigned start_index) const {
 }
 
 #if DCHECK_IS_ON()
+bool ShapeResult::operator==(const ShapeResult& other) const {
+  if (runs_.size() != other.runs_.size()) {
+    return false;
+  }
+
+  for (wtf_size_t i = 0u; i < runs_.size(); ++i) {
+    if (!base::ValuesEquivalent(runs_[i], other.runs_[i])) {
+      return false;
+    }
+  }
+
+  // We don't check `character_position_`.
+  return width_ == other.width_ && start_index_ == other.start_index_ &&
+         num_characters_ == other.num_characters_ &&
+         direction_ == other.direction_ &&
+         has_vertical_offsets_ == other.has_vertical_offsets_ &&
+         is_applied_spacing_ == other.is_applied_spacing_;
+}
+
 void ShapeResult::CheckConsistency() const {
   if (runs_.empty()) {
     DCHECK_EQ(0u, num_characters_);
@@ -2044,6 +2041,7 @@ void ShapeResult::ToString(StringBuilder* output) const {
     output->AppendNumber(run.num_characters_);
     output->Append(", dir=");
     output->AppendNumber(run.hb_direction_);
+    output->AppendFormat(", script=%c%c%c%c", HB_UNTAG(run.script_));
     output->Append(", glyphs[");
     output->AppendNumber(run.glyph_data_.size());
     output->Append("]{");
@@ -2326,25 +2324,24 @@ void ShapeResult::AddRunInfoRanges(const ShapeResultRun& run_info,
   }
 }
 
-float ShapeResult::IndividualCharacterRanges(Vector<CharacterRange>* ranges,
-                                             float start_x) const {
-  DCHECK(ranges);
-  float current_x = start_x;
+Vector<CharacterRange> ShapeResult::IndividualCharacterRanges() const {
+  Vector<CharacterRange> ranges;
+  float current_x = 0u;
 
   if (IsRtl()) {
     unsigned run_count = runs_.size();
     for (int index = run_count - 1; index >= 0; index--) {
       current_x -= runs_[index]->width_;
-      AddRunInfoRanges(*runs_[index], current_x, ranges);
+      AddRunInfoRanges(*runs_[index], current_x, &ranges);
     }
   } else {
     for (const auto& run : runs_) {
-      AddRunInfoRanges(*run, current_x, ranges);
+      AddRunInfoRanges(*run, current_x, &ranges);
       current_x += run->width_;
     }
   }
 
-  return current_x;
+  return ranges;
 }
 
 template <bool is_horizontal_run, bool has_non_zero_glyph_offsets>

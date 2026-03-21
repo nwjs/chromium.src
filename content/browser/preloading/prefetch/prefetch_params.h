@@ -61,7 +61,7 @@ CONTENT_EXPORT bool ShouldPrefetchBypassProxyForTestHost(std::string_view host);
 
 // Whether only prefetched resources with a text/html MIME type should be used.
 // If this is false, there is no MIME type restriction.
-bool PrefetchServiceHTMLOnly();
+CONTENT_EXPORT bool PrefetchServiceHTMLOnly();
 
 // The maximum time a prefetched response is servable.
 CONTENT_EXPORT base::TimeDelta PrefetchCacheableDuration();
@@ -119,9 +119,6 @@ inline constexpr size_t kMaxNumberOfNonImmediatePrefetchesPerPage = 2;
 bool PrefetchNIKScopeEnabled();
 
 size_t GetPrefetchDataPipeTeeBodySizeLimit();
-
-// Returns true iff we should use `PrefetchScheduler`.
-CONTENT_EXPORT bool UsePrefetchScheduler();
 
 }  // namespace content
 

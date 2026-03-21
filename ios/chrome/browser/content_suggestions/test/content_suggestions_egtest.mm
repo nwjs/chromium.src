@@ -593,7 +593,7 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
   // Check the form is displayed with the correct title and footer.
   [[EarlGrey
       selectElementWithMatcher:
-          chrome_test_util::HeaderWithAccessibilityLabelId(
+          chrome_test_util::NavigationBarTitleWithAccessibilityLabelId(
               IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_EDIT_PINNED_SITE_TITLE)]
       assertWithMatcher:grey_sufficientlyVisible()];
   // Check the "Name" field and type a new value.
@@ -732,7 +732,7 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
   // Now the "+" button should be back.
   ScrollMostVisitedToRightEdge();
   [[EarlGrey selectElementWithMatcher:addSiteButton]
-      assertWithMatcher:grey_sufficientlyVisible()];
+      assertWithMatcher:grey_interactable()];
 }
 
 #pragma mark - Test utils
@@ -787,7 +787,7 @@ NSString* AccessibilityIdentifierForMostVisitedCellAtIndex(int index) {
   // Verify form title.
   [[EarlGrey
       selectElementWithMatcher:
-          chrome_test_util::HeaderWithAccessibilityLabelId(
+          chrome_test_util::NavigationBarTitleWithAccessibilityLabelId(
               IDS_IOS_CONTENT_SUGGESTIONS_PIN_SITE_ADD_PINNED_SITE_TITLE)]
       assertWithMatcher:grey_sufficientlyVisible()];
   id<GREYMatcher> saveButton = grey_allOf(

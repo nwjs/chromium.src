@@ -292,7 +292,7 @@ bool BrowserFrameViewChromeOS::ShouldShowWebAppFrameToolbar() const {
 
   if (GetBrowserView()->browser()->is_type_app_popup() &&
       !GetBrowserView()->AppUsesWindowControlsOverlay() &&
-      !GetBrowserView()->AppUsesBorderlessMode()) {
+      !GetBrowserView()->AppUsesUnframedMode()) {
     return false;
   }
 
@@ -486,12 +486,12 @@ void BrowserFrameViewChromeOS::OnPaint(gfx::Canvas* canvas) {
 
 void BrowserFrameViewChromeOS::UpdateBorderlessModeEnabled() {
   caption_button_container_->UpdateBorderlessModeEnabled(
-      GetBrowserView()->IsBorderlessModeEnabled());
+      GetBrowserView()->IsUnframedModeEnabled());
 }
 
 bool BrowserFrameViewChromeOS::AppIsPwaWithBorderlessDisplayMode() const {
   return GetBrowserView()->GetIsWebAppType() &&
-         GetBrowserView()->AppUsesBorderlessMode();
+         GetBrowserView()->AppUsesUnframedMode();
 }
 
 void BrowserFrameViewChromeOS::Layout(PassKey) {
@@ -539,12 +539,9 @@ gfx::Size BrowserFrameViewChromeOS::GetMinimumSize() const {
     }
   }
 
-  // The minimum size of a borderless window is only limited by the window's
-  // `highlight_border_overlay_`.
-  if (GetBrowserView()->IsBorderlessModeEnabled()) {
-    // `CalculateImageSourceSize()` returns the minimum size needed to draw the
-    // highlight border, which in turn is the minimum size of a borderless
-    // window.
+  if (GetBrowserView()->IsUnframedModeEnabled()) {
+    // The minimum size of windows in unframed mode is the size of
+    // `highlight_border_overlay_`.
     return highlight_border_overlay_->CalculateImageSourceSize();
   }
 
@@ -572,9 +569,7 @@ gfx::Size BrowserFrameViewChromeOS::GetMinimumSize() const {
   }
 
   // Include bottom rounded corners region. See b:294588040.
-  aura::Window* window = GetWidget()->GetNativeWindow();
-  const gfx::RoundedCornersF window_radii =
-      ash::WindowState::Get(window)->GetWindowRoundedCorners();
+  const gfx::RoundedCornersF window_radii = GetWindowRoundedCorners();
   CHECK_EQ(window_radii.lower_left(), window_radii.lower_right());
 
   min_height = min_height + window_radii.lower_left();
@@ -743,6 +738,11 @@ void BrowserFrameViewChromeOS::OnWindowPropertyChanged(aura::Window* window,
   // the `window`accordingly.
   if (key == chromeos::kWindowHasRoundedCornersKey) {
     UpdateWindowRoundedCorners();
+    if (GetProperty(chromeos::kWindowHasRoundedCornersKey) != old) {
+      if (auto* const browser_view = GetBrowserView()) {
+        browser_view->InvalidateLayout();
+      }
+    }
   }
 
   if (key == aura::client::kShowStateKey) {
@@ -1047,7 +1047,7 @@ void BrowserFrameViewChromeOS::UpdateTopViewInset() {
   const bool tab_strip_visible = GetBrowserView()->GetTabStripVisible();
   const int inset = (tab_strip_visible || immersive ||
                      (AppIsPwaWithBorderlessDisplayMode() &&
-                      GetBrowserView()->IsBorderlessModeEnabled()))
+                      GetBrowserView()->IsUnframedModeEnabled()))
                         ? 0
                         : GetTopInset(/*restored=*/false);
   browser_widget()->GetNativeWindow()->SetProperty(aura::client::kTopViewInset,
@@ -1106,20 +1106,19 @@ void BrowserFrameViewChromeOS::UpdateProfileIcons() {
   }
 }
 
+gfx::RoundedCornersF BrowserFrameViewChromeOS::GetWindowRoundedCorners() const {
+  if (aura::Window* const window = GetWidget()->GetNativeWindow()) {
+    if (auto* const window_state = ash::WindowState::Get(window)) {
+      return window_state->GetWindowRoundedCorners();
+    }
+  }
+  return gfx::RoundedCornersF();
+}
+
 void BrowserFrameViewChromeOS::UpdateWindowRoundedCorners() {
   DCHECK(GetWidget());
 
-  aura::Window* window = GetWidget()->GetNativeWindow();
-  auto* window_state = ash::WindowState::Get(window);
-
-  // For certain windows, we do not window state associated with them. (See
-  // `ash::WindowState::Get()` for details)
-  if (!window_state) {
-    return;
-  }
-
-  const gfx::RoundedCornersF window_radii =
-      window_state->GetWindowRoundedCorners();
+  const gfx::RoundedCornersF window_radii = GetWindowRoundedCorners();
 
   if (frame_header_) {
     CHECK_EQ(window_radii.upper_left(), window_radii.upper_right());

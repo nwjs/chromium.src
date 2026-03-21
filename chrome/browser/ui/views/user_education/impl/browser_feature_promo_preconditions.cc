@@ -24,11 +24,14 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_controller.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/user_education/browser_user_education_service.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo/feature_promo_precondition.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "components/user_education/common/feature_promo/impl/common_preconditions.h"
+#include "components/user_education/common/feature_promo/impl/feature_promo_controller_impl.h"
 #include "components/user_education/common/user_education_features.h"
+#include "components/user_education/views/view_subregion_anchor.h"
 #include "components/user_education/webui/help_bubble_handler.h"
 #include "components/user_education/webui/tracked_element_help_bubble_webui_anchor.h"
 #include "content/public/browser/web_contents.h"
@@ -48,6 +51,8 @@ DEFINE_FEATURE_PROMO_PRECONDITION_IDENTIFIER_VALUE(
     kNoCriticalNoticeShowingPrecondition);
 DEFINE_FEATURE_PROMO_PRECONDITION_IDENTIFIER_VALUE(kUserNotActivePrecondition);
 DEFINE_FEATURE_PROMO_PRECONDITION_IDENTIFIER_VALUE(
+    kEnterprisePolicyNotBlockingPrecondition);
+DEFINE_FEATURE_PROMO_PRECONDITION_IDENTIFIER_VALUE(
     kActorNotActuatingActiveTabPrecondition);
 
 WindowActivePrecondition::WindowActivePrecondition()
@@ -56,8 +61,8 @@ WindowActivePrecondition::WindowActivePrecondition()
 WindowActivePrecondition::~WindowActivePrecondition() = default;
 
 user_education::FeaturePromoResult WindowActivePrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection& data) const {
-  if (user_education::FeaturePromoControllerCommon::
+    user_education::UnownedTypedDataCollection& data) const {
+  if (user_education::FeaturePromoControllerImpl::
           active_window_check_blocked()) {
     return user_education::FeaturePromoResult::Success();
   }
@@ -66,6 +71,9 @@ user_education::FeaturePromoResult WindowActivePrecondition::CheckPrecondition(
   views::Widget* widget = nullptr;
   if (auto* const view_el = element_ref.get_as<views::TrackedElementViews>()) {
     widget = view_el->view()->GetWidget();
+  } else if (auto* const subregion_el =
+                 element_ref.get_as<user_education::ViewSubregionAnchor>()) {
+    widget = subregion_el->view().GetWidget();
   } else if (auto* web_el =
                  element_ref.get_as<
                      user_education::TrackedElementHelpBubbleWebUIAnchor>()) {
@@ -94,7 +102,7 @@ ContentNotFullscreenPrecondition::~ContentNotFullscreenPrecondition() = default;
 
 user_education::FeaturePromoResult
 ContentNotFullscreenPrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection& data) const {
+    user_education::UnownedTypedDataCollection& data) const {
   auto* const fullscreen_controller = browser_->GetFeatures()
                                           .exclusive_access_manager()
                                           ->fullscreen_controller();
@@ -114,7 +122,7 @@ OmniboxNotOpenPrecondition::~OmniboxNotOpenPrecondition() = default;
 
 user_education::FeaturePromoResult
 OmniboxNotOpenPrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection&) const {
+    user_education::UnownedTypedDataCollection&) const {
   return browser_view_->GetLocationBar()->GetOmniboxController()->IsPopupOpen()
              ? user_education::FeaturePromoResult::kBlockedByUi
              : user_education::FeaturePromoResult::Success();
@@ -129,7 +137,7 @@ ToolbarNotCollapsedPrecondition::~ToolbarNotCollapsedPrecondition() = default;
 
 user_education::FeaturePromoResult
 ToolbarNotCollapsedPrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection&) const {
+    user_education::UnownedTypedDataCollection&) const {
   if (const auto* const controller =
           browser_view_->toolbar()->toolbar_controller()) {
     if (controller->InOverflowMode()) {
@@ -148,7 +156,7 @@ BrowserNotClosingPrecondition::~BrowserNotClosingPrecondition() = default;
 
 user_education::FeaturePromoResult
 BrowserNotClosingPrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection&) const {
+    user_education::UnownedTypedDataCollection&) const {
   if (browser_view_->browser()->capabilities()->IsAttemptingToCloseBrowser() ||
       browser_view_->GetWidget()->IsClosed()) {
     return user_education::FeaturePromoResult::kBlockedByContext;
@@ -166,7 +174,7 @@ NoCriticalNoticeShowingPrecondition::~NoCriticalNoticeShowingPrecondition() =
 
 user_education::FeaturePromoResult
 NoCriticalNoticeShowingPrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection&) const {
+    user_education::UnownedTypedDataCollection&) const {
   // Turn off IPH while a required privacy interstitial is visible or pending.
   auto* const privacy_sandbox_service =
       PrivacySandboxServiceFactory::GetForProfile(browser_view_->GetProfile());
@@ -223,7 +231,7 @@ void UserNotActivePrecondition::OnEvent(const ui::Event& event) {
 }
 
 user_education::FeaturePromoResult UserNotActivePrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection&) const {
+    user_education::UnownedTypedDataCollection&) const {
   // Only do check if min idle time is nonzero and positive; otherwise this is a
   // no-op. Explicitly verify this in case of non-monotonic clock weirdness.
   const auto min_idle_time =
@@ -248,6 +256,22 @@ void UserNotActivePrecondition::OnViewIsDeleting(views::View* observed_view) {
   browser_view_observation_.Reset();
 }
 
+EnterprisePolicyNotBlockingPrecondition::
+    EnterprisePolicyNotBlockingPrecondition()
+    : FeaturePromoPreconditionBase(kEnterprisePolicyNotBlockingPrecondition,
+                                   "Enterprise policy does not block promos") {}
+
+EnterprisePolicyNotBlockingPrecondition::
+    ~EnterprisePolicyNotBlockingPrecondition() = default;
+
+user_education::FeaturePromoResult
+EnterprisePolicyNotBlockingPrecondition::CheckPrecondition(
+    user_education::UnownedTypedDataCollection&) const {
+  return DoesEnterprisePolicyBlockPromotions()
+             ? user_education::FeaturePromoResult::kBlockedByContext
+             : user_education::FeaturePromoResult::Success();
+}
+
 ActorNotActuatingActiveTabPrecondition::ActorNotActuatingActiveTabPrecondition(
     BrowserWindowInterface& browser_window_interface)
     : FeaturePromoPreconditionBase(kActorNotActuatingActiveTabPrecondition,
@@ -259,7 +283,7 @@ ActorNotActuatingActiveTabPrecondition::
 
 user_education::FeaturePromoResult
 ActorNotActuatingActiveTabPrecondition::CheckPrecondition(
-    ui::UnownedTypedDataCollection&) const {
+    user_education::UnownedTypedDataCollection&) const {
   auto* tab = browser_window_interface_->GetActiveTabInterface();
   if (!tab) {
     return user_education::FeaturePromoResult::Success();

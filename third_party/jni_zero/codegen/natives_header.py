@@ -16,7 +16,7 @@ def _return_type_cpp(java_type):
   return f'jni_zero::ScopedJavaLocalRef<{java_type.to_cpp()}>'
 
 
-def _param_type_cpp(java_type, use_const=False):
+def _param_type_cpp_non_mirror(java_type, use_const=False):
   if converted_type := java_type.converted_type:
     # Drop & when the type is obviously a pointer to avoid "const char *&".
     if not java_type.is_primitive() and not converted_type.endswith('*'):
@@ -31,6 +31,13 @@ def _param_type_cpp(java_type, use_const=False):
   return f'const jni_zero::JavaRef<{ret}>&'
 
 
+def _param_type_cpp_mirror(native, java_type, use_const=False):
+  if java_type.enable_mirror(native.java_class):
+    return f'const jni_zero::JavaRef<J{native.java_class.nested_name}>&'
+  else:
+    return _param_type_cpp_non_mirror(java_type, use_const)
+
+
 def _impl_forward_declaration(sb, native, params):
   sb('// Forward declaration. To be implemented by the including .cc file.\n')
   with sb.statement():
@@ -40,7 +47,7 @@ def _impl_forward_declaration(sb, native, params):
       plist.append('JNIEnv* env')
       if not native.static:
         plist.append('const jni_zero::JavaRef<jobject>& jcaller')
-      plist.extend(f'{_param_type_cpp(p.java_type)} {p.cpp_name()}'
+      plist.extend(f'{_param_type_cpp_non_mirror(p.java_type)} {p.cpp_name()}'
                    for p in params)
 
 
@@ -60,11 +67,11 @@ def _entry_point_example(sb, native):
       plist.append('JNIEnv* env')
       if not native.static:
         plist.append('const jni_zero::JavaRef<jobject>& jcaller')
-      plist.extend(f'{_param_type_cpp(p.java_type, True)} {p.cpp_name()}'
-                   for p in params)
+      plist.extend(f'{_param_type_cpp_mirror(native, p.java_type, True)} '
+                   f'{p.cpp_name()}' for p in params)
 
 
-def _prep_param(sb, is_proxy, param):
+def _prep_param(sb, param, native, include_forward_declaration):
   """Returns the snippet to use for the parameter."""
   orig_name = param.cpp_name()
   java_type = param.java_type
@@ -74,22 +81,25 @@ def _prep_param(sb, is_proxy, param):
     with sb.statement():
       sb(f'{java_type.converted_type} {ret} = ')
       convert_type.from_jni_expression(sb, orig_name, java_type)
-    # TODO(crbug.com/469809169): Remove these exceptions.
-    if not java_type.converted_type.startswith(
-        'std::') and java_type.converted_type not in ('GURL', 'url::Origin'):
+    if not include_forward_declaration:
       ret = f'std::move({ret})'
     return ret
 
   if java_type.is_primitive():
     return orig_name
 
-  ret = f'{param.name}_ref'
-  with sb.statement():
+  if java_type.enable_mirror(native.java_class):
+    cpp_type = f'J{native.java_class.nested_name}'
+    orig_name = f'static_cast<{cpp_type}>({orig_name})'
+  else:
     cpp_type = java_type.to_cpp()
-    sb(f'jni_zero::JavaRef<{cpp_type}> {ret} = ')
-    if is_proxy and cpp_type != java_type.to_proxy().to_cpp():
+    if native.is_proxy and cpp_type != java_type.to_proxy().to_cpp():
       # E.g. jobject -> jstring
       orig_name = f'static_cast<{cpp_type}>({orig_name})'
+
+  ret = f'{param.name}_ref'
+  with sb.statement():
+    sb(f'jni_zero::JavaRef<{cpp_type}> {ret} = ')
     sb(f'jni_zero::JavaRef<{cpp_type}>::CreateLeaky(env, {orig_name})')
   return ret
 
@@ -134,7 +144,8 @@ def entry_point_method(sb,
                        native,
                        gen_jni_class,
                        output_file,
-                       include_forward_declaration=False):
+                       include_forward_declaration=False,
+                       marker_func_name=None):
   """The method called by JNI, or by multiplexing methods."""
   params = native.params
   cpp_class = native.first_param_cpp_type
@@ -160,8 +171,14 @@ def entry_point_method(sb,
     func_name_full = func_name
 
   with sb.block(after='\n'):
+    if marker_func_name:
+      sb('/* Prevent -Wunused-function warning. */\n')
+      sb(f'{marker_func_name}();\n')
+      sb('\n')
+
     param_rvalues = [
-        _prep_param(sb, native.is_proxy, param) for param in params
+        _prep_param(sb, param, native, include_forward_declaration)
+        for param in params
     ]
     if not native.static:
       param_rvalues.insert(
@@ -242,7 +259,7 @@ def entry_point_method(sb,
       else:
         clazz_snippet = None
       convert_type.to_jni_expression(sb,
-                                     'return_value',
+                                     'std::move(return_value)',
                                      return_type,
                                      clazz_snippet=clazz_snippet)
       if not return_type.is_primitive():
@@ -258,7 +275,9 @@ def entry_point_method(sb,
 
 def natives_macro_definition(sb, jni_mode, jni_obj, gen_jni_class, output_file, *,
                              enable_definition_macros):
-  macro_name = f'DEFINE_JNI_FOR_{jni_obj.java_class.name}_SEE_JNI_ZERO_README'
+  class_name = jni_obj.java_class.name
+  macro_name = f'DEFINE_JNI_FOR_{class_name}'
+  marker_func_name = f'YouForgotToCallMacro_DEFINE_JNI_{class_name}'
   if enable_definition_macros and jni_obj.natives:
     with sb.section(
         'Example signatures (to be implemented by #including file).'):
@@ -270,12 +289,11 @@ def natives_macro_definition(sb, jni_mode, jni_obj, gen_jni_class, output_file, 
           _entry_point_example(sb, native)
           sb('\n')
 
+    with sb.section(f'Triggers a compiler warning if DEFINE_JNI({class_name})'
+                    ' is forgotten (requires -Wunused-function).'):
+      sb(f'static void {marker_func_name}() {{}}\n')
+
     with sb.section('Java to native functions'):
-      # Ensure compiler warns if DEFINE_JNI(ClassName) is not used.
-      sb(f'// Emit a warning if DEFINE_JNI({jni_obj.java_class.name}) is ')
-      sb('missing in the including .cc file.\n')
-      sb('#pragma clang diagnostic push\n')
-      sb('#pragma clang diagnostic warning "-Wunused-macros"\n')
       with sb.cpp_macro(macro_name):
         # Anonymous namespace to scope the "using namespace" declaration.
         # All symbols use extern "C", so it doesn't actually hide symbols.
@@ -283,8 +301,15 @@ def natives_macro_definition(sb, jni_mode, jni_obj, gen_jni_class, output_file, 
           if jni_obj.jni_namespace:
             sb(f'using namespace {jni_obj.jni_namespace};\n')
           for native in jni_obj.natives:
-            entry_point_method(sb, jni_mode, jni_obj, native, gen_jni_class, output_file)
-      sb('#pragma clang diagnostic pop')
+            entry_point_method(sb,
+                               jni_mode,
+                               jni_obj,
+                               native,
+                               gen_jni_class,
+                               output_file,
+                               marker_func_name=marker_func_name)
+            # Needs to be included only once to be marked as used.
+            marker_func_name = None
   elif enable_definition_macros:
     sb(f'// There are no Java->Native methods.\n')
     sb(f'#define {macro_name}()\n')

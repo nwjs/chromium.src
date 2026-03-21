@@ -178,9 +178,10 @@ class TabUnderlineViewUiTest : public test::InteractiveGlicTest {
     const std::string enabled_features =
         base::StrCat({multitab_feature_name, ",", underline_feature_name, ",",
                       "UiGpuRasterization"});
-    features_.InitFromCommandLine(
-        enabled_features, /*disable_features=*/
-        "ContextualTasks,GlicForceSimplifiedBorder,GlicForceNonSkSLBorder");
+    features_.InitFromCommandLine(enabled_features,
+                                  /*disabled_features=*/
+                                  "ContextualTasks,GlicForceSimplifiedBorder,"
+                                  "GlicForceNonSkSLBorder,GlicMultiInstance");
   }
   ~TabUnderlineViewUiTest() override = default;
 
@@ -611,10 +612,7 @@ class TabUnderlineViewMultiInstanceUiTest : public TabUnderlineViewUiTest {
   TabUnderlineViewMultiInstanceUiTest() {
     // kGlicMultiInstance, kGlicMultiTab, kGlicMultitabUnderlines are required
     // for IsMultiInstanceEnabled().
-    scoped_feature_list_.InitWithFeatures(
-        {features::kGlic, features::kGlicMultiInstance,
-         mojom::features::kGlicMultiTab, features::kGlicMultitabUnderlines},
-        {});
+    scoped_feature_list_.InitWithFeatures({features::kGlic}, {});
   }
   ~TabUnderlineViewMultiInstanceUiTest() override = default;
 

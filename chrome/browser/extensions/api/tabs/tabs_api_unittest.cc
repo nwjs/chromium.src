@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/test_browser_window.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
@@ -293,7 +294,7 @@ TEST_F(TabsApiUnitTest, IsTabStripEditable) {
   // Bug fix for crbug.com/1198717. Error updating tabs while drag in progress.
   {
     std::string args =
-        base::StringPrintf("[%d, {\"highlighted\": true}]", tab_ids[0]);
+        base::StringPrintf("[%d, {\"highlighted\": true}]", tab_ids[1]);
     auto function = base::MakeRefCounted<TabsUpdateFunction>();
     function->set_extension(extension);
     std::string error = api_test_utils::RunFunctionAndReturnError(
@@ -456,7 +457,7 @@ TEST_F(TabsApiUnitTest, QueryWithHostPermission) {
 }
 
 // Test that using the PDF extension for tab updates is treated as a
-// renderer-initiated navigation. crbug.com/660498
+// renderer-initiated navigation. crbug.com/40085816
 TEST_F(TabsApiUnitTest, PDFExtensionNavigation) {
   auto manifest = base::DictValue()
                       .Set("name", "pdfext")
@@ -504,7 +505,7 @@ TEST_F(TabsApiUnitTest, PDFExtensionNavigation) {
 
 // Tests that non-validation failure in tabs.executeScript results in error, and
 // not bad_message.
-// Regression test for https://crbug.com/642794.
+// Regression test for https://crbug.com/40482984.
 TEST_F(TabsApiUnitTest, ExecuteScriptNoTabIsNonFatalError) {
   scoped_refptr<const Extension> extension_with_tabs_permission =
       CreateTabsExtension();
@@ -842,7 +843,7 @@ TEST_F(TabsApiUnitTest, TabsMoveAcrossWindows) {
   params.type = Browser::TYPE_NORMAL;
   params.window = window2.release();
   auto browser2 = Browser::DeprecatedCreateOwnedForTesting(params);
-  BrowserList::SetLastActive(browser2.get());
+  ui_test_utils::DeprecatedFakeActivateBrowser(browser2.get());
   int window_id2 = ExtensionTabUtil::GetWindowId(browser2.get());
 
   constexpr int kNumTabs2 = 3;
@@ -910,7 +911,7 @@ TEST_F(TabsApiUnitTest, TabsMoveAcrossWindowsShouldRespectGroupContiguity) {
   params.type = Browser::TYPE_NORMAL;
   params.window = window2.release();
   auto browser2 = Browser::DeprecatedCreateOwnedForTesting(params);
-  BrowserList::SetLastActive(browser2.get());
+  ui_test_utils::DeprecatedFakeActivateBrowser(browser2.get());
   int window_id2 = ExtensionTabUtil::GetWindowId(browser2.get());
 
   constexpr int kNumTabs2 = 3;
@@ -2160,6 +2161,41 @@ TEST_F(TabsApiUnitTest, TabsUngroupBothTabsFromSplitView) {
   TabStripModel* tab_strip_model = GetTabStripModel();
   EXPECT_FALSE(tab_strip_model->GetTabGroupForTab(0));
   EXPECT_FALSE(tab_strip_model->GetTabGroupForTab(1));
+  EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(0).has_value());
+  EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(1).has_value());
+}
+
+TEST_F(TabsApiUnitTest, TabsGroupSingleTabInSplitView) {
+  ASSERT_TRUE(GetTabStripModel()->SupportsTabGroups());
+
+  scoped_refptr<const Extension> extension =
+      ExtensionBuilder("TabsGroupSingleTabInSplitView").Build();
+
+  // Add a couple of web contents to the browser and mark them as split.
+  std::vector<content::WebContents*> wc = CreateAndGetWebContents(2);
+  GetTabStripModel()->ActivateTabAt(0);
+  GetTabStripModel()->AddToNewSplit({1}, split_tabs::SplitTabVisualData(),
+                                    split_tabs::SplitTabCreatedSource());
+
+  // Verify that tabs are in a split view.
+  EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(0).has_value());
+  EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(1).has_value());
+
+  // Use the TabsGroupFunction to group tab 0.
+  auto function = base::MakeRefCounted<TabsGroupFunction>();
+  function->set_extension(extension);
+  constexpr char kFormatArgs[] = R"([{"tabIds": [%d]}])";
+  const std::string args = base::StringPrintf(
+      kFormatArgs, sessions::SessionTabHelper::IdForTab(wc[0]).id());
+  ASSERT_TRUE(api_test_utils::RunFunction(function.get(), args, profile(),
+                                          api_test_utils::FunctionMode::kNone));
+
+  // Expect both tabs to be in the same group and still in a split view.
+  TabStripModel* tab_strip_model = GetTabStripModel();
+  std::optional<tab_groups::TabGroupId> group =
+      tab_strip_model->GetTabGroupForTab(0);
+  EXPECT_TRUE(group.has_value());
+  EXPECT_EQ(group, tab_strip_model->GetTabGroupForTab(1));
   EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(0).has_value());
   EXPECT_TRUE(GetTabStripModel()->GetSplitForTab(1).has_value());
 }

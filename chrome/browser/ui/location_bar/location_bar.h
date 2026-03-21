@@ -34,6 +34,7 @@ class WebContents;
 }
 
 namespace ui {
+class MouseEvent;
 class TrackedElement;
 }
 
@@ -71,11 +72,18 @@ class LocationBar {
   // Renderer-initiated focuses (like browser startup or NTP finished loading),
   // should have |is_user_initiated| set to false, so we can avoid disrupting
   // user actions and avoid requesting on-focus suggestions.
-  virtual void FocusLocation(bool is_user_initiated) = 0;
+  //
+  // If `clear_focus_if_failed` is true, the focus should be cleared entirely
+  // if the location bar can't take it.
+  virtual void FocusLocation(bool is_user_initiated,
+                             bool clear_focus_if_failed) = 0;
 
   // Puts the user into keyword mode with their default search provider.
   // TODO(tommycli): See if there's a more descriptive name for this method.
   virtual void FocusSearch() = 0;
+
+  // Adjust whether the location bar is focusable based on toolbar visibility.
+  virtual void UpdateFocusBehavior(bool toolbar_visible) = 0;
 
   // Updates the state of the images showing the content settings status.
   virtual void UpdateContentSettingsIcons() = 0;
@@ -91,6 +99,10 @@ class LocationBar {
 
   // Returns the OmniboxController owned by this LocationBar.
   virtual OmniboxController* GetOmniboxController() = 0;
+
+  // Returns true if given mouse event should result in omnibox popup getting
+  // closed.
+  virtual bool ShouldCloseOmniboxPopup(ui::MouseEvent* event) = 0;
 
   // Returns the WebContents of the currently active tab.
   virtual content::WebContents* GetWebContents() = 0;
@@ -125,6 +137,10 @@ class LocationBar {
   // PresentationReceiverWindowView.
   virtual Browser* GetBrowser() = 0;
 
+  // Returns true if the location bar finished initializing --- it's linked to
+  // the UI and has the subobjects all created.
+  virtual bool IsInitialized() const = 0;
+
   // Returns true if the location bar is visible.
   virtual bool IsVisible() const = 0;
 
@@ -132,9 +148,8 @@ class LocationBar {
   // equivalent of IsVisible() that also checks the parent UI elements.
   virtual bool IsDrawn() const = 0;
 
-  // True if the top-level window this location bar is on is in a full-screen
-  // mode.
-  virtual bool IsTopLevelFullscreen() const = 0;
+  // True if the window this location bar is in is in a full-screen mode.
+  virtual bool IsFullscreen() const = 0;
 
   // Returns true if corresponding omnibox is editing text or empty.
   virtual bool IsEditingOrEmpty() const = 0;

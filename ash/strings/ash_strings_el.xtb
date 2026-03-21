@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Η εγγραφή διακόπηκε. Δεν είναι δυνατή η χρήση του Πίνακα ελέγχου παιχνιδιού σε λειτουργία tablet.</translation>
 <translation id="1024364763893396229">Αποθήκευση της συσκευής <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Το επίπεδο της μπαταρίας της γραφίδας είναι χαμηλό</translation>
-<translation id="1036073649888683237">Για να διαχειριστείτε τις ειδοποιήσεις, μεταβείτε στις Ρυθμίσεις</translation>
 <translation id="1036348656032585052">Απενεργοποίηση</translation>
 <translation id="1037492556044956303">Προστέθηκε η συσκευή <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Εμφάνιση προτάσεων</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Εγκατάσταση εφαρμογής</translation>
 <translation id="2482878487686419369">Ειδοποιήσεις</translation>
 <translation id="2484513351006226581">Πατήστε <ph name="KEYBOARD_SHORTCUT" />, για να αλλάξετε διάταξη πληκτρολογίου.</translation>
+<translation id="2485422356828889247">Απεγκατάσταση</translation>
 <translation id="2486214324139475545">Προεπισκόπηση του <ph name="DESK_NAME" />. Ενεργό γραφείο.</translation>
 <translation id="2486405091093637109">Η ανάλυση "<ph name="DISPLAY_NAME" />" άλλαξε σε ανάλυση <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Χωρίς επιβεβαίωση, θα γίνει επαναφορά των προηγούμενων ρυθμίσεων σε <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Συμμετοχή</translation>

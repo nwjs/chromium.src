@@ -64,7 +64,7 @@ class ContextualTasksService : public KeyedService {
 
     // The service is initialized and ready to take calls and return stored
     // tasks and threads.
-    virtual void OnInitialized() {}
+    virtual void OnContextualTasksServiceInitialized() {}
 
     // A new task was added at the given |source|.
     virtual void OnTaskAdded(const ContextualTask& task, TriggerSource source) {
@@ -162,6 +162,8 @@ class ContextualTasksService : public KeyedService {
   // Returns DataTypeControllerDelegate for the contextual task thread datatype.
   virtual base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetAiThreadControllerDelegate() = 0;
+  virtual base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetGeminiThreadControllerDelegate() = 0;
 };
 
 }  // namespace contextual_tasks

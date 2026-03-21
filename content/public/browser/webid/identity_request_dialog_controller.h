@@ -22,6 +22,10 @@
 namespace content {
 class WebContents;
 
+namespace webid {
+enum class FederatedLoginResult;
+}  // namespace webid
+
 // The client metadata that will be used to display a FedCM dialog. This data is
 // extracted from the client metadata endpoint from the FedCM API, where
 // 'client' is essentially the relying party which invoked the API.
@@ -223,11 +227,15 @@ class CONTENT_EXPORT IdentityRequestDialogController {
   // Returns true if the method successfully showed UI. When false, the caller
   // should assume that the API invocation was terminated and the cleanup
   // methods invoked. `rp_data` may be modified by this method, such as by
-  // setting the RP icon.
+  // setting the RP icon. `accounts` are the accounts which are displayed, while
+  // `filtered_accounts` are the accounts that are not available for selection
+  // due to filters such as login hint.
   virtual bool ShowAccountsDialog(
       RelyingPartyData rp_data,
       const std::vector<scoped_refptr<IdentityProviderData>>& idp_list,
       const std::vector<scoped_refptr<IdentityRequestAccount>>& accounts,
+      const std::vector<scoped_refptr<IdentityRequestAccount>>&
+          filtered_accounts,
       blink::mojom::RpMode rp_mode,
       AccountSelectionCallback on_selected,
       LoginToIdPCallback on_add_account,
@@ -237,16 +245,21 @@ class CONTENT_EXPORT IdentityRequestDialogController {
   // Shows a failure UI when the accounts fetch is failed such that it is
   // observable by users. This could happen when an IDP claims that the user is
   // signed in but not respond with any user account during browser fetches.
-  // Returns true if the method successfully showed UI. When false, the caller
-  // should assume that the API invocation was terminated and the cleanup
-  // methods invoked.
-  virtual bool ShowFailureDialog(const RelyingPartyData& rp_data,
-                                 const std::string& idp_for_display,
-                                 blink::mojom::RpContext rp_context,
-                                 blink::mojom::RpMode rp_mode,
-                                 const IdentityProviderMetadata& idp_metadata,
-                                 DismissCallback dismiss_callback,
-                                 LoginToIdPCallback login_callback);
+  // Returns true if the method successfully showed UI. It could also occur when
+  // there are logged in accounts but none are available due to filters such as
+  // login hint. When false, the caller should assume that the API invocation
+  // was terminated and the cleanup methods invoked. `filtered_accounts` are the
+  // accounts that are not available for selection due to filters.
+  virtual bool ShowFailureDialog(
+      const RelyingPartyData& rp_data,
+      const std::string& idp_for_display,
+      blink::mojom::RpContext rp_context,
+      blink::mojom::RpMode rp_mode,
+      const IdentityProviderMetadata& idp_metadata,
+      const std::vector<scoped_refptr<IdentityRequestAccount>>&
+          filtered_accounts,
+      DismissCallback dismiss_callback,
+      LoginToIdPCallback login_callback);
 
   // Shows an error UI when the user's sign-in attempt failed. Returns true if
   // the method successfully showed UI. When false, the caller should assume
@@ -301,7 +314,7 @@ class CONTENT_EXPORT IdentityRequestDialogController {
   virtual void CloseModalDialog();
 
   // Informs the controller that the flow has completed.
-  virtual void OnFlowCompleted(bool success);
+  virtual void OnFlowCompleted(webid::FederatedLoginResult result);
 
   // When called on an object corresponding to the popup opened by
   // ShowModalDialog, returns the web contents for the original RP page.

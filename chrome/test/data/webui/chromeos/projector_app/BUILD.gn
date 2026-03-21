@@ -5,14 +5,13 @@
 import("../../build_webui_tests.gni")
 
 build_webui_tests("build") {
+  cc_test_files = [ "untrusted_projector_browser_proxy_browsertest.cc" ]
+
   files = [ "untrusted_projector_browser_proxy_test.ts" ]
 
   is_chrome_untrusted = true
 
   ts_path_mappings = [
-    "chrome-untrusted://projector/untrusted_projector_browser_proxy.js|" + rebase_path(
-            "//ash/webui/projector_app/resources/app/untrusted/untrusted_projector_browser_proxy.js",
-            target_gen_dir),
     "chrome-untrusted://projector/*|" + rebase_path(
             "$root_gen_dir/ash/webui/projector_app/resources/app/untrusted/tsc/*",
             target_gen_dir),

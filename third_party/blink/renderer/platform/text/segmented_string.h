@@ -80,14 +80,12 @@ class PLATFORM_EXPORT SegmentedSubstring {
   int NumberOfCharactersConsumed() const { return offset(); }
 
   void AppendTo(StringBuilder& builder) const {
-    int off = offset();
     int len = length();
-
-    if (!off) {
+    if (offset() == 0) {
       if (len)
         builder.Append(string_);
     } else {
-      builder.Append(string_.Substring(off, len));
+      builder.Append(CurrentSubString(len));
     }
   }
 
@@ -101,17 +99,17 @@ class PLATFORM_EXPORT SegmentedSubstring {
     // into the string data and is safe to index one before it.
 
     if (is_8bit_) {
-      if (*(UNSAFE_BUFFERS(data_.string8_ptr - 1)) != c) {
+      const LChar* prev_ptr = UNSAFE_BUFFERS(data_.string8_ptr - 1);
+      if (*prev_ptr != c) {
         return false;
       }
-
-      UNSAFE_BUFFERS(--data_.string8_ptr);
+      data_.string8_ptr = prev_ptr;
     } else {
-      if (*(UNSAFE_BUFFERS(data_.string16_ptr - 1)) != c) {
+      const UChar* prev_ptr = UNSAFE_BUFFERS(data_.string16_ptr - 1);
+      if (*prev_ptr != c) {
         return false;
       }
-
-      UNSAFE_BUFFERS(--data_.string16_ptr);
+      data_.string16_ptr = prev_ptr;
     }
 
     return true;
@@ -238,10 +236,10 @@ class PLATFORM_EXPORT SegmentedString {
   };
 
   LookAheadResult LookAhead(const String& string) {
-    return LookAheadInline(string, kTextCaseSensitive);
+    return LookAheadInline<kTextCaseSensitive>(string);
   }
   LookAheadResult LookAheadIgnoringCase(const String& string) {
-    return LookAheadInline(string, kTextCaseASCIIInsensitive);
+    return LookAheadInline<kTextCaseASCIIInsensitive>(string);
   }
 
   // Used to advance by multiple characters. Specifically this advances by
@@ -329,13 +327,16 @@ class PLATFORM_EXPORT SegmentedString {
   // `length()`.
   void AdvanceAndCollect(base::span<UChar> characters);
 
-  inline LookAheadResult LookAheadInline(const String& string,
-                                         TextCaseSensitivity case_sensitivity) {
+  template <TextCaseSensitivity case_sensitivity>
+  inline LookAheadResult LookAheadInline(const String& string) {
     if (string.length() <= static_cast<unsigned>(current_string_.length())) {
-      StringView current_substring =
+      StringView current_prefix =
           current_string_.CurrentSubString(string.length());
-      if (string.StartsWith(current_substring, case_sensitivity))
+      if (case_sensitivity == TextCaseSensitivity::kTextCaseSensitive
+              ? current_prefix == string
+              : EqualIgnoringAsciiCase(current_prefix, string)) {
         return kDidMatch;
+      }
       return kDidNotMatch;
     }
     return LookAheadSlowCase(string, case_sensitivity);
@@ -347,13 +348,16 @@ class PLATFORM_EXPORT SegmentedString {
     if (count > length())
       return kNotEnoughCharacters;
     base::span<UChar> consumed_characters;
-    String consumed_string =
+    String consumed_prefix =
         String::CreateUninitialized(count, consumed_characters);
     AdvanceAndCollect(consumed_characters);
     LookAheadResult result = kDidNotMatch;
-    if (consumed_string.StartsWith(string, case_sensitivity))
+    if (case_sensitivity == TextCaseSensitivity::kTextCaseSensitive
+            ? consumed_prefix == string
+            : EqualIgnoringAsciiCase(consumed_prefix, string)) {
       result = kDidMatch;
-    Prepend(SegmentedString(consumed_string), PrependType::kUnconsume);
+    }
+    Prepend(SegmentedString(consumed_prefix), PrependType::kUnconsume);
     return result;
   }
 

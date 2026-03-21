@@ -21,34 +21,26 @@
 #include "chrome/browser/ui/views/autofill/address_bubbles_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/filled_card_information_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/mandatory_reauth_icon_view.h"
-#include "chrome/browser/ui/views/autofill/payments/offer_notification_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/save_payment_icon_view.h"
 #include "chrome/browser/ui/views/autofill/payments/virtual_card_enroll_icon_view.h"
-#include "chrome/browser/ui/views/commerce/discounts_icon_view.h"
-#include "chrome/browser/ui/views/commerce/price_insights_icon_view.h"
-#include "chrome/browser/ui/views/commerce/price_tracking_icon_view.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/ai_mode_page_action_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/find_bar_icon.h"
 #include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
 #include "chrome/browser/ui/views/location_bar/lens_overlay_homework_page_action_icon_view.h"
-#include "chrome/browser/ui/views/location_bar/lens_overlay_page_action_icon_view.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/optimization_guide/optimization_guide_icon_view.h"
 #include "chrome/browser/ui/views/page_action/collaboration_messaging_page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_params.h"
-#include "chrome/browser/ui/views/page_action/pwa_install_view.h"
 #include "chrome/browser/ui/views/page_action/zoom_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
-#include "chrome/browser/ui/views/performance_controls/memory_saver_chip_view.h"
 #include "chrome/browser/ui/views/sharing/sharing_dialog_view.h"
 #include "chrome/browser/ui/views/sharing/sharing_icon_view.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_icon_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
-#include "chrome/browser/ui/views/translate/translate_icon_view.h"
 #include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
@@ -108,12 +100,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
       continue;
     }
     switch (type) {
-      case PageActionIconType::kPaymentsOfferNotification:
-        add_page_action_icon(
-            type, std::make_unique<autofill::OfferNotificationIconView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
-        break;
       case PageActionIconType::kBookmarkStar:
         add_page_action_icon(type, std::make_unique<StarView>(
                                        params.command_updater, params.browser,
@@ -139,22 +125,11 @@ void PageActionIconController::Init(const PageActionIconParams& params,
                       params.browser, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
         break;
-      case PageActionIconType::kDiscounts:
-        add_page_action_icon(type, std::make_unique<DiscountsIconView>(
-                                       params.icon_label_bubble_delegate,
-                                       params.page_action_icon_delegate));
-        break;
       case PageActionIconType::kFind:
         add_page_action_icon(
             type, std::make_unique<FindBarIcon>(
                       params.browser, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kMemorySaver:
-        add_page_action_icon(type, std::make_unique<MemorySaverChipView>(
-                                       params.command_updater, params.browser,
-                                       params.icon_label_bubble_delegate,
-                                       params.page_action_icon_delegate));
         break;
       case PageActionIconType::kIntentPicker:
         add_page_action_icon(
@@ -179,25 +154,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
         add_page_action_icon(type, std::make_unique<FileSystemAccessIconView>(
                                        params.icon_label_bubble_delegate,
                                        params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kPriceInsights:
-        add_page_action_icon(type, std::make_unique<PriceInsightsIconView>(
-                                       params.icon_label_bubble_delegate,
-                                       params.page_action_icon_delegate,
-                                       params.browser->profile()));
-        break;
-      case PageActionIconType::kPriceTracking:
-        add_page_action_icon(
-            type, std::make_unique<PriceTrackingIconView>(
-                      params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
-        break;
-      case PageActionIconType::kPwaInstall:
-        DCHECK(params.command_updater);
-        add_page_action_icon(
-            type, std::make_unique<PwaInstallView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
         break;
       case PageActionIconType::kAutofillAddress:
         add_page_action_icon(
@@ -225,15 +181,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
                       params.command_updater, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
         break;
-      case PageActionIconType::kTranslate:
-#if 0
-        DCHECK(params.command_updater);
-        add_page_action_icon(
-            type, std::make_unique<TranslateIconView>(
-                      params.command_updater, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate, params.browser));
-#endif
-        break;
       case PageActionIconType::kVirtualCardEnroll:
         add_page_action_icon(
             type, std::make_unique<autofill::VirtualCardEnrollIconView>(
@@ -250,12 +197,6 @@ void PageActionIconController::Init(const PageActionIconParams& params,
         zoom_icon_ = add_page_action_icon(
             type, std::make_unique<ZoomView>(params.icon_label_bubble_delegate,
                                              params.page_action_icon_delegate));
-        break;
-      case PageActionIconType::kLensOverlay:
-        add_page_action_icon(
-            type, std::make_unique<LensOverlayPageActionIconView>(
-                      params.browser, params.icon_label_bubble_delegate,
-                      params.page_action_icon_delegate));
         break;
       case PageActionIconType::kAiMode:
         add_page_action_icon(
@@ -281,11 +222,11 @@ void PageActionIconController::Init(const PageActionIconParams& params,
                       params.browser, params.icon_label_bubble_delegate,
                       params.page_action_icon_delegate));
         break;
-      case PageActionIconType::kReadingMode:
-      case PageActionIconType::kContextualSidePanel:
-      case PageActionIconType::kJsOptimizations:
+      case PageActionIconType::kFederation:
         // Do nothing as these actions were added after the migration.
         break;
+      default:
+        NOTREACHED();
     }
   }
 

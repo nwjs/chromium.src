@@ -934,13 +934,18 @@ template("test_runner_script") {
 
       _rebased_robolectric_runtime_deps_dir =
           rebase_path("//third_party/robolectric/cipd/lib", root_build_dir)
-      _rebased_resource_apk = rebase_path(invoker.resource_apk, root_build_dir)
       executable_args += [
-        "--resource-apk",
-        "@WrappedPath(${_rebased_resource_apk})",
         "--robolectric-runtime-deps-dir",
         "@WrappedPath(${_rebased_robolectric_runtime_deps_dir})",
       ]
+      if (defined(invoker.resource_apk) && invoker.resource_apk != "") {
+        _rebased_resource_apk =
+            rebase_path(invoker.resource_apk, root_build_dir)
+        executable_args += [
+          "--resource-apk",
+          "@WrappedPath(${_rebased_resource_apk})",
+        ]
+      }
       if (build_with_chromium) {
         _allowlist = "//testing/android/junit/shadows-allowlist.txt"
         data += [ _allowlist ]
@@ -1089,11 +1094,6 @@ if (enable_java_templates) {
         _lint_jar_path = _default_lint_jar_path
       }
 
-      # It is not safe to run two lint versions concurrently since they will
-      # wipe the cache on version mismatch. When using a non-default lint
-      # version, make each target use their own cache directory.
-      _use_custom_cache_dir = _lint_jar_path != _default_lint_jar_path
-
       # Save generated xml files in a consistent location for debugging.
       if (defined(invoker.lint_gen_dir)) {
         _lint_gen_dir = invoker.lint_gen_dir
@@ -1124,17 +1124,6 @@ if (enable_java_templates) {
         "--backported-methods",
         rebase_path(_backported_methods, root_build_dir),
       ]
-
-      if (!_use_custom_cache_dir) {
-        _cache_dir = "$root_build_dir/android_lint_cache"
-        _create_cache_stamp_path = "$_cache_dir/build.lint.stamp"
-
-        # By default, lint.py will use "$_lint_gen_dir/cache".
-        args += [
-          "--cache-dir",
-          rebase_path(_cache_dir, root_build_dir),
-        ]
-      }
 
       if (android_static_analysis == "build_server") {
         args += [ "--use-build-server" ]
@@ -1173,41 +1162,30 @@ if (enable_java_templates) {
         ]
       }
 
-      if (defined(invoker.create_cache) && invoker.create_cache) {
-        # Putting the stamp file in the cache dir allows us to depend on ninja
-        # to create the cache dir for us.
-        args += [ "--create-cache" ]
-        _stamp_path = _create_cache_stamp_path
-      } else {
-        _stamp_path = "$target_out_dir/$target_name/build.lint.stamp"
-        deps += [ invoker.build_config_dep ]
-        if (!_use_custom_cache_dir) {
-          deps += [ "//build/android:prepare_android_lint_cache" ]
-          inputs += [ _create_cache_stamp_path ]
-        }
-        _lint_json = string_replace(invoker.build_config,
-                                    ".build_config.json",
-                                    ".lint.build_config.json")
-        inputs += [ _lint_json ]
-        _rebased_lint_json = rebase_path(_lint_json, root_build_dir)
+      _stamp_path = "$target_out_dir/$target_name/build.lint.stamp"
+      deps += [ invoker.build_config_dep ]
+      _lint_json = string_replace(invoker.build_config,
+                                  ".build_config.json",
+                                  ".lint.build_config.json")
+      inputs += [ _lint_json ]
+      _rebased_lint_json = rebase_path(_lint_json, root_build_dir)
 
-        inputs += [ invoker.manifest ]
-        args += [
-          "--manifest",
-          rebase_path(invoker.manifest, root_build_dir),
+      inputs += [ invoker.manifest ]
+      args += [
+        "--manifest",
+        rebase_path(invoker.manifest, root_build_dir),
 
-          # Lint requires all source and all resource files to be passed in the
-          # same invocation for checks like UnusedResources.
-          "--sources=@FileArg($_rebased_lint_json:sources)",
-          "--aars=@FileArg($_rebased_lint_json:aars)",
-          "--srcjars=@FileArg($_rebased_lint_json:srcjars)",
-          "--resource-sources=@FileArg($_rebased_lint_json:resource_sources)",
-          "--resource-zips=@FileArg($_rebased_lint_json:resource_zips)",
+        # Lint requires all source and all resource files to be passed in the
+        # same invocation for checks like UnusedResources.
+        "--sources=@FileArg($_rebased_lint_json:sources)",
+        "--aars=@FileArg($_rebased_lint_json:aars)",
+        "--srcjars=@FileArg($_rebased_lint_json:srcjars)",
+        "--resource-sources=@FileArg($_rebased_lint_json:resource_sources)",
+        "--resource-zips=@FileArg($_rebased_lint_json:resource_zips)",
 
-          # The required for annotation checks like @IntDef.
-          "--classpath=@FileArg($_rebased_lint_json:classpath)",
-        ]
-      }
+        # The required for annotation checks like @IntDef.
+        "--classpath=@FileArg($_rebased_lint_json:classpath)",
+      ]
 
       outputs = [ _stamp_path ]
       args += [
@@ -1698,7 +1676,7 @@ if (enable_java_templates) {
           ]
         }
         if (_is_library) {
-          args += [ "--library" ]
+          args += [ "--intermediate" ]
         }
         if (defined(invoker.input_dex_filearg)) {
           args += [ "--dex-inputs-filearg=${invoker.input_dex_filearg}" ]
@@ -3173,8 +3151,14 @@ if (enable_java_templates) {
       }
 
       if (invoker.enable_errorprone) {
-        # Our custom plugin pulls in the main errorprone dep transitively.
-        _errorprone_dep = "//tools/android/errorprone_plugin:errorprone_plugin"
+        if (build_with_chromium) {
+          # Pulls in the main errorprone dep transitively.
+          _errorprone_dep =
+              "//tools/android/errorprone_plugin:errorprone_plugin"
+        } else {
+          _errorprone_dep =
+              "//third_party/android_build_tools/error_prone:error_prone"
+        }
         deps += [ _errorprone_dep ]
         _dep_gen_dir = get_label_info(_errorprone_dep, "target_gen_dir")
         _dep_name = get_label_info(_errorprone_dep, "name")
@@ -3186,13 +3170,16 @@ if (enable_java_templates) {
           "--enable-nullaway",
           "--processorpath=@FileArg($_rebased_errorprone_buildconfig:processed_classpath)",
         ]
-        inputs += [
-          _nullaway_jar,
-
+        if (defined(invoker.min_sdk_version)) {
+          args += [ "--xep-arg=-XepOpt:JdkObsolete:AndroidMinSdkVersion=${invoker.min_sdk_version}" ]
+        }
+        inputs += [ _nullaway_jar ]
+        if (build_with_chromium) {
           # errorprone requires the plugin directory to detect src dir.
           # https://source.chromium.org/chromium/chromium/src/+/main:tools/android/errorprone_plugin/src/org/chromium/tools/errorprone/plugin/UseNetworkAnnotations.java;l=84;drc=dfd88085261b662a5c0a1abea1a3b120b08e8e48
-          "//tools/android/errorprone_plugin/OWNERS",
-        ]
+          inputs += [ "//tools/android/errorprone_plugin/OWNERS" ]
+          args += [ "--has-chromium-plugin" ]
+        }
         if (defined(testonly) && testonly) {
           args += [ "--testonly" ]
         }
@@ -3218,6 +3205,11 @@ if (enable_java_templates) {
       }
       foreach(e, _javac_args) {
         args += [ "--javac-arg=" + e ]
+      }
+      if (defined(invoker.xep_args)) {
+        foreach(e, invoker.xep_args) {
+          args += [ "--xep-arg=" + e ]
+        }
       }
     }
   }
@@ -3373,7 +3365,7 @@ if (enable_java_templates) {
   #  requires_android: Optional. True if target can only run on Android.
   #  source_files: Optional list of Java source file paths for this target.
   #  javac_args: Optional list of extra arguments to pass to javac.
-  #  errorprone_args: Optional list of extra arguments to pass to.
+  #  errorprone_args: Optional list of Error Prone -Xep: flags (e.g. -Xep:CheckName:OFF).
   #  srcjar_deps: Optional list of .srcjar targets (not file paths). The Java
   #    source files they contain will also be compiled for this target.
   #  target_sources_file: Optional path to a file which will be written with
@@ -4064,6 +4056,14 @@ if (enable_java_templates) {
             chromium_code = _chromium_code
           }
           include_android_sdk = _requires_robolectric || _requires_android
+
+          if (_supports_android && enable_errorprone) {
+            if (defined(invoker.min_sdk_version)) {
+              min_sdk_version = invoker.min_sdk_version
+            } else {
+              min_sdk_version = default_min_sdk_version
+            }
+          }
         }
       }
       _compile_java_forward_variables = [
@@ -4129,10 +4129,10 @@ if (enable_java_templates) {
           forward_variables_from(invoker, _compile_java_forward_variables)
           enable_errorprone = true
           if (defined(invoker.errorprone_args)) {
-            if (!defined(javac_args)) {
-              javac_args = []
+            if (!defined(xep_args)) {
+              xep_args = []
             }
-            javac_args += invoker.errorprone_args
+            xep_args += invoker.errorprone_args
           }
           if (_kt_files != []) {
             kotlin_jar_path = _kotlinc_jar_path

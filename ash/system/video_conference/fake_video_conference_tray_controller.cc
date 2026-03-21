@@ -60,14 +60,6 @@ bool FakeVideoConferenceTrayController::GetMicrophoneMuted() {
   return microphone_muted_;
 }
 
-void FakeVideoConferenceTrayController::StopAllScreenShare() {
-  // Call real `StopAllScreenShare` if initialized.
-  if (initialized()) {
-    VideoConferenceTrayController::StopAllScreenShare();
-  }
-  stop_all_screen_share_count_++;
-}
-
 VideoConferenceTrayEffectsManager&
 FakeVideoConferenceTrayController::GetEffectsManager() {
   return effects_manager_ ? *effects_manager_
@@ -106,7 +98,7 @@ void FakeVideoConferenceTrayController::ReturnToApp(
 }
 
 void FakeVideoConferenceTrayController::HandleDeviceUsedWhileDisabled(
-    crosapi::mojom::VideoConferenceMediaDevice device,
+    VideoConferenceMediaDevice device,
     const std::u16string& app_name) {
   VideoConferenceTrayController::HandleDeviceUsedWhileDisabled(device,
                                                                app_name);
@@ -114,7 +106,7 @@ void FakeVideoConferenceTrayController::HandleDeviceUsedWhileDisabled(
 }
 
 void FakeVideoConferenceTrayController::HandleClientUpdate(
-    crosapi::mojom::VideoConferenceClientUpdatePtr update) {
+    VideoConferenceClientUpdate update) {
   last_client_update_ = std::move(update);
 }
 

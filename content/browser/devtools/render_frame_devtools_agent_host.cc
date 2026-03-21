@@ -285,7 +285,7 @@ void RenderFrameDevToolsAgentHost::UpdateRawHeadersAccess(
       process_origins.insert(frame_host->GetLastCommittedOrigin());
   }
   GetNetworkService()->SetRawHeadersAccess(
-      ToRendererProcess(rph->GetID()),
+      ToRendererProcessId(rph->GetID()),
       std::vector<url::Origin>(opaque_process_origins.begin(),
                                opaque_process_origins.end()));
 }

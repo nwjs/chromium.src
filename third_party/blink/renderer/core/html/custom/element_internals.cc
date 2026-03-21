@@ -152,12 +152,12 @@ HTMLElement* ElementInternals::formForBinding(
   return ListedElement::RetargetedForm();
 }
 
-String ElementInternals::type() const {
-  return type_;
+String ElementInternals::ToolParamSchema() const {
+  return tool_param_schema_;
 }
 
-void ElementInternals::setType(const String& value) {
-  type_ = value;
+void ElementInternals::setToolParamSchema(const String& schema) {
+  tool_param_schema_ = schema;
 }
 
 void ElementInternals::setValidity(ValidityStateFlags* flags,

@@ -61,10 +61,8 @@
 #include "components/webapps/isolated_web_apps/types/storage_location.h"
 #include "components/webapps/isolated_web_apps/types/update_channel.h"
 #include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
-#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
-#include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/protobuf/src/google/protobuf/repeated_ptr_field.h"
 #include "url/gurl.h"
@@ -296,7 +294,7 @@ proto::TabStrip::Visibility TabStripVisibilityToProto(
 std::string FilePathToProto(const base::FilePath& path) {
   base::Pickle pickle;
   path.WriteToPickle(&pickle);
-  return std::string(pickle.data_as_char(), pickle.size());
+  return std::string(pickle.AsStringView());
 }
 
 std::optional<base::FilePath> ProtoToFilePath(const std::string& bytes) {
@@ -487,23 +485,27 @@ std::unique_ptr<WebApp> ParseWebAppProto(
   }
   webapps::AppId app_id = GenerateAppIdFromManifestId(manifest_id);
 
-  std::unique_ptr<WebApp> web_app;
-  if (proto.has_parent_app_id()) {
-    web_app = base::WrapUnique(new WebApp(
-        expected_app_id, manifest_id, start_url, scope, proto.parent_app_id()));
-  } else {
-    if (app_id != expected_app_id) {
-      DLOG(ERROR) << "WebApp proto app_id error for " << manifest_id
-                  << ", where '" << app_id << "' does not match expected '"
-                  << expected_app_id << "'";
-      return nullptr;
+  if (app_id != expected_app_id) {
+    DLOG(ERROR) << "WebApp proto app_id error for " << manifest_id
+                << ", where '" << app_id << "' does not match expected '"
+                << expected_app_id << "'";
+
+    if (proto.has_parent_app_id()) {
+      RecordProtoParseResult(ProtoParseResult::kAppIdMismatchForSubApp);
+    } else {
+      RecordProtoParseResult(ProtoParseResult::kAppIdMismatch);
     }
-    web_app = std::make_unique<WebApp>(manifest_id, start_url, scope,
-                                       /*parent_app_id=*/std::nullopt,
-                                       /*parent_manifest_id=*/std::nullopt);
+
+    return nullptr;
   }
-  // Set the sync proto early, as other setters might depend on it.
-  web_app->SetSyncProto(sync_data);
+
+  std::unique_ptr<WebApp> web_app = std::make_unique<WebApp>(sync_data);
+  if (proto.has_parent_app_id()) {
+    web_app->SetParentAppId(proto.parent_app_id());
+  }
+
+  web_app->SetStartUrl(start_url);
+  web_app->SetScope(scope);
 
   if (!sync_data.has_user_display_mode_cros() &&
       !sync_data.has_user_display_mode_default()) {
@@ -519,27 +521,6 @@ std::unique_ptr<WebApp> ParseWebAppProto(
     DLOG(ERROR) << "WebApp proto parse error: missing user display mode for "
                    "current platform";
     return nullptr;
-  }
-
-  // GenerateManifestId functions above strip the fragment part from the URL,
-  // but stored sync data may still have a fragment in relative_manifest_id.
-  // Per manifest spec, manifest IDs should be compared ignoring the fragment,
-  // so we should remove it from the sync data. Note this doesn't trigger a DB
-  // write or sync change - they will only happen if the app data changes for
-  // some other reason (eg. launch).
-  std::string relative_manifest_id_path = RelativeManifestIdPath(manifest_id);
-  if (sync_data.has_relative_manifest_id() &&
-      sync_data.relative_manifest_id() != relative_manifest_id_path) {
-    auto modified_sync_data = sync_data;
-    modified_sync_data.set_relative_manifest_id(relative_manifest_id_path);
-    web_app->SetSyncProto(modified_sync_data);
-    // Record when this happens. When it is rare enough we could simplify the
-    // logic here by just treating apps with mismatching IDs as a parse error.
-    base::UmaHistogramBoolean("WebApp.ParseWebAppProto.ManifestIdMatch", false);
-  } else {
-    web_app->SetSyncProto(sync_data);
-    // Record success for comparison.
-    base::UmaHistogramBoolean("WebApp.ParseWebAppProto.ManifestIdMatch", true);
   }
 
   // Required fields:
@@ -1139,36 +1120,6 @@ std::unique_ptr<WebApp> ParseWebAppProto(
     web_app->SetLaunchHandler(ProtoToLaunchHandler(proto.launch_handler()));
   }
 
-  if (proto.permissions_policy_size()) {
-    network::ParsedPermissionsPolicy policy;
-    const auto& name_to_feature_map =
-        blink::GetPermissionsPolicyNameToFeatureMap();
-    for (const auto& decl_proto : proto.permissions_policy()) {
-      network::ParsedPermissionsPolicyDeclaration decl;
-      const auto feature_enum = name_to_feature_map.find(decl_proto.feature());
-      if (feature_enum == name_to_feature_map.end()) {
-        continue;
-      }
-      decl.feature = feature_enum->second;
-
-      for (const std::string& origin : decl_proto.allowed_origins()) {
-        std::optional<network::OriginWithPossibleWildcards>
-            maybe_origin_with_possible_wildcards =
-                network::OriginWithPossibleWildcards::Parse(
-                    origin,
-                    network::OriginWithPossibleWildcards::NodeType::kHeader);
-        if (maybe_origin_with_possible_wildcards.has_value()) {
-          decl.allowed_origins.emplace_back(
-              *maybe_origin_with_possible_wildcards);
-        }
-      }
-      decl.matches_all_origins = decl_proto.matches_all_origins();
-      decl.matches_opaque_src = decl_proto.matches_opaque_src();
-      policy.push_back(decl);
-    }
-    web_app->SetPermissionsPolicy(policy);
-  }
-
   WebApp::ExternalConfigMap management_to_external_config;
   for (const auto& management_proto :
        proto.management_to_external_config_info()) {
@@ -1529,48 +1480,30 @@ std::unique_ptr<WebApp> ParseWebAppProto(
   }
   web_app->SetInstalledBy(InstalledByPassKey(), std::move(installed_by_data));
 
-  auto is_valid_migration_source =
-      [](const proto::WebAppMigrationSource& source) {
-        if (!source.has_manifest_id() || !source.has_behavior()) {
-          return false;
-        }
-        GURL manifest_id(source.manifest_id());
-        if (!manifest_id.is_valid() ||
-            url::Origin::Create(manifest_id).opaque()) {
-          return false;
-        }
-        if (source.has_install_url()) {
-          GURL install_url(source.install_url());
-          if (!install_url.is_valid() ||
-              !url::IsSameOriginWith(manifest_id, install_url)) {
-            return false;
-          }
-        }
-        return true;
-      };
-
-  std::vector<proto::WebAppMigrationSource> unvalidated_migration_sources;
+  std::vector<MigrationSource> unvalidated_migration_sources;
   for (const auto& source_proto : proto.unvalidated_migration_sources()) {
-    if (!is_valid_migration_source(source_proto)) {
+    std::optional<MigrationSource> source =
+        MigrationSource::ParseAndCreate(source_proto);
+    if (!source) {
       RecordProtoParseResult(
           ProtoParseResult::kInvalidWebAppUnvalidatedMigrationSource);
-      DLOG(ERROR) << "WebApp proto Unvalidated MigrationSource parse error";
       return nullptr;
     }
-    unvalidated_migration_sources.push_back(source_proto);
+    unvalidated_migration_sources.push_back(std::move(*source));
   }
   web_app->SetUnvalidatedMigrationSources(
       std::move(unvalidated_migration_sources));
 
-  std::vector<proto::WebAppMigrationSource> validated_migration_sources;
+  std::vector<MigrationSource> validated_migration_sources;
   for (const auto& source_proto : proto.validated_migration_sources()) {
-    if (!is_valid_migration_source(source_proto)) {
+    std::optional<MigrationSource> source =
+        MigrationSource::ParseAndCreate(source_proto);
+    if (!source) {
       RecordProtoParseResult(
           ProtoParseResult::kInvalidWebAppValidatedMigrationSource);
-      DLOG(ERROR) << "WebApp proto Validated MigrationSource parse error";
       return nullptr;
     }
-    validated_migration_sources.push_back(source_proto);
+    validated_migration_sources.push_back(std::move(*source));
   }
   web_app->SetValidatedMigrationSources(std::move(validated_migration_sources));
 
@@ -1582,7 +1515,8 @@ std::unique_ptr<WebApp> ParseWebAppProto(
       DLOG(ERROR) << "WebApp proto PendingMigrationInfo parse error";
       return nullptr;
     }
-    web_app->SetPendingMigrationInfo(info_proto);
+    web_app->SetPendingMigrationInfo(
+        PendingMigrationInfo::ParseAndCreate(info_proto));
   }
 
   RecordProtoParseResult(ProtoParseResult::kSuccess);
@@ -1918,27 +1852,6 @@ std::unique_ptr<proto::WebApp> WebAppToProto(const WebApp& web_app) {
     local_data->set_parent_app_id(*web_app.parent_app_id_);
   }
 
-  if (!web_app.permissions_policy().empty()) {
-    auto& policy = *local_data->mutable_permissions_policy();
-    const auto& feature_to_name_map =
-        blink::GetPermissionsPolicyFeatureToNameMap();
-    for (const auto& decl : web_app.permissions_policy()) {
-      proto::WebAppPermissionsPolicy proto_policy;
-      const auto feature_name = feature_to_name_map.find(decl.feature);
-      if (feature_name == feature_to_name_map.end()) {
-        continue;
-      }
-      const std::string feature_string(feature_name->second);
-      proto_policy.set_feature(feature_string);
-      for (const auto& allowed_origin : GetSerializedAllowedOrigins(decl)) {
-        proto_policy.add_allowed_origins(allowed_origin);
-      }
-      proto_policy.set_matches_all_origins(decl.matches_all_origins);
-      proto_policy.set_matches_opaque_src(decl.matches_opaque_src);
-      policy.Add(std::move(proto_policy));
-    }
-  }
-
   if (!web_app.management_to_external_config_map().empty()) {
     for (const auto& [source, external_config] :
          web_app.management_to_external_config_map()) {
@@ -2141,16 +2054,16 @@ std::unique_ptr<proto::WebApp> WebAppToProto(const WebApp& web_app) {
   }
 
   for (const auto& source : web_app.unvalidated_migration_sources()) {
-    *local_data->add_unvalidated_migration_sources() = source;
+    *local_data->add_unvalidated_migration_sources() = source.ToProto();
   }
 
   for (const auto& source : web_app.validated_migration_sources()) {
-    *local_data->add_validated_migration_sources() = source;
+    *local_data->add_validated_migration_sources() = source.ToProto();
   }
 
   if (web_app.pending_migration_info().has_value()) {
     *local_data->mutable_pending_migration_info() =
-        *web_app.pending_migration_info();
+        web_app.pending_migration_info()->ToProto();
   }
 
   return local_data;

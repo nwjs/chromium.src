@@ -395,6 +395,7 @@ class WebMediaPlayerImplTest
     //
     // NOTE: This should be done before any other member variables are
     // destructed since WMPI may reference them during destruction.
+    wmpi_->Shutdown();
     wmpi_.reset();
 
     CycleThreads();
@@ -461,6 +462,7 @@ class WebMediaPlayerImplTest
         media_thread_.task_runner());
     compositor_ = compositor.get();
 
+    CHECK(!wmpi_);
     wmpi_ = std::make_unique<WebMediaPlayerImpl>(
         GetWebLocalFrame(), &client_, &encrypted_client_, &delegate_,
         std::move(factory_selector), url_index_.get(), std::move(compositor),
@@ -2112,6 +2114,56 @@ TEST_F(WebMediaPlayerImplTest, PipelineErrorHardwareContextReset_Twice) {
   run_loop.Run();
 }
 
+TEST_F(WebMediaPlayerImplTest,
+       PipelineErrorHardwareContextReset_TwoRenderersCreated) {
+  InitializeWebMediaPlayerImpl();
+  // To avoid PreloadMetadataLazyLoad.
+  wmpi_->SetPreload(WebMediaPlayer::kPreloadAuto);
+
+  base::RunLoop run_loop;
+
+  // Use MockRendererFactory which will create two MediaFoundation renderers.
+  // The first one will report a PIPELINE_ERROR_HARDWARE_CONTEXT_RESET after
+  // initialization. The second one will initialize normally and quit the loop
+  // to complete the test.
+  auto mock_renderer_factory = std::make_unique<media::MockRendererFactory>();
+  EXPECT_CALL(*mock_renderer_factory, CreateRenderer(_, _, _, _, _, _))
+      .WillOnce(testing::WithoutArgs([]() {
+        auto mock_renderer = std::make_unique<NiceMock<media::MockRenderer>>(
+            media::RendererType::kMediaFoundation);
+        EXPECT_CALL(*mock_renderer, OnSetCdm(_, _))
+            .WillOnce(RunOnceCallback<1>(true));
+        EXPECT_CALL(*mock_renderer, OnInitialize(_, _, _))
+            .WillOnce(DoAll(RunOnceCallback<2>(media::PIPELINE_OK),
+                            WithArg<1>(ReportHardwareContextReset())));
+        return mock_renderer;
+      }))
+      .WillOnce(testing::WithoutArgs([&]() {
+        auto mock_renderer = std::make_unique<NiceMock<media::MockRenderer>>(
+            media::RendererType::kMediaFoundation);
+        EXPECT_CALL(*mock_renderer, OnInitialize(_, _, _))
+            .WillOnce(DoAll(RunOnceCallback<2>(media::PIPELINE_OK),
+                            RunClosure(run_loop.QuitClosure())));
+        return mock_renderer;
+      }));
+
+  renderer_factory_selector_->AddFactory(media::RendererType::kMediaFoundation,
+                                         std::move(mock_renderer_factory));
+
+  // Create and set CDM. The CDM doesn't support a Decryptor and requires Media
+  // Foundation Renderer.
+  EXPECT_CALL(mock_cdm_context_, GetDecryptor())
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(mock_cdm_context_, RequiresMediaFoundationRenderer())
+      .WillRepeatedly(Return(true));
+
+  CreateCdm();
+  SetCdm();
+
+  Load(kEncryptedVideoOnlyTestFile);
+  run_loop.Run();
+}
+
 #endif  // BUILDFLAG(IS_WIN)
 
 TEST_F(WebMediaPlayerImplTest, VideoConfigChange) {
@@ -2708,6 +2760,7 @@ TEST_F(WebMediaPlayerImplTest, MemDumpProvidersRegistration) {
   EXPECT_TRUE(dump_manager->IsDumpProviderRegisteredForTesting(media_dumper));
   CycleThreads();
 
+  wmpi_->Shutdown();
   wmpi_.reset();
   CycleThreads();
 

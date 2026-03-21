@@ -2,24 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {html, nothing} from '//resources/lit/v3_0/lit.rollup.js';
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {isGlicVersion} from './profile_picker_flags.js';
 import type {ProfilePickerMainViewElement} from './profile_picker_main_view.js';
 
 export function getHtml(this: ProfilePickerMainViewElement) {
+  // clang-format off
   return html`<!--_html_template_start_-->
-<!-- Using a function vs ternary here to avoid unusual git cl formatting. -->
-${function() {
-    if (isGlicVersion()) {
-      return html`<link href="glic_profile_branding.css" rel="stylesheet" />`;
-    } else {
-      return nothing;
-    }
-  }()}
+${isGlicVersion() ? html`
+  <link href="glic_profile_branding.css" rel="stylesheet" />
+` : ''}
 <div class="flex-container">
   <div class="title-container">
-    <img id="picker-logo" @click="${this.onProductLogoClick_}"
+    <img id="pickerLogo" @click="${this.onProductLogoClick_}"
         src="picker_logo.svg" role="presentation">
     <h1 class="title" .innerHTML="${this.getTitle_()}"></h1>
     <div class="subtitle" .innerHTML="${this.getSubtitle_()}"></div>
@@ -29,8 +25,8 @@ ${function() {
       ${this.profilesList_.map((item, index) => html`
         <profile-card class="profile-item" data-index="${index}"
             .profileState="${item}" .disabled="${this.pickerButtonsDisabled_}"
-            @toggle-drag="${this.toggleDrag_}"
-            @disable-all-picker-buttons="${this.disableAllPickerButtons_}">
+            @toggle-drag="${this.onToggleDrag_}"
+            @disable-all-picker-buttons="${this.onDisableAllPickerButtons_}">
         </profile-card>
       `)}
       <cr-button id="addProfile" class="profile-item"
@@ -46,12 +42,10 @@ ${function() {
       </cr-button>
     </div>
   </div>
-<if expr="enable_glic">
   <div id="footer-text" class="subtitle"
       ?hidden="${this.shouldHideFooterText_()}">
     $i18nRaw{glicAddProfileHelper}
   </div>
-</if>
 </div>
 <div class="footer">
   <div class="footer-buttons-container">
@@ -70,14 +64,29 @@ ${function() {
       $i18n{openAllProfilesButtonText}
     </cr-button>
   </div>
-  <cr-checkbox id="askOnStartup" ?checked="${this.askOnStartup_}"
-      @checked-changed="${this.onAskOnStartupChangedByUser_}"
-      ?hidden="${this.hideAskOnStartup_}">
-    $i18n{askOnStartupCheckboxText}
-  </cr-checkbox>
+
+  ${this.isRefreshedUI_ ? html`
+    <div id="ask-on-startup-container" ?hidden="${this.hideAskOnStartup_}">
+      <span id="ask-on-startup-label" aria-hidden="true">
+        $i18n{askOnStartupText}
+      </span>
+      <cr-toggle id="askOnStartup"
+          aria-labelledby="ask-on-startup-label"
+          ?checked="${this.askOnStartup_}"
+          @checked-changed="${this.onAskOnStartupCheckedChanged_}">
+      </cr-toggle>
+    </div>
+  ` : html`
+    <cr-checkbox id="askOnStartup" ?checked="${this.askOnStartup_}"
+        @checked-changed="${this.onAskOnStartupCheckedChanged_}"
+        ?hidden="${this.hideAskOnStartup_}">
+      $i18n{askOnStartupText}
+    </cr-checkbox>
+  `}
 </div>
 
 <signin-error-dialog id="signinErrorDialog">
 </signin-error-dialog>
 <!--_html_template_end_-->`;
+  // clang-format on
 }

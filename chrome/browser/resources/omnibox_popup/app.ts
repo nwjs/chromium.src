@@ -31,7 +31,7 @@ import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
-import type {PageCallbackRouter as OmniboxPopupPageCallbackRouter} from './omnibox_popup.mojom-webui.js';
+import type {PageCallbackRouter as OmniboxPopupPageCallbackRouter, PageHandlerInterface as OmniboxPopupPageHandlerInterface} from './omnibox_popup.mojom-webui.js';
 import {OmniboxPopupBrowserProxy} from './omnibox_popup_browser_proxy.js';
 
 // 675px ~= 449px (--cr-realbox-primary-side-min-width) * 1.5 + some margin.
@@ -124,7 +124,10 @@ export class OmniboxPopupAppElement extends I18nMixinLit
       isInKeywordMode_: {type: Boolean},
       result_: {type: Object},
       searchboxLayoutMode_: {reflect: true, type: String},
-      showContextEntrypoint_: {type: Boolean},
+      showContextEntrypoint_: {
+        type: Boolean,
+        reflect: true,
+      },
       showAiModePrefEnabled_: {type: Boolean},
       isContentSharingEnabled_: {type: Boolean},
       isLensSearchEnabled_: {type: Boolean},
@@ -173,6 +176,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
   private pageHandler_: SearchboxPageHandlerInterface;
   private popupCallbackRouter_: OmniboxPopupPageCallbackRouter;
   private popupListenerIds_: number[] = [];
+  private popupPageHandler_: OmniboxPopupPageHandlerInterface;
   private selection_: OmniboxPopupSelection = kDefaultSelection;
 
   constructor() {
@@ -182,6 +186,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
         OmniboxPopupBrowserProxy.getInstance().callbackRouter;
     this.isDebug = new URLSearchParams(window.location.search).has('debug');
     this.pageHandler_ = SearchboxBrowserProxy.getInstance().handler;
+    this.popupPageHandler_ = OmniboxPopupBrowserProxy.getInstance().handler;
     ColorChangeUpdater.forDocument().start();
   }
 
@@ -360,7 +365,7 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     this.refreshRecentTabForChip_();
   }
 
-  protected onResultRepaint_() {
+  protected onDropdownDomChange_() {
     const metricsReporter = MetricsReporterImpl.getInstance();
     metricsReporter.measure('ResultChanged')
         .then(
@@ -471,7 +476,9 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     const available = [];
     for (let matchIndex = 0; matchIndex < result.matches.length; matchIndex++) {
       const match = result.matches[matchIndex]!;
-      if (match.isHidden) {
+      // Preserve selection of the default match, even if hidden, to stay
+      // compatible with OmniboxEditModel's keyword mode handling.
+      if (match.isHidden && !match.allowedToBeDefaultMatch) {
         continue;
       }
       available.push({
@@ -537,9 +544,10 @@ export class OmniboxPopupAppElement extends I18nMixinLit
   private openCurrentSelection_(disposition: WindowOpenDisposition) {
     if (this.selection_.state ===
         SelectionLineState.kFocusedButtonContextEntrypoint) {
-      this.pageHandler_.showContextMenu({x: 0, y: 0});
+      this.popupPageHandler_.showContextMenu({x: 0, y: 0});
     } else if (selectionIsNativelySupported(this.selection_)) {
-      this.pageHandler_.openPopupSelection(this.selection_, disposition);
+      this.pageHandler_.openPopupSelection(
+          this.result_?.sequenceId || 0, this.selection_, disposition);
     } else {
       assertNotReached(
           `openCurrentSelection_ called for unsupported selection: ${
@@ -551,14 +559,14 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     this.hasSecondarySide = e.detail.value;
   }
 
-  protected onContextualEntryPointClicked_(
+  protected onContextMenuEntrypointClick_(
       e: CustomEvent<{x: number, y: number}>) {
     e.preventDefault();
     const point = {
       x: e.detail.x,
       y: e.detail.y,
     };
-    this.pageHandler_.showContextMenu(point);
+    this.popupPageHandler_.showContextMenu(point);
   }
 
   protected async refreshRecentTabForChip_() {
@@ -570,11 +578,11 @@ export class OmniboxPopupAppElement extends I18nMixinLit
     }
   }
 
-  protected onLensSearchChipClicked_() {
+  protected onLensSearchClick_() {
     this.pageHandler_.openLensSearch();
   }
 
-  protected addTabContext_(e: CustomEvent<{
+  protected onAddTabContext_(e: CustomEvent<{
     id: number,
     title: string,
     url: Url,

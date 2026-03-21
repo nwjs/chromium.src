@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Yozib olish toʻxtatildi. Oʻyinlar paneli planshet rejimida ishlamaydi.</translation>
 <translation id="1024364763893396229"><ph name="NAME" /> nomli qurilmangizni saqlang</translation>
 <translation id="1032891413405719768">Stilus batareyasi quvvati kam</translation>
-<translation id="1036073649888683237">Bildirishnomalarni boshqarish uchun Sozlamalarni oching</translation>
 <translation id="1036348656032585052">O‘chirib qo‘yish</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> qurilmasi qo‘shildi</translation>
 <translation id="1038106730571050514">Variantlar taklif qilish</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Ilovani o‘rnatish</translation>
 <translation id="2482878487686419369">Bildirishnomalar</translation>
 <translation id="2484513351006226581">Klaviatura terilmasini almashtirish uchun <ph name="KEYBOARD_SHORTCUT" /> tugmalarini bosing.</translation>
+<translation id="2485422356828889247">O‘chirib tashlash</translation>
 <translation id="2486214324139475545"><ph name="DESK_NAME" /> – razm solish. Faol ish stoli.</translation>
 <translation id="2486405091093637109">"<ph name="DISPLAY_NAME" />" aniqlik darajasi oʻzgartirildi: <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Hech qanday amal bajarilmasa, eski sozlamalar qaytariladi, qolgan vaqt: <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Qo‘shilish</translation>

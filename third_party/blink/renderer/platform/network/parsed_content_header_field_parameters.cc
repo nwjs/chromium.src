@@ -68,11 +68,12 @@ ParsedContentHeaderFieldParameters::Parse(HeaderFieldTokenizer tokenizer,
 
 String ParsedContentHeaderFieldParameters::ParameterValueForName(
     StringView name) const {
-  if (!name.ContainsOnlyASCIIOrEmpty())
+  if (!name.ContainsOnlyAsciiOrEmpty()) {
     return String();
+  }
 
   for (const NameValue& param : base::Reversed(*this)) {
-    if (EqualIgnoringASCIICase(param.name, name)) {
+    if (EqualIgnoringAsciiCase(param.name, name)) {
       return param.value;
     }
   }

@@ -48,15 +48,8 @@ BASE_FEATURE(kLocalWebApprovalsWidgetSupportsUrlPayload,
              "PacpWidgetSupportsUrlPayload",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// TODO(crbug.com/435635774): Release the interstitial v3 in all platforms.
 BASE_FEATURE(kSupervisedUserBlockInterstitialV3,
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) || \
-    BUILDFLAG(IS_IOS)
              base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN) ||
-        // BUILDFLAG(IS_IOS)
 
 bool IsGoogleBrandedBuild() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -96,6 +89,6 @@ BASE_FEATURE(kSupervisedUserUseUrlFilteringService,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSupervisedUserMergeDeviceParentalControlsAndFamilyLinkPrefs,
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kSupervisedUserUseEmitDeviceLogRecordSeparately,
+BASE_FEATURE(kSupervisedUserEmitLogRecordSeparately,
              base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace supervised_user

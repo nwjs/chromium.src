@@ -15,14 +15,14 @@ import {PriceTrackingBrowserProxyImpl} from 'chrome://resources/cr_components/co
 import {PageImageServiceBrowserProxy} from 'chrome://resources/cr_components/page_image_service/browser_proxy.js';
 import {PageImageServiceHandlerRemote} from 'chrome://resources/cr_components/page_image_service/page_image_service.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {createTestBookmarks, getBookmarks, getPowerBookmarksRowElement, initializeUi} from './power_bookmarks_list_test_util.js';
+import {createTestBookmarks, getBookmarks, getPowerBookmarksRowElement, getPowerBookmarksRowItemElement, initializeUi} from './power_bookmarks_list_test_util.js';
 import {TestBookmarksApiProxy} from './test_bookmarks_api_proxy.js';
 
 const nestedBookmarks: BookmarksTreeNode[] = [
@@ -303,7 +303,10 @@ suite('TreeView', () => {
     assertFalse(folderRow.toggleExpand, 'Folder should be initially collapsed');
 
     // Focus the item before sending key presses.
-    const urlListItem = folderRow.shadowRoot.querySelector('cr-url-list-item')!;
+    const rowItem =
+        folderRow.shadowRoot.querySelector('power-bookmark-row-item');
+    assertTrue(!!rowItem);
+    const urlListItem = rowItem.$.crUrlListItem;
     urlListItem.focus();
     powerBookmarksList.getKeyboardNavigationServiceforTesting()
         .setCurrentFocusIndex(folderRow);
@@ -317,12 +320,11 @@ suite('TreeView', () => {
     await waitAfterNextRender(powerBookmarksList);
 
     // Default sort is kNewest.
-    assertEquals(
-        JSON.stringify(
-            powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                .getElementsForTesting()
-                .map((el: HTMLElement) => el.id)),
-        JSON.stringify([
+    assertArrayEquals(
+        powerBookmarksList.getKeyboardNavigationServiceforTesting()
+            .getElementsForTesting()
+            .map((el: HTMLElement) => el.id),
+        [
           'bookmark-5',
           'bookmark-10',
           'bookmark-21',
@@ -332,18 +334,17 @@ suite('TreeView', () => {
           'bookmark-6',
           'bookmark-4',
           'bookmark-3',
-        ]));
+        ]);
 
     folderRow.activeSortIndex = 4;
     await microtasksFinished();
     await flushTasks();
 
-    assertEquals(
-        JSON.stringify(
-            powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                .getElementsForTesting()
-                .map((el: HTMLElement) => el.id)),
-        JSON.stringify([
+    assertArrayEquals(
+        powerBookmarksList.getKeyboardNavigationServiceforTesting()
+            .getElementsForTesting()
+            .map((el: HTMLElement) => el.id),
+        [
           'bookmark-5',
           'bookmark-10',
           'bookmark-21',
@@ -353,7 +354,7 @@ suite('TreeView', () => {
           'bookmark-6',
           'bookmark-4',
           'bookmark-3',
-        ]));
+        ]);
   });
 
   test('ShowsCorrectFoldersOnTreeView', () => {
@@ -372,8 +373,7 @@ suite('TreeView', () => {
     assertTrue(!!expandButton);
 
     expandButton.click();
-    await expandButton.updateComplete;
-    await folderElement.updateComplete;
+    await microtasksFinished();
 
     // Verify nested bookmarks are now visible
     const nestedBookmarkElement =
@@ -383,9 +383,11 @@ suite('TreeView', () => {
     assertEquals(1, nestedBookmarkElement.depth);
 
     // Verify that the "more" button has a tooltip.
-    const dotsIcon =
-        nestedBookmarkElement.shadowRoot.querySelector<HTMLElement>(
-            'cr-icon-button[iron-icon=\'cr:more-vert\']');
+    const rowItem = nestedBookmarkElement.shadowRoot.querySelector(
+        'power-bookmark-row-item');
+    assertTrue(!!rowItem);
+    const dotsIcon = rowItem.shadowRoot.querySelector<HTMLElement>(
+        'cr-icon-button[iron-icon=\'cr:more-vert\']');
     assertTrue(!!dotsIcon);
     assertEquals(loadTimeData.getString('tooltipMore'), dotsIcon.title);
 
@@ -402,8 +404,7 @@ suite('TreeView', () => {
     assertEquals(`${expectedMargin}px`, computedStyle.marginLeft);
 
     expandButton.click();
-    await expandButton.updateComplete;
-    await folderElement.updateComplete;
+    await microtasksFinished();
 
     // Verify nested bookmarks are no longer visible
     assertFalse(!!getPowerBookmarksRowElement(folderElement, '6'));
@@ -421,7 +422,10 @@ suite('TreeView', () => {
         'Child bookmark should not be visible initially');
 
     // Focus the item before sending key presses.
-    const urlListItem = folderRow.shadowRoot.querySelector('cr-url-list-item')!;
+    const rowItem =
+        folderRow.shadowRoot.querySelector('power-bookmark-row-item');
+    assertTrue(!!rowItem);
+    const urlListItem = rowItem.$.crUrlListItem;
     urlListItem.focus();
     powerBookmarksList.getKeyboardNavigationServiceforTesting()
         .setCurrentFocusIndex(folderRow);
@@ -456,10 +460,12 @@ suite('TreeView', () => {
       'moves focus to first child on right arrow if already open', async () => {
         const folderRow = getPowerBookmarksRowElement(powerBookmarksList, '5');
         assertTrue(!!folderRow);
-        await flushTasks();
+        const folderItem =
+            folderRow.shadowRoot.querySelector('power-bookmark-row-item');
+        assertTrue(!!folderItem);
+        powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-        const urlListItem =
-            folderRow.shadowRoot.querySelector('cr-url-list-item')!;
+        const urlListItem = folderItem.$.crUrlListItem;
         urlListItem.focus();
         powerBookmarksList.getKeyboardNavigationServiceforTesting()
             .setCurrentFocusIndex(folderRow);
@@ -479,6 +485,7 @@ suite('TreeView', () => {
         folderRow.dispatchEvent(ARROW_RIGHT_EVENT);
         await flushTasks();
         await waitAfterNextRender(powerBookmarksList);
+        await flushTasks();
 
         assertEquals(
             childRow.id, folderRow.shadowRoot.activeElement!.id,
@@ -486,11 +493,11 @@ suite('TreeView', () => {
       });
 
   test('right arrow does nothing on non-folder', async () => {
-    const bookmarkRow = getPowerBookmarksRowElement(powerBookmarksList, '3');
+    const bookmarkRow =
+        getPowerBookmarksRowItemElement(powerBookmarksList, '3');
     assertTrue(!!bookmarkRow);
 
-    const urlListItem =
-        bookmarkRow.shadowRoot.querySelector('cr-url-list-item')!;
+    const urlListItem = bookmarkRow.$.crUrlListItem;
     urlListItem.focus();
 
     // This should not throw errors or change state.
@@ -498,15 +505,18 @@ suite('TreeView', () => {
     await flushTasks();
 
     // No toggleExpand property to check, just make sure nothing broke.
-    assertTrue(!!getPowerBookmarksRowElement(powerBookmarksList, '3'));
+    assertTrue(!!getPowerBookmarksRowItemElement(powerBookmarksList, '3'));
   });
 
   test('moves focus to parent on left arrow from child', async () => {
     const folderRow = getPowerBookmarksRowElement(powerBookmarksList, '5');
     assertTrue(!!folderRow);
-    await flushTasks();
+    const folderItem =
+        folderRow.shadowRoot.querySelector('power-bookmark-row-item');
+    assertTrue(!!folderItem);
+    powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-    const urlListItem = folderRow.shadowRoot.querySelector('cr-url-list-item')!;
+    const urlListItem = folderItem.$.crUrlListItem;
     urlListItem.focus();
     powerBookmarksList.getKeyboardNavigationServiceforTesting()
         .setCurrentFocusIndex(folderRow);
@@ -543,10 +553,10 @@ suite('TreeView', () => {
   test('LogsMetricsCountExpanded', async () => {
     powerBookmarksList = await initializeUi(bookmarksApi);
 
-    const folderRow = getPowerBookmarksRowElement(powerBookmarksList, '5');
+    const folderRow = getPowerBookmarksRowItemElement(powerBookmarksList, '5');
     assertTrue(!!folderRow);
 
-    const urlListItem = folderRow.shadowRoot.querySelector('cr-url-list-item')!;
+    const urlListItem = folderRow.$.crUrlListItem;
     urlListItem.focus();
 
     const toggleEvent =

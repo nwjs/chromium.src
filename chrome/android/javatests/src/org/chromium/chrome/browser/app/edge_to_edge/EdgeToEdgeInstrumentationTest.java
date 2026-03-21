@@ -98,8 +98,8 @@ public class EdgeToEdgeInstrumentationTest {
     // Declare the watcher before the app launches.
     HistogramWatcher mEligibleHistograms =
             HistogramWatcher.newBuilder()
-                    .expectBooleanRecord("Android.EdgeToEdge.Eligible", true)
-                    .expectNoRecords("Android.EdgeToEdge.IneligibilityReason")
+                    .expectBooleanRecord("Android.EdgeToEdge.Eligible2.OnCreateController", true)
+                    .expectNoRecords("Android.EdgeToEdge.IneligibilityReason2.OnCreateController")
                     .build();
 
     @Before
@@ -238,6 +238,7 @@ public class EdgeToEdgeInstrumentationTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "crbug.com/455479243")
     public void testRotationToPortrait_WhileOptedIntoE2E() {
         activateFeatureToEdge();
         rotate(Configuration.ORIENTATION_LANDSCAPE);

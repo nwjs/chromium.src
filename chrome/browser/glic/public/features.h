@@ -11,11 +11,16 @@
 namespace features {
 
 BASE_DECLARE_FEATURE(kGlicTabRestoration);
+BASE_DECLARE_FEATURE(kGlicDaisyChainViaCoordinator);
 BASE_DECLARE_FEATURE(kGlicChromeStatusIcon);
 
 BASE_DECLARE_FEATURE(kGlicOrphanedReattachment);
 
 BASE_DECLARE_FEATURE(kAutoOpenGlicForPdf);
+
+BASE_DECLARE_FEATURE(kGlicInvoke);
+
+BASE_DECLARE_FEATURE(kGlicSelectionPrompt);
 
 }  // namespace features
 

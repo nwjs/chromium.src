@@ -39,6 +39,7 @@
 #include "cc/layers/tile_display_layer_impl.h"
 #include "cc/layers/ui_resource_layer_impl.h"
 #include "cc/layers/view_transition_content_layer_impl.h"
+#include "cc/trees/latency_info_swap_promise.h"
 #include "cc/trees/layer_tree_host_impl.h"
 #include "cc/trees/layer_tree_impl.h"
 #include "cc/trees/layer_tree_settings.h"
@@ -1765,8 +1766,6 @@ void LayerContextImpl::UpdateDisplayTree(mojom::LayerTreeUpdatePtr update) {
   const BeginFrameArgs begin_frame_args = update->begin_frame_args;
   auto start_update_display_tree = base::TimeTicks::Now();
   const bool frame_has_damage = update->frame_has_damage;
-  host_impl_->AddDamageDataCrashKeys(update->damage_reasons_bit_mask,
-                                     /*is_viz=*/false);
   auto result = DoUpdateDisplayTree(std::move(update));
   if (!result.has_value()) {
     HandleBadMojoMessage("UpdateDisplayTree", result.error());
@@ -1855,10 +1854,8 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
   }
 
   if (update->surface_ranges) {
-    base::flat_set<SurfaceRange> surface_ranges;
-    for (auto& surface_range : *(update->surface_ranges)) {
-      surface_ranges.insert(surface_range);
-    }
+    base::flat_set<SurfaceRange> surface_ranges(std::from_range,
+                                                *(update->surface_ranges));
     layers.ClearSurfaceRanges();
     layers.SetSurfaceRanges(surface_ranges);
   }
@@ -1899,6 +1896,11 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
 
   RETURN_IF_FALSE(update->next_frame_token > 0, "invalid frame token");
   host_impl_->set_next_frame_token_from_client(update->next_frame_token);
+
+  for (const auto& latency : update->latency_info) {
+    layers.QueuePinnedSwapPromise(
+        std::make_unique<cc::LatencyInfoSwapPromise>(latency));
+  }
 
   host_impl_->set_send_frame_token_to_embedder(
       update->send_frame_token_to_embedder);
@@ -2005,6 +2007,7 @@ base::expected<void, std::string> LayerContextImpl::DoUpdateDisplayTree(
       update->top_controls_shown_ratio, update->bottom_controls_shown_ratio);
 
   host_impl_->SetViewportDamage(update->viewport_damage_rect);
+  host_impl_->SetRootLayerDamageRect(update->root_layer_damage_rect);
   host_impl_->SetDebugState(update->debug_state);
 
   for (auto& ui_resource_request : update->ui_resource_requests) {

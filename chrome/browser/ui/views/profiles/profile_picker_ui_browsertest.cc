@@ -54,6 +54,7 @@ struct ProfilePickerTestParam {
   bool has_supervised_user = false;
   bool disallow_profile_creation = false;
   bool use_glic_version = false;
+  bool use_refreshed_ui = false;
   bool no_glic_eligible_profiles = false;
   bool is_enterprise_badging_enabled = false;
   bool is_profile_picker_first_run = true;
@@ -181,6 +182,19 @@ const ProfilePickerTestParam kTestParams[] = {
     {.pixel_test_param = {.test_suffix = "SigninErrorCookiesNotAllowed",
                           .use_dark_theme = true},
      .signin_error_dialog_type = SigninUIError::Type::kSigninCookiesDisallowed},
+    /* Refreshed UI params (FirstRunDesktopRefresh) */
+    {.pixel_test_param = {.test_suffix = "RefreshedUI"},
+     .use_multiple_profiles = true,
+     .use_refreshed_ui = true},
+    {.pixel_test_param = {.test_suffix = "RefreshedUIDarkMode",
+                          .use_dark_theme = true},
+     .use_multiple_profiles = true,
+     .use_refreshed_ui = true},
+    {.pixel_test_param =
+         {.test_suffix = "RefreshedUIOpenAllProfilesExperimentButtonShown"},
+     .use_multiple_profiles = true,
+     .use_refreshed_ui = true,
+     .open_all_profiles_experiment_enabled = true},
 };
 
 enum class ProfileStatus {
@@ -282,17 +296,21 @@ class ProfilePickerUIPixelTest
  public:
   ProfilePickerUIPixelTest()
       : ProfilesPixelTestBaseT<UiBrowserTest>(GetParam().pixel_test_param) {
+    std::vector<base::test::FeatureRefAndParams> enabled_features;
     if (!GetParam().text_variation_feature_param.empty()) {
-      scoped_feature_list_.InitWithFeaturesAndParameters(
-          {{switches::kProfilePickerTextVariations,
-            {{"profile-picker-variation",
-              GetParam().text_variation_feature_param}}}},
-          {});
+      enabled_features.push_back({switches::kProfilePickerTextVariations,
+                                  {{"profile-picker-variation",
+                                    GetParam().text_variation_feature_param}}});
     }
     if (GetParam().open_all_profiles_experiment_enabled) {
-      scoped_feature_list_.InitAndEnableFeature(
-          switches::kOpenAllProfilesFromProfilePickerExperiment);
+      enabled_features.push_back(
+          {switches::kOpenAllProfilesFromProfilePickerExperiment, {}});
     }
+    if (GetParam().use_refreshed_ui) {
+      enabled_features.push_back({switches::kFirstRunDesktopRefresh, {}});
+    }
+
+    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
   }
 
   ForceSigninUIError GetForceSigninUIError() {

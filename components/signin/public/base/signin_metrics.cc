@@ -75,7 +75,6 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kUserManager:
     case AccessPoint::kFullscreenSigninPromo:
     case AccessPoint::kRecentTabs:
-    case AccessPoint::kUnknown:
     case AccessPoint::kPasswordBubble:
     case AccessPoint::kAutofillDropdown:
     case AccessPoint::kResigninInfobar:
@@ -139,6 +138,10 @@ std::optional<AccessPoint> AccessPointFromInt(int value) {
     case AccessPoint::kCredentialExchangeImport:
     case AccessPoint::kSetSyncConsentFromSyncInternals:
     case AccessPoint::kIosChromeWebView:
+    case AccessPoint::kAshUserSessionManager:
+    case AccessPoint::kAshChromeSessionManager:
+    case AccessPoint::kAvatarPillExpandPromo:
+    case AccessPoint::kSearchAIModeBubble:
       return access_point;
   }
 
@@ -369,10 +372,6 @@ void LogAccountRelation(const AccountRelation relation,
       static_cast<int>(AccountRelation::HISTOGRAM_COUNT));
 }
 
-void LogIsShared(const bool is_shared, const ReportingType type) {
-  INVESTIGATOR_HISTOGRAM_BOOLEAN("Signin.IsShared", type, is_shared);
-}
-
 void LogSignedInCookiesCountsPerPrimaryAccountType(int signed_in_accounts_count,
                                                    bool primary_syncing,
                                                    bool primary_managed) {
@@ -503,6 +502,10 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromExtensions"));
       break;
+    case AccessPoint::kSearchAIModeBubble:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromSearchAIModeBubble"));
+      break;
     case AccessPoint::kBookmarkBubble:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromBookmarkBubble"));
@@ -526,10 +529,6 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kRecentTabs:
       base::RecordAction(
           base::UserMetricsAction("Signin_Signin_FromRecentTabs"));
-      break;
-    case AccessPoint::kUnknown:
-      base::RecordAction(
-          base::UserMetricsAction("Signin_Signin_FromUnknownAccessPoint"));
       break;
     case AccessPoint::kPasswordBubble:
       base::RecordAction(
@@ -575,6 +574,8 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kManagedProfileAutoSigninIos:
     case AccessPoint::kSetSyncConsentFromSyncInternals:
     case AccessPoint::kIosChromeWebView:
+    case AccessPoint::kAshChromeSessionManager:
+    case AccessPoint::kAshUserSessionManager:
       NOTREACHED() << "Access point " << static_cast<int>(access_point)
                    << " is not supposed to log signin user actions.";
     case AccessPoint::kCollaborationShareTabGroup:
@@ -721,6 +722,9 @@ void RecordSigninUserActionForAccessPoint(AccessPoint access_point) {
       base::RecordAction(base::UserMetricsAction(
           "Signin_Signin_FromCredentialExchangeImport"));
       break;
+    case AccessPoint::kAvatarPillExpandPromo:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Signin_FromAvatarPillExpandPromo"));
   }
 }
 
@@ -744,6 +748,10 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kExtensionInstallBubble:
       base::RecordAction(base::UserMetricsAction(
           "Signin_Impression_FromExtensionInstallBubble"));
+      break;
+    case AccessPoint::kSearchAIModeBubble:
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Impression_FromSearchAIModeBubble"));
       break;
     case AccessPoint::kBookmarkBubble:
       base::RecordAction(
@@ -846,7 +854,6 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
           "Signin_Impression_FromCredentialExchangeImport"));
       break;
     case AccessPoint::kExtensions:
-    case AccessPoint::kUnknown:
     case AccessPoint::kMachineLogon:
     case AccessPoint::kForcedSignin:
     case AccessPoint::kWebSignin:
@@ -890,6 +897,9 @@ void RecordSigninImpressionUserActionForAccessPoint(AccessPoint access_point) {
     case AccessPoint::kNtpFeaturePromo:
     case AccessPoint::kSetSyncConsentFromSyncInternals:
     case AccessPoint::kIosChromeWebView:
+    case AccessPoint::kAshUserSessionManager:
+    case AccessPoint::kAshChromeSessionManager:
+    case AccessPoint::kAvatarPillExpandPromo:
       NOTREACHED() << "Signin_Impression_From* user actions are not recorded "
                       "for access point "
                    << static_cast<int>(access_point);

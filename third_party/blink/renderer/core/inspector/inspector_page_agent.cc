@@ -45,11 +45,11 @@
 #include "third_party/blink/renderer/bindings/core/v8/local_window_proxy.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_evaluation_result.h"
+#include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_timing.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
-#include "third_party/blink/renderer/core/frame/ad_tracker.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -275,7 +275,7 @@ static std::unique_ptr<TextResourceDecoder> CreateResourceTextDecoder(
     options.SetUseLenientXMLDecoding();
     return std::make_unique<TextResourceDecoder>(options);
   }
-  if (EqualIgnoringASCIICase(mime_type, "text/html")) {
+  if (EqualIgnoringAsciiCase(mime_type, "text/html")) {
     return std::make_unique<TextResourceDecoder>(TextResourceDecoderOptions(
         TextResourceDecoderOptions::kHTMLContent, Utf8Encoding()));
   }
@@ -816,7 +816,7 @@ protocol::Response InspectorPageAgent::getAdScriptAncestry(
     for (const auto& ad_script_identifier : ad_script_ancestry.ancestry_chain) {
       ancestry_chain.push_back(
           protocol::Page::AdScriptId::create()
-              .setScriptId(String::Number(ad_script_identifier.id))
+              .setScriptId(String::Number(ad_script_identifier.id.value()))
               .setDebuggerId(ToCoreString(
                   ad_script_identifier.context_id.toString()->string()))
               .build());
@@ -1044,22 +1044,13 @@ DOMWrapperWorld* InspectorPageAgent::EnsureDOMWrapperWorld(
     LocalFrame* frame,
     const String& world_name,
     bool grant_universal_access) {
-  if (!isolated_worlds_.Contains(frame)) {
-    isolated_worlds_.Set(frame, MakeGarbageCollected<FrameIsolatedWorlds>());
-  }
-  FrameIsolatedWorlds& frame_worlds = *isolated_worlds_.find(frame)->value;
-
-  auto world_it = frame_worlds.find(world_name);
-  if (world_it != frame_worlds.end()) {
-    return world_it->value;
-  }
   LocalDOMWindow* window = frame->DomWindow();
   DOMWrapperWorld* world =
-      window->GetScriptController().CreateNewInspectorIsolatedWorld(world_name);
+      DOMWrapperWorld::EnsureInspectorIsolatedWorldWithName(
+          frame->DomWindow()->GetIsolate(), world_name);
   if (!world) {
     return nullptr;
   }
-  frame_worlds.Set(world_name, world);
   scoped_refptr<SecurityOrigin> security_origin =
       window->GetSecurityOrigin()->IsolatedCopy();
   if (grant_universal_access) {
@@ -1321,7 +1312,7 @@ void InspectorPageAgent::WindowOpen(const KURL& url,
                                     const AtomicString& window_name,
                                     const WebWindowFeatures& window_features,
                                     bool user_gesture) {
-  GetFrontend()->windowOpen(url.IsEmpty() ? BlankURL() : url, window_name,
+  GetFrontend()->windowOpen(url.IsEmpty() ? BlankUrl() : url, window_name,
                             GetEnabledWindowFeatures(window_features),
                             user_gesture);
   GetFrontend()->flush();
@@ -2071,7 +2062,6 @@ void InspectorPageAgent::Trace(Visitor* visitor) const {
   visitor->Trace(inspected_frames_);
   visitor->Trace(pending_isolated_worlds_);
   visitor->Trace(inspector_resource_content_loader_);
-  visitor->Trace(isolated_worlds_);
   InspectorBaseAgent::Trace(visitor);
 }
 

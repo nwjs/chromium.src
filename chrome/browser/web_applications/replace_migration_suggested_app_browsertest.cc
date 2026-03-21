@@ -9,6 +9,7 @@
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
+#include "chrome/browser/web_applications/model/migration_behavior.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
@@ -17,6 +18,7 @@
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
+#include "chrome/browser/web_applications/web_app_proto_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -59,9 +61,9 @@ class ReplaceMigrationSuggestedAppBrowserTest
     web_app_info->title = u"Test App";
     web_app_info->user_display_mode = mojom::UserDisplayMode::kStandalone;
 
-    web_app::proto::WebAppMigrationSource source;
-    source.set_manifest_id(start_url.GetWithoutFilename().spec());
-    web_app_info->migration_sources.push_back(std::move(source));
+    web_app_info->migration_sources.emplace_back(
+        webapps::ManifestId(GURL(start_url.GetWithoutFilename().spec())),
+        MigrationBehavior::kSuggest);
 
     base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
         install_future;
@@ -175,14 +177,20 @@ IN_PROC_BROWSER_TEST_P(ReplaceMigrationSuggestedAppBrowserTest,
     case WebAppInstallFlow::kSyncInstall: {
       // Create a web app for syncing that is similar to the already installed
       // one.
-      auto app = test::CreateWebApp(start_url, WebAppManagement::kSync);
-      app->SetScope(start_url.GetWithoutFilename());
+      sync_pb::WebAppSpecifics sync_proto;
+      webapps::ManifestId manifest_id =
+          GenerateManifestIdFromStartUrlOnly(start_url);
+      sync_proto.set_start_url(start_url.spec());
+      sync_proto.set_relative_manifest_id(RelativeManifestIdPath(manifest_id));
+      sync_proto.set_scope(start_url.GetWithoutFilename().spec());
+      auto app = test::CreateWebAppFromSyncProto(std::move(sync_proto));
       app->SetName("Test App");
       app->SetUserDisplayMode(mojom::UserDisplayMode::kStandalone);
-      sync_pb::WebAppSpecifics mutable_sync_proto = app->sync_proto();
-      mutable_sync_proto.set_name("Test App");
-      mutable_sync_proto.set_scope(start_url.GetWithoutFilename().spec());
-      app->SetSyncProto(std::move(mutable_sync_proto));
+      app->SetInstallState(
+          proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION);
+      app->SetDisplayMode(blink::mojom::DisplayMode::kStandalone);
+      proto::os_state::WebAppOsIntegration os_state;
+      app->SetCurrentOsIntegrationStates(os_state);
       app->SetIsFromSyncAndPendingInstallation(
           /*is_from_sync_and_pending_installation=*/true);
 

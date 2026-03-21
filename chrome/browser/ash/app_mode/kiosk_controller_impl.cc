@@ -45,12 +45,12 @@
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_level_logs_manager_wrapper.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -126,19 +126,21 @@ KioskApp EmptyKioskApp(const KioskAppId& app_id) {
 }  // namespace
 
 KioskControllerImpl::KioskControllerImpl(
-    PrefService& local_state,
+    PrefService* local_state,
+    const policy::PolicyService* policy_service,
     scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
     user_manager::UserManager* user_manager)
-    : local_state_(local_state),
-      cryptohome_remover_(&local_state),
-      iwa_manager_(local_state, &cryptohome_remover_),
-      web_app_manager_(&local_state,
+    : local_state_(CHECK_DEREF(local_state)),
+      policy_service_(CHECK_DEREF(policy_service)),
+      cryptohome_remover_(local_state),
+      iwa_manager_(CHECK_DEREF(local_state), &cryptohome_remover_),
+      web_app_manager_(local_state,
                        shared_url_loader_factory,
                        &cryptohome_remover_),
-      chrome_app_manager_(&local_state,
+      chrome_app_manager_(local_state,
                           shared_url_loader_factory,
                           &cryptohome_remover_),
-      arcvm_app_manager_(&local_state, &cryptohome_remover_) {
+      arcvm_app_manager_(local_state, &cryptohome_remover_) {
   user_manager_observation_.Observe(user_manager);
 }
 
@@ -240,7 +242,7 @@ void KioskControllerImpl::StartSession(const KioskAppId& app_id,
       std::make_unique<chromeos::KioskAppLevelLogsManagerWrapper>(app_id);
 
   launch_controller_ = std::make_unique<KioskLaunchController>(
-      &local_state_.get(), host,
+      &local_state_.get(), &policy_service_.get(), host,
       /*app_launched_callback=*/
       base::BindOnce(&KioskControllerImpl::OnAppLaunched,
                      base::Unretained(this)),
@@ -426,7 +428,7 @@ void KioskControllerImpl::OnLaunchCompleteAfterCrash(
     }
     InitializeKioskSystemSession(app, profile, app_name);
   } else {
-    chrome::AttemptUserExit();
+    session_manager::SessionManager::Get()->RequestSignOut();
   }
 
   // Delete launcher so it doesn't end up with dangling references.

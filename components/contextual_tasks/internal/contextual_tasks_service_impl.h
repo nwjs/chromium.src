@@ -18,6 +18,7 @@
 #include "base/uuid.h"
 #include "base/version_info/channel.h"
 #include "components/contextual_tasks/internal/ai_thread_sync_bridge.h"
+#include "components/contextual_tasks/internal/gemini_thread_sync_bridge.h"
 #include "components/contextual_tasks/internal/proto/ai_thread_entity.pb.h"
 #include "components/contextual_tasks/internal/proto/contextual_task_entity.pb.h"
 #include "components/contextual_tasks/public/context_decorator.h"
@@ -41,7 +42,8 @@ struct ContextualTaskContext;
 struct ContextDecorationParams;
 
 class ContextualTasksServiceImpl : public ContextualTasksService,
-                                   public AiThreadSyncBridge::Observer {
+                                   public AiThreadSyncBridge::Observer,
+                                   public GeminiThreadSyncBridge::Observer {
  public:
   ContextualTasksServiceImpl(
       version_info::Channel channel,
@@ -104,6 +106,8 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
   void RemoveObserver(ContextualTasksService::Observer* observer) override;
   base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetAiThreadControllerDelegate() override;
+  base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetGeminiThreadControllerDelegate() override;
 
   size_t GetTabIdMapSizeForTesting() const;
 
@@ -119,15 +123,27 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
                    const std::string& server_id);
 
   void RemoveTaskInternal(const base::Uuid& task_id, TriggerSource source);
+  void OnThreadRemovedRemotelyInternal(
+      ThreadType thread_filter,
+      const std::vector<base::Uuid>& thread_ids);
 
   void SetAiThreadSyncBridgeForTesting(
       std::unique_ptr<AiThreadSyncBridge> bridge);
+  void SetGeminiThreadSyncBridgeForTesting(
+      std::unique_ptr<GeminiThreadSyncBridge> bridge);
 
   // AiThreadSyncBridge::Observer implementation.
   void OnThreadDataStoreLoaded() override;
   void OnThreadAddedOrUpdatedRemotely(
       const std::vector<proto::AiThreadEntity>& threads) override;
   void OnThreadRemovedRemotely(
+      const std::vector<base::Uuid>& thread_ids) override;
+
+  // GeminiThreadSyncBridge::Observer implementation.
+  void OnGeminiThreadDataStoreLoaded() override;
+  void OnGeminiThreadAddedOrUpdatedRemotely(
+      const std::vector<sync_pb::GeminiThreadSpecifics>& specifics) override;
+  void OnGeminiThreadRemovedRemotely(
       const std::vector<base::Uuid>& thread_ids) override;
 
   void NotifyTaskAdded(const ContextualTask& task, TriggerSource source);
@@ -157,6 +173,7 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
   base::ObserverList<ContextualTasksService::Observer> observers_;
 
   std::unique_ptr<AiThreadSyncBridge> ai_thread_sync_bridge_;
+  std::unique_ptr<GeminiThreadSyncBridge> gemini_thread_sync_bridge_;
 
   // Barrier to run OnDataStoresLoaded() after both sync bridges have loaded
   // their data.
@@ -177,6 +194,9 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
 
   base::ScopedObservation<AiThreadSyncBridge, AiThreadSyncBridge::Observer>
       ai_thread_observation_{this};
+  base::ScopedObservation<GeminiThreadSyncBridge,
+                          GeminiThreadSyncBridge::Observer>
+      gemini_thread_observation_{this};
   base::WeakPtrFactory<ContextualTasksServiceImpl> weak_ptr_factory_{this};
 };
 

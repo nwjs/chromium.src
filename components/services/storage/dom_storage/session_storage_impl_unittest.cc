@@ -16,8 +16,11 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/with_feature_override.h"
 #include "base/uuid.h"
@@ -43,6 +46,14 @@ class SessionStorageImplTest : public base::test::WithFeatureOverride,
  public:
   SessionStorageImplTest()
       : base::test::WithFeatureOverride(kDomStorageSqlite) {
+    // Match the state of `kDomStorageSqliteInMemory` to the top level
+    // kDomStorageSqlite. That way in-memory databases will use the backend
+    // expected by the param state.
+    if (IsSqliteEnabled()) {
+      feature_list_.InitAndEnableFeature(kDomStorageSqliteInMemory);
+    } else {
+      feature_list_.InitAndDisableFeature(kDomStorageSqliteInMemory);
+    }
     CHECK(temp_dir_.CreateUniqueTempDir());
   }
 
@@ -99,7 +110,8 @@ class SessionStorageImplTest : public base::test::WithFeatureOverride,
                  const blink::StorageKey& storage_key,
                  std::string_view key,
                  std::string_view value,
-                 const std::string& source) {
+                 const std::string& source,
+                 bool should_persist) {
     session_storage()->CreateNamespace(namespace_id);
     mojo::Remote<blink::mojom::StorageArea> area;
     session_storage()->BindStorageArea(storage_key, namespace_id,
@@ -107,7 +119,7 @@ class SessionStorageImplTest : public base::test::WithFeatureOverride,
     EXPECT_TRUE(test::PutSync(area.get(), StringViewToUint8Vector(key),
                               StringViewToUint8Vector(value), std::nullopt,
                               source));
-    session_storage()->DeleteNamespace(namespace_id, true);
+    session_storage()->DeleteNamespace(namespace_id, should_persist);
   }
 
   std::optional<std::vector<uint8_t>> DoTestGet(
@@ -120,8 +132,7 @@ class SessionStorageImplTest : public base::test::WithFeatureOverride,
                                        area.BindNewPipeAndPassReceiver());
 
     // Use the GetAll interface because Gets are being removed.
-    std::vector<blink::mojom::KeyValuePtr> data;
-    EXPECT_TRUE(test::GetAllSync(area.get(), &data));
+    std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area.get());
     session_storage()->DeleteNamespace(namespace_id, true);
 
     std::vector<uint8_t> key_as_bytes = StringViewToUint8Vector(key);
@@ -138,11 +149,32 @@ class SessionStorageImplTest : public base::test::WithFeatureOverride,
   void RunUntilIdle() { task_environment_.RunUntilIdle(); }
   void FlushMojo() { remote_session_storage_.FlushForTesting(); }
 
+  // Ensures the database connection is fully established. As a result,
+  // subsequent Mojo calls won't be deferred via RunWhenConnected.
+  void EnsureDatabaseOpen() {
+    base::RunLoop loop;
+    session_storage_impl()->SetDatabaseOpenCallbackForTesting(
+        loop.QuitClosure());
+    loop.Run();
+  }
+
+  // Waits for all pending tasks on the database thread to complete.
+  void WaitForDatabaseTasks() {
+    base::RunLoop loop;
+    session_storage_impl()
+        ->GetDatabaseForTesting()
+        ->database()
+        .PostTaskWithThisObject(base::BindLambdaForTesting(
+            [&](DomStorageDatabase*) { loop.Quit(); }));
+    loop.Run();
+  }
+
   void TestInvalidVersionOnDisk(std::string invalid_version_string);
 
   bool bad_message_called_ = false;
 
  private:
+  base::test::ScopedFeatureList feature_list_;
   base::test::TaskEnvironment task_environment_;
   base::ScopedTempDir temp_dir_;
   SessionStorageImpl::BackingMode backing_mode_ =
@@ -160,7 +192,49 @@ INSTANTIATE_TEST_SUITE_P(
       return info.param ? "SQLite" : "LevelDB";
     });
 
+TEST_P(SessionStorageImplTest, CommitRecordsUpdateMapsHistogram) {
+  std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  blink::StorageKey storage_key =
+      blink::StorageKey::CreateFromStringForTesting("http://example.com");
+  DomStorageDatabase::Key key = StringViewToUint8Vector("key");
+  DomStorageDatabase::Value value = StringViewToUint8Vector("value");
+
+  session_storage()->CreateNamespace(namespace_id);
+
+  mojo::Remote<blink::mojom::StorageArea> area;
+  session_storage()->BindStorageArea(storage_key, namespace_id,
+                                     area.BindNewPipeAndPassReceiver());
+
+  // Verify no data initially.
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area.get());
+  EXPECT_EQ(0ul, data.size());
+
+  // To filter out unrelated events from initialization, wait for database setup
+  // to complete before starting histogram recording.
+  WaitForDatabaseTasks();
+  base::HistogramTester histograms;
+
+  // Put a value and flush to ensure we queue committing it to disk.
+  EXPECT_TRUE(test::PutSync(area.get(), key, value, std::nullopt, "source"));
+  session_storage_impl()->FlushAreaForTesting(namespace_id, storage_key);
+
+  // Verify the key/value pair is present.
+  data = test::GetAllSync(area.get());
+  ASSERT_EQ(1ul, data.size());
+  EXPECT_EQ(key, data[0]->key);
+  EXPECT_EQ(value, data[0]->value);
+  area.reset();
+
+  // Wait for the commit to complete, then verify it succeeded (sample 0 = kOk)
+  // via histogram.
+  WaitForDatabaseTasks();
+  histograms.ExpectUniqueSample("Storage.SessionStorage.UpdateMaps.OnDisk", 0,
+                                1);
+}
+
 TEST_P(SessionStorageImplTest, StartupShutdownSave) {
+  base::HistogramTester histograms;
+
   std::string namespace_id1 =
       base::Uuid::GenerateRandomV4().AsLowercaseString();
   blink::StorageKey storage_key1 =
@@ -172,8 +246,7 @@ TEST_P(SessionStorageImplTest, StartupShutdownSave) {
                                      area_n1.BindNewPipeAndPassReceiver());
 
   // Verify no data.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(0ul, data.size());
 
   // Put some data.
@@ -182,7 +255,7 @@ TEST_P(SessionStorageImplTest, StartupShutdownSave) {
                             "source1"));
 
   // Verify data is there.
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(1ul, data.size());
   area_n1.reset();
 
@@ -197,7 +270,7 @@ TEST_P(SessionStorageImplTest, StartupShutdownSave) {
                                      area_n1.BindNewPipeAndPassReceiver());
 
   // The data from before should be here.
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(1ul, data.size());
   area_n1.reset();
 
@@ -212,8 +285,26 @@ TEST_P(SessionStorageImplTest, StartupShutdownSave) {
                                      area_n1.BindNewPipeAndPassReceiver());
 
   // The data from before should not be here.
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(0ul, data.size());
+
+  // Sample value of 0 denotes DbStatus::Type::kOk. The database was opened 3
+  // times: initial open, after first shutdown, and after second shutdown.
+  histograms.ExpectUniqueSample("Storage.SessionStorage.OpenDatabase.OnDisk",
+                                /*sample=*/0, 3);
+  // ReadAllMetadata is called once per database open.
+  histograms.ExpectUniqueSample("Storage.SessionStorage.ReadAllMetadata.OnDisk",
+                                /*sample=*/0, 3);
+  // Each BindStorageArea triggers an async PutMetadata on the DB thread.
+  // Wait for those to complete before asserting histogram counts.
+  WaitForDatabaseTasks();
+  histograms.ExpectUniqueSample("Storage.SessionStorage.PutMetadata.OnDisk",
+                                /*sample=*/0, 2);
+  // Only the GetAllSync after the first restart reads from disk; the others
+  // operate on in-memory maps or empty namespaces.
+  histograms.ExpectUniqueSample(
+      "Storage.SessionStorage.ReadMapKeyValues.OnDisk",
+      /*sample=*/0, 1);
 }
 
 TEST_P(SessionStorageImplTest, CloneBeforeBrowserClone) {
@@ -250,12 +341,13 @@ TEST_P(SessionStorageImplTest, CloneBeforeBrowserClone) {
                                      area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be in namespace 2.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(1ul, data.size());
 }
 
 TEST_P(SessionStorageImplTest, Cloning) {
+  base::HistogramTester histograms;
+
   std::string namespace_id1 =
       base::Uuid::GenerateRandomV4().AsLowercaseString();
   std::string namespace_id2 =
@@ -263,6 +355,7 @@ TEST_P(SessionStorageImplTest, Cloning) {
   blink::StorageKey storage_key1 =
       blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
   session_storage()->CreateNamespace(namespace_id1);
+
   mojo::Remote<blink::mojom::SessionStorageNamespace> ss_namespace1;
   session_storage()->BindNamespace(namespace_id1,
                                    ss_namespace1.BindNewPipeAndPassReceiver());
@@ -283,8 +376,14 @@ TEST_P(SessionStorageImplTest, Cloning) {
 
   ss_namespace1->Clone(namespace_id2);
   area_n1.FlushForTesting();
+  session_storage_impl()->FlushAreaForTesting(namespace_id1, storage_key1);
   area_n1.reset();
   ss_namespace1.reset();
+
+  // Wait for the UpdateMaps triggered by FlushAreaForTesting to complete.
+  WaitForDatabaseTasks();
+  histograms.ExpectUniqueSample("Storage.SessionStorage.UpdateMaps.OnDisk", 0,
+                                1);
 
   // Open the second namespace.
   mojo::Remote<blink::mojom::StorageArea> area_n2;
@@ -297,15 +396,14 @@ TEST_P(SessionStorageImplTest, Cloning) {
   session_storage()->DeleteNamespace(namespace_id1, true);
 
   // The data from before should be in namespace 2.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(1ul, data.size());
 
   // Put some data in namespace 2.
   EXPECT_TRUE(test::PutSync(area_n2.get(), StringViewToUint8Vector("key2"),
                             StringViewToUint8Vector("value2"), std::nullopt,
                             "source1"));
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(2ul, data.size());
 
   // Re-open namespace 1, check that we don't have the extra data.
@@ -314,8 +412,13 @@ TEST_P(SessionStorageImplTest, Cloning) {
                                      area_n1.BindNewPipeAndPassReceiver());
 
   // We should only have the first value.
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(1ul, data.size());
+
+  // Wait for async CloneMap to complete.
+  WaitForDatabaseTasks();
+  histograms.ExpectUniqueSample("Storage.SessionStorage.CloneMap.OnDisk",
+                                /*sample=*/0, 1);
 }
 
 TEST_P(SessionStorageImplTest, ImmediateCloning) {
@@ -344,8 +447,8 @@ TEST_P(SessionStorageImplTest, ImmediateCloning) {
     mojo::Remote<blink::mojom::StorageArea> area_n2;
     session_storage()->BindStorageArea(storage_key1, namespace_id2,
                                        area_n2.BindNewPipeAndPassReceiver());
-    std::vector<blink::mojom::KeyValuePtr> data;
-    EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+    std::vector<blink::mojom::KeyValuePtr> data =
+        test::GetAllSync(area_n2.get());
     EXPECT_EQ(0ul, data.size());
   }
 
@@ -366,8 +469,8 @@ TEST_P(SessionStorageImplTest, ImmediateCloning) {
     mojo::Remote<blink::mojom::StorageArea> area_n2;
     session_storage()->BindStorageArea(storage_key1, namespace_id2,
                                        area_n2.BindNewPipeAndPassReceiver());
-    std::vector<blink::mojom::KeyValuePtr> data;
-    EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+    std::vector<blink::mojom::KeyValuePtr> data =
+        test::GetAllSync(area_n2.get());
     EXPECT_EQ(1ul, data.size());
   }
 
@@ -439,8 +542,7 @@ TEST_P(SessionStorageImplTest, Scavenging) {
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
                                      area_n1.BindNewPipeAndPassReceiver());
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(1ul, data.size());
   area_n1.reset();
 
@@ -457,7 +559,7 @@ TEST_P(SessionStorageImplTest, Scavenging) {
   session_storage()->CreateNamespace(namespace_id1);
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
                                      area_n1.BindNewPipeAndPassReceiver());
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -468,7 +570,8 @@ void SessionStorageImplTest::TestInvalidVersionOnDisk(
       blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
 
   // Initialize Session Storage, add some data to it, and check that it's there.
-  DoTestPut(namespace_id, storage_key, "key", "value", "source");
+  DoTestPut(namespace_id, storage_key, "key", "value", "source",
+            /*should_persist=*/true);
   std::optional<std::vector<uint8_t>> opt_value =
       DoTestGet(namespace_id, storage_key, "key");
   ASSERT_TRUE(opt_value);
@@ -502,7 +605,8 @@ void SessionStorageImplTest::TestInvalidVersionOnDisk(
   EXPECT_FALSE(opt_value);
 
   // Write data again.
-  DoTestPut(namespace_id, storage_key, "key", "value", "source");
+  DoTestPut(namespace_id, storage_key, "key", "value", "source",
+            /*should_persist=*/true);
 
   ShutDownSessionStorage();
 
@@ -522,12 +626,15 @@ TEST_P(SessionStorageImplTest, WrongVersionOnDisk) {
 }
 
 TEST_P(SessionStorageImplTest, CorruptionOnDisk) {
+  base::HistogramTester histograms;
+
   std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
   blink::StorageKey storage_key =
       blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
 
   // Initialize Session Storage, add some data to it, and check that it's there.
-  DoTestPut(namespace_id, storage_key, "key", "value", "source");
+  DoTestPut(namespace_id, storage_key, "key", "value", "source",
+            /*should_persist=*/true);
   std::optional<std::vector<uint8_t>> opt_value =
       DoTestGet(namespace_id, storage_key, "key");
   ASSERT_TRUE(opt_value);
@@ -557,7 +664,8 @@ TEST_P(SessionStorageImplTest, CorruptionOnDisk) {
   EXPECT_FALSE(opt_value);
 
   // Write data again.
-  DoTestPut(namespace_id, storage_key, "key", "value", "source");
+  DoTestPut(namespace_id, storage_key, "key", "value", "source",
+            /*should_persist=*/true);
 
   ShutDownSessionStorage();
 
@@ -566,9 +674,17 @@ TEST_P(SessionStorageImplTest, CorruptionOnDisk) {
   ASSERT_TRUE(opt_value);
   EXPECT_EQ(StringViewToUint8Vector("value"), opt_value.value());
   ShutDownSessionStorage();
+
+  // LevelDB reports corruption as an IO error. The SQLiteResultCode maps to a
+  // DbStatus::Type::kCorruption error.
+  uint8_t sample = IsSqliteEnabled() ? /*kCorruption=*/2 : /*kIoError=*/5;
+  histograms.ExpectBucketCount("Storage.SessionStorage.OpenDatabase.OnDisk",
+                               sample, 1);
 }
 
 TEST_P(SessionStorageImplTest, RecreateOnCommitFailure) {
+  base::HistogramTester histograms;
+
   std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
   blink::StorageKey storage_key1 =
       blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
@@ -686,12 +802,18 @@ TEST_P(SessionStorageImplTest, RecreateOnCommitFailure) {
 
   {
     // Committing data should now work.
-    DoTestPut(namespace_id, storage_key1, "key", "value", "source");
+    DoTestPut(namespace_id, storage_key1, "key", "value", "source",
+              /*should_persist=*/true);
     std::optional<std::vector<uint8_t>> opt_value =
         DoTestGet(namespace_id, storage_key1, "key");
     ASSERT_TRUE(opt_value);
     EXPECT_EQ(StringViewToUint8Vector("value"), opt_value.value());
   }
+
+  // Verify that commit failures were recorded in the histogram.
+  // Sum > 0 means at least one non-zero (failure) sample was recorded.
+  EXPECT_GT(histograms.GetTotalSum("Storage.SessionStorage.UpdateMaps.OnDisk"),
+            0);
 }
 
 TEST_P(SessionStorageImplTest, DontRecreateOnRepeatedCommitFailure) {
@@ -846,8 +968,7 @@ TEST_P(SessionStorageImplTest, DeleteStorage) {
   session_storage()->DeleteStorage(storage_key1, namespace_id1,
                                    base::DoNothing());
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  ASSERT_TRUE(test::GetAllSync(area.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area.get());
   EXPECT_EQ(0ul, data.size());
 
   // Next, test that it deletes the data even if there isn't a namespace open.
@@ -862,7 +983,10 @@ TEST_P(SessionStorageImplTest, DeleteStorage) {
   session_storage()->DeleteNamespace(namespace_id1, true);
   ShutDownSessionStorage();
 
-  // This re-initializes Session Storage, then deletes the storage.
+  // Ensure the database is fully open before calling methods.
+  EnsureDatabaseOpen();
+
+  base::HistogramTester histograms;
   session_storage()->DeleteStorage(storage_key1, namespace_id1,
                                    base::DoNothing());
 
@@ -870,8 +994,22 @@ TEST_P(SessionStorageImplTest, DeleteStorage) {
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
                                      area.BindNewPipeAndPassReceiver());
   data.clear();
-  EXPECT_TRUE(test::GetAllSync(area.get(), &data));
+  data = test::GetAllSync(area.get());
   EXPECT_EQ(0ul, data.size());
+
+  WaitForDatabaseTasks();
+  histograms.ExpectUniqueSample(
+      "Storage.SessionStorage.DeleteStorageKeysFromSession.OnDisk", 0, 1);
+
+  // Run `CleanUpStorage()` to remove any traces of deleted data.
+  base::RunLoop run_loop;
+  session_storage()->CleanUpStorage(run_loop.QuitClosure());
+  run_loop.Run();
+
+  // `CleanUpStorage()` must succeed.
+  histograms.ExpectUniqueSample(
+      "Storage.SessionStorage.CleanUpStaleData.OnDisk",
+      /*sample=*/0, 1);
 }
 
 TEST_P(SessionStorageImplTest, PurgeInactiveWrappers) {
@@ -943,8 +1081,7 @@ TEST_P(SessionStorageImplTest, PurgeInactiveWrappers) {
   // And make sure caches were actually cleared.
   session_storage()->BindStorageArea(storage_key1, namespace_id1,
                                      area.BindNewPipeAndPassReceiver());
-  std::vector<blink::mojom::KeyValuePtr> data;
-  ASSERT_TRUE(test::GetAllSync(area.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -962,8 +1099,7 @@ TEST_P(SessionStorageImplTest, ClearDiskState) {
                                      area.BindNewPipeAndPassReceiver());
 
   // Verify no data.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area.get());
   EXPECT_EQ(0ul, data.size());
 
   // Put some data.
@@ -985,7 +1121,7 @@ TEST_P(SessionStorageImplTest, ClearDiskState) {
 
   // The data from before should not be here, because SessionStorageImpl
   // clears disk space on open.
-  EXPECT_TRUE(test::GetAllSync(area.get(), &data));
+  data = test::GetAllSync(area.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -1011,8 +1147,7 @@ TEST_P(SessionStorageImplTest, InterruptedCloneWithDelete) {
   session_storage()->BindStorageArea(storage_key1, namespace_id2,
                                      area_n2.BindNewPipeAndPassReceiver());
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -1042,8 +1177,7 @@ TEST_P(SessionStorageImplTest, InterruptedCloneChainWithDelete) {
   session_storage()->BindStorageArea(storage_key1, namespace_id3,
                                      area_n3.BindNewPipeAndPassReceiver());
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n3.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n3.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -1082,8 +1216,7 @@ TEST_P(SessionStorageImplTest, InterruptedTripleCloneChain) {
   // Trigger the populated of namespace 2 by deleting namespace 1.
   session_storage()->DeleteNamespace(namespace_id1, false);
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n4.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n4.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -1164,8 +1297,7 @@ TEST_P(SessionStorageImplTest, PurgeMemoryDoesNotCrashOrHang) {
   EXPECT_EQ(0ul, memory_used);
 
   // Test the values is still there.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n1.get());
   EXPECT_EQ(1ul, data.size());
 
   std::optional<std::vector<uint8_t>> opt_value2 =
@@ -1205,8 +1337,7 @@ TEST_P(SessionStorageImplTest, DeleteWithPersistBeforeBrowserClone) {
                                      area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be in namespace 2.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(1ul, data.size());
 }
 
@@ -1241,8 +1372,7 @@ TEST_P(SessionStorageImplTest, DeleteWithoutPersistBeforeBrowserClone) {
                                      area_n2.BindNewPipeAndPassReceiver());
 
   // The data should be gone, because the first namespace wasn't saved to disk.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(0ul, data.size());
 }
 
@@ -1278,8 +1408,7 @@ TEST_P(SessionStorageImplTest, DeleteAfterCloneWithoutMojoClone) {
 
   // The data should be there, as the namespace should clone to all pending
   // namespaces on destruction if it didn't get a 'Clone' from mojo.
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(area_n2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data = test::GetAllSync(area_n2.get());
   EXPECT_EQ(1ul, data.size());
 }
 
@@ -1321,6 +1450,26 @@ TEST_P(SessionStorageImplTest, Bug1128318) {
                    ->GetMetadataForTesting()
                    .namespace_storage_key_map()
                    .contains(namespace_id3));
+}
+
+TEST_P(SessionStorageImplTest, DeleteSessionsHistogram) {
+  base::HistogramTester histograms;
+  std::string namespace_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  blink::StorageKey storage_key =
+      blink::StorageKey::CreateFromStringForTesting("http://foobar.com");
+
+  // Ensure the database is fully open before calling methods.
+  EnsureDatabaseOpen();
+
+  // Put some data, and delete it without persisting. Also Flush to ensure the
+  // delete is dispatched. This should fire the histogram.
+  DoTestPut(namespace_id, storage_key, "key", "value", "source",
+            /*should_persist=*/false);
+  FlushMojo();
+
+  WaitForDatabaseTasks();
+  histograms.ExpectUniqueSample("Storage.SessionStorage.DeleteSessions.OnDisk",
+                                0, 1);
 }
 
 }  // namespace storage

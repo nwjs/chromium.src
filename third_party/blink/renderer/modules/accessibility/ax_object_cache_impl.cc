@@ -186,7 +186,7 @@ bool IsInitialEmptyDocument(const Document& document) {
     return false;
 
   // No contents and not a child document, return true if about::blank.
-  return document.Url().IsAboutBlankURL();
+  return document.Url().IsAboutBlankUrl();
 }
 
 // Return true if display locked or inside slot recalc, false otherwise.
@@ -582,6 +582,10 @@ bool IsInPrunableHiddenContainerInclusive(const Node& node,
     // Objects inside a <script> are true.
     if (IsA<HTMLScriptElement>(ancestor))
       return true;
+    // Objects inside <noframes> are not rendered.
+    if (ancestor->HasTagName(html_names::kNoframesTag)) {
+      return true;
+    }
     // Elements inside of a frame/iframe are true unless inside a document
     // that is a child of the frame. In the case where descendants are allowed,
     // they will be in a different document, and therefore this loop will not
@@ -4430,6 +4434,17 @@ void AXObjectCacheImpl::SetMenuListOptionsBounds(
     const Vector<gfx::Rect>& options_bounds) {
   CHECK(select->PopupIsVisible());
   CHECK_EQ(select->GetDocument(), GetDocument());
+  if (select->IsAppearanceBasePicker()) {
+    // Customizable select does not render in a special popup document and does
+    // not need to supply bounding boxes via options_bounds_.
+    //
+    // During a picker appearance transition, this method can still be reached
+    // from the native popup code. Clear any stale native popup state to
+    // prevent CHECK failures in AXObjectCacheImpl::GetOptionsBounds().
+    current_menu_list_axid_ = ui::AXNodeData::kInvalidAXID;
+    options_bounds_ = {};
+    return;
+  }
   options_bounds_ = options_bounds;
   current_menu_list_axid_ = select->GetDomNodeId();
 }
@@ -4828,7 +4843,7 @@ void AXObjectCacheImpl::HandleRoleChangeWithCleanLayout(Node* node) {
 void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
                                                Element* element) {
   DCHECK(element);
-  if (attr_name.LocalName().StartsWith("aria-")) {
+  if (attr_name.LocalName().starts_with("aria-")) {
     // Perform updates specific to each attribute.
     if (attr_name == html_names::kAriaActivedescendantAttr) {
       if (relation_cache_) {
@@ -6680,24 +6695,23 @@ void AXObjectCacheImpl::HandleScrollPositionChanged(
 }
 
 void AXObjectCacheImpl::HandleScrollMarkerTabSelectionChanged(
-    Element* scroller) {
-  if (!scroller) {
-    return;
-  }
-
-  AXObject* obj = Get(scroller);
-  if (!obj) {
-    // There is no AXObject, so there is no subtree to mark dirty.
-    MarkElementDirty(scroller);
-    return;
-  }
-
-  // Check if the a11y lifecycle allows immediate tree updates (layout is
-  // clean), otherwise defer tree updates.
-  if (lifecycle_.StateAllowsImmediateTreeUpdates()) {
-    MarkAXSubtreeDirtyWithCleanLayout(obj);
-  } else {
-    MarkAXSubtreeDirty(obj);
+    Element& scroller) {
+  // Traverse all nodes in the scroller's subtree and mark each one dirty.
+  // We use node traversal instead of AX tree traversal because the AX tree
+  // representation may differ from the DOM tree for carousels (e.g., ignored
+  // nodes from inactive tabs are not included in CachedChildren()).
+  // This ensures that when the active tab changes, all affected nodes
+  // (including those that were previously ignored) get their cached values
+  // updated and are properly re-serialized.
+  for (LayoutObject* current = scroller.GetLayoutObject(); current;
+       current = current->NextInPreOrder(scroller.GetLayoutObject())) {
+    if (AXObject* obj = Get(current)) {
+      if (lifecycle_.StateAllowsImmediateTreeUpdates()) {
+        MarkAXObjectDirtyWithCleanLayout(obj);
+      } else {
+        MarkAXObjectDirty(obj);
+      }
+    }
   }
 }
 

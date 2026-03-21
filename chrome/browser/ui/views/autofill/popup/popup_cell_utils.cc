@@ -155,6 +155,8 @@ std::u16string GetIconAccessibleName(Suggestion::Icon icon) {
     case Suggestion::Icon::kBnplGeneric:
     case Suggestion::Icon::kBnplAffirmLinked:
     case Suggestion::Icon::kBnplAffirmUnlinked:
+    case Suggestion::Icon::kBnplAfterpayLinked:
+    case Suggestion::Icon::kBnplAfterpayUnlinked:
     case Suggestion::Icon::kBnplZipLinked:
     case Suggestion::Icon::kBnplZipUnlinked:
     case Suggestion::Icon::kBnplKlarnaLinked:
@@ -335,6 +337,7 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kDevtoolsTestAddressByCountry:
     case SuggestionType::kDevtoolsTestAddressEntry:
     case SuggestionType::kDevtoolsTestAddresses:
+    case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kFillExistingPlusAddress:
     case SuggestionType::kFillPassword:
     case SuggestionType::kGeneratePasswordEntry:
@@ -353,6 +356,8 @@ bool IsPaymentMethodSuggestion(const Suggestion& suggestion) {
     case SuggestionType::kFillAutofillAi:
     case SuggestionType::kOneTimePasswordEntry:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:
+    case SuggestionType::kLoadingThrobber:
+    case SuggestionType::kBnplFootnote:
       return false;
   }
 }
@@ -495,6 +500,8 @@ std::optional<ui::ImageModel> GetIconImageModelFromIcon(Suggestion::Icon icon) {
     case Suggestion::Icon::kBnplGeneric:
     case Suggestion::Icon::kBnplAffirmLinked:
     case Suggestion::Icon::kBnplAffirmUnlinked:
+    case Suggestion::Icon::kBnplAfterpayLinked:
+    case Suggestion::Icon::kBnplAfterpayUnlinked:
     case Suggestion::Icon::kBnplZipLinked:
     case Suggestion::Icon::kBnplZipUnlinked:
     case Suggestion::Icon::kBnplKlarnaLinked:

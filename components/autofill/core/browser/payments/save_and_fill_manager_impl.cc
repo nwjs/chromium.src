@@ -10,6 +10,7 @@
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/form_import/form_data_importer.h"
+#include "components/autofill/core/browser/form_import/payments/payments_form_data_importer.h"
 #include "components/autofill/core/browser/metrics/payments/credit_card_save_metrics.h"
 #include "components/autofill/core/browser/metrics/payments/save_and_fill_metrics.h"
 #include "components/autofill/core/browser/payments/client_behavior_constants.h"
@@ -44,7 +45,8 @@ void SaveAndFillManagerImpl::OnDidAcceptCreditCardSaveAndFillSuggestion(
 
   auto* form_data_importer = autofill_client_->GetFormDataImporter();
   CHECK(form_data_importer);
-  form_data_importer->fetched_payments_data_context()
+  form_data_importer->GetPaymentsFormDataImporter()
+      .fetched_payments_data_context()
       .card_submitted_through_save_and_fill = true;
 
   if (IsCreditCardUploadEnabled()) {
@@ -176,6 +178,7 @@ void SaveAndFillManagerImpl::OnUserDidDecideOnLocalSave(
       break;
     }
     case CardSaveAndFillDialogUserDecision::kDeclined:
+    case CardSaveAndFillDialogUserDecision::kIgnored:
       if (auto* strike_database = GetSaveAndFillStrikeDatabase()) {
         strike_database->AddStrike();
       }
@@ -219,6 +222,10 @@ void SaveAndFillManagerImpl::PopulateCreditCardInfo(
   card.SetInfo(CREDIT_CARD_EXP_2_DIGIT_YEAR,
                user_provided_card_save_and_fill_details.expiration_date_year,
                app_locale);
+#if BUILDFLAG(IS_IOS)
+  card.SetNickname(
+      user_provided_card_save_and_fill_details.nickname.value_or(u""));
+#endif
 }
 
 bool SaveAndFillManagerImpl::IsCreditCardUploadEnabled() const {
@@ -243,6 +250,9 @@ void SaveAndFillManagerImpl::OnDidGetDetailsForCreateCard(
   autofill_metrics::LogSaveAndFillGetDetailsForCreateCardResultAndLatency(
       result == PaymentsRpcResult::kSuccess,
       base::TimeTicks::Now() - request_sent_timestamp);
+  autofill_metrics::LogSaveAndFillPaymentsRequestResult(
+      autofill_metrics::SaveAndFillServerRequestType::kGetDetailsForCreateCard,
+      result);
 
   if (result == PaymentsRpcResult::kSuccess) {
     LegalMessageLines parsed_legal_message_lines;
@@ -365,6 +375,7 @@ void SaveAndFillManagerImpl::OnUserDidDecideOnUploadSave(
       }
       break;
     case CardSaveAndFillDialogUserDecision::kDeclined:
+    case CardSaveAndFillDialogUserDecision::kIgnored:
       if (auto* strike_database = GetSaveAndFillStrikeDatabase()) {
         strike_database->AddStrike();
       }
@@ -400,6 +411,8 @@ void SaveAndFillManagerImpl::OnDidCreateCard(
   autofill_metrics::LogSaveAndFillCreateCardResultAndLatency(
       result == PaymentsRpcResult::kSuccess,
       base::TimeTicks::Now() - request_sent_timestamp);
+  autofill_metrics::LogSaveAndFillPaymentsRequestResult(
+      autofill_metrics::SaveAndFillServerRequestType::kCreateCard, result);
   logging_context_.last_attempt_succeeded =
       result == PaymentsRpcResult::kSuccess;
 

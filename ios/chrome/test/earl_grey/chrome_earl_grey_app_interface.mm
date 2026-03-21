@@ -84,6 +84,7 @@
 #import "ios/chrome/test/app/tab_test_util.h"
 #import "ios/chrome/test/app/window_test_util.h"
 #import "ios/chrome/test/earl_grey/accessibility_util.h"
+#import "ios/public/provider/chrome/browser/fullscreen/fullscreen_api.h"
 #import "ios/public/provider/chrome/browser/lens/lens_api.h"
 #import "ios/public/provider/chrome/browser/primes/primes_api.h"
 #import "ios/public/provider/chrome/browser/signin/choice_api.h"
@@ -512,7 +513,7 @@ NSString* GetIdForWebState(web::WebState* web_state) {
       [[NSUserActivity alloc] initWithActivityType:@"EG2NewWindow"];
   UIWindowSceneActivationRequestOptions* options =
       [[UIWindowSceneActivationRequestOptions alloc] init];
-  if (@available(iOS 19.0, *)) {
+  if (@available(iOS 26.0, *)) {
     // For iOS26 windowing, ensure the new window doesn't fully overlap the
     // prior window.
     options.placement = [UIWindowSceneProminentPlacement prominentPlacement];
@@ -1199,6 +1200,10 @@ NSString* GetIdForWebState(web::WebState* web_state) {
 
 + (BOOL)isTestFeatureEnabled {
   return base::FeatureList::IsEnabled(kTestFeature);
+}
+
++ (BOOL)isFullscreenSmoothScrollingSupported {
+  return ios::provider::IsFullscreenSmoothScrollingSupported();
 }
 
 + (BOOL)isDemographicMetricsReportingEnabled {

@@ -393,6 +393,7 @@ should be able to be added at any place in this file.
   <variant name="_GenericAlwaysTriggerHelpUiFeature"
       summary="For generic always show help UI feature."/>
   <variant name="_GlicPromo" summary="For Glic feature."/>
+  <variant name="_GlicPromoAndroid" summary="For Glic promotion on Android."/>
   <variant name="_GlicTrustFirstOnboardingShortcutSnoozePromo"
       summary="For Glic shortcut feature with a snooze promo."/>
   <variant name="_GlicTrustFirstOnboardingShortcutToastPromo"
@@ -492,6 +493,8 @@ should be able to be added at any place in this file.
       summary="For iOSPinMostVisitedSiteFeature feature"/>
   <variant name="_iOSPostDefaultAbandonmentPromo"
       summary="For iOSPostDefaultAbandonmentPromo feature"/>
+  <variant name="_iOSPriceTrackingDesktop"
+      summary="For iOSPriceTrackingDesktopFeature"/>
   <variant name="_iOSPromoAllTabs"
       summary="For All Tabs default browser promo."/>
   <variant name="_iOSPromoAppStore" summary="For iOSPromoAppStore feature"/>
@@ -560,6 +563,8 @@ should be able to be added at any place in this file.
       summary="For switching accounts via the account particle disc."/>
   <variant name="_iOSTabGridSwipeRightForIncognito"
       summary="For iOSTabGridSwipeRightForIncognito feature"/>
+  <variant name="_iOSTabGroupsDesktop"
+      summary="For iOSTabGroupsDesktopFeature"/>
   <variant name="_iOSWelcomeBackFeature"
       summary="For iOSWelcomeBackFeature feature"/>
   <variant name="_KeyboardAccessoryAddressFilling"
@@ -755,6 +760,8 @@ should be able to be added at any place in this file.
       summary="For the tab organization feature."/>
   <variant name="_TabPinnedFeature" summary="For tab pinned overflow hint."/>
   <variant name="_TabSearch" summary="For the tab search feature."/>
+  <variant name="_TabSearchComboButton"
+      summary="For the tab search migration to a tab strip combo button."/>
   <variant name="_TabSearchToolbarButton"
       summary="For the tab search migration to a toolbar button."/>
   <variant name="_TabSwitcherButton" summary="For tab switcher button."/>
@@ -773,6 +780,9 @@ should be able to be added at any place in this file.
   <variant name="_TranslateMenuButton" summary="For translate menu button."/>
   <variant name="_UpdatedConnectionSecurityIndicators"
       summary="For updated omnibox connection security indicators."/>
+  <variant name="_VerticalTabstripTutorialFeature"
+      summary="For showing the vertical tabs feature when the horizontal
+               tabstrip is crowded."/>
   <variant name="_VideoTutorial_NTP_ChromeIntro"
       summary="For Chrome intro video tutorial."/>
   <variant name="_VideoTutorial_NTP_Download"
@@ -850,6 +860,7 @@ should be able to be added at any place in this file.
       summary="Enhanced Protection setting has been synced to Off"/>
   <variant name=".SyncEsbOn"
       summary="Enhanced Protection setting has been synced to On"/>
+  <variant name=".Translate" summary="Translate"/>
 </variants>
 
 <variants name="UserEducation_WhatsNew_Module_Type">
@@ -885,7 +896,7 @@ should be able to be added at any place in this file.
   <variant name=".SidePanelPinning" summary="Side Panel Pinning"/>
   <variant name=".SyncAccountSettings"
       summary="Wallet integration in Autofill"/>
-  <variant name=".TabGroupsSync" summary="Tab Groups Sync"/>
+  <variant name=".TabGroupsSync" summary="Tab Groups Sync (obsolete)"/>
   <variant name=".TabOrganizer" summary="Tab Organizer"/>
   <variant name=".TestDefaultModule" summary="Test default module"/>
   <variant name=".TestModule" summary="Test module"/>
@@ -3517,6 +3528,23 @@ should be able to be added at any place in this file.
   </token>
 </action>
 
+<action name="ActorTaskTabConfirmation.StopActorTask.Abort">
+  <owner>haileywang@google.com</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Recorded when a user aborts leaving a website that's actuating.
+  </description>
+</action>
+
+<action name="ActorTaskTabConfirmation.StopActorTask.Proceed">
+  <owner>haileywang@google.com</owner>
+  <owner>clank-tab-dev@google.com</owner>
+  <description>
+    Recorded when a user leaves a website that's actuating as part of an actor
+    task.
+  </description>
+</action>
+
 <action name="AddAddressManually_AddressSaved">
   <owner>sinhasourav@google.com</owner>
   <owner>bling-transactions@google.com</owner>
@@ -4133,6 +4161,17 @@ should be able to be added at any place in this file.
   <description>
     Recorded when the user taps on the &quot;Apply&quot; button in the
     cross-device settings import snackbar.
+  </description>
+</action>
+
+<action name="Android.CrossDeviceSettingImport.CheckForRemoteSettings"
+    not_user_triggered="true">
+  <owner>clank-app-team@google.com</owner>
+  <owner>jhimawan@google.com</owner>
+  <description>
+    Recorded after checking for remote settings to import from another device.
+    This happens the first time the user lands on the NTP or a URL page (after
+    FRE or if a user arrives in Chrome through a URL intent).
   </description>
 </action>
 
@@ -4848,6 +4887,14 @@ should be able to be added at any place in this file.
   <description>The survey infobar was displayed.</description>
 </action>
 
+<action name="Android.TabStripMenu.BookmarkAllTabs">
+  <owner>mklw@google.com</owner>
+  <description>
+    User tapped 'Bookmark all tabs' on the tab strip context menu to bookmark
+    all tabs.
+  </description>
+</action>
+
 <action name="Android.TabStripMenu.ChangeWindowName">
   <owner>aishwaryarj@google.com</owner>
   <description>
@@ -4872,6 +4919,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.TabStripMenu.PinGlic">
+  <owner>mklw@google.com</owner>
+  <description>
+    User tapped 'Pin Glic' on the tab strip context menu to pin the Glic button
+    in the tab strip.
+  </description>
+</action>
+
 <action name="Android.TabStripMenu.ReopenClosedEntry">
   <owner>mklw@google.com</owner>
   <description>
@@ -4886,6 +4941,14 @@ should be able to be added at any place in this file.
     User tapped 'Save' on the dialog opened via the tab strip context menu to
     successfully save (with or without changing) the name of a Chrome window and
     dismiss the dialog.
+  </description>
+</action>
+
+<action name="Android.TabStripMenu.UnpinGlic">
+  <owner>mklw@google.com</owner>
+  <description>
+    User tapped 'Unpin Glic' on the tab strip context menu to unpin the Glic
+    button in the tab strip.
   </description>
 </action>
 
@@ -5628,15 +5691,6 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="ApplicationShortcut.LensPressedFromSpotlight">
-  <owner>schechter@google.com</owner>
-  <owner>hujasonx@google.com</owner>
-  <description>
-    User tapped the Lens search option of Chrome for iOS from iOS Spotlight
-    search.
-  </description>
-</action>
-
 <action name="ApplicationShortcut.NewIncognitoSearchPressed">
   <owner>olivierrobin@chromium.org</owner>
   <description>
@@ -5650,6 +5704,14 @@ should be able to be added at any place in this file.
   <description>
     Force pressed on a springboard shortcut and tapped New Search in Chrome for
     iOS.
+  </description>
+</action>
+
+<action name="ApplicationShortcut.ScanQRCodePressed">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    Force pressed on a springboard shortcut and tapped Scan QR Code in Chrome
+    for iOS.
   </description>
 </action>
 
@@ -8433,6 +8495,11 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="BulkUploadSettingsOpen">
+  <owner>jlebel@chromium.org</owner>
+  <description>TODO(crbug.com/483958043): Write the description.</description>
+</action>
+
 <action name="Cancel">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -10741,6 +10808,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ContextualSearch.RecentTabChipClick.{ContextualSearchSource}">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when a recent tab chip is clicked in the composebox on
+    {ContextualSearchSource}.
+  </description>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</action>
+
 <action name="ContextualSearch.SearchBarTapClose">
   <owner>donnd@chromium.org</owner>
   <description>
@@ -10906,6 +10983,21 @@ should be able to be added at any place in this file.
     The user viewed the Contextual Search bar and panel for a duration between
     three and three seconds.
   </description>
+</action>
+
+<action
+    name="ContextualSearch.ZeroSuggestClick.{Type}.{ContextualSearchSource}">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <description>
+    Recorded when a user clicks on a {Type} suggestion in the zero-suggest mode
+    from {ContextualSearchSource}.
+  </description>
+  <token key="Type">
+    <variant name="Contextual" summary=""/>
+    <variant name="NonContextual" summary=""/>
+  </token>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </action>
 
 <action name="ContextualSuggestions.ContextMenu{ContextMenu_Type}">
@@ -12895,6 +12987,25 @@ should be able to be added at any place in this file.
   </obsolete>
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="EnhancedAutofillSettingsBack">
+  <owner>sugoi@google.com</owner>
+  <owner>leozhao@google.com</owner>
+  <owner>bling-transactions@google.com</owner>
+  <description>
+    Reported when user goes back from Enhanced Autofill Settings UI to root
+    Settings screen. iOS only.
+  </description>
+</action>
+
+<action name="EnhancedAutofillSettingsClose">
+  <owner>sugoi@google.com</owner>
+  <owner>leozhao@google.com</owner>
+  <owner>bling-transactions@google.com</owner>
+  <description>
+    Reported when Enhanced Autofill Settings UI was dismissed. iOS only.
+  </description>
 </action>
 
 <action name="EnhancedBookmarks.AddingFailed">
@@ -16317,6 +16428,25 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Indigo.PageAction.Click">
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <owner>baranerf@google.com</owner>
+  <description>User clicked the Indigo page action.</description>
+</action>
+
+<action name="Indigo.PageAction.Show" not_user_triggered="true">
+  <owner>jbroman@chromium.org</owner>
+  <owner>adithyas@chromium.org</owner>
+  <owner>baranerf@google.com</owner>
+  <description>The indigo page action was displayed.</description>
+</action>
+
+<action name="InfobarModalCancelButtonTap">
+  <owner>thegreenfrog@chromium.org</owner>
+  <description>Reported when the inforbar modal is cancelled.</description>
+</action>
+
 <action name="InProductHelp.Dismissed">
   <owner>dtrainor@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
@@ -18963,6 +19093,12 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="IOS.WelcomeBack.Stopped">
+  <owner>cheickcisse@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>TODO(crbug.com/483957938): Write the description.</description>
+</action>
+
 <action name="IOSAccountsSettingsCloseWithSwipe">
   <owner>msarda@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
@@ -19035,7 +19171,7 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="IOSCollaborationInitShareAndManage">
+<action name="IOSCollaborationInitShareOrManage">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <description>
@@ -24276,6 +24412,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ManualFallback_CreditCard_OpenAddCreditCard">
+  <owner>tmartino@chromium.org</owner>
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    The user tapped on &quot;Add credit card&quot; on the Password Manual
+    Fallback view.
+  </description>
+</action>
+
 <action name="ManualFallback_CreditCard_OpenAddPaymentMethod">
   <owner>tmartino@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
@@ -24372,7 +24517,7 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="ManualFallback_ExpandIcon_OpenPaymenMethod">
+<action name="ManualFallback_ExpandIcon_OpenPaymentMethod">
   <owner>noemies@google.com</owner>
   <owner>sugoi@google.com</owner>
   <description>
@@ -24434,6 +24579,11 @@ should be able to be added at any place in this file.
     The user tapped on &quot;Use other password&quot; on the Password Manual
     Fallback view.
   </description>
+</action>
+
+<action name="ManualFallback_Password_OpenSuggestPassword">
+  <owner>kazinova@google.com</owner>
+  <description>TODO(crbug.com/483960232): Write the description.</description>
 </action>
 
 <action name="ManualFallback_Password_OverflowMenu_Edit">
@@ -25557,6 +25707,11 @@ should be able to be added at any place in this file.
   <description>
     User pressed 'Visit Copied Link' in the omnibox context menu (iOS only).
   </description>
+</action>
+
+<action name="Mobile.OmniboxPasteButton.LensCopiedImage">
+  <owner>christianxu@chromium.org</owner>
+  <description>TODO(crbug.com/483963490): Write the description.</description>
 </action>
 
 <action name="Mobile.OmniboxPasteButton.SearchCopiedImage">
@@ -26774,6 +26929,11 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileEnteredBackground">
+  <owner>bling-fundamentals@google.com</owner>
+  <description>Reported when an app entered the background.</description>
+</action>
+
 <action name="MobileExitStackView">
   <owner>yusufo@chromium.org</owner>
   <owner>wychen@chromium.org</owner>
@@ -27169,6 +27329,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiFloatyExpandedToDismissed">
+  <owner>joemerramos@google.com</owner>
+  <description>
+    The user dismissed the Gemini floaty from an expanded state. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiFREConsentAccept">
   <owner>kanouche@google.com</owner>
   <owner>bling-alchemy@google.com</owner>
@@ -27311,6 +27478,14 @@ should be able to be added at any place in this file.
   <owner>joemerramos@google.com</owner>
   <description>
     Reported when Gemini Settings UI was dismissed. iOS only.
+  </description>
+</action>
+
+<action name="MobileGeminiSettingsOpened">
+  <owner>joemerramos@google.com</owner>
+  <owner>bling-alchemy@google.com</owner>
+  <description>
+    Reported when the Gemini Settings UI is opened. iOS only.
   </description>
 </action>
 
@@ -27917,6 +28092,12 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileLanguageSettingsBack">
+  <owner>eugenebut@chromium.org</owner>
+  <owner>sczs@chromium.org</owner>
+  <description>TODO(crbug.com/483962380): Write the description.</description>
+</action>
+
 <action name="MobileLocationBarTapped">
   <owner>stkhapugin@chromium.org</owner>
   <owner>rkgibson@google.com</owner>
@@ -28089,6 +28270,11 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileMenuDevTools">
+  <owner>massan@google.com</owner>
+  <description>User pressed 'Developer tools' in the app menu.</description>
+</action>
+
 <action name="MobileMenuDirectShare">
   <owner>aurimas@chromium.org</owner>
   <description>
@@ -28244,7 +28430,7 @@ should be able to be added at any place in this file.
 <action name="MobileMenuNewIncognitoWindow">
   <obsolete>
     Deprecated as of 01/2026 in favor of the enumerated histogram
-    Android.MultiWindowMode.NewWindow.AppSource2 that tracks various new window
+    Android.MultiWindowMode.NewWindow.AppSource* that tracks various new window
     creation sources.
   </obsolete>
   <owner>shuyng@google.com</owner>
@@ -28293,7 +28479,7 @@ should be able to be added at any place in this file.
 <action name="MobileMenuNewWindow">
   <obsolete>
     Deprecated as of 01/2026 in favor of the enumerated histogram
-    Android.MultiWindowMode.NewWindow.AppSource2 that tracks various new window
+    Android.MultiWindowMode.NewWindow.AppSource* that tracks various new window
     creation sources.
   </obsolete>
   <owner>jinsukkim@chromium.org</owner>
@@ -28527,6 +28713,11 @@ should be able to be added at any place in this file.
   </token>
 </action>
 
+<action name="MobileMenuTaskManager">
+  <owner>massan@google.com</owner>
+  <description>User pressed 'Task manager' in the app menu.</description>
+</action>
+
 <action name="MobileMenuTextZoom">
   <owner>rkgibson@google.com</owner>
   <description>User pressed 'Zoom Text' in the app menu</description>
@@ -28748,6 +28939,26 @@ should be able to be added at any place in this file.
   <description>User opened the interests dialog.</description>
 </action>
 
+<action name="MobileNTP.SetupList.Click">
+  <owner>agazal@google.com</owner>
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <description>
+    Android: The user clicked on an active item within the Setup List feature on
+    the NTP or Start Surface.
+  </description>
+</action>
+
+<action name="MobileNTP.SetupList.Impression">
+  <owner>agazal@google.com</owner>
+  <owner>hanxi@chromium.org</owner>
+  <owner>xinyiji@chromium.org</owner>
+  <description>
+    Android: Any part of the Setup List feature (Single-Cell, Two-Cell, or
+    Celebration) was rendered on the NTP or Start Surface.
+  </description>
+</action>
+
 <action name="MobileNTP.Snippets.Click">
   <obsolete>Deprecated as of 8/2016</obsolete>
   <owner>knn@chromium.org</owner>
@@ -28872,6 +29083,11 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileNTPLogoTapped">
+  <owner>justincohen@chromium.org</owner>
+  <description>User tapped on the Google logo on the iOS NTP.</description>
+</action>
+
 <action name="MobileNTPMIAEntryPointTapped">
   <owner>radunitescu@google.com</owner>
   <description>
@@ -28991,6 +29207,16 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="MobileOmniboxBookmarkHidden" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Bookmark button hidden.</description>
+</action>
+
+<action name="MobileOmniboxBookmarkShown" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Bookmark button shown.</description>
+</action>
+
 <action name="MobileOmniboxClipboardChanged">
   <obsolete>
     Replaced with MobileOmniboxClipboardChanged in April 2017.
@@ -29020,9 +29246,19 @@ should be able to be added at any place in this file.
   <description>Please enter the description of the metric.</description>
 </action>
 
+<action name="MobileOmniboxDeleteHidden" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Delete button hidden.</description>
+</action>
+
 <action name="MobileOmniboxDeleteRequested">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of the metric.</description>
+</action>
+
+<action name="MobileOmniboxDeleteShown" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Delete button shown.</description>
 </action>
 
 <action name="MobileOmniboxDeleteUrl">
@@ -29050,6 +29286,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileOmniboxInstallHidden" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Install button hidden.</description>
+</action>
+
+<action name="MobileOmniboxInstallShown" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Install button shown.</description>
+</action>
+
 <action name="MobileOmniboxLens">
   <owner>yusuyoutube@google.com</owner>
   <owner>benwgold@google.com</owner>
@@ -29066,6 +29312,16 @@ should be able to be added at any place in this file.
   <owner>wylieb@google.com</owner>
   <owner>lens-chrome@google.com</owner>
   <description>Mobile Omnibox Lens button shown.</description>
+</action>
+
+<action name="MobileOmniboxMicHidden" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Mic button hidden.</description>
+</action>
+
+<action name="MobileOmniboxMicShown" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <description>Mobile Omnibox Mic button shown.</description>
 </action>
 
 <action name="MobileOmniboxRefineSuggestion">
@@ -29198,6 +29454,18 @@ should be able to be added at any place in this file.
 <action name="MobileOmniboxVoiceSearch">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="MobileOmniboxZoomHidden" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <owner>hitarthkothari@google.com</owner>
+  <description>Mobile Omnibox Zoom button hidden.</description>
+</action>
+
+<action name="MobileOmniboxZoomShown" not_user_triggered="true">
+  <owner>clhager@google.com</owner>
+  <owner>hitarthkothari@google.com</owner>
+  <description>Mobile Omnibox Zoom button shown.</description>
 </action>
 
 <action name="MobileOpenGroupClosed">
@@ -29380,6 +29648,11 @@ should be able to be added at any place in this file.
     Checkup homepage. iOS only. This user action was added to investigate a
     crash, see crbug.com/409680593.
   </description>
+</action>
+
+<action name="MobilePasswordCheckupInteractionIgnoredOnCooldown">
+  <owner>vincb@google.com</owner>
+  <description>TODO(crbug.com/483963166): Write the description.</description>
 </action>
 
 <action name="MobilePasswordCheckupSettingsBack">
@@ -29622,6 +29895,11 @@ should be able to be added at any place in this file.
   <description>
     Reported when Price Notifications Settings UI was dismissed. iOS only.
   </description>
+</action>
+
+<action name="MobilePrintMenuAirPrint">
+  <owner>asamidoi@chromium.org</owner>
+  <description>Reported when the print menu is opened. iOS only.</description>
 </action>
 
 <action name="MobilePrivacySafeBrowsingSettingsBack">
@@ -30195,6 +30473,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileSettingsCleanupStarted">
+  <owner>cheickcisse@google.com</owner>
+  <owner>gambard@chromium.org</owner>
+  <description>
+    Reported when the settings cleanup started. iOS only.
+  </description>
+</action>
+
 <action name="MobileSettingsClose">
   <owner>edchin@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
@@ -30318,6 +30604,39 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileShareMenuGmail">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to Gmail.</description>
+</action>
+
+<action name="MobileShareMenuGoogleDrive">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to Google Drive.</description>
+</action>
+
+<action name="MobileShareMenuGooglePlus">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to Google+.</description>
+</action>
+
+<action name="MobileShareMenuGoogleUnknown">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    User shared to a Google app that has not been explicitly identified in
+    Chrome for iOS.
+  </description>
+</action>
+
+<action name="MobileShareMenuHangouts">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to Hangout.</description>
+</action>
+
+<action name="MobileShareMenuInbox">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to Inbox.</description>
+</action>
+
 <action name="MobileShareMenuMarkupPDF">
   <owner>alionadangla@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
@@ -30365,6 +30684,48 @@ should be able to be added at any place in this file.
   <description>
     The user pressed &quot;Send Tab To Self&quot; from the share action menu.
   </description>
+</action>
+
+<action name="MobileShareMenuToContentApp">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    User shared to a non-Google content consuming app, such as Evernote or
+    Pocket.
+  </description>
+</action>
+
+<action name="MobileShareMenuToInstantMessagingApp">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    User shared to a non-Google IM app. This excludes the native iOS Messages
+    app.
+  </description>
+</action>
+
+<action name="MobileShareMenuToMail">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    User shared to a non-Google mail app. This includes shares to the native iOS
+    Mail app.
+  </description>
+</action>
+
+<action name="MobileShareMenuToSMSApp">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>
+    User shared to a non-Google SMS app. This includes shares to the native iOS
+    Messages app.
+  </description>
+</action>
+
+<action name="MobileShareMenuToSocialNetwork">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to a non-Google social network.</description>
+</action>
+
+<action name="MobileShareMenuUnknown">
+  <owner>olivierrobin@chromium.org</owner>
+  <description>User shared to an unknown app.</description>
 </action>
 
 <action name="MobileShareQRCode">
@@ -30426,6 +30787,16 @@ should be able to be added at any place in this file.
     User tapped on the UNDO button of the snackbar displayed after unpinning a
     tab from the iOS overflow menu.
   </description>
+</action>
+
+<action name="MobileStackSwipeCancelled">
+  <owner>bling-fundamentals@google.com</owner>
+  <description>Reported when swipe is cancelled.</description>
+</action>
+
+<action name="MobileStackSwipeCompleted">
+  <owner>bling-fundamentals@google.com</owner>
+  <description>Reported when swipe is completed.</description>
 </action>
 
 <action name="MobileStackViewCloseTab">
@@ -31614,6 +31985,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileToolbarCloseAllTabs">
+  <obsolete>
+    Deprecated in favor of MobileToolbarTabMenu.CloseAll*Tabs.
+  </obsolete>
   <owner>clank-app-team@google.com</owner>
   <owner>twellington@chromium.org</owner>
   <description>
@@ -32086,6 +32460,12 @@ should be able to be added at any place in this file.
         summary="User opened the bottom sheet to add multiple tabs to a new
                  or existing tab group, via the tab context menu on tab strip
                  on Android."/>
+    <variant name=".CloseAllIncognitoTabs"
+        summary="User closed all incognito tabs via the tab context menu on
+                 tab strip on Android."/>
+    <variant name=".CloseAllTabs"
+        summary="User closed all tabs via the tab context menu on tab strip
+                 on Android."/>
     <variant name=".CloseTab"
         summary="User closed a tab via the tab context menu on tab strip on
                  Android."/>
@@ -32122,6 +32502,12 @@ should be able to be added at any place in this file.
     <variant name=".MoveTabToOtherWindow.MultiTab"
         summary="User moved multiple tabs to another window via the tab
                  context menu on tab strip on Android."/>
+    <variant name=".MuteSite"
+        summary="User muted a site via the tab context menu on tab strip on
+                 Android."/>
+    <variant name=".MuteSite.MultiTab"
+        summary="User muted site(s) from multiple selected tabs via the tab
+                 context menu on tab strip on Android."/>
     <variant name=".NewGroup"
         summary="User created a new tab group via the tab context menu on tab
                  strip on Android."/>
@@ -32148,6 +32534,12 @@ should be able to be added at any place in this file.
     <variant name=".Shown.MultiTab"
         summary="Recorded when the tab context menu is shown with multiple
                  tabs selected."/>
+    <variant name=".UnmuteSite"
+        summary="User unmuted a site via the tab context menu on tab strip on
+                 Android."/>
+    <variant name=".UnmuteSite.MultiTab"
+        summary="User unmuted site(s) from multiple selected tabs via the tab
+                 context menu on tab strip on Android."/>
     <variant name=".UnpinTab"
         summary="User unpinned a tab via the tab context menu on tab strip on
                  Android."/>
@@ -32304,6 +32696,11 @@ should be able to be added at any place in this file.
   <description>
     Only for Android. Menu is shown by tapping software menu button.
   </description>
+</action>
+
+<action name="MobileVoiceOverActiveOnLaunch">
+  <owner>jyquinn@chromium.org</owner>
+  <description>Chrome is launched with VoiceOver active.</description>
 </action>
 
 <action name="MobileVoiceSearchSettingsBack">
@@ -35834,6 +36231,12 @@ should be able to be added at any place in this file.
   <description>Settings: saved passwords</description>
 </action>
 
+<action name="Options_ShowPasswordManagerSettings">
+  <owner>nsatragno@chromium.org</owner>
+  <owner>chrome-webauthn@google.com</owner>
+  <description>Settings: password manager settings page</description>
+</action>
+
 <action name="Options_ShowPaymentMethods">
   <owner>vidhanj@google.com</owner>
   <description>Settings: Show payment options</description>
@@ -38490,6 +38893,47 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="ProjectsPanel.OpenButtonPressed">
+  <owner>chazzy@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    The user opened the projects panel via the tab strip entrypoint.
+  </description>
+</action>
+
+<action name="ProjectsPanel.TabGroups.CreateNewGroup.{HadExistingGroups}">
+  <owner>chazzy@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    The user created a new tab group from the projects panel.
+  </description>
+  <token key="HadExistingGroups">
+    <variant name="WithExistingGroups"
+        summary="Existing groups were shown in the panel"/>
+    <variant name="WithoutExistingGroups"
+        summary="No existing groups were shown in the panel"/>
+  </token>
+</action>
+
+<action name="ProjectsPanel.TabGroups.OpenGroup">
+  <owner>chazzy@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    The user opened an existing group from the projects panel.
+  </description>
+</action>
+
+<action name="ProjectsPanel.Threads.OpenThread.{ThreadType}">
+  <owner>chazzy@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>The user opened a thread from the projects panel.</description>
+  <token key="ThreadType">
+    <variant name="AiMode" summary="AI Mode chat thread"/>
+    <variant name="Gemini" summary="Gemini chat thread"/>
+    <variant name="Unknown" summary="Unknown chat thread type"/>
+  </token>
+</action>
+
 <action name="PWAInstallIcon">
   <owner>alancutter@chromium.org</owner>
   <description>
@@ -40506,6 +40950,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Settings.EnhancedAutofill">
+  <owner>sugoi@google.com</owner>
+  <owner>leozhao@google.com</owner>
+  <owner>bling-transactions@google.com</owner>
+  <description>
+    Reported when user navigates to Enhanced Autofill Settings. iOS only.
+  </description>
+</action>
+
 <action name="Settings.FingerprintingProtection.Enabled">
   <obsolete>
     Deprecated 05/2025. Replaced with the
@@ -40644,6 +41097,17 @@ should be able to be added at any place in this file.
     Reported when user navigates to Ip Protection Settings via the Ip Protection
     link row in the Privacy Page.
   </description>
+</action>
+
+<action name="Settings.Language">
+  <owner>eugenebut@chromium.org</owner>
+  <owner>sczs@chromium.org</owner>
+  <description>TODO(crbug.com/483964250): Write the description.</description>
+</action>
+
+<action name="Settings.ManageOptionOnSettingsSelected">
+  <owner>vizcay@google.com</owner>
+  <description>TODO(crbug.com/483963277): Write the description.</description>
 </action>
 
 <action name="Settings.MobileHelpAndFeedback">
@@ -43530,6 +43994,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_AccountMenu_ErrorButton_BookmarksLimitExceeded">
+  <owner>mtatarski@google.com</owner>
+  <owner>chrome-sync-client-team@google.com</owner>
+  <description>
+    Recorded when the user taps on the error button (bookmark limit exceeded) in
+    the account menu. iOS only.
+  </description>
+</action>
+
 <action name="Signin_AccountMenu_ErrorButton_MDM">
   <owner>arthurmilchior@chromium.org</owner>
   <owner>chrome-signin-mobile-team@google.com</owner>
@@ -44428,6 +44901,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Impression_FromSearchAIModeBubble">
+  <owner>anthie@google.com</owner>
+  <owner>chrome-signin-desktop-team@google.com</owner>
+  <description>
+    Recorded when the signin promo is shown from interracting with Search AI
+    Mode results.
+  </description>
+</action>
+
 <action name="Signin_Impression_FromSearchCompanion">
   <obsolete>Deprecated 11/2024. Companion was deprecated and removed.</obsolete>
   <owner>shaktisahu@google.com</owner>
@@ -44458,7 +44940,7 @@ should be able to be added at any place in this file.
   <owner>bling-pandamonium@google.com</owner>
   <description>
     Recorded when showing sign in that originates from the Set Up List on the
-    NTP. iOS only.
+    NTP. (Mobile only)
   </description>
 </action>
 
@@ -45001,6 +45483,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Signin_FromAvatarPillExpandPromo">
+  <owner>rsult@google.com</owner>
+  <owner>chrome-signin-desktop-team@google.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kAvatarPillExpandPromo. Desktop only.
+  </description>
+</action>
+
 <action name="Signin_Signin_FromBookmarkBubble">
   <owner>gogerald@chromium.org</owner>
   <description>
@@ -45445,6 +45936,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Signin_FromSearchAIModeBubble">
+  <owner>anthie@google.com</owner>
+  <owner>chrome-signin-desktop-team@google.com</owner>
+  <description>
+    Recorded on sign in start from the Search AI Mode signin promo.
+  </description>
+</action>
+
 <action name="Signin_Signin_FromSearchCompanion">
   <obsolete>Deprecated 11/2024. Companion was deprecated and removed.</obsolete>
   <owner>shaktisahu@google.com</owner>
@@ -45477,7 +45976,7 @@ should be able to be added at any place in this file.
   <owner>bling-pandamonium@google.com</owner>
   <description>
     Recorded on sign in start from access point
-    signin_metrics::AccessPoint::kSetUpList. iOS only.
+    signin_metrics::AccessPoint::kSetUpList. (Mobile only)
   </description>
 </action>
 
@@ -45541,10 +46040,11 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_Signin_FromUnknownAccessPoint">
+  <obsolete>kUnknown AccessPoint has been removed.</obsolete>
   <owner>gogerald@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
-    signin_metrics::AccessPoint::kUnknown.
+    signin_metrics::AccessPoint::kUnknown (obsolete).
   </description>
 </action>
 
@@ -48647,21 +49147,93 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
-<action name="SwitchToHorizontalTabStrip">
-  <owner>agale@chromium.org</owner>
+<action name="SwitchToHorizontalTabStrip_FromAppMenu">
+  <owner>kunaldaftari@google.com</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>
-    Recorded when the user switches to horizontal tab strip mode. This user
-    action only applies to Desktop.
+    Recorded when the user switches to horizontal tab strip mode via the app
+    menu. This user action only applies to Desktop.
   </description>
 </action>
 
-<action name="SwitchToVerticalTabStrip">
+<action name="SwitchToHorizontalTabStrip_FromMacMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to horizontal tab strip mode via the mac
+    menu. This user action only applies to Desktop MacOS.
+  </description>
+</action>
+
+<action name="SwitchToHorizontalTabStrip_FromSettings">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>
-    Recorded when the user switches to vertical tab strip mode. This user action
-    only applies to Desktop.
+    Recorded when the user switches to horizontal tab strip mode via the
+    settings page. This user action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToHorizontalTabStrip_FromSystemContextMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to horizontal tab strip mode via the system
+    context menu. This user action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToHorizontalTabStrip_FromTabContextMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to horizontal tab strip mode via the tab
+    context menu. This user action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToVerticalTabStrip_FromAppMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to vertical tab strip mode via the app menu.
+    This user action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToVerticalTabStrip_FromMacMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to vertical tab strip mode via the mac menu.
+    This user action only applies to Desktop MacOS.
+  </description>
+</action>
+
+<action name="SwitchToVerticalTabStrip_FromSettings">
+  <owner>agale@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to vertical tab strip mode via the settings
+    page. This user action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToVerticalTabStrip_FromSystemContextMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to vertical tab strip mode via the system
+    context menu. This user action only applies to Desktop.
+  </description>
+</action>
+
+<action name="SwitchToVerticalTabStrip_FromTabContextMenu">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user switches to vertical tab strip mode via the tab
+    context menu. This user action only applies to Desktop.
   </description>
 </action>
 
@@ -49990,6 +50562,19 @@ should be able to be added at any place in this file.
   <owner>dljames@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>User pressed the Everything button.</description>
+</action>
+
+<action name="TabGroups_SavedTabGroups_EverythingButtonPressed_{TabStripMode}">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    User opens the Everything menu in either the Vertical Tab Strip or
+    Horizontal Tab Strip
+  </description>
+  <token key="TabStripMode">
+    <variant name="Horizontal" summary="Horizontal Tab Strip"/>
+    <variant name="Vertical" summary="Vertical Tab Strip"/>
+  </token>
 </action>
 
 <action name="TabGroups_SavedTabGroups_Focused">
@@ -52365,6 +52950,50 @@ should be able to be added at any place in this file.
     Recorded when prefs::kBrowserGuestModeEnabled and
     prefs::kBrowserAddPersonEnabled are cleared because they no longer exist in
     the Material Design settings page.
+  </description>
+</action>
+
+<action name="VerticalTabs_EnabledFirstTime">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user enables vertical tabs for the first time.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_ButtonToggleCollapsed">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user collapses the vertical tab strip using the toggle
+    button.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_ButtonToggleUncollapsed">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user uncollapses the vertical tab strip using the toggle
+    button.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_ResizeToCollapsed">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user ends dragging the vertical tab strip with it in the
+    collapsed state.
+  </description>
+</action>
+
+<action name="VerticalTabs_TabStrip_ResizeToUncollapsed">
+  <owner>charlesmeng@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    Recorded when the user ends dragging the vertical tab strip with it in the
+    uncollapsed state.
   </description>
 </action>
 

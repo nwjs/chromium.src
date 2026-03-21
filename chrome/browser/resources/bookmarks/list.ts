@@ -70,12 +70,25 @@ export class BookmarksListElement extends BookmarksListElementBase {
   private accessor selectedItems_: Set<string> = new Set();
   protected accessor shouldShowPromoCard_: boolean = false;
 
-  override firstUpdated() {
-    this.addEventListener('click', () => this.deselectItems_());
-    this.addEventListener('contextmenu', e => this.onContextMenu_(e));
-    this.addEventListener(
-        'open-command-menu',
-        e => this.onOpenCommandMenu_(e as CustomEvent<OpenCommandMenuDetail>));
+  override connectedCallback() {
+    super.connectedCallback();
+    this.updateFromStore();
+
+    this.eventTracker_.add(
+        document, 'highlight-items',
+        (e: Event) => this.onHighlightItems_(e as CustomEvent<string[]>));
+    this.eventTracker_.add(
+        document, 'import-began', () => this.onImportBegan_());
+    this.eventTracker_.add(
+        document, 'import-ended', () => this.onImportEnded_());
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+
+    this.eventTracker_.remove(document, 'highlight-items');
+    this.eventTracker_.remove(document, 'import-began');
+    this.eventTracker_.remove(document, 'import-ended');
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -89,6 +102,14 @@ export class BookmarksListElement extends BookmarksListElementBase {
         this.focusedIndex_ = 0;
       }
     }
+  }
+
+  override firstUpdated() {
+    this.addEventListener('click', () => this.deselectItems_());
+    this.addEventListener('contextmenu', e => this.onContextMenu_(e));
+    this.addEventListener(
+        'open-command-menu',
+        e => this.onOpenCommandMenu_(e as CustomEvent<OpenCommandMenuDetail>));
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -119,25 +140,6 @@ export class BookmarksListElement extends BookmarksListElementBase {
           changedPrivateProperties.get('displayedIds_') as string[],
           lastSelection);
     }
-  }
-
-  override connectedCallback() {
-    super.connectedCallback();
-    this.updateFromStore();
-
-    this.eventTracker_.add(
-        document, 'highlight-items',
-        (e: Event) => this.onHighlightItems_(e as CustomEvent<string[]>));
-    this.eventTracker_.add(
-        document, 'import-began', () => this.onImportBegan_());
-    this.eventTracker_.add(
-        document, 'import-ended', () => this.onImportEnded_());
-  }
-
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-
-    this.eventTracker_.remove(document, 'highlight-items');
   }
 
   override onStateChanged(state: BookmarksPageState) {
@@ -367,15 +369,11 @@ export class BookmarksListElement extends BookmarksListElementBase {
     e.preventDefault();
     this.deselectItems_();
 
-    this.dispatchEvent(new CustomEvent('open-command-menu', {
-      bubbles: true,
-      composed: true,
-      detail: {
-        x: e.clientX,
-        y: e.clientY,
-        source: MenuSource.LIST,
-      },
-    }));
+    this.fire('open-command-menu', {
+      x: e.clientX,
+      y: e.clientY,
+      source: MenuSource.LIST,
+    });
   }
 
   protected onItemFocus_(e: Event) {
@@ -401,8 +399,9 @@ export class BookmarksListElement extends BookmarksListElementBase {
     return this.selectedItems_.has(id);
   }
 
-  protected updateShouldShowPromoCard_(e: Event) {
-    this.shouldShowPromoCard_ = (e as CustomEvent).detail.shouldShowPromoCard;
+  protected onShouldShowPromoCard_(
+      e: CustomEvent<{shouldShowPromoCard: boolean}>) {
+    this.shouldShowPromoCard_ = e.detail.shouldShowPromoCard;
   }
 
   setDisplayedIdsForTesting(ids: string[]) {

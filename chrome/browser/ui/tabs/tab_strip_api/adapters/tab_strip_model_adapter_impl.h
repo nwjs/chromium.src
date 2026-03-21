@@ -17,11 +17,11 @@ namespace tabs_api {
 // class. It should *only* forward requests to the tab strip model.
 class TabStripModelAdapterImpl : public TabStripModelAdapter {
  public:
-  explicit TabStripModelAdapterImpl(TabStripModel* tab_strip_model)
-      : tab_strip_model_(tab_strip_model) {}
+  explicit TabStripModelAdapterImpl(TabStripModel* tab_strip_model,
+                                    std::string window_id);
   TabStripModelAdapterImpl(const TabStripModelAdapterImpl&&) = delete;
   TabStripModelAdapterImpl operator=(const TabStripModelAdapterImpl&) = delete;
-  ~TabStripModelAdapterImpl() override {}
+  ~TabStripModelAdapterImpl() override;
 
   void AddModelObserver(TabStripModelObserver* observer) override;
   void RemoveModelObserver(TabStripModelObserver* observer) override;
@@ -30,7 +30,6 @@ class TabStripModelAdapterImpl : public TabStripModelAdapter {
   void RemoveCollectionObserver(
       tabs::TabCollectionObserver* collection_observer) override;
   std::vector<tabs::TabHandle> GetTabs() const override;
-  TabRendererData GetTabRendererData(int index) const override;
   converters::TabStates GetTabStates(tabs::TabHandle) const override;
   const ui::ColorProvider& GetColorProvider() const override;
   void CloseTab(size_t tab_index) override;
@@ -59,6 +58,7 @@ class TabStripModelAdapterImpl : public TabStripModelAdapter {
   InsertionParams CalculateInsertionParams(
       const std::optional<tabs_api::Position>& pos) const override;
   const tabs::TabCollection* GetRoot() const override;
+  std::string GetWindowId() const override;
 
   // TabStripModelAdapterImpl uses passkeys to access experimental API methods
   // in TabStripModel or TabCollections.
@@ -74,6 +74,7 @@ class TabStripModelAdapterImpl : public TabStripModelAdapter {
   tabs::TabCollectionHandle GetUnpinnedTabsCollectionHandle() const;
 
   raw_ptr<TabStripModel> tab_strip_model_;
+  std::string window_id_;
 };
 
 }  // namespace tabs_api

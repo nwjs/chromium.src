@@ -7,10 +7,28 @@ package org.chromium.chrome.browser.ui.browser_window;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.ui.base.ActivityWindowAndroid;
 
 import java.util.Objects;
 
-/** Represents a Chrome feature whose lifecycle should be in sync with {@link ChromeAndroidTask}. */
+/**
+ * Represents a Chrome feature tracked by {@link ChromeAndroidTask}.
+ *
+ * <p>A feature's lifecycle is determined by this key:
+ *
+ * <ul>
+ *   <li>If both {@code mProfile} and {@code mActivityWindowAndroid} are null, the feature is
+ *       Task-scoped.
+ *   <li>If {@code mProfile} is not null and {@code mActivityWindowAndroid} is null, the feature is
+ *       Task-and-Profile-scoped.
+ *   <li>If {@code mProfile} is null and {@code mActivityWindowAndroid} is not null, the feature is
+ *       Activity-scoped.
+ *   <li>If both are not null, the feature is Profile-and-Activity-scoped, i.e., it will be
+ *       destroyed when its Profile or Activity is destroyed, whichever happens first.
+ * </ul>
+ *
+ * <p>In all cases, the feature is also bound by the lifetime of the {@link ChromeAndroidTask}.
+ */
 @NullMarked
 public final class ChromeAndroidTaskFeatureKey {
     /** The class of the feature, used as the feature identifier. */
@@ -23,6 +41,12 @@ public final class ChromeAndroidTaskFeatureKey {
     public final @Nullable Profile mProfile;
 
     /**
+     * The activity the feature is associated with, or null if the feature is not associated with an
+     * activity.
+     */
+    public final @Nullable ActivityWindowAndroid mActivityWindowAndroid;
+
+    /**
      * Creates a new {@link ChromeAndroidTaskFeatureKey}.
      *
      * @param featureClass The class of the feature, used as the feature identifier.
@@ -31,8 +55,25 @@ public final class ChromeAndroidTaskFeatureKey {
      */
     public ChromeAndroidTaskFeatureKey(
             Class<? extends ChromeAndroidTaskFeature> featureClass, @Nullable Profile profile) {
+        this(featureClass, profile, /* activityWindowAndroid= */ null);
+    }
+
+    /**
+     * Creates a new {@link ChromeAndroidTaskFeatureKey}.
+     *
+     * @param featureClass The class of the feature, used as the feature identifier.
+     * @param profile The profile the feature is associated with, or null if the feature is not
+     *     associated with a profile.
+     * @param activityWindowAndroid The activity the feature is associated with, or null if the
+     *     feature is not associated with an activity.
+     */
+    public ChromeAndroidTaskFeatureKey(
+            Class<? extends ChromeAndroidTaskFeature> featureClass,
+            @Nullable Profile profile,
+            @Nullable ActivityWindowAndroid activityWindowAndroid) {
         mFeatureClass = featureClass;
         mProfile = profile;
+        mActivityWindowAndroid = activityWindowAndroid;
     }
 
     @Override
@@ -42,13 +83,14 @@ public final class ChromeAndroidTaskFeatureKey {
         }
         if (o instanceof ChromeAndroidTaskFeatureKey other) {
             return mFeatureClass.equals(other.mFeatureClass)
-                    && Objects.equals(mProfile, other.mProfile);
+                    && Objects.equals(mProfile, other.mProfile)
+                    && Objects.equals(mActivityWindowAndroid, other.mActivityWindowAndroid);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mFeatureClass, mProfile);
+        return Objects.hash(mFeatureClass, mProfile, mActivityWindowAndroid);
     }
 }

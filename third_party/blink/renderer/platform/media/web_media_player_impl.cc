@@ -46,6 +46,7 @@
 #include "media/base/media_content_type.h"
 #include "media/base/media_log.h"
 #include "media/base/media_switches.h"
+#include "media/base/media_util.h"
 #include "media/base/memory_dump_provider_proxy.h"
 #include "media/base/output_device_info.h"
 #include "media/base/remoting_constants.h"
@@ -607,6 +608,11 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
 }
 
 WebMediaPlayerImpl::~WebMediaPlayerImpl() {
+  // Ensure Shutdown() has been called.
+  CHECK(!client_);
+}
+
+void WebMediaPlayerImpl::Shutdown() {
   DVLOG(1) << __func__;
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
@@ -655,7 +661,12 @@ WebMediaPlayerImpl::~WebMediaPlayerImpl() {
   if (!surface_layer_for_video_enabled_ && video_layer_)
     video_layer_->StopUsingProvider();
 
+  // These hold Unretained(this), so must be destructed here.
+  watch_time_reporter_.reset();
+  video_decode_stats_reporter_.reset();
   simple_watch_timer_.Stop();
+  memory_usage_reporting_timer_.Stop();
+  background_pause_timer_.Stop();
   media_log_->OnWebMediaPlayerDestroyed();
 
   demuxer_manager_->StopAndResetClient();
@@ -683,8 +694,16 @@ WebMediaPlayerImpl::~WebMediaPlayerImpl() {
   // in MediaFoundationRendererClient.
   pipeline_controller_.reset();
 
+  client_ = nullptr;
+  encrypted_client_ = nullptr;
+  frame_ = nullptr;
+  url_index_ = nullptr;
+
+  weak_factory_.InvalidateWeakPtrsAndDoom();
+
   // Handle destruction of things that need to be destructed after the pipeline
   // completes stopping on the media thread.
+  // TODO(crbug.com/482958590): This may not be necessary anymore.
   PostCrossThreadTask(
       *media_task_runner_, FROM_HERE,
       CrossThreadBindOnce(
@@ -899,7 +918,7 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
 
   // Do a truncation to kMaxUrlLength+1 at most; we can add ellipsis later.
   media_log_->AddEvent<MediaLogEvent::kLoad>(
-      String(url).Substring(0, media::kMaxUrlLength + 1).Utf8());
+      url.GetString().GetString().subview(0, media::kMaxUrlLength + 1).Utf8());
   load_start_time_ = base::TimeTicks::Now();
 
   media_metrics_provider_->Initialize(
@@ -1680,10 +1699,17 @@ void WebMediaPlayerImpl::GetUrlData(
 base::SequenceBound<media::HlsDataSourceProvider>
 WebMediaPlayerImpl::GetHlsDataSourceProvider() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
+  // Every single HLS fetch (segment or manifest) will create a new DataSource,
+  // which will log it's size, CORS status, and a "started" notice, which can
+  // end up spamming the media log quite heavily. ManifestDemuxer already logs
+  // these things when they change, for example when CORS mode changes from
+  // untainted to tainted. Using a NullMediaLog here prevents the unnecessary
+  // spamming.
+  auto media_log = std::make_unique<media::NullMediaLog>();
   return base::SequenceBound<media::HlsDataSourceProviderImpl>(
       main_task_runner_,
       std::make_unique<MultiBufferDataSourceFactory>(
-          media_log_.get(),
+          media_log.get(),
           blink::BindRepeating(&WebMediaPlayerImpl::GetUrlData,
                                weak_factory_.GetWeakPtr()),
           main_task_runner_, tick_clock_));

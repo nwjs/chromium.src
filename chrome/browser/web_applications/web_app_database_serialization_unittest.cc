@@ -81,14 +81,7 @@ TEST_F(WebAppDatabaseSerializationTest, RandomWebApps) {
     std::unique_ptr<WebApp> app = test::CreateRandomWebApp(params);
     std::unique_ptr<proto::WebApp> proto = WebAppToProto(*app);
 
-    // TODO(https://crbug.com/384536509): Store parent manifest ids in the
-    // database instead of app_ids.
-    std::optional<webapps::ManifestId> parent_manifest_id;
-    if (app->parent_app_id().has_value()) {
-      parent_manifest_id = params.parent_manifest_id;
-    }
-    webapps::AppId app_id =
-        GenerateAppIdFromManifestId(app->manifest_id(), parent_manifest_id);
+    webapps::AppId app_id = GenerateAppIdFromManifestId(app->manifest_id());
     std::unique_ptr<WebApp> parsed_app = ParseWebAppProto(*proto, app_id);
     ASSERT_THAT(parsed_app, NotNull());
     ASSERT_EQ(*app, *parsed_app);
@@ -1628,7 +1621,7 @@ TEST_F(WebAppDatabaseSerializationTest,
   const std::vector<DisplayOverride>& overrides =
       web_app->display_mode_override();
   ASSERT_EQ(1u, overrides.size());
-  EXPECT_EQ(DisplayMode::kBorderless, overrides[0].display_mode());
+  EXPECT_EQ(DisplayMode::kUnframed, overrides[0].display_mode());
   ASSERT_EQ(1u, overrides[0].url_patterns().size());
 
   std::unique_ptr<proto::WebApp> round_trip_proto = WebAppToProto(*web_app);

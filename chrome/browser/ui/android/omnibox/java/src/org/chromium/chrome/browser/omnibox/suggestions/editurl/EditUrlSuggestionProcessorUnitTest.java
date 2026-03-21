@@ -12,6 +12,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -31,10 +32,9 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.Implementation;
-import org.robolectric.annotation.Implements;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -73,7 +73,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for the "edit url" omnibox suggestion. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(shadows = {EditUrlSuggestionProcessorUnitTest.ShadowSadTab.class})
+@Config(manifest = Config.NONE)
 public final class EditUrlSuggestionProcessorUnitTest {
     private static final String TAB_TITLE = "Tab Title";
     private static final String MATCH_TITLE = "Match Title";
@@ -93,17 +93,6 @@ public final class EditUrlSuggestionProcessorUnitTest {
     public static final GURL ESCAPED_PATH_URL =
             new GURL("https://pl.wikipedia.org/wiki/G%C5%BCeg%C5%BC%C3%B3%C5%82ka");
 
-    /** Used to simulate sad tabs. */
-    @Implements(SadTab.class)
-    static class ShadowSadTab {
-        public static boolean reportSadTab;
-
-        @Implementation
-        public static boolean isShowing(Tab t) {
-            return reportSadTab;
-        }
-    }
-
     public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private @Mock ShareDelegate mShareDelegate;
@@ -112,15 +101,15 @@ public final class EditUrlSuggestionProcessorUnitTest {
     private @Mock SuggestionHost mSuggestionHost;
     private @Mock ClipboardManager mClipboardManager;
     private @Mock WebContents mWebContents;
-    private @Mock Supplier<Tab> mTabSupplier;
-    private @Mock Supplier<ShareDelegate> mShareDelegateSupplier;
     private @Mock UrlBarEditingTextStateProvider mTextProvider;
     private @Mock BookmarkState mBookmarkState;
     private @Mock UkmRecorder.Natives mUkmRecorderJniMock;
     private @Mock AutocompleteInput mInput;
     private @Mock DomDistillerUrlUtilsJni mDomDistillerUrlUtilsJni;
 
-    // The original (real) ClipboardManager to be restored after a test run.
+    private final UserDataHost mTabUserData = new UserDataHost();
+    private final Supplier<Tab> mTabSupplier = () -> mTab;
+    private final Supplier<ShareDelegate> mShareDelegateSupplier = () -> mShareDelegate;
     private Context mContext;
     private AutocompleteMatch mMatch;
     private AutocompleteMatch mChromeDistillerMatch;
@@ -166,10 +155,9 @@ public final class EditUrlSuggestionProcessorUnitTest {
         mProcessor = new EditUrlSuggestionProcessor(uiContext);
         mModel = mProcessor.createModel();
 
-        doReturn(mTab).when(mTabSupplier).get();
-        doReturn(mShareDelegate).when(mShareDelegateSupplier).get();
         doReturn(SEARCH_URL_1).when(mTab).getUrl();
         doReturn(TAB_TITLE).when(mTab).getTitle();
+        doReturn(mTabUserData).when(mTab).getUserDataHost();
         doReturn(true).when(mTab).isInitialized();
         DomDistillerUrlUtilsJni.setInstanceForTesting(mDomDistillerUrlUtilsJni);
         when(mDomDistillerUrlUtilsJni.getOriginalUrlFromDistillerUrl(anyString()))
@@ -233,7 +221,7 @@ public final class EditUrlSuggestionProcessorUnitTest {
 
     @Test
     public void doesProcessSuggestion_rejectMatchWhenTabIsMissing() {
-        doReturn(null).when(mTabSupplier).get();
+        mTab = null;
         assertFalse(mProcessor.doesProcessSuggestion(mMatch, 0));
         verifyNoMoreInteractions(mSuggestionHost, mShareDelegate, mClipboardManager);
     }
@@ -247,7 +235,9 @@ public final class EditUrlSuggestionProcessorUnitTest {
 
     @Test
     public void doesProcessSuggestion_rejectMatchForSadTab() {
-        ShadowSadTab.reportSadTab = true;
+        SadTab mockSadTab = mock(SadTab.class);
+        doReturn(true).when(mockSadTab).isShowing();
+        mTabUserData.setUserData(SadTab.class, mockSadTab);
         assertFalse(mProcessor.doesProcessSuggestion(mMatch, 0));
         verifyNoMoreInteractions(mSuggestionHost, mShareDelegate, mClipboardManager);
     }

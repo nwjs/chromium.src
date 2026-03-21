@@ -132,6 +132,7 @@ static_library("test_support") {
     "//chrome/browser",
     "//chrome/browser:buildflags",
     "//chrome/browser:shell_integration",
+    "//chrome/browser/diagnostics",
     "//chrome/browser/policy:path_parser",
     "//chrome/child",
     "//chrome/common",
@@ -175,6 +176,7 @@ static_library("test_support") {
 
   if (is_win) {
     deps += [
+      "//chrome/browser/win:isolated_browser_support",
       "//chrome/chrome_elf:test_stubs",
       "//chrome/install_static:install_static_util",
       "//sandbox/win:sandbox",

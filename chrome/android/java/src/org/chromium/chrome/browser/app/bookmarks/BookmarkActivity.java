@@ -90,7 +90,9 @@ public class BookmarkActivity extends SnackbarActivity {
 
         ScrimManager scrimManager =
                 new ScrimManager(this, getContentView(), ScrimClient.BOOKMARK_ACTIVITY);
-        scrimManager.getStatusBarColorSupplier().addObserver(this::applyScrimToStatusBar);
+        scrimManager
+                .getStatusBarColorSupplier()
+                .addSyncObserverAndPostIfNonNull(this::applyScrimToStatusBar);
 
         ViewGroup sheetContainer = findViewById(R.id.sheet_container);
         BottomSheetController bottomSheetController =
@@ -163,6 +165,11 @@ public class BookmarkActivity extends SnackbarActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (mWindowAndroid != null) {
+            assumeNonNull(mWindowAndroid.getIntentRequestTracker())
+                    .onActivityResult(requestCode, resultCode, data);
+        }
+
         if (requestCode == EDIT_BOOKMARK_REQUEST_CODE && resultCode == RESULT_OK) {
             assumeNonNull(data);
             BookmarkId bookmarkId =

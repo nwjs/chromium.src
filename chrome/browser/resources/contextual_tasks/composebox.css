@@ -46,6 +46,7 @@
    */
   --pdf-icon-border-radius: 12px;
   --pdf-icon-size: 16px;
+  --injected-input-icon-size: 24px;
 }
 
 /* Composebox default colors are for light mode on AIM results. */
@@ -276,7 +277,7 @@
   transition: ease-out 100ms;
 }
 
-:host([is-lens-overlay-showing]) #composebox::part(lens-icon) {
+:host([is-overlay-open-for-aim-visual-search]) #composebox::part(lens-icon) {
   background-color: var(--color-composebox-lens-active-background);
   border-radius: 50%;
 }
@@ -584,6 +585,11 @@
   position: relative;
 }
 
-#composeboxContainer:not(:has(#composebox[show-dropdown_])) ~ #contextualTasksSuggestionsContainer {
+:host:has(#composebox:not([show-dropdown_])) #contextualTasksSuggestionsContainer {
   display: none;
+}
+
+/* Needed for space between header and composebox. */
+:host([is-side-panel]) #composebox:not([show-dropdown_]) #composebox {
+  margin-top: 24px;
 }

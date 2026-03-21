@@ -27,7 +27,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/extensions/forced_extensions/force_installed_tracker.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/notifications/system_notification_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/security_token_restriction/security_token_session_restriction_view.h"
@@ -347,10 +346,10 @@ void SecurityTokenSessionController::RegisterLocalStatePrefs(
 }
 
 // static
-void SecurityTokenSessionController::MaybeDisplayLoginScreenNotification() {
-  PrefService* local_state = g_browser_process->local_state();
+void SecurityTokenSessionController::MaybeDisplayLoginScreenNotification(
+    PrefService& local_state) {
   const PrefService::Preference* scheduled_notification_domain =
-      local_state->FindPreference(
+      local_state.FindPreference(
           prefs::kSecurityTokenSessionNotificationScheduledDomain);
   if (!scheduled_notification_domain ||
       scheduled_notification_domain->IsDefaultValue() ||
@@ -361,7 +360,7 @@ void SecurityTokenSessionController::MaybeDisplayLoginScreenNotification() {
   // Sanitize `scheduled_notification_domain`, as values coming from local state
   // are not trusted.
   std::string domain = scheduled_notification_domain->GetValue()->GetString();
-  local_state->ClearPref(
+  local_state.ClearPref(
       prefs::kSecurityTokenSessionNotificationScheduledDomain);
   std::string sanitized_domain;
   if (!SanitizeDomain(domain, sanitized_domain)) {
@@ -446,7 +445,7 @@ void SecurityTokenSessionController::TriggerAction() {
       AddLockNotification();
       return;
     case Behavior::kLogout:
-      chrome::AttemptExit();
+      session_manager::SessionManager::Get()->RequestSignOut();
       ScheduleLogoutNotification();
       return;
   }

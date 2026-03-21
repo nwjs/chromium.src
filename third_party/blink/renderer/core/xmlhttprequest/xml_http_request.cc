@@ -129,7 +129,7 @@ void FindCharsetInMediaType(const String& media_type,
   unsigned length = media_type.length();
 
   while (pos < length) {
-    pos = media_type.FindIgnoringASCIICase("charset", pos);
+    pos = media_type.FindIgnoringAsciiCase("charset", pos);
 
     if (pos == kNotFound)
       return;
@@ -1627,7 +1627,7 @@ void XMLHttpRequest::UpdateContentTypeAndCharset(
 
   if (original_content_type != content_type) {
     UseCounter::Count(GetExecutionContext(), WebFeature::kReplaceCharsetInXHR);
-    if (!EqualIgnoringASCIICase(original_content_type, content_type)) {
+    if (!EqualIgnoringAsciiCase(original_content_type, content_type)) {
       UseCounter::Count(GetExecutionContext(),
                         WebFeature::kReplaceCharsetInXHRIgnoringCase);
     }
@@ -1639,7 +1639,7 @@ bool XMLHttpRequest::ResponseIsXML() const {
 }
 
 bool XMLHttpRequest::ResponseIsHTML() const {
-  return EqualIgnoringASCIICase(FinalResponseMIMETypeInternal(), "text/html");
+  return EqualIgnoringAsciiCase(FinalResponseMIMETypeInternal(), "text/html");
 }
 
 int XMLHttpRequest::status() const {

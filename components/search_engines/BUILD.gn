@@ -54,6 +54,8 @@ static_library("search_engines") {
     "template_url_service_observer.h",
     "template_url_starter_pack_data.cc",
     "template_url_starter_pack_data.h",
+    "ui_utils.cc",
+    "ui_utils.h",
     "util.cc",
     "util.h",
   ]
@@ -160,6 +162,8 @@ source_set("search_engine_utils") {
   public_deps = [
     ":search_engine_type",
     "//components/google/core/common",
+    "//components/regional_capabilities",
+    "//components/regional_capabilities:switches",
     "//third_party/search_engines_data:prepopulated_engines",
   ]
 
@@ -223,6 +227,8 @@ source_set("unit_tests") {
     "template_url_service_unittest.cc",
     "template_url_service_util_unittest.cc",
     "template_url_unittest.cc",
+    "ui_utils_unittest.cc",
+    "util_unittest.cc",
   ]
 
   deps = [
@@ -256,6 +262,7 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/search_engines_data:prepopulated_engines",
+    "//third_party/search_engines_data:regional_settings",
     "//ui/base",
     "//url",
   ]

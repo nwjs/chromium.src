@@ -38,11 +38,16 @@ class BwgTabHelper : public web::WebStateObserver,
 
   ~BwgTabHelper() override;
 
-  // Generate page Context (including snapshot and APC) and invokes the callback
-  // with the result.
-  void GeneratePageContext(
-      base::OnceCallback<void(PageContextWrapperCallbackResponse)> callback,
-      bool full_page_context = true);
+  // Set up generation of page Context and the callback to be run when the page
+  // context is ready.
+  void SetupPageContextGeneration(
+      base::RepeatingCallback<void(PageContextWrapperCallbackResponse)>
+          callback);
+
+  // Forces the generation of page context immediately, bypassing any wait for
+  // page load completion. Used when the page load timeout is exceeded.
+  // This is no op if page has already finished loading.
+  void ForcePageContextGeneration();
 
   // Executes the zero-state suggestions flow.
   void ExecuteZeroStateSuggestions(
@@ -72,8 +77,8 @@ class BwgTabHelper : public web::WebStateObserver,
   // Removes the associated WebState's session from storage.
   void DeleteBwgSessionInStorage();
 
-  // Whether BWG is available for the current web state.
-  bool IsBwgAvailableForWebState();
+  // Whether Gemini is available for the current web state.
+  bool IsGeminiAvailableForWebState();
 
   // Prepares the WebState for the BWG FRE (first run experience) backgrounding.
   // Takes a fullscreen screenshot and sets the session to active.
@@ -116,13 +121,7 @@ class BwgTabHelper : public web::WebStateObserver,
   void SetPreventContextualPanelEntryPoint(bool should_prevent);
 
   // Sets a callback to be run when the page has finished loading.
-  void SetPageLoadedCallback(base::OnceClosure callback);
-
-  // Getter `contextual_cue_label_`.
-  NSString* GetContextualCueLabel();
-
-  // Setter for `contextual_cue_label_`.
-  void SetContextualCueLabel(NSString* cue_label);
+  void SetPageLoadedCallback(base::RepeatingClosure callback);
 
   // Returns the partial PageContext for the current WebState, including URL,
   // Title, and Favicon.
@@ -211,16 +210,13 @@ class BwgTabHelper : public web::WebStateObserver,
                                     std::string server_id);
 
   // Removes the BWG session from the prefs.
-  void CleanupSessionFromPrefs(std::string session_id);
+  void CleanupSessionFromPrefs();
 
   // Updates the snapshot in storage for the associated Web State. If a snapshot
   // is cached (cropped fullscreen screenshot), use it to update the storage,
   // otherwise generate one normally for the content area.
   void UpdateWebStateSnapshotInStorage();
 
-  // Gets the associated WebState's visible URL during the last interaction, if
-  // present and not expired, from storage.
-  std::optional<std::string> GetURLOnLastInteraction();
 
   // Parses the response of a zero state suggestions execution.
   void ParseSuggestionsResponse(
@@ -278,10 +274,7 @@ class BwgTabHelper : public web::WebStateObserver,
   std::unique_ptr<ZeroStateSuggestions> zero_state_suggestions_;
 
   // Callback to be run when the page has finished loading.
-  base::OnceClosure page_loaded_callback_;
-
-  // Contextual cue label generated for Gemini contextual cue metadata.
-  NSString* contextual_cue_label_;
+  base::RepeatingClosure page_loaded_callback_;
 
   // List of observers.
   base::ObserverList<GeminiTabHelperObserver> observers_;

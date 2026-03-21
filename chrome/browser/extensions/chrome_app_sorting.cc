@@ -23,7 +23,6 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "components/app_constants/constants.h"
 #include "components/webapps/common/web_app_id.h"
@@ -746,7 +745,7 @@ syncer::StringOrdinal ChromeAppSorting::ResolveCollision(
   // Finds the next app launcher ordinal. This is done by the following loop
   // because this function could be called before FixNTPOrdinalCollisions and
   // thus |page| might contains multiple entries with the same app launch
-  // ordinal. See http://crbug.com/155603
+  // ordinal. See http://crbug.com/40951861
   while (app_it != page.end() && app_launch_ordinal.Equals(app_it->first))
     ++app_it;
 

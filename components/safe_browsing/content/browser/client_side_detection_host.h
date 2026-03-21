@@ -45,6 +45,8 @@
 #include "components/safe_browsing/core/browser/referring_app_info.h"  // nogncheck
 #endif
 
+class SkBitmap;
+
 namespace base {
 class TickClock;
 }
@@ -75,6 +77,14 @@ class ClientSideDetectionHost
     kSkippedNotForced = 2,
     kSkippedTriggerModelsPingSentAsForceRequest = 3,
     kMaxValue = kSkippedTriggerModelsPingSentAsForceRequest,
+  };
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class CSDObserverCalled {
+    kOnFirstContentfulPaint = 0,
+    kDidFirstVisuallyNonEmptyPaint = 1,
+    kMaxValue = kDidFirstVisuallyNonEmptyPaint,
   };
 
   // A callback via which the client of this component indicates whether the
@@ -120,6 +130,9 @@ class ClientSideDetectionHost
 #endif
   };
 
+  static const int kMaxHighResScreenshotWidth;
+  static const int kMaxHighResScreenshotHeight;
+
   // The caller keeps ownership of the tab object and is responsible for
   // ensuring that it stays valid until WebContentsDestroyed is called.
   // The caller also keeps ownership of pref_service. The
@@ -153,6 +166,8 @@ class ClientSideDetectionHost
   void VibrationRequested() override;
   void OnTextCopiedToClipboard(content::RenderFrameHost* render_frame_host,
                                const std::u16string& copied_text) override;
+  void DidFirstVisuallyNonEmptyPaint() override;
+  void OnFirstContentfulPaintInPrimaryMainFrame() override;
 
   // permissions::PermissionRequestManager::Observer methods:
   void OnPromptAdded() override;
@@ -177,6 +192,10 @@ class ClientSideDetectionHost
 
   void RegisterAutofillManager();
 
+  // User requests to report a site as unsafe. The screenshot values come from
+  // the report dialog view.
+  void ReportUnsafeSite(SkBitmap screenshot);
+
  protected:
   explicit ClientSideDetectionHost(
       content::WebContents* tab,
@@ -199,6 +218,7 @@ class ClientSideDetectionHost
   friend class ClientSideDetectionHostCreditCardFormTest;
   friend class ClientSideDetectionHostClipboardDataTest;
   friend class ClientSideDetectionHostGeminiAntiscamProtectionTest;
+  friend class ClientSideDetectionHostPrerenderBrowserTest_Screenshot;
   class ShouldClassifyUrlRequest;
   friend class ShouldClassifyUrlRequest;
   FRIEND_TEST_ALL_PREFIXES(ClientSideDetectionHostPrerenderBrowserTest,
@@ -510,6 +530,10 @@ class ClientSideDetectionHost
       credit_card_form::FieldDetectionHeuristic field_heuristic,
       history::VisibleVisitCountToHostResult history_result);
 
+  // Fills in the screenshot data for the given `request`. Only fill if the
+  // report type is USER_REPORT.
+  void MaybeFillScreenshotData(ClientPhishingRequest* request);
+
   // This pointer may be nullptr if client-side phishing detection is
   // disabled.
   base::WeakPtr<ClientSideDetectionService> csd_service_;
@@ -532,6 +556,18 @@ class ClientSideDetectionHost
   // DidToggleFullscreenModeForTab can be called for both entering and exiting
   // fullscreen.
   GURL last_fullscreen_url_;
+
+  // `did_first_visually_non_empty_paint_` becomes true after the first paint
+  // that is not the background color. `on_first_contentful_paint_` becomes
+  // true after the browser renders the first content from the DOM (e.g.,
+  // text or an image).
+  //
+  // Client-side detection for TRIGGER_MODELS will only start after both events
+  // have occurred. This ensures that classification doesn't begin before the
+  // page has meaningfully rendered. These flags are reset on each new main
+  // frame navigation.
+  bool did_first_visually_non_empty_paint_ = false;
+  bool on_first_contentful_paint_ = false;
 
   // Records the start time of when image embedding started.
   base::TimeTicks image_embedding_start_time_;
@@ -613,6 +649,10 @@ class ClientSideDetectionHost
 
   // The last text that was copied to the clipboard.
   std::u16string last_copied_text_;
+
+  // The high resolution screenshot of the current tab. Should only be populated
+  // when a user reports a site as unsafe.
+  std::optional<SkBitmap> screenshot_;
 
   base::CancelableTaskTracker task_tracker_;
 

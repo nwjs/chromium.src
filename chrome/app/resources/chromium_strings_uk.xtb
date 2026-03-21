@@ -27,6 +27,7 @@
 <translation id="126567311906253476">Коли ви входите на YouTube, у Gmail або інші сервіси Google за допомогою облікового запису <ph name="USER_EMAIL" />, його також можна використовувати для автоматичного входу в Chromium</translation>
 <translation id="1290883685122687410">Помилка налаштування: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">Налаштуйте новий профіль Chromium</translation>
+<translation id="132092532143527429">Спробувати з Gemini у Chromium</translation>
 <translation id="1324107359134968521">Для пошуку пристроїв із Bluetooth вебпереглядачу
 Chromium потрібен доступ до Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Визначити мову</translation>
@@ -164,7 +165,6 @@ Chromium потрібен доступ до Bluetooth. <ph name="IDS_SERIAL_DEVI
 <translation id="2738871930057338499">Не вдалося підключитися до Інтернету. Помилка "HTTP 403 заборонено". Перевірте конфігурацію свого проксі-сервера.</translation>
 <translation id="2753623023919742414">Натисніть, щоб шукати</translation>
 <translation id="2768103863314748511">Зробіть Chromium засобом перегляду файлів PDF за умовчанням</translation>
-<translation id="277828055419948999">Chromium може автоматично заповнювати складні поля, які не заповнюються за допомогою стандартної функції</translation>
 <translation id="2785438272836277133">Це розширення містить зловмисне програмне забезпечення і є небезпечним. Вилучіть його з Chromium, щоб розширення більше не могло переглядати й змінювати дані на сайтах, які ви відвідуєте (зокрема вашу особисту інформацію).</translation>
 <translation id="2799223571221894425">Перезапустити</translation>
 <translation id="2803971713792056305">Ваш вебпереглядач Chromium</translation>
@@ -240,7 +240,9 @@ Chromium потрібен доступ до Bluetooth. <ph name="IDS_SERIAL_DEVI
 <translation id="3509308970982693815">Закрийте всі вікна Chromium і повторіть спробу.</translation>
 <translation id="3522404737534491619">Щоб показувати своє вікно, у системних параметрах дозвольте Chromium записувати відео з екрана</translation>
 <translation id="3530103706039034513">Ви вже ввійшли в обліковий запис <ph name="EXISTING_USER" />.  Щоб переглядати вебсторінки окремо, увійдіть у свій профіль у Chromium як <ph name="USER_EMAIL_ADDRESS" />.</translation>
+<translation id="3531741627422851418">QR-код для завантаження вебпереглядача Chromium на мобільні пристрої</translation>
 <translation id="3561853857681580870">Щоб показувати свій екран, у системних параметрах дозвольте Chromium записувати відео з екрана.</translation>
+<translation id="3588112919289558122">Покращений захист вимикає оптимізацію JavaScript для сайтів, які Chromium не розпізнає</translation>
 <translation id="3597003331831379823">Не вдалося виконати налаштування з розширеними повноваженнями. <ph name="METAINSTALLER_ERROR" />.</translation>
 <translation id="3600428265489994557">Увійдіть у Chromium</translation>
 <translation id="3639635944603682591">Дані веб-перегляду користувача буде видалено з цього пристрою. Щоб відновити їх, увійдіть в обліковий запис Chromium як <ph name="USER_EMAIL" />.</translation>
@@ -477,6 +479,7 @@ Chromium потрібен доступ до Bluetooth. <ph name="IDS_SERIAL_DEVI
 <translation id="6327105987658262776">Немає оновлень.</translation>
 <translation id="6333502561965082103">У Chromium виконується інша операція. Спробуйте пізніше.</translation>
 <translation id="6334986366598267305">Користуватися Chromium у своєму обліковому записі Google на спільних комп’ютерах стало легше.</translation>
+<translation id="6347002662287820329">Зробіть Chromium вебпереглядачем за умовчанням, щоб легко користуватись улюбленими функціями.</translation>
 <translation id="6347933965114150440">Ярлик Chromium</translation>
 <translation id="6366160072964553914">Веб-переглядач Chromium заблокував завантаження, оскільки цей файл зазвичай не завантажують і він може бути небезпечним</translation>
 <translation id="6373523479360886564">Дійсно видалити Chromium?</translation>
@@ -586,6 +589,9 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="7384121030444253939">Це розширення більше не підтримується. Chromium радить вилучити його.</translation>
 <translation id="7413153308467572558">Продовжуйте роботу з місця, де зупинилися: Chromium відновлює ваші вкладки після кожного перезапуску. Щоб вимкнути цю функцію, перейдіть у</translation>
 <translation id="7427879960656355200">Імпортувати паролі в Chromium</translation>
+<translation id="744815265653811511">1. Натисніть кнопку "<ph name="BUTTON_LABEL" />" нижче.
+2. Натисніть "<ph name="BUTTON_2" />" у налаштуваннях Windows.
+3. Коли у Windows з’явиться сповіщення, натисніть "<ph name="BUTTON_3" />", щоб закріпити Chromium на панелі завдань для швидкого доступу.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Версія Chromium для розробників</translation>
 <translation id="7450541714075000668">Текст скопійовано</translation>
 <translation id="7451052299415159299">Chromium потрібен дозвіл на використання камери, щоб надати цьому сайту доступ до неї</translation>
@@ -593,7 +599,6 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="7461356015007898716">Щоб отримувати майбутні оновлення Chromium, потрібна операційна система Windows 10 або новішої версії. На цьому комп’ютері встановлено Windows 7.</translation>
 <translation id="7467949745582939695">Перезапустити Chromium?</translation>
 <translation id="7483335560992089831">Неможливо встановити версію Chromium, аналогічну запущеній зараз. Закрийте Chromium і повторіть спробу.</translation>
-<translation id="7517403744065880907">Увійшовши в Chromium, ви зможете зберігати й використовувати паролі та інші дані у своєму обліковому записі Google. <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">Сайти мають працювати належним чином. Якщо ви закриєте всі вікна Chromium, то вийдете з облікових записів на більшості сайтів, але не з облікового запису Google (за умови, що ви ввійшли в Chromium).</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium перезапуститься через 1 хвилину}one{Chromium перезапуститься через # хвилину}few{Chromium перезапуститься через # хвилини}many{Chromium перезапуститься через # хвилин}other{Chromium перезапуститься через # хвилини}}</translation>
 <translation id="7565444033145385702">Щоб захистити ваші дані, дозвольте Chromium скасовувати дозволи для сайтів, які ви останнім часом не відвідували.</translation>
@@ -602,7 +607,9 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="761356813943268536">Chromium використовує вашу камеру та мікрофон.</translation>
 <translation id="7617377681829253106">Chromium став ще кращим</translation>
 <translation id="7622753900276619808">Тепер у Chromium доступно більше функцій</translation>
+<translation id="7624307931717240213">Ми використовуємо цю інформацію, щоб покращувати сервіс. Перегляньте Політику конфіденційності й Умови використання.</translation>
 <translation id="7649070708921625228">Довідка</translation>
+<translation id="7650134251917003571">Завантажити додаток Chromium</translation>
 <translation id="7656340475565475526">Дозвольте Chromium шукати інформацію для вас</translation>
 <translation id="7658239707568436148">Скасувати</translation>
 <translation id="7686590090926151193">Chromium не є вашим веб-переглядачем за умовчанням</translation>
@@ -736,7 +743,6 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="9183331186620388872">Підказка щодо Chromium: шукайте за допомогою Об’єктива</translation>
 <translation id="9185526690718004400">Перезапустити, щоб оновити &amp;Chromium</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
-<translation id="9206863043651638213">Увійдіть у Chromium, щоб отримати більше можливостей</translation>
 <translation id="924957577793602335">Персоналізуйте Chromium</translation>
 <translation id="93478295209880648">Chromium може працювати неналежним чином, оскільки більше не підтримується у Windows XP та Windows Vista</translation>
 <translation id="945522503751344254">Надіслати відгук</translation>

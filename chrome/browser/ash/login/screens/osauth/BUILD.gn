@@ -33,7 +33,6 @@ static_library("osauth") {
   public_deps = [
     "//base",
     "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ash/login/screens",
     "//chrome/browser/ui/webui/ash/login/mojom",
     "//chromeos/ash/components/login/auth",
     "//chromeos/ash/components/login/auth/public:authpublic",
@@ -45,7 +44,6 @@ static_library("osauth") {
   deps = [
     "//ash/constants",
     "//ash/public/cpp",
-    "//chrome/browser:browser_process",
     "//chrome/browser/ash/auth",
     "//chrome/browser/ash/login",
     "//chrome/browser/ash/login/quick_unlock",
@@ -61,6 +59,7 @@ static_library("osauth") {
     "//components/crash/core/app",
     "//components/device_event_log",
     "//components/user_manager",
+    "//services/network/public/cpp",
   ]
 
   allow_circular_includes_from = [

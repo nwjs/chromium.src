@@ -39,7 +39,7 @@ import org.chromium.components.browser_ui.site_settings.WebsitePreferenceBridgeJ
 import org.chromium.components.content_settings.ContentSetting;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.components.embedder_support.util.UrlUtilitiesJni;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.permissions.PermissionsAndroidFeatureList;
 import org.chromium.components.permissions.PermissionsAndroidFeatureMap;
@@ -238,7 +238,7 @@ public class GeolocationHeader {
             // Only send X-Geo header to Search Engines.
             var isDseUrl = service.isSearchResultsPageFromDefaultSearchProvider(new GURL(url));
             var isGoogleDse = service.isDefaultSearchEngineGoogle();
-            if (!(isDseUrl || (isGoogleDse && UrlUtilitiesJni.get().isGoogleSearchUrl(url)))) {
+            if (!(isDseUrl || (isGoogleDse && UrlUtilities.isGoogleSearchUrl(url)))) {
                 return HeaderState.UNSUITABLE_URL;
             }
 
@@ -285,23 +285,22 @@ public class GeolocationHeader {
     public static @Nullable String getGeoHeader(
             String url, Profile profile, @Nullable TemplateUrlService service) {
         try (TraceEvent e = TraceEvent.scoped("GeolocationHeader.getGeoHeader")) {
-            Location locationToAttach = null;
-            long locationAge = Long.MAX_VALUE;
             @HeaderState int headerState = geoHeaderStateForUrl(profile, service, url);
-            if (headerState == HeaderState.HEADER_ENABLED) {
-                boolean useFine = canUseFineLocation(profile, Uri.parse(url));
-                locationToAttach = getLastKnownLocation(useFine);
-                if (locationToAttach != null) {
-                    locationAge = GeolocationTracker.getLocationAge(locationToAttach);
-                    if (locationAge > MAX_LOCATION_AGE) {
-                        // Do not attach the location
-                        locationToAttach = null;
-                    }
-                }
+            if (headerState != HeaderState.HEADER_ENABLED) {
+                return null;
             }
-
+            boolean useFine = canUseFineLocation(profile, Uri.parse(url));
+            Location locationToAttach = getLastKnownLocation(useFine);
+            if (locationToAttach == null) {
+                return null;
+            }
+            long locationAge = GeolocationTracker.getLocationAge(locationToAttach);
+            if (locationAge > MAX_LOCATION_AGE) {
+                // Do not attach the location
+                return null;
+            }
             // Proto encoding
-            String locationProtoEncoding = encodeProtoLocation(locationToAttach);
+            String locationProtoEncoding = encodeProtoLocation(locationToAttach, useFine);
             if (locationProtoEncoding == null) return null;
 
             StringBuilder header = new StringBuilder(XGEO_HEADER_PREFIX);
@@ -418,7 +417,8 @@ public class GeolocationHeader {
 
     /** Encodes location into proto encoding. */
     @VisibleForTesting
-    static @Nullable String encodeProtoLocation(@Nullable Location location) {
+    static @Nullable String encodeProtoLocation(
+            @Nullable Location location, boolean isPreciseLocation) {
         if (location == null) return null;
 
         // Timestamp in microseconds since the UNIX epoch.
@@ -438,16 +438,25 @@ public class GeolocationHeader {
                         .build();
 
         // Populate a LocationDescriptor with the LatLng.
-        PartnerLocationDescriptor.LocationDescriptor locationDescriptor =
+        PartnerLocationDescriptor.LocationDescriptor.Builder locationDescriptorBuilder =
                 PartnerLocationDescriptor.LocationDescriptor.newBuilder()
                         .setLatlng(latlng)
                         // Include role, producer, timestamp and radius.
                         .setRole(PartnerLocationDescriptor.LocationRole.CURRENT_LOCATION)
                         .setProducer(PartnerLocationDescriptor.LocationProducer.DEVICE_LOCATION)
                         .setTimestamp(timestamp)
-                        .setRadius((float) radius)
-                        .build();
-        return encodeLocationDescriptor(locationDescriptor);
+                        .setRadius((float) radius);
+
+        if (OmniboxFeatures.sOmniboxXGeoPermissionGranularity.isEnabled()) {
+            locationDescriptorBuilder.setPermissionGranularity(
+                    isPreciseLocation
+                            ? PartnerLocationDescriptor.PermissionGranularity
+                                    .PERMISSION_GRANULARITY_FINE
+                            : PartnerLocationDescriptor.PermissionGranularity
+                                    .PERMISSION_GRANULARITY_COARSE);
+        }
+
+        return encodeLocationDescriptor(locationDescriptorBuilder.build());
     }
 
     /** Encodes the given proto location descriptor into a BASE64 URL_SAFE encoding. */

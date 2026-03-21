@@ -172,6 +172,7 @@ std::vector<const char*> GetEnabledToggles(
 
   enabled_toggles.push_back("disable_robustness");
   enabled_toggles.push_back("disable_lazy_clear_for_mapped_at_creation_buffer");
+  enabled_toggles.push_back("dump_shaders_on_failure");
 
 #if BUILDFLAG(IS_WIN)
   if (backend_type == wgpu::BackendType::D3D11) {
@@ -245,6 +246,11 @@ std::vector<wgpu::FeatureName> GetRequiredFeatures(
     features.push_back(wgpu::FeatureName::D3D11MultithreadProtected);
   }
 #endif
+
+  if (backend_type == wgpu::BackendType::OpenGLES &&
+      gl::GetANGLEImplementation() == gl::ANGLEImplementation::kOpenGL) {
+    features.push_back(wgpu::FeatureName::ANGLETextureSharing);
+  }
 
   constexpr wgpu::FeatureName kOptionalFeatures[] = {
       wgpu::FeatureName::BGRA8UnormStorage,
@@ -395,17 +401,17 @@ const char* BackendTypeToString(wgpu::BackendType backend_type) {
 wgpu::BackendType DawnContextProvider::GetDefaultBackendType() {
   const auto switch_value =
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          switches::kSkiaGraphiteBackend);
-  if (switch_value == switches::kSkiaGraphiteBackendDawnD3D11) {
+          switches::kSkiaGraphiteDawnBackend);
+  if (switch_value == switches::kSkiaGraphiteDawnBackendD3D11) {
     return wgpu::BackendType::D3D11;
-  } else if (switch_value == switches::kSkiaGraphiteBackendDawnD3D12) {
+  } else if (switch_value == switches::kSkiaGraphiteDawnBackendD3D12) {
     return wgpu::BackendType::D3D12;
-  } else if (switch_value == switches::kSkiaGraphiteBackendDawnMetal) {
+  } else if (switch_value == switches::kSkiaGraphiteDawnBackendMetal) {
     return wgpu::BackendType::Metal;
-  } else if (switch_value == switches::kSkiaGraphiteBackendDawnOpenGLES) {
+  } else if (switch_value == switches::kSkiaGraphiteDawnBackendOpenGLES) {
     return wgpu::BackendType::OpenGLES;
-  } else if (switch_value == switches::kSkiaGraphiteBackendDawnSwiftshader ||
-             switch_value == switches::kSkiaGraphiteBackendDawnVulkan) {
+  } else if (switch_value == switches::kSkiaGraphiteDawnBackendSwiftshader ||
+             switch_value == switches::kSkiaGraphiteDawnBackendVulkan) {
     return wgpu::BackendType::Vulkan;
   }
 
@@ -428,8 +434,8 @@ wgpu::BackendType DawnContextProvider::GetDefaultBackendType() {
 // static
 bool DawnContextProvider::DefaultForceFallbackAdapter() {
   return base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-             switches::kSkiaGraphiteBackend) ==
-             switches::kSkiaGraphiteBackendDawnSwiftshader ||
+             switches::kSkiaGraphiteDawnBackend) ==
+             switches::kSkiaGraphiteDawnBackendSwiftshader ||
          gl::GetANGLEImplementation() == gl::ANGLEImplementation::kSwiftShader;
 }
 
@@ -499,6 +505,7 @@ class DawnSharedContext : public base::RefCountedThreadSafe<DawnSharedContext>,
 #endif
 
   std::optional<error::ContextLostReason> GetResetStatus() const;
+  void MarkContextLost(error::ContextLostReason reason);
 
   std::unique_ptr<GraphiteSharedContext> CreateGraphiteSharedContext(
       const skgpu::graphite::ContextOptions& options,
@@ -522,7 +529,10 @@ class DawnSharedContext : public base::RefCountedThreadSafe<DawnSharedContext>,
     return std::make_unique<GraphiteSharedContext>(
         std::move(graphite_context), use_shader_cache_shm_count, is_thread_safe,
         features::kSkiaGraphiteMaxPendingRecordings.Get(),
-        GetBackendFlushCallback());
+        GetBackendFlushCallback(),
+        // DawnSharedContext is guaranteed to outlive GraphiteSharedContext.
+        base::BindRepeating(&DawnSharedContext::MarkContextLost,
+                            base::Unretained(this)));
   }
 
   bool use_thread_safe_graphite_context() const {
@@ -612,7 +622,7 @@ class DawnSharedContext : public base::RefCountedThreadSafe<DawnSharedContext>,
   GraphiteSharedContext::FlushCallback GetBackendFlushCallback() {
 #if BUILDFLAG(IS_WIN)
     return base::BindRepeating(&DawnSharedContext::FlushD3D11CommandsIfDelayed,
-                               base::RetainedRef(this));
+                               base::Unretained(this));
 #else
     return {};
 #endif
@@ -1017,6 +1027,13 @@ std::optional<error::ContextLostReason> DawnSharedContext::GetResetStatus()
   return context_lost_reason_;
 }
 
+void DawnSharedContext::MarkContextLost(error::ContextLostReason reason) {
+  base::AutoLock auto_lock(context_lost_lock_);
+  if (!context_lost_reason_.has_value()) {
+    context_lost_reason_ = reason;
+  }
+}
+
 void DawnSharedContext::OnError(wgpu::ErrorType error_type,
                                 wgpu::StringView message) {
 #if BUILDFLAG(IS_WIN)
@@ -1048,22 +1065,19 @@ void DawnSharedContext::OnError(wgpu::ErrorType error_type,
   }
 #endif
 
-  base::AutoLock auto_lock(context_lost_lock_);
-  if (context_lost_reason_.has_value()) {
-    return;
-  }
-
+  error::ContextLostReason reason = error::kUnknown;
   switch (error_type) {
     case wgpu::ErrorType::OutOfMemory:
-      context_lost_reason_ = error::kOutOfMemory;
+      reason = error::kOutOfMemory;
       break;
     case wgpu::ErrorType::Validation:
-      context_lost_reason_ = error::kGuilty;
+      reason = error::kGuilty;
       break;
     default:
-      context_lost_reason_ = error::kUnknown;
+      reason = error::kUnknown;
       break;
   }
+  MarkContextLost(reason);
 }
 
 namespace {

@@ -17,6 +17,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/memory/memory_pressure_listener_registry.h"
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/process/launch.h"
@@ -31,6 +32,7 @@
 #include "base/test/test_future.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/buildflags.h"
@@ -99,7 +101,6 @@
 #include "components/collaboration/public/messaging/empty_messaging_backend_service.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
-#include "components/memory_pressure/fake_memory_pressure_monitor.h"
 #include "components/prefs/pref_service.h"
 #include "components/saved_tab_groups/internal/saved_tab_group_model.h"
 #include "components/saved_tab_groups/public/features.h"
@@ -305,7 +306,7 @@ class SessionRestoreTest : public InProcessBrowserTest {
         base::BindLambdaForTesting([&](content::WebContents* contents) {
           if (!contents->GetPrimaryMainFrame()
                    ->GetProcess()
-                   ->IsForInitialWebUI()) {
+                   ->IsForTopChromeWebUI()) {
             queues.emplace_back(
                 std::make_unique<content::DOMMessageQueue>(contents));
           }
@@ -377,16 +378,8 @@ class SessionRestoreTest : public InProcessBrowserTest {
 
     // Stop loading anything more if we are running out of space.
     if (!no_memory_pressure) {
-      fake_memory_pressure_monitor_.SetAndNotifyMemoryPressure(
+      base::MemoryPressureListenerRegistry::SimulatePressureNotification(
           base::MEMORY_PRESSURE_LEVEL_CRITICAL);
-      // Wait for async memory notifications to be delivered to Performance
-      // Manager on the main thread.
-      // TODO(crbug.com/436324601): Remove once memory pressure notifications
-      // are synchronous.
-      base::RunLoop run_loop;
-      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, run_loop.QuitClosure());
-      run_loop.Run();
     }
     restore_observer.Wait();
 
@@ -458,9 +451,6 @@ class SessionRestoreTest : public InProcessBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 #endif  // !BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
-  memory_pressure::test::FakeMemoryPressureMonitor
-      fake_memory_pressure_monitor_;
-
   base::CallbackListSubscription dependency_manager_subscription_;
 };
 
@@ -508,7 +498,7 @@ class SessionRestoreWithURLInCommandLineTest : public SessionRestoreTest {
 
 // Verifies that restored tabs have a root window. This is important
 // otherwise the wrong information is communicated to the renderer.
-// (http://crbug.com/342672).
+// (http://crbug.com/41089037).
 IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoredTabsShouldHaveWindow) {
   // Create tabs.
   ui_test_utils::NavigateToURLWithDisposition(
@@ -539,7 +529,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoredTabsShouldHaveWindow) {
 
 // Verify that restored tabs have correct disposition. Only one tab should
 // have "visible" visibility state, the rest should not.
-// (http://crbug.com/155365 http://crbug.com/118269)
+// (http://crbug.com/40291101 http://crbug.com/40751602)
 IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
                        RestoredTabsHaveCorrectVisibilityState) {
   // Create tabs.
@@ -612,10 +602,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoredTabsHaveCorrectInitialSize) {
 // when no other browser windows are open on ChromeOS.
 // TODO(pkotwicz): Add test which doesn't open incognito browser once
 // disable-zero-browsers-open-for-tests is removed.
-// (http://crbug.com/119175)
+// (http://crbug.com/40756809)
 // TODO(pkotwicz): Mac should have the behavior outlined by this test. It should
 // not do session restore if an incognito window is already open.
-// (http://crbug.com/120927)
+// (http://crbug.com/40766464)
 IN_PROC_BROWSER_TEST_F(SessionRestoreTest, NoSessionRestoreNewWindowChromeOS) {
   // When the full restore feature is enabled, session restore does occur when a
   // user opens a browser window. So set the pref as default, open the New Tab
@@ -845,13 +835,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreForeignTab) {
 
   // Restore in the current tab.
   content::WebContents* tab_content = nullptr;
-  {
-    content::CreateAndLoadWebContentsObserver observer;
-    tab_content = SessionRestore::RestoreForeignSessionTab(
-        browser()->tab_strip_model()->GetActiveWebContents(), tab,
-        WindowOpenDisposition::CURRENT_TAB);
-    observer.Wait();
-  }
+  tab_content = SessionRestore::RestoreForeignSessionTab(
+      browser()->tab_strip_model()->GetActiveWebContents(), tab,
+      WindowOpenDisposition::CURRENT_TAB);
+  ASSERT_TRUE(tab_content);
+  content::WaitForLoadStop(tab_content);
+
   ASSERT_EQ(1, browser()->tab_strip_model()->count());
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetWebContentsAt(0);
@@ -862,13 +851,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreForeignTab) {
 
   // Restore in a new tab.
   tab_content = nullptr;
-  {
-    content::CreateAndLoadWebContentsObserver observer;
-    tab_content = SessionRestore::RestoreForeignSessionTab(
-        browser()->tab_strip_model()->GetActiveWebContents(), tab,
-        WindowOpenDisposition::NEW_BACKGROUND_TAB);
-    observer.Wait();
-  }
+  tab_content = SessionRestore::RestoreForeignSessionTab(
+      browser()->tab_strip_model()->GetActiveWebContents(), tab,
+      WindowOpenDisposition::NEW_BACKGROUND_TAB);
+  ASSERT_TRUE(tab_content);
+  content::WaitForLoadStop(tab_content);
+
   ASSERT_EQ(2, browser()->tab_strip_model()->count());
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
   web_contents = browser()->tab_strip_model()->GetWebContentsAt(1);
@@ -881,12 +869,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreForeignTab) {
   Browser* new_browser = nullptr;
   tab_content = nullptr;
   {
-    content::CreateAndLoadWebContentsObserver observer;
     ui_test_utils::BrowserCreatedObserver browser_created_observer;
     tab_content = SessionRestore::RestoreForeignSessionTab(
         browser()->tab_strip_model()->GetActiveWebContents(), tab,
         WindowOpenDisposition::NEW_WINDOW);
-    observer.Wait();
+    ASSERT_TRUE(tab_content);
+    content::WaitForLoadStop(tab_content);
     new_browser = browser_created_observer.Wait();
     ui_test_utils::WaitForBrowserSetLastActive(new_browser);
     EXPECT_NE(new_browser, browser());
@@ -1600,7 +1588,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreWebUI) {
       content::BindingsPolicyValue::kMojoWebUi));
 }
 
-// http://crbug.com/803510 : Flaky on dbg and ASan bots.
+// http://crbug.com/40558748 : Flaky on dbg and ASan bots.
 #if defined(ADDRESS_SANITIZER) || !defined(NDEBUG)
 #define MAYBE_RestoreWebUISettings DISABLED_RestoreWebUISettings
 #else
@@ -1743,8 +1731,10 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, CloseSingleTabRestoresNothing) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetUrl1()));
 
   Profile* profile = browser()->profile();
-  std::unique_ptr<ScopedKeepAlive> keep_alive(new ScopedKeepAlive(
-      KeepAliveOrigin::SESSION_RESTORE, KeepAliveRestartOption::DISABLED));
+  ScopedKeepAlive keep_alive(KeepAliveOrigin::SESSION_RESTORE,
+                             KeepAliveRestartOption::DISABLED);
+  ScopedProfileKeepAlive profile_keep_alive(
+      profile, ProfileKeepAliveOrigin::kBrowserWindow);
 
   ui_test_utils::BrowserDestroyedObserver observer(browser());
   chrome::CloseTab(browser());
@@ -1764,8 +1754,6 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, CloseSingleTabRestoresNothing) {
 
   restore_observer.Wait();
   WaitForTabsToLoad(new_browser);
-
-  keep_alive.reset();
 
   AssertOneWindowWithOneTab(new_browser);
   EXPECT_EQ(chrome::kChromeUINewTabURL,
@@ -2063,9 +2051,9 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, PersistAndRestoreUserAgentOverride) {
   EXPECT_FALSE(over1.ua_metadata_override.has_value());
 }
 
-// Regression test for crbug.com/125958. When restoring a pinned selected tab in
-// a setting where there are existing tabs, the selected index computation was
-// wrong, leading to the wrong tab getting selected, DCHECKs firing, and the
+// Regression test for crbug.com/40201494. When restoring a pinned selected tab
+// in a setting where there are existing tabs, the selected index computation
+// was wrong, leading to the wrong tab getting selected, DCHECKs firing, and the
 // pinned tab not getting loaded.
 IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestorePinnedSelectedTab) {
   // Create a pinned tab.
@@ -2114,9 +2102,9 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestorePinnedSelectedTab) {
             new_browser->tab_strip_model()->GetWebContentsAt(1)->GetURL());
 }
 
-// Regression test for crbug.com/240156. When restoring tabs with a navigation,
-// the navigation should take active tab focus.
-// Flaky on Mac. http://crbug.com/656211.
+// Regression test for crbug.com/40317433. When restoring tabs with a
+// navigation, the navigation should take active tab focus. Flaky on Mac.
+// http://crbug.com/40489152.
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_RestoreWithNavigateSelectedTab \
   DISABLED_RestoreWithNavigateSelectedTab
@@ -2141,7 +2129,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest,
 }
 
 // Ensure that AUTO_SUBFRAME navigations in subframes are restored.
-// See https://crbug.com/638088.
+// See https://crbug.com/41270267.
 IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreAfterAutoSubframe) {
   // Load a page with a blank iframe, then navigate the iframe.  This will be an
   // auto-subframe commit, and we expect it to be restored.
@@ -2520,7 +2508,7 @@ class LoadOrderObserver : public BrowserCollectionObserver,
 };
 
 // PRE_CorrectLoadingOrder is flaky on ChromeOS MSAN and Mac.
-// See http://crbug.com/493167.
+// See http://crbug.com/40420117.
 #if (BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)) || BUILDFLAG(IS_MAC)
 #define MAYBE_PRE_CorrectLoadingOrder DISABLED_PRE_CorrectLoadingOrder
 #define MAYBE_CorrectLoadingOrder DISABLED_CorrectLoadingOrder
@@ -2736,7 +2724,7 @@ class MultiOriginSessionRestoreTest : public SessionRestoreTest {
 };
 
 // Test that Sec-Fetch-Site http request header is correctly replayed during
-// session restore.  This is a regression test for https://crbug.com/976055.
+// session restore.  This is a regression test for https://crbug.com/40632527.
 IN_PROC_BROWSER_TEST_F(MultiOriginSessionRestoreTest, SecFetchSite) {
   GURL sec_fetch_url = GetSameOriginUrl("/echoheader?sec-fetch-site");
 
@@ -2781,7 +2769,7 @@ IN_PROC_BROWSER_TEST_F(MultiOriginSessionRestoreTest, SecFetchSite) {
 
   // Verify again (after session restore) that all the tabs have seen the
   // expected Sec-Fetch-Site header.  This is the main verification for
-  // https://crbug.com/976055.
+  // https://crbug.com/40632527.
   ASSERT_EQ(3, new_browser->tab_strip_model()->count());
   EXPECT_EQ("same-origin", GetContent(new_browser, 0));
   EXPECT_EQ("cross-site", GetContent(new_browser, 1));
@@ -3192,9 +3180,9 @@ class SessionRestoreWithIncompleteFileTest : public InProcessBrowserTest {
     base::FilePath user_data_dir;
     EXPECT_TRUE(base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir));
     base::FilePath sessions_dir =
-        user_data_dir.AppendASCII(TestingProfile::kTestUserProfileDir);
-    if (!base::DeletePathRecursively(
-            sessions_dir.Append(sessions::kSessionsDirectory))) {
+        user_data_dir.AppendASCII(TestingProfile::kTestUserProfileDir)
+            .Append(sessions::kSessionsDirectory);
+    if (!base::DeletePathRecursively(sessions_dir)) {
       ADD_FAILURE() << "Unable to delete sessions directory";
       return false;
     }
@@ -3202,8 +3190,7 @@ class SessionRestoreWithIncompleteFileTest : public InProcessBrowserTest {
       ADD_FAILURE() << "Unable to create sessions directory";
       return false;
     }
-    base::FilePath session_file_path = sessions_dir.Append(
-        base::FilePath(sessions::kLegacyCurrentSessionFileName));
+    base::FilePath session_file_path = sessions_dir.AppendUTF8("Session_1234");
     base::FilePath data_dir;
     if (!base::PathService::Get(chrome::DIR_TEST_DATA, &data_dir)) {
       ADD_FAILURE() << "Unable to get data dir";

@@ -15,6 +15,7 @@
 #include "components/autofill/core/browser/payments/payments_requests/payments_request.h"
 #include "components/autofill/core/browser/payments/payments_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/ui/payments/autofill_progress_ui_type.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -28,11 +29,11 @@ IbanAccessManager::~IbanAccessManager() = default;
 void IbanAccessManager::FetchValue(const Suggestion::Payload& payload,
                                    OnIbanFetchedCallback on_iban_fetched) {
   if (auto* form_data_importer = client_->GetFormDataImporter()) {
-    // Reset the variable in FormDataImporter that denotes if non-interactive
-    // authentication happened. This variable will be set to a value if a
-    // payments autofill non-interactive flow successfully completes.
-    form_data_importer
-        ->SetPaymentMethodTypeIfNonInteractiveAuthenticationFlowCompleted(
+    // Reset the variable in PaymentsFormDataImporter that denotes if
+    // non-interactive authentication happened. This variable will be set to a
+    // value if a payments autofill non-interactive flow successfully completes.
+    form_data_importer->GetPaymentsFormDataImporter()
+        .SetPaymentMethodTypeIfNonInteractiveAuthenticationFlowCompleted(
             std::nullopt);
   }
 
@@ -55,8 +56,8 @@ void IbanAccessManager::FetchValue(const Suggestion::Payload& payload,
       } else {
         std::move(on_iban_fetched).Run(iban_copy.value());
         if (auto* form_data_importer = client_->GetFormDataImporter()) {
-          form_data_importer
-              ->SetPaymentMethodTypeIfNonInteractiveAuthenticationFlowCompleted(
+          form_data_importer->GetPaymentsFormDataImporter()
+              .SetPaymentMethodTypeIfNonInteractiveAuthenticationFlowCompleted(
                   payments::MandatoryReauthManager::
                       GetNonInteractivePaymentMethodType(
                           Iban::RecordType::kLocalIban));
@@ -76,7 +77,7 @@ void IbanAccessManager::FetchValue(const Suggestion::Payload& payload,
   }
 
   GetPaymentsAutofillClient().ShowAutofillProgressDialog(
-      AutofillProgressDialogType::kServerIbanUnmaskProgressDialog,
+      AutofillProgressUiType::kServerIbanUnmaskProgressUi,
       base::BindOnce(&IbanAccessManager::OnServerIbanUnmaskCancelled,
                      weak_ptr_factory_.GetWeakPtr()));
 
@@ -138,8 +139,8 @@ void IbanAccessManager::OnUnmaskResponseReceived(
           /*no_interactive_authentication_callback=*/base::OnceClosure());
       std::move(on_iban_fetched).Run(value);
       if (auto* form_data_importer = client_->GetFormDataImporter()) {
-        form_data_importer
-            ->SetPaymentMethodTypeIfNonInteractiveAuthenticationFlowCompleted(
+        form_data_importer->GetPaymentsFormDataImporter()
+            .SetPaymentMethodTypeIfNonInteractiveAuthenticationFlowCompleted(
                 payments::MandatoryReauthManager::
                     GetNonInteractivePaymentMethodType(
                         Iban::RecordType::kServerIban));

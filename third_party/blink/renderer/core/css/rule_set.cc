@@ -42,6 +42,7 @@
 #include "third_party/blink/renderer/core/css/css_position_try_rule.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
+#include "third_party/blink/renderer/core/css/css_unparsed_declaration_value.h"
 #include "third_party/blink/renderer/core/css/media_values.h"
 #include "third_party/blink/renderer/core/css/mixin_map.h"
 #include "third_party/blink/renderer/core/css/navigation_query.h"
@@ -54,6 +55,7 @@
 #include "third_party/blink/renderer/core/css/style_rule_counter_style.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
+#include "third_party/blink/renderer/core/css/style_rule_function_declarations.h"
 #include "third_party/blink/renderer/core/css/style_rule_import.h"
 #include "third_party/blink/renderer/core/css/style_rule_nested_declarations.h"
 #include "third_party/blink/renderer/core/css/style_rule_route.h"
@@ -223,9 +225,8 @@ void RuleData::MovedToDifferentRuleSet(const Vector<uint16_t>& old_backing,
                                        Vector<uint16_t>& new_backing,
                                        unsigned new_position) {
   unsigned new_pos = new_backing.size();
-  new_backing.insert(new_backing.size(),
-                     UNSAFE_BUFFERS(old_backing.data() + bloom_hash_pos_),
-                     bloom_hash_size_);
+  new_backing.append_range(
+      base::span(old_backing).subspan(bloom_hash_pos_, bloom_hash_size_));
   bloom_hash_pos_ = new_pos;
   position_ = new_position;
 }
@@ -394,6 +395,11 @@ static bool ExtractBucketingValues(const CSSSelector* selector,
             values.has_slotted = true;
           }
           break;
+        case CSSSelector::kPseudoPicker:
+          if (selector->Argument() != "select") {
+            break;
+          }
+          [[fallthrough]];
         case CSSSelector::kPseudoPlaceholder:
         case CSSSelector::kPseudoDetailsContent:
         case CSSSelector::kPseudoPermissionIcon:
@@ -418,11 +424,6 @@ static bool ExtractBucketingValues(const CSSSelector* selector,
           break;
         case CSSSelector::kPseudoPart:
           values.part_name = selector->Value();
-          break;
-        case CSSSelector::kPseudoPicker:
-          if (selector->Argument() == "select") {
-            values.ua_shadow_pseudo = shadow_element_names::kPickerSelect;
-          }
           break;
         case CSSSelector::kPseudoIs:
         case CSSSelector::kPseudoWhere:
@@ -1110,6 +1111,82 @@ void RuleSet::AddChildRules(StyleRule* parent_rule,
       AddStyleRule(nested_declarations->InnerStyleRule(), parent_rule, medium,
                    mixins, add_rule_flags, apply_mixins_stack, container_query,
                    cascade_layer, style_scope);
+    } else if (StyleRuleResult* result_rule =
+                   DynamicTo<StyleRuleResult>(rule)) {
+      // If we see a @result, it means we are within a @mixin.
+      const auto& mixin_parameter_bindings =
+          apply_mixins_stack.back().mixin_parameter_bindings;
+      AddChildRules(
+          parent_rule,
+          To<StyleRuleResult>(
+              result_rule->Clone(parent_rule, mixin_parameter_bindings))
+              ->ChildRules(),
+          medium, mixins, add_rule_flags, container_query, cascade_layer,
+          style_scope, apply_mixins_stack);
+    }
+  }
+}
+
+void RuleSet::FlattenMixinLocals(
+    base::span<const Member<StyleRuleBase>> rules,
+    const MediaQueryEvaluator& medium,
+    const ContainerQuery* container_query,
+    HeapHashMap<String, Member<CSSVariableData>>& locals,
+    HeapHashMap<String, HeapVector<MixinParameterBindings::CQDependentValue>>&
+        cq_dependent_locals) {
+  for (StyleRuleBase* rule : rules) {
+    if (auto* media_rule = DynamicTo<StyleRuleMedia>(rule)) {
+      if (MatchMediaForAddRules(medium, media_rule->MediaQueries())) {
+        FlattenMixinLocals(media_rule->ChildRules(), medium, container_query,
+                           locals, cq_dependent_locals);
+      }
+    } else if (auto* supports_rule = DynamicTo<StyleRuleSupports>(rule)) {
+      if (supports_rule->ConditionIsSupported()) {
+        FlattenMixinLocals(supports_rule->ChildRules(), medium, container_query,
+                           locals, cq_dependent_locals);
+      }
+    } else if (auto* container_rule = DynamicTo<StyleRuleContainer>(rule)) {
+      const ContainerQuery* inner_container_query =
+          &container_rule->GetContainerQuery();
+      if (container_query) {
+        inner_container_query =
+            inner_container_query->CopyWithParent(container_query);
+      }
+      FlattenMixinLocals(container_rule->ChildRules(), medium,
+                         inner_container_query, locals, cq_dependent_locals);
+    } else if (StyleRuleFunctionDeclarations* function_declarations =
+                   DynamicTo<StyleRuleFunctionDeclarations>(rule)) {
+      for (const CSSPropertyValue& value :
+           function_declarations->Properties().Properties()) {
+        const AtomicString& name = value.CustomPropertyName();
+        CSSVariableData* variable_data =
+            To<CSSUnparsedDeclarationValue>(value.Value()).VariableDataValue();
+
+        // Locals outside of container queries override all earlier locals.
+        // Locals inside container queries will only override locals with
+        // the same container query (since we don't attempt to find out if
+        // CQs are supersets of all CQs).
+        if (container_query) {
+          auto& inserted =
+              cq_dependent_locals
+                  .insert(
+                      name,
+                      HeapVector<MixinParameterBindings::CQDependentValue>{})
+                  .stored_value->value;
+          auto new_end = std::remove_if(
+              inserted.begin(), inserted.end(),
+              [container_query](
+                  const MixinParameterBindings::CQDependentValue& value) {
+                return value.container_query == container_query;
+              });
+          inserted.erase(new_end, inserted.end());
+          inserted.push_back(MixinParameterBindings::CQDependentValue{
+              variable_data, Member{container_query}});
+        } else {
+          locals.Set(name, variable_data);
+          cq_dependent_locals.erase(name);
+        }
+      }
     }
   }
 }
@@ -1167,22 +1244,30 @@ void RuleSet::ApplyMixin(StyleRule* parent_rule,
           MixinParameterBindings::Binding{
               argument_data, parameter.default_value, parameter.type});
     }
+
+    // Collect any locals from the mixin.
+    HeapHashMap<String, Member<CSSVariableData>> locals;
+    HeapHashMap<String, HeapVector<MixinParameterBindings::CQDependentValue>>
+        cq_dependent_locals;
+    FlattenMixinLocals(mixin_rule->ChildRules(), medium,
+                       /*container_query=*/nullptr, locals,
+                       cq_dependent_locals);
+
     MixinParameterBindings* mixin_parameter_bindings =
         MakeGarbageCollected<MixinParameterBindings>(
-            bindings, apply_mixins_stack.empty()
-                          ? nullptr
-                          : apply_mixins_stack.back().mixin_parameter_bindings);
+            std::move(bindings), std::move(locals),
+            std::move(cq_dependent_locals),
+            apply_mixins_stack.empty()
+                ? nullptr
+                : apply_mixins_stack.back().mixin_parameter_bindings);
 
     apply_mixins_stack.push_back(
         ApplyingMixin{.mixin = mixin_rule,
                       .invoking_apply_rule = apply_mixin_rule,
                       .mixin_parameter_bindings = mixin_parameter_bindings});
-    AddChildRules(parent_rule,
-                  To<StyleRuleMixin>(
-                      mixin_rule->Clone(parent_rule, mixin_parameter_bindings))
-                      ->ChildRules(),
-                  medium, mixins, add_rule_flags, container_query,
-                  cascade_layer, style_scope, apply_mixins_stack);
+    AddChildRules(parent_rule, mixin_rule->ChildRules(), medium, mixins,
+                  add_rule_flags, container_query, cascade_layer, style_scope,
+                  apply_mixins_stack);
     apply_mixins_stack.pop_back();
 
     // If the @mixin we are applying (or currently: any @mixin) was defined
@@ -1191,7 +1276,7 @@ void RuleSet::ApplyMixin(StyleRule* parent_rule,
     // re-evaluate this RuleSet.
     features_.MutableMediaQueryResultFlags().Add(
         mixins.media_query_result_flags);
-    media_query_set_results_.AppendVector(mixins.media_query_set_results);
+    media_query_set_results_.append_range(mixins.media_query_set_results);
 
     // Mark that we are using some mixin, and which generation of mixin map
     // it came from, so that we can invalidate if anything should change.
@@ -1516,10 +1601,19 @@ void RuleMap::AddFilteredRulesFromOtherSet(
       Seeker<StyleScope> scope_seeker(old_rule_set.scope_intervals_);
       for (const RuleData& rule_data : other.GetRulesFromExtent(extent)) {
         if (only_include.Contains(const_cast<StyleRule*>(rule_data.Rule()))) {
-          Add(key, rule_data);
+          RuleData* new_rule_data;
+          if (Add(key, rule_data)) {
+            new_rule_data = &backing.back();
+          } else {
+            // See comment in AddToBucket().
+            new_rule_set.universal_rules_.push_back(rule_data);
+            new_rule_data = &new_rule_set.universal_rules_.back();
+            UnmarkAsCoveredByBucketing(new_rule_data->MutableSelector());
+            new_rule_data->ComputeEntirelyCoveredByBucketing();
+          }
           new_rule_set.NewlyAddedFromDifferentRuleSet(
               rule_data, scope_seeker.Seek(rule_data.GetPosition()),
-              old_rule_set, backing.back());
+              old_rule_set, *new_rule_data);
         }
       }
     }
@@ -1537,10 +1631,19 @@ void RuleMap::AddFilteredRulesFromOtherSet(
       const unsigned bucket_number = other.bucket_number_[i];
       const RuleData& rule_data = other.backing[i];
       if (only_include.Contains(const_cast<StyleRule*>(rule_data.Rule()))) {
-        Add(*keys[bucket_number], rule_data);
+        RuleData* new_rule_data;
+        if (Add(*keys[bucket_number], rule_data)) {
+          new_rule_data = &backing.back();
+        } else {
+          // See comment in AddToBucket().
+          new_rule_set.universal_rules_.push_back(rule_data);
+          new_rule_data = &new_rule_set.universal_rules_.back();
+          UnmarkAsCoveredByBucketing(new_rule_data->MutableSelector());
+          new_rule_data->ComputeEntirelyCoveredByBucketing();
+        }
         new_rule_set.NewlyAddedFromDifferentRuleSet(
             rule_data, scope_seeker.Seek(rule_data.GetPosition()), old_rule_set,
-            backing.back());
+            *new_rule_data);
       }
     }
   }

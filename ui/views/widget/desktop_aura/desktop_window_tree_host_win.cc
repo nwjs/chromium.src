@@ -60,6 +60,7 @@
 #include "ui/views/widget/desktop_aura/desktop_native_cursor_manager_win.h"
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #include "ui/views/widget/root_view.h"
+#include "ui/views/widget/widget_activation_delegate.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_hwnd_utils.h"
 #include "ui/views/win/fullscreen_handler.h"
@@ -322,9 +323,18 @@ void DesktopWindowTreeHostWin::Show(ui::mojom::WindowShowState show_state,
     pixel_restore_bounds =
         display::win::GetScreenWin()->DIPToScreenRect(nullptr, restore_bounds);
   }
+
+  // Show content window first so that Widget::IsVisible() returns true during
+  // the synchronous HandleVisibilityChanged(true) triggered by ShowWindow().
+  content_window()->Show();
   message_handler_->Show(show_state, pixel_restore_bounds);
 
-  content_window()->Show();
+  if (WidgetActivationDelegate::Get()) {
+    WidgetActivationDelegate::Get()->MaybeActivate(
+        GetWidget(), GetWidget()->CanActivate() &&
+                         show_state != ui::mojom::WindowShowState::kInactive &&
+                         show_state != ui::mojom::WindowShowState::kMinimized);
+  }
 }
 
 bool DesktopWindowTreeHostWin::IsVisible() const {
@@ -428,14 +438,25 @@ void DesktopWindowTreeHostWin::SetParent(gfx::AcceleratedWidget parent) {
 }
 
 void DesktopWindowTreeHostWin::Activate() {
+  if (WidgetActivationDelegate::Get()) {
+    WidgetActivationDelegate::Get()->MaybeActivate(GetWidget(),
+                                                   /*activate=*/true);
+  }
   message_handler_->Activate();
 }
 
 void DesktopWindowTreeHostWin::Deactivate() {
-  message_handler_->Deactivate();
+  if (WidgetActivationDelegate::Get()) {
+    WidgetActivationDelegate::Get()->Deactivate(GetWidget());
+  } else {
+    message_handler_->Deactivate();
+  }
 }
 
 bool DesktopWindowTreeHostWin::IsActive() const {
+  if (WidgetActivationDelegate::Get()) {
+    return WidgetActivationDelegate::Get()->IsActive(GetWidget());
+  }
   return message_handler_->IsActive();
 }
 
@@ -1028,6 +1049,10 @@ bool DesktopWindowTreeHostWin::HandleSize(UINT param, const gfx::Size& new_size)
 }
 
 void DesktopWindowTreeHostWin::HandleActivationChanged(bool active) {
+  if (WidgetActivationDelegate::Get()) {
+    return;
+  }
+
   // This can be invoked from HWNDMessageHandler::Init(), at which point we're
   // not in a good state and need to ignore it.
   // TODO(beng): Do we need this still now the host owns the dispatcher?

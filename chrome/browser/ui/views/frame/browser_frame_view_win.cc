@@ -49,6 +49,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/gfx/geometry/rect_conversions.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/win/icon_util.h"
@@ -69,7 +70,7 @@ namespace {
 // (go/chrome-performance-work-should-be-finched).
 // TODO(crbug.com/40897031): Clean up when experiment is complete.
 BASE_FEATURE(kAvoidUnnecessaryGetMinimizeButtonOffset,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If nothing has been added to the left of the window title, match native
 // Windows 10 UWP apps that don't have window icons.
@@ -499,6 +500,16 @@ void BrowserFrameViewWin::OnThemeChanged() {
   if (!ShouldBrowserCustomDrawTitlebar(GetBrowserView())) {
     SetSystemMicaTitlebarAttributes();
   }
+}
+
+gfx::RoundedCornersF BrowserFrameViewWin::GetWindowRoundedCorners() const {
+  const auto* const widget = GetWidget();
+  if (widget && !widget->IsMaximized() && !widget->IsFullscreen() &&
+      !IsWindowArranged(views::HWNDForWidget(widget))) {
+    return gfx::RoundedCornersF(
+        GetLayoutConstant(LayoutConstant::kToolbarCornerRadius));
+  }
+  return gfx::RoundedCornersF();
 }
 
 bool BrowserFrameViewWin::ShouldTabIconViewAnimate() const {

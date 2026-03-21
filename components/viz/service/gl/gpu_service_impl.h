@@ -81,7 +81,6 @@ class WebNNContextProviderImpl;
 namespace viz {
 
 class VulkanContextProvider;
-class MetalContextProvider;
 
 // This runs in the GPU process, and communicates with the gpu host (which is
 // the window server) over the mojom APIs. This is responsible for setting up
@@ -202,6 +201,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
       mojo::PendingReceiver<webnn::mojom::WebNNContextProvider>
           pending_receiver,
       int client_id,
+      uint64_t client_tracing_id,
       bool is_incognito) override;
 
   void GetVideoMemoryUsageStats(
@@ -348,14 +348,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   }
 #else
   VulkanContextProvider* vulkan_context_provider() const { return nullptr; }
-#endif
-
-#if BUILDFLAG(SKIA_USE_METAL)
-  MetalContextProvider* metal_context_provider() const {
-    return metal_context_provider_.get();
-  }
-#else
-  MetalContextProvider* metal_context_provider() const { return nullptr; }
 #endif
 
 #if BUILDFLAG(SKIA_USE_DAWN)
@@ -511,9 +503,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   raw_ptr<gpu::VulkanImplementation> vulkan_implementation_;
   scoped_refptr<VulkanContextProvider> vulkan_context_provider_;
 #endif
-#if BUILDFLAG(SKIA_USE_METAL)
-  std::unique_ptr<MetalContextProvider> metal_context_provider_;
-#endif
+
 #if BUILDFLAG(SKIA_USE_DAWN)
   std::unique_ptr<gpu::DawnContextProvider> dawn_context_provider_;
 #endif

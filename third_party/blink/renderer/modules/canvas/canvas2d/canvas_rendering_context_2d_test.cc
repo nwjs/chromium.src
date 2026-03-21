@@ -143,7 +143,6 @@
 #include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkSurface.h"
-#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -732,11 +731,9 @@ TEST_P(CanvasRenderingContext2DTest,
   // Install a CanvasResourceProvider that does not support direct compositing.
   gfx::Size size = CanvasElement().Size();
   auto provider = Canvas2DResourceProviderBitmap::CreateForTesting(
-      size,
-      Canvas2DColorParams(PredefinedColorSpace::kSRGB,
-                          CanvasPixelFormat::kUint8,
-                          /*has_alpha=*/true),
-      CanvasResourceProvider::ShouldInitialize::kNo);
+      size, Canvas2DColorParams(PredefinedColorSpace::kSRGB,
+                                CanvasPixelFormat::kUint8,
+                                /*has_alpha=*/true));
 
   Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
 
@@ -1534,12 +1531,12 @@ TEST_P(CanvasRenderingContext2DTest,
        UnacceleratedLowLatencyIsNotSingleBuffered) {
   // Ensure that the context will create a SharedImage provider for the test to
   // be meaningful.
-  ScopedCanvas2dImageChromiumForTest canvas_2d_image_chromium(true);
+  SharedGpuContext::SetUseMappableSharedImagesForCanvas2DForTesting(true);
   ScopedTestingPlatformSupport<GpuCompositingTestPlatform> platform;
   const_cast<gpu::Capabilities&>(SharedGpuContext::ContextProviderWrapper()
                                      ->ContextProvider()
                                      .GetCapabilities())
-      .mappable_formats.insert(viz::SinglePlaneFormat::kBGRA_8888);
+      .texture_format_bgra8888 = true;
 
   CreateContext(kNonOpaque, kLowLatency);
   // No need to set-up the layer bridge when testing low latency mode.
@@ -1717,17 +1714,16 @@ TEST_P(CanvasRenderingContext2DTest, AutoFlushDelayedByLayer) {
 }
 
 TEST_P(CanvasRenderingContext2DTest,
-       SoftwareCanvasIsCompositedIfImageChromium) {
-  ScopedCanvas2dImageChromiumForTest canvas_2d_image_chromium(true);
+       SoftwareCanvasIsCompositedIfMappableSharedImageIsUsed) {
+  SharedGpuContext::SetUseMappableSharedImagesForCanvas2DForTesting(true);
 
-  // Ensure that native support for BGRA GMBs is present, as otherwise
-  // compositing will not occur irrespective of whether
-  // `ScopedCanvas2dImageChromium` is enabled.
+  // Ensure that support for BGRA overlays is present, as otherwise compositing
+  // will not occur regardless.
   ScopedTestingPlatformSupport<GpuCompositingTestPlatform> platform;
   const_cast<gpu::Capabilities&>(SharedGpuContext::ContextProviderWrapper()
                                      ->ContextProvider()
                                      .GetCapabilities())
-      .mappable_formats.insert(viz::SinglePlaneFormat::kBGRA_8888);
+      .texture_format_bgra8888 = true;
 
   CreateContext(kNonOpaque);
   EXPECT_TRUE(Context2D()->GetOrCreateResourceProvider());
@@ -1739,20 +1735,19 @@ TEST_P(CanvasRenderingContext2DTest,
 }
 
 TEST_P(CanvasRenderingContext2DTest,
-       SoftwareCanvasIsNotCompositedIfNotImageChromium) {
-  ScopedCanvas2dImageChromiumForTest canvas_2d_image_chromium(false);
+       SoftwareCanvasIsNotCompositedIfMappableSharedImageIsNotUsed) {
+  SharedGpuContext::SetUseMappableSharedImagesForCanvas2DForTesting(false);
 
   CreateContext(kNonOpaque);
   EXPECT_TRUE(Context2D()->GetOrCreateResourceProvider());
 
-  // Ensure that native support for BGRA GMBs is present, as otherwise
-  // compositing will not occur irrespective of whether
-  // `ScopedCanvas2dImageChromium` is enabled.
+  // Ensure that support for BGRA overlays is present, as otherwise compositing
+  // will not occur regardless.
   ScopedTestingPlatformSupport<GpuCompositingTestPlatform> platform;
   const_cast<gpu::Capabilities&>(SharedGpuContext::ContextProviderWrapper()
                                      ->ContextProvider()
                                      .GetCapabilities())
-      .mappable_formats.insert(viz::SinglePlaneFormat::kBGRA_8888);
+      .texture_format_bgra8888 = true;
 
   // Draw to the canvas and verify that the canvas is not composited.
   Context2D()->fillRect(0, 0, 1, 1);
@@ -3522,8 +3517,7 @@ class CanvasRenderingContext2DTestImageChromium
       viz::TestContextProvider& context_provider) override {
     auto* test_raster = context_provider.GetTestRasterInterface();
     test_raster->set_max_texture_size(1024);
-    test_raster->set_supports_mappable_format(
-        viz::SinglePlaneFormat::kBGRA_8888, true);
+    test_raster->set_texture_format_bgra8888(true);
 
     gpu::SharedImageCapabilities shared_image_caps;
     shared_image_caps.supports_scanout_shared_images = true;
@@ -3537,6 +3531,8 @@ class CanvasRenderingContext2DTestImageChromium
 INSTANTIATE_PAINT_TEST_SUITE_P(CanvasRenderingContext2DTestImageChromium);
 
 TEST_P(CanvasRenderingContext2DTestImageChromium, LowLatencyIsSingleBuffered) {
+  SharedGpuContext::SetLowLatencyUsageSupportedForCanvas2DForTesting(true);
+
   CreateContext(kNonOpaque, kLowLatency);
   // No need to set-up the layer bridge when testing low latency mode.
   DrawSomething();

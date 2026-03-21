@@ -169,14 +169,11 @@ export class HistoryListElement extends HistoryListElementBase {
             this.onHistoryDeleted_.bind(this));
   }
 
-  override firstUpdated() {
-    this.setAttribute('role', 'application');
-    this.setAttribute('aria-roledescription', this.i18n('ariaRoleDescription'));
-
-    this.addEventListener('history-checkbox-select', this.onItemSelected_);
-    this.addEventListener('open-menu', this.onOpenMenu_);
-    this.addEventListener(
-        'remove-bookmark-stars', e => this.onRemoveBookmarkStars_(e));
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    assert(this.onHistoryDeletedListenerId_);
+    this.callbackRouter_.removeListener(this.onHistoryDeletedListenerId_);
+    this.onHistoryDeletedListenerId_ = null;
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -188,6 +185,16 @@ export class HistoryListElement extends HistoryListElementBase {
     }
   }
 
+  override firstUpdated() {
+    this.setAttribute('role', 'application');
+    this.setAttribute('aria-roledescription', this.i18n('ariaRoleDescription'));
+
+    this.addEventListener('history-checkbox-select', this.onItemSelected_);
+    this.addEventListener('open-menu', this.onOpenMenu_);
+    this.addEventListener(
+        'remove-bookmark-stars', e => this.onRemoveBookmarkStars_(e));
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
     if (changedProperties.has('isActive')) {
@@ -197,13 +204,6 @@ export class HistoryListElement extends HistoryListElementBase {
     if (changedProperties.has('scrollTarget')) {
       this.onScrollTargetChanged_(changedProperties.get('scrollTarget'));
     }
-  }
-
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    assert(this.onHistoryDeletedListenerId_);
-    this.callbackRouter_.removeListener(this.onHistoryDeletedListenerId_);
-    this.onHistoryDeletedListenerId_ = null;
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -269,9 +269,7 @@ export class HistoryListElement extends HistoryListElementBase {
     this.historyData_ = [...this.historyData_, ...results];
     this.resultLoadingDisabled_ = finished;
 
-    if (loadTimeData.getBoolean('enableBrowsingHistoryActorIntegrationM1')) {
-      this.recordActorVisitShown_(results);
-    }
+    this.recordActorVisitShown_(results);
   }
 
   private recordActorVisitShown_(historyResults: HistoryEntry[]) {
@@ -489,10 +487,6 @@ export class HistoryListElement extends HistoryListElementBase {
   }
 
   private recordContextMenuActionsHistogram_(action: VisitContextMenuAction) {
-    if (!loadTimeData.getBoolean('enableBrowsingHistoryActorIntegrationM1')) {
-      return;
-    }
-
     this.browserService_.recordHistogram(
         this.actionMenuModel_!.item.isActorVisit ?
             'HistoryPage.ActorContextMenuActions' :

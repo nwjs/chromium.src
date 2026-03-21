@@ -49,6 +49,7 @@
 #include "third_party/blink/public/web/web_css_origin.h"
 #include "third_party/blink/public/web/web_draggable_region.h"
 #include "third_party/blink/public/web/web_node.h"
+#include "third_party/blink/public/web/web_script_tool_types.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_error_types.h"
 
@@ -219,38 +220,17 @@ class BLINK_EXPORT WebDocument : public WebNode {
   // Executes a script tool with the given `name` and `input_arguments`.
   //
   // The associated callback is invoked once the async execution of the tool is
-  // finished along with the result of the execution.
+  // finished along with the result of the execution and the tool declaration.
   // A null response indicates a navigation was triggered and the response will
   // be on the next Document.
   // An error is returned if the execution failed.
   //
   // The return value is a document-scoped execution ID which can be used to
   // cancel the tool execution.
-  struct BLINK_EXPORT ScriptToolError {
-    enum Code {
-      kInvalidToolName,
-      kInvalidInputArguments,
-      kMissingRequiredSubmitButton,
-      kToolInvocationFailed,
-      kToolCancelled,
-    };
-    Code code;
-    WebString message;
-
-    ScriptToolError(Code code, WebString message = WebString())
-        : code(code), message(std::move(message)) {}
-
-    bool operator==(const ScriptToolError& other) const {
-      return code == other.code;
-    }
-    bool operator==(Code other_code) const { return code == other_code; }
-  };
-  using ScriptToolExecutedCallback =
-      base::OnceCallback<void(base::expected<WebString, ScriptToolError>)>;
   std::optional<uint32_t> ExecuteScriptTool(
       const WebString& name,
       const WebString& input_arguments,
-      ScriptToolExecutedCallback tool_executed_cb);
+      WebScriptToolResultCallback tool_result_cb);
 
   // Provides the result of a script tool execution initiated on an old
   // Document.
@@ -261,6 +241,10 @@ class BLINK_EXPORT WebDocument : public WebNode {
 
   // Cancels a script tool with the given execution ID.
   void CancelScriptTool(uint32_t execution_id);
+
+  // Returns whether the AutofillEvent runtime feature is enabled for this
+  // document's execution context (including origin trial tokens).
+  bool IsAutofillEventEnabled() const;
 
   // Dispatches an autofill event on the document with the given field data.
   // This is called by the autofill agent before filling form fields.

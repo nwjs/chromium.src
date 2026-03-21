@@ -252,7 +252,7 @@ std::unique_ptr<TemplateURL> UpdateExistingURLWithAccountData(
 // If the TemplateURLData comes from a prepopulated URL available in the current
 // country, update all its fields save for the keyword, short name and id so
 // that they match the internal prepopulated URL. TemplateURLs not coming from
-// a prepopulated URL are not modified.
+// a regional prepopulated URL are not modified.
 TemplateURLData UpdateTemplateURLDataIfPrepopulated(
     const TemplateURLData& data,
     const TemplateURLPrepopulateData::Resolver& prepopulate_data_resolver) {
@@ -261,17 +261,14 @@ TemplateURLData UpdateTemplateURLDataIfPrepopulated(
     return data;
   }
 
-  std::vector<std::unique_ptr<TemplateURLData>> prepopulated_urls =
-      prepopulate_data_resolver.GetPrepopulatedEngines();
-
-  TemplateURL turl(data);
-  for (const auto& url : prepopulated_urls) {
-    if (url->prepopulate_id == prepopulate_id) {
-      MergeIntoEngineData(&turl, url.get());
-      return *url;
-    }
+  std::unique_ptr<TemplateURLData> prepopulated_url =
+      prepopulate_data_resolver.GetPrepopulatedEngine(prepopulate_id);
+  if (!prepopulated_url) {
+    return data;
   }
-  return data;
+
+  MergeIntoEngineData(data, *prepopulated_url.get());
+  return *prepopulated_url;
 }
 
 // Explicitly converts from ActiveStatus enum in sync protos to enum in
@@ -1416,7 +1413,8 @@ void TemplateURLService::RepairPrepopulatedSearchEngines() {
       prepopulate_data_resolver_->GetPrepopulatedEngines();
   DCHECK(!prepopulated_urls.empty());
   ActionsFromCurrentData actions(CreateActionsFromCurrentPrepopulateData(
-      &prepopulated_urls, template_urls_, default_search_provider_));
+      &prepopulated_urls, template_urls_, default_search_provider_,
+      prepopulate_data_resolver_.get()));
 
   // Remove items.
   for (auto i = actions.removed_engines.begin();
@@ -1749,7 +1747,8 @@ void TemplateURLService::OnWebDataServiceRequestDone(
               regional_capabilities::CountryAccessKey(
                   regional_capabilities::CountryAccessReason::
                       kTemplateURLServiceDatabaseMetadataCaching)));
-
+      web_data_service_->SetPrepopulatedEnginesMigrationEnabled(
+          updated_keywords_metadata.prepopulated_engines_migration_enabled);
     }
 
     if (updated_keywords_metadata.HasStarterPackData()) {

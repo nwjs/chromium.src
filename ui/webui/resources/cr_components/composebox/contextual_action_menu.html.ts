@@ -52,14 +52,14 @@ export function getHtml(this: ContextualActionMenuElement) {
     `: ''}
     ${this.imageUploadAllowed_ ? html`
       <button id="imageUpload" class="dropdown-item" role="menuitem"
-          @click="${this.openImageUpload_}"
+          @click="${this.onImageUploadClick_}"
           ?disabled="${this.imageUploadDisabled_}">
         <cr-icon icon="composebox:imageUpload"></cr-icon>
         ${this.getInputTypeLabel_(InputType.kLensImage)}
       </button>` : ''}
     ${this.fileUploadAllowed_ ? html`<button id="fileUpload" class="dropdown-item"
         role="menuitem"
-        @click="${this.openFileUpload_}"
+        @click="${this.onFileUploadClick_}"
         ?disabled="${this.fileUploadDisabled_}">
       <cr-icon icon="composebox:fileUpload"></cr-icon>
       ${this.getInputTypeLabel_(InputType.kLensFile)}
@@ -75,13 +75,14 @@ export function getHtml(this: ContextualActionMenuElement) {
         <h4 id="toolHeader">${this.toolHeader_}</h4>` : ''}` : ''}
 
     ${this.inputState?.allowedTools.map(mode => {
-      const icon = this.supportedTools_.get(mode)?.icon;
       return html`
       <button class="dropdown-item" data-mode="${mode}"
           role="menuitem"
           @click="${this.onToolClick_}"
           ?disabled="${this.isToolDisabled_(mode)}">
-        ${icon ? html`<cr-icon icon="${icon}"></cr-icon>` : ''}
+        ${this.getIconForToolMode_(mode) ? html`
+          <cr-icon icon="${this.getIconForToolMode_(mode)}"></cr-icon>
+        ` : ''}
         ${this.getToolLabel_(mode)}
       </button>`;
     })}
@@ -96,7 +97,6 @@ export function getHtml(this: ContextualActionMenuElement) {
         <h4 id="modelHeader">${this.modelHeader_}</h4>` : ''}` : ''}
 
     ${this.inputState?.allowedModels.map(mode => {
-      const icon = this.supportedModels_.get(mode)?.icon;
       return html`
       <button class="dropdown-item"
           role="menuitemradio"
@@ -104,7 +104,9 @@ export function getHtml(this: ContextualActionMenuElement) {
           data-model="${mode}"
           @click="${this.onModelClick_}"
           ?disabled="${this.isModelDisabled_(mode)}">
-        ${icon ? html`<cr-icon icon="${icon}"></cr-icon>` : ''}
+        ${this.getIconForModelMode_(mode) ? html`
+          <cr-icon icon="${this.getIconForModelMode_(mode)}"></cr-icon>
+        ` : ''}
         <span>${this.getModelLabel_(mode)}</span>
         ${this.isModelActive_(mode) ? html`
           <cr-icon class="multi-tab-icon"

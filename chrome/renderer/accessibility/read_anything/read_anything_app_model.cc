@@ -134,7 +134,8 @@ void ReadAnythingAppModel::OnSettingsRestoredFromPrefs(
     bool links_enabled,
     bool images_enabled,
     read_anything::mojom::Colors color,
-    read_anything::mojom::LineFocus line_focus) {
+    read_anything::mojom::LineFocus last_non_disabled_line_focus,
+    bool line_focus_enabled) {
   line_spacing_ = line_spacing;
   letter_spacing_ = letter_spacing;
   font_name_ = std::move(font_name);
@@ -142,13 +143,14 @@ void ReadAnythingAppModel::OnSettingsRestoredFromPrefs(
   links_enabled_ = links_enabled;
   images_enabled_ = images_enabled;
   color_theme_ = color;
-  line_focus_ = line_focus;
+  last_non_disabled_line_focus_ = last_non_disabled_line_focus;
+  line_focus_enabled_ = line_focus_enabled;
 }
 
 void ReadAnythingAppModel::Reset(std::vector<ui::AXNodeID> content_node_ids) {
   content_node_ids_ = std::move(content_node_ids);
   display_node_ids_.clear();
-  distillation_in_progress_ = false;
+  screen2x_distiller_running_ = false;
   requires_post_process_selection_ = false;
   selections_from_reading_mode_ = 0;
   ResetSelection();
@@ -908,8 +910,7 @@ void ReadAnythingAppModel::ProcessNonGeneratedEvents(
         // Closing ads sometimes sends this event but we also get this when
         // keyboard focus changes. Only try to redistill if we have no content
         // right now.
-        if (features::IsReadAnythingReadAloudEnabled() &&
-            content_node_ids_.size() == 0) {
+        if (content_node_ids_.size() == 0) {
           requires_distillation_ = true;
         }
         break;
@@ -1029,8 +1030,7 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
         requires_post_process_selection_ = true;
         break;
       case ui::AXEventGenerator::Event::DOCUMENT_TITLE_CHANGED:
-        if (!features::IsReadAnythingReadAloudEnabled() ||
-            event.event_params->event_from == ax::mojom::EventFrom::kUser) {
+        if (event.event_params->event_from == ax::mojom::EventFrom::kUser) {
           requires_distillation_ = true;
         }
         break;
@@ -1059,20 +1059,16 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
         }
         break;
       case ui::AXEventGenerator::Event::COLLAPSED:
-        if (features::IsReadAnythingReadAloudEnabled()) {
           ResetSelection();
           requires_post_process_selection_ = false;
           redraw_required_ = true;
-        }
         break;
       case ui::AXEventGenerator::Event::EXPANDED:
-        if (features::IsReadAnythingReadAloudEnabled()) {
           if (std::ranges::contains(content_node_ids_, event.node_id)) {
             redraw_required_ = true;
           } else {
             requires_distillation_ = true;
           }
-        }
         break;
       // Audit these events e.g. to trigger distillation.
       case ui::AXEventGenerator::Event::EDITABLE_TEXT_CHANGED:
@@ -1099,8 +1095,10 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
       case ui::AXEventGenerator::Event::FOCUS_CHANGED:
       case ui::AXEventGenerator::Event::FLOW_FROM_CHANGED:
       case ui::AXEventGenerator::Event::FLOW_TO_CHANGED:
+      case ui::AXEventGenerator::Event::GRAMMAR_MARKER_CHANGED:
       case ui::AXEventGenerator::Event::HASPOPUP_CHANGED:
       case ui::AXEventGenerator::Event::HIERARCHICAL_LEVEL_CHANGED:
+      case ui::AXEventGenerator::Event::HIGHLIGHT_MARKER_CHANGED:
       case ui::AXEventGenerator::Event::IGNORED_CHANGED:
       case ui::AXEventGenerator::Event::IMAGE_ANNOTATION_CHANGED:
       case ui::AXEventGenerator::Event::INVALID_STATUS_CHANGED:
@@ -1118,16 +1116,7 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
       case ui::AXEventGenerator::Event::MENU_POPUP_START:
       case ui::AXEventGenerator::Event::MULTILINE_STATE_CHANGED:
       case ui::AXEventGenerator::Event::MULTISELECTABLE_STATE_CHANGED:
-        break;
       case ui::AXEventGenerator::Event::NAME_CHANGED:
-        if (!features::IsReadAnythingReadAloudEnabled() &&
-            last_expanded_node_id_ == event.node_id) {
-          ResetSelection();
-          requires_post_process_selection_ = false;
-          reset_last_expanded_node_id();
-          redraw_required_ = true;
-        }
-        break;
       case ui::AXEventGenerator::Event::OBJECT_ATTRIBUTE_CHANGED:
       case ui::AXEventGenerator::Event::ORIENTATION_CHANGED:
       case ui::AXEventGenerator::Event::PARENT_CHANGED:
@@ -1148,6 +1137,7 @@ void ReadAnythingAppModel::ProcessGeneratedEvents(
       case ui::AXEventGenerator::Event::SELECTED_VALUE_CHANGED:
       case ui::AXEventGenerator::Event::SET_SIZE_CHANGED:
       case ui::AXEventGenerator::Event::SORT_CHANGED:
+      case ui::AXEventGenerator::Event::SPELLING_MARKER_CHANGED:
       case ui::AXEventGenerator::Event::STATE_CHANGED:
       case ui::AXEventGenerator::Event::TEXT_ATTRIBUTE_CHANGED:
       case ui::AXEventGenerator::Event::TEXT_SELECTION_CHANGED:

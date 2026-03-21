@@ -24,9 +24,7 @@ class RenderFrameHost;
 // the calls it receives.
 class WebContentsObserverProxy : public WebContentsObserver {
  public:
-  WebContentsObserverProxy(JNIEnv* env,
-                           const base::android::JavaRef<jobject>& obj,
-                           WebContents* web_contents);
+  explicit WebContentsObserverProxy(WebContents* web_contents);
 
   WebContentsObserverProxy(const WebContentsObserverProxy&) = delete;
   WebContentsObserverProxy& operator=(const WebContentsObserverProxy&) = delete;
@@ -87,7 +85,9 @@ class WebContentsObserverProxy : public WebContentsObserver {
   void MediaSessionCreated(MediaSession* media_session) override;
   void WasDiscarded() override;
 
-  base::android::ScopedJavaGlobalRef<jobject> java_observer_;
+  base::android::ScopedJavaLocalRef<jobject> GetJavaObjectChecked(
+      JNIEnv* env) const;
+
   GURL base_url_of_last_started_data_url_;
 };
 

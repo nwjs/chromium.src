@@ -22,9 +22,9 @@
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager_factory.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
-#include "chrome/browser/safe_browsing/cloud_content_scanning/multipart_uploader.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
+#include "components/enterprise/connectors/core/cloud_content_scanning/multipart_uploader.h"
 #include "components/enterprise/connectors/core/cloud_content_scanning/resumable_uploader.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/enterprise/connectors/core/reporting_utils.h"
@@ -439,10 +439,6 @@ void CloudBinaryUploadService::OnGetRequestData(
       return;
     }
 
-    // If the error is not unrecoverable, chrome can attempt to sent the
-    // file contents to the content analysis service.  Let the service know that
-    // a metadata-only analysis is required.
-    request->set_require_metadata_verdict(true);
     // If the file is encrypted, let the service know that the file is
     // encrypted.
     if (result ==
@@ -498,7 +494,8 @@ void CloudBinaryUploadService::OnGetRequestData(
   if (request->IsAuthRequest()) {
     upload_request = MultipartUploadRequest::CreateStringRequest(
         url_loader_factory_, url, metadata, data.contents, histogram_suffix,
-        std::move(traffic_annotation), std::move(callback));
+        std::move(traffic_annotation), std::move(callback),
+        content::GetUIThreadTaskRunner({}));
   } else if (!data.contents.empty()) {
     upload_request =
         (enterprise_connectors::IsResumableUpload(*request) &&
@@ -516,7 +513,7 @@ void CloudBinaryUploadService::OnGetRequestData(
             : MultipartUploadRequest::CreateStringRequest(
                   url_loader_factory_, url, metadata, data.contents,
                   histogram_suffix, std::move(traffic_annotation),
-                  std::move(callback));
+                  std::move(callback), content::GetUIThreadTaskRunner({}));
   } else if (!data.path.empty()) {
     upload_request =
         enterprise_connectors::IsResumableUpload(*request)
@@ -530,7 +527,8 @@ void CloudBinaryUploadService::OnGetRequestData(
             : MultipartUploadRequest::CreateFileRequest(
                   url_loader_factory_, url, metadata, data.path, data.size,
                   data.is_obfuscated, histogram_suffix,
-                  std::move(traffic_annotation), std::move(callback));
+                  std::move(traffic_annotation), std::move(callback),
+                  content::GetUIThreadTaskRunner({}));
 
   } else if (data.page.IsValid()) {
     upload_request =
@@ -545,11 +543,11 @@ void CloudBinaryUploadService::OnGetRequestData(
             : MultipartUploadRequest::CreatePageRequest(
                   url_loader_factory_, url, metadata, std::move(data.page),
                   histogram_suffix, std::move(traffic_annotation),
-                  std::move(callback));
+                  std::move(callback), content::GetUIThreadTaskRunner({}));
   } else {
     NOTREACHED();
   }
-  // TODO(crbug.com/485578457): Add test validation to check that the
+  // TODO(b/485578457): Add test validation to check that the
   // `access_token` is indeed set for the `upload_request`.
   upload_request->set_access_token(request->access_token());
 

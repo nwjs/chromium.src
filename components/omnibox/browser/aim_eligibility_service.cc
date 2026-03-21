@@ -403,6 +403,7 @@ AimEligibilityService::AimEligibilityService(
   template_url_service_->AddObserver(this);
 
   LoadMostRecentResponse();
+  UpdateFallbackConfig();
 
   bool startup_request_enabled =
       base::FeatureList::IsEnabled(omnibox::kAimServerRequestOnStartupEnabled);
@@ -522,7 +523,15 @@ bool AimEligibilityService::IsCobrowseEligible() const {
           omnibox::kAimCoBrowseEligibilityCheckEnabled)) {
     return true;
   }
-  return GetMostRecentResponse().is_cobrowse_eligible();
+  return IsAimEligible() && GetMostRecentResponse().is_cobrowse_eligible();
+}
+
+bool AimEligibilityService::IsFuseboxEligible() const {
+  if (!base::FeatureList::IsEnabled(
+          omnibox::kAimFuseboxEligibilityCheckEnabled)) {
+    return true;
+  }
+  return IsAimEligible() && GetMostRecentResponse().is_fusebox_eligible();
 }
 
 bool AimEligibilityService::HasAimUrlParams(const GURL& url) const {
@@ -656,8 +665,12 @@ const omnibox::SearchboxConfig* AimEligibilityService::GetSearchboxConfig()
     return &most_recent_response_.searchbox_config();
   }
 
-  BuildFallbackConfig(most_recent_response_, fallback_config_);
   return &fallback_config_;
+}
+
+AimEligibilityService::AuthenticationMethod
+AimEligibilityService::GetMostRecentResponseAuthMethod() const {
+  return most_recent_response_auth_method_;
 }
 
 void AimEligibilityService::StartServerEligibilityRequestForDebugging() {
@@ -678,7 +691,8 @@ bool AimEligibilityService::SetEligibilityResponseForDebugging(
   if (!ParseResponseString(response_string, &response_proto)) {
     return false;
   }
-  UpdateMostRecentResponse(response_proto, EligibilityResponseSource::kUser);
+  UpdateMostRecentResponse(response_proto, EligibilityResponseSource::kUser,
+                           AuthenticationMethod::kNone);
   return true;
 }
 
@@ -777,6 +791,18 @@ void AimEligibilityService::OnErrorStateOfRefreshTokenUpdatedForAccount(
 void AimEligibilityService::OnAccountsInCookieUpdated(
     const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
     const GoogleServiceAuthError& error) {
+  // `AreAccountsFresh()` is only false when a background `/ListAccounts`
+  // network request has failed (e.g., due to being offline or blocked by a test
+  // proxy). It does NOT mean the cookies have transitioned to an
+  // invalid/logged-out state. If the user actually logs out (valid -> invalid),
+  // the `/ListAccounts` request succeeds, `AreAccountsFresh()` will be true,
+  // and we will properly fetch the updated eligibility info. Dropping stale
+  // events here prevents a potential infinite loop of network failures (see
+  // http://crbug.com/490087089).
+  if (!accounts_in_cookie_jar_info.AreAccountsFresh()) {
+    return;
+  }
+
   bool refresh_on_cookie_changes_enabled =
       base::FeatureList::IsEnabled(
           omnibox::kAimEligibilityServiceIdentityImprovements) &&
@@ -854,7 +880,8 @@ void AimEligibilityService::OnEligibilityResponseChanged() {
 
 void AimEligibilityService::UpdateMostRecentResponse(
     const omnibox::AimEligibilityResponse& response_proto,
-    EligibilityResponseSource response_source) {
+    EligibilityResponseSource response_source,
+    AuthenticationMethod auth_method) {
   // Read the old response from prefs before updating it to log changes below.
   omnibox::AimEligibilityResponse old_response;
   GetResponseFromPrefs(&pref_service_.get(), &old_response);
@@ -864,6 +891,8 @@ void AimEligibilityService::UpdateMostRecentResponse(
   // correct.
   most_recent_response_ = response_proto;
   most_recent_response_source_ = response_source;
+  most_recent_response_auth_method_ = auth_method;
+  UpdateFallbackConfig();
 
   // Update the prefs.
   std::string response_string;
@@ -883,6 +912,22 @@ void AimEligibilityService::LoadMostRecentResponse() {
 
   most_recent_response_ = prefs_response;
   most_recent_response_source_ = EligibilityResponseSource::kPrefs;
+}
+
+void AimEligibilityService::UpdateFallbackConfig() {
+  if (IsServerEligibilityEnabled()) {
+    BuildFallbackConfig(most_recent_response_, fallback_config_);
+  } else {
+    // If server check is disabled, assume full eligibility. Prevents an empty
+    // config from hiding tools.
+    omnibox::AimEligibilityResponse full_response;
+    full_response.set_is_eligible(true);
+    full_response.set_is_pdf_upload_eligible(true);
+    full_response.set_is_deep_search_eligible(true);
+    full_response.set_is_canvas_eligible(true);
+    full_response.set_is_image_generation_eligible(true);
+    BuildFallbackConfig(full_response, fallback_config_);
+  }
 }
 
 GURL AimEligibilityService::GetRequestUrl(
@@ -934,9 +979,9 @@ GURL AimEligibilityService::GetRequestUrl(
       LogEligibilityRequestPrimaryAccountIndex(*session_index, request_source);
       // Add authuser=<primary account session index> if applicable.
       // By default the endpoint uses the first account in the cookie jar to
-      // authenticate the request. When the primary account is not set or found
-      // in the cookie jar, the endpoint should not assume the first account in
-      // the cookie jar is the primary account.
+      // authenticate the request. When the primary account is not set or
+      // found in the cookie jar, the endpoint should not assume the first
+      // account in the cookie jar is the primary account.
       // TODO(crbug.com/452304766): Find a way to force the endpoint to treat
       // these as signed-out sessions.
       if (base::FeatureList::IsEnabled(
@@ -1054,7 +1099,8 @@ void AimEligibilityService::StartServerEligibilityRequest(
             signin::ConsentLevel::kSignin);
   } else {
     SendServerEligibilityRequest(request_source, locale,
-                                 pending_request_account, std::move(request));
+                                 pending_request_account, std::move(request),
+                                 AuthenticationMethod::kCookie);
   }
 }
 
@@ -1071,7 +1117,9 @@ void AimEligibilityService::OnAccessTokenAvailable(
   LogEligibilityRequestOAuthTokenProvided(has_token, request_source);
   LogEligibilityRequestOAuthTokenFetchStatus(error.state(), request_source);
 
+  AuthenticationMethod auth_method = AuthenticationMethod::kCookie;
   if (has_token) {
+    auth_method = AuthenticationMethod::kOauth;
     request->headers.SetHeader(
         net::HttpRequestHeaders::kAuthorization,
         base::StrCat({"Bearer ", access_token_info.token}));
@@ -1091,14 +1139,15 @@ void AimEligibilityService::OnAccessTokenAvailable(
   }
 
   SendServerEligibilityRequest(request_source, locale, pending_request_account,
-                               std::move(request));
+                               std::move(request), auth_method);
 }
 
 void AimEligibilityService::SendServerEligibilityRequest(
     RequestSource request_source,
     const std::string& locale,
     GaiaId request_account,
-    std::unique_ptr<network::ResourceRequest> request) {
+    std::unique_ptr<network::ResourceRequest> request,
+    AuthenticationMethod auth_method) {
   active_loader_ = network::SimpleURLLoader::Create(std::move(request),
                                                     kRequestTrafficAnnotation);
 
@@ -1127,12 +1176,13 @@ void AimEligibilityService::SendServerEligibilityRequest(
       url_loader_factory_.get(),
       base::BindOnce(&AimEligibilityService::OnServerEligibilityResponse,
                      weak_factory_.GetWeakPtr(), request_source,
-                     request_account));
+                     request_account, auth_method));
 }
 
 void AimEligibilityService::OnServerEligibilityResponse(
     RequestSource request_source,
     GaiaId response_account,
+    AuthenticationMethod auth_method,
     std::optional<std::string> response_string) {
   const int response_code =
       active_loader_->ResponseInfo() && active_loader_->ResponseInfo()->headers
@@ -1151,7 +1201,7 @@ void AimEligibilityService::OnServerEligibilityResponse(
 
   ProcessServerEligibilityResponse(request_source, response_account,
                                    response_code, request_status, num_retries,
-                                   std::move(response_string));
+                                   auth_method, std::move(response_string));
 }
 
 void AimEligibilityService::ProcessServerEligibilityResponse(
@@ -1160,6 +1210,7 @@ void AimEligibilityService::ProcessServerEligibilityResponse(
     int response_code,
     EligibilityRequestStatus request_status,
     int num_retries,
+    AuthenticationMethod auth_method,
     std::optional<std::string> response_string) {
   LogEligibilityRequestResponseCode(response_code, request_source);
 
@@ -1197,7 +1248,7 @@ void AimEligibilityService::ProcessServerEligibilityResponse(
           : EligibilityResponseSource::kServer;
   most_recent_response_account_ = response_account;
 
-  UpdateMostRecentResponse(response_proto, response_source);
+  UpdateMostRecentResponse(response_proto, response_source, auth_method);
 
   bool response_account_mismatch =
       most_recent_response_account_ != GetActiveAccount();

@@ -55,17 +55,16 @@ void DeleteOrigin(Profile* profile,
         base::BarrierClosure(2, std::move(done_callback));
 
     // TODO(ajwong): Cookies are not properly isolated for
-    // chrome-extension:// scheme.  (http://crbug.com/158386).
+    // chrome-extension:// scheme.  (http://crbug.com/40292719).
     //
     // However, no isolated apps actually can write to kExtensionScheme
     // origins. Thus, it is benign to delete from the
     // RequestContextForExtensions because there's nothing stored there. We
     // preserve this code path without checking for isolation because it's
     // simpler than special casing.  This code should go away once we merge
-    // the various URLRequestContexts (http://crbug.com/159193).
+    // the various URLRequestContexts (http://crbug.com/40293166).
     partition->ClearDataForOrigin(
-        ~StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE,
-        StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL, origin,
+        ~StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE, origin,
         subtask_done_callback);
 
     // Delete cookies separately from other data so that the request context
@@ -76,8 +75,7 @@ void DeleteOrigin(Profile* profile,
     // We don't need to worry about the media request context because that
     // shares the same cookie store as the main request context.
     partition->ClearDataForOrigin(
-        ~StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE,
-        StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL, origin,
+        ~StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE, origin,
         std::move(done_callback));
   }
 }

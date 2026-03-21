@@ -52,6 +52,7 @@
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_request.h"
+#include "content/browser/screen_orientation/screen_orientation_provider.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_termination_info.h"
@@ -1355,7 +1356,7 @@ void WebTestControlHost::OnTestFinished() {
       content::StoragePartition::REMOVE_DATA_MASK_ALL & ~exclusion_mask;
 
   storage_partition->ClearData(
-      removal_mask, content::StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
+      removal_mask,
       /*filter_builder=*/nullptr,
       content::StoragePartition::StorageKeyPolicyMatcherFunction(),
       /*cookie_deletion_filter=*/nullptr,
@@ -1539,6 +1540,27 @@ void WebTestControlHost::SimulateScreenOrientationChanged() {
   content::WebContentsImpl* web_contents =
       static_cast<WebContentsImpl*>(main_window_->web_contents());
   web_contents->DidChangeScreenOrientation();
+}
+
+void WebTestControlHost::SimulateScreenOrientationLockChanged(
+    const blink::LocalFrameToken& frame_token,
+    bool locked,
+    device::mojom::ScreenOrientationLockType orientation) {
+  auto* web_contents = static_cast<WebContentsImpl*>(
+      GetWebContentsFromCurrentContext(frame_token));
+  if (!web_contents) {
+    return;
+  }
+
+  auto* provider = web_contents->GetScreenOrientationProviderForTesting();
+  if (!provider) {
+    return;
+  }
+
+  provider->NotifyOrientationLockChanged(
+      locked, locked
+                  ? std::make_optional(orientation)
+                  : std::optional<device::mojom::ScreenOrientationLockType>());
 }
 
 void WebTestControlHost::SetPermission(const std::string& name,

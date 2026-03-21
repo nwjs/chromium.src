@@ -233,7 +233,7 @@ public class CronetUrlRequestContextTest {
         try (LogcatCapture logcatSink =
                 new LogcatCapture(
                         Arrays.asList(
-                                HttpFlagsLoader.TAG + ":I",
+                                Log.normalizeTag(HttpFlagsLoader.TAG + ":I"),
                                 Log.normalizeTag(TAG + ":I"),
                                 "chromium:I"))) {
             // Run the action that should do printing to logcat.
@@ -2365,6 +2365,12 @@ public class CronetUrlRequestContextTest {
                             }
                         });
         assertThat(uiThreadDone.block(1000)).isTrue();
+    }
+
+    @Test
+    @SmallTest
+    public void testExecutingBoringSSLSelfTestShouldNotCrash() {
+        CronetLibraryLoader.preload(/* executeSelfTests= */ true);
     }
 
     @Test

@@ -142,6 +142,7 @@ extern const char kLensOAuth2Scope[];
 
 // OAuth2 scope for DevTools GenAI features.
 COMPONENT_EXPORT(GOOGLE_APIS) extern const char kAidaOAuth2Scope[];
+COMPONENT_EXPORT(GOOGLE_APIS) extern const char kAiCodeOAuth2Scope[];
 
 // OAuth2 scope for DevTools Google Developer Program features.
 COMPONENT_EXPORT(GOOGLE_APIS) extern const char kGdpOAuth2Scope[];
@@ -167,8 +168,8 @@ COMPONENT_EXPORT(GOOGLE_APIS) extern const char kMantaOAuth2Scope[];
 // OAuth2 scope for web history.
 COMPONENT_EXPORT(GOOGLE_APIS) extern const char kWebHistoryOAuth2Scope[];
 
-// OAuth2 scope for Legion.
-COMPONENT_EXPORT(GOOGLE_APIS) extern const char kLegionAuthScope[];
+// OAuth2 scope for Private AI.
+COMPONENT_EXPORT(GOOGLE_APIS) extern const char kPrivateAiAuthScope[];
 
 COMPONENT_EXPORT(GOOGLE_APIS) extern const char kWalletPassesOAuth2Scope[];
 

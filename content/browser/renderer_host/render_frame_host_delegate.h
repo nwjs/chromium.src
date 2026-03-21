@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "base/functional/callback_forward.h"
-#include "base/i18n/rtl.h"
 #include "base/memory/safe_ref.h"
 #include "build/build_config.h"
 #include "components/viz/common/surfaces/surface_id.h"
@@ -78,7 +77,6 @@ class Origin;
 namespace blink {
 namespace mojom {
 class DisplayCutoutHost;
-class FullscreenOptions;
 class WindowFeatures;
 }  // namespace mojom
 class PageState;
@@ -253,8 +251,7 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // The page's title was changed and should be updated. Only called for the
   // top-level frame.
   virtual void UpdateTitle(RenderFrameHostImpl* render_frame_host,
-                           const std::u16string& title,
-                           base::i18n::TextDirection title_direction) {}
+                           const std::u16string& title) {}
 
   // Update application title.
   virtual void UpdateApplicationTitle(RenderFrameHostImpl* render_frame_host,
@@ -598,6 +595,11 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // copied to the clipboard from the `render_frame_host`.
   virtual void OnTextCopiedToClipboard(RenderFrameHostImpl* render_frame_host,
                                        const std::u16string& copied_text) {}
+
+  // Notifies the delegate that text selection has changed in the
+  // `render_frame_host`.
+  virtual void TextSelectionChanged(RenderFrameHostImpl* render_frame_host,
+                                    std::u16string_view selected_text) {}
 
   // Allows embedder to override the clipboard types if a policy has inspected
   // or modified the clipboard content. Called from

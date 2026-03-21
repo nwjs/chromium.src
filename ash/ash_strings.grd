@@ -5757,10 +5757,6 @@ No devices connected.
       <message name="IDS_ASH_MESSAGE_CENTER_NO_NOTIFIERS" desc="The message displayed in the message center when there are no notification sources.">
         Nothing to see just yet
       </message>
-      <message name="IDS_ASH_MESSAGE_CENTER_NOTIFICATION_SETTINGS_LABEL" desc="The message displayed in the quick settings menu to instruct users that notification management
-        has been migrated to the settings app.">
-        To manage notifications, go to Settings
-      </message>
       <if expr="_google_chrome">
         <message name="IDS_ASH_MESSAGE_CENTER_SYSTEM_APP_NAME" desc="The source of a system-generated notification, as displayed to the user.">
           ChromeOS
@@ -7243,10 +7239,10 @@ No devices connected.
       <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISMISS_DIALOG_SUBTITLE" desc="Subtext for the Apps Collections Tutorial View dismiss dialog that shows over the Apps Collections in the Launcher when the user attempts to sort their apps. The dialog serves as confirmation to exit the Apps Collections Tutorial View">
         You can start customizing your app layout once you exit this view.
       </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISMISS_DIALOG_CANCEL" desc="The label for the cancel button on the Apps Collections Tutorial View dismiss dialog that shows over the Apps Collections in the Launcher when the user attempts to sort their apps. The dialog asks for confirmation to exit the Apps Collections Tutorial View and pressing the cancel buton will close the dialog and keep the Tutorial View">
+      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISMISS_DIALOG_CANCEL" desc="The label for the cancel button on the Apps Collections Tutorial View dismiss dialog that shows over the Apps Collections in the Launcher when the user attempts to sort their apps. The dialog asks for confirmation to exit the Apps Collections Tutorial View and pressing the cancel button will close the dialog and keep the Tutorial View">
         Cancel
       </message>
-      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISMISS_DIALOG_EXIT" desc="The label for the exit button on the Apps Collections Tutorial View dismiss dialog that shows over the Apps Collections in the Launcher when the user attempts to sort their apps. The dialog serves as confirmation to exit the Apps Collections Tutorial View and pressing the exit buton will close the dialog and exit the Tutorial View">
+      <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISMISS_DIALOG_EXIT" desc="The label for the exit button on the Apps Collections Tutorial View dismiss dialog that shows over the Apps Collections in the Launcher when the user attempts to sort their apps. The dialog serves as confirmation to exit the Apps Collections Tutorial View and pressing the exit button will close the dialog and exit the Tutorial View">
         Exit
       </message>
       <message name="IDS_ASH_LAUNCHER_APPS_COLLECTIONS_DISCOVERY_CHIP_LABEL" desc="The label for the button displayed at the bottom of Apps Collections Tutorial View. When the user clicks the Discovery chip, it will launch a secondary app to showcase more apps.">
@@ -9070,6 +9066,9 @@ To shut down the device, press and hold the power button on the device again.
       </message>
       <message name="IDS_ASH_BOREALIS_MOTD_PLACEHOLDER_TEXT" desc="Placeholder text for Borealis MOTD. Shown if the message of the day is unable to be retrieved from the Static Content Service.">
         Unable to retrieve Steam for Chromebook news.
+      </message>
+      <message name="IDS_ASH_BOREALIS_MOTD_UNINSTALL_TEXT" desc="Text on button in Borealis MOTD. Clicking on it will trigger uninstallation of the borealis.">
+        Uninstall
       </message>
       <message name="IDS_ASH_BOREALIS_MOTD_TITLE_TEXT" desc="Title text for Borealis MOTD. Shown at the top of the dialog.">
         Steam for Chromebook News

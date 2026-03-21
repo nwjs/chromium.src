@@ -17,7 +17,7 @@
 #include "components/user_education/common/user_education_context.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
-class BrowserFeaturePromoControllerBase;
+class BrowserFeaturePromoController;
 class BrowserView;
 class BrowserWindowInterface;
 class NewTabPageUI;
@@ -55,7 +55,7 @@ class BrowserUserEducationInterface {
   // Only a limited number of non-test classes are allowed direct access to the
   // `UserEducationContext`.
   template <typename T>
-    requires std::same_as<T, BrowserFeaturePromoControllerBase> ||
+    requires std::same_as<T, BrowserFeaturePromoController> ||
              std::same_as<T, UserEducationInternalsPageHandlerImpl> ||
              std::same_as<T, NtpPromoHandler> || std::same_as<T, NewTabPageUI>
 
@@ -114,6 +114,13 @@ class BrowserUserEducationInterface {
   // was actually shown. Since `show_promo_result_callback` could be called any
   // time, make sure that you will not experience any race conditions or UAFs if
   // the calling object goes out of scope.
+  //
+  // IMPORTANT USAGE NOTE: Once a promo has been successfully queued in an
+  // eligible browser using this method, subsequent attempts to show the same
+  // promo using this method will fail *even if the initial attempt failed for
+  // some other reason*. You can therefore safely call this method at browser
+  // window creation, as subsequent browser windows in the same profile won't be
+  // able to re-show the promo.
   virtual void MaybeShowStartupFeaturePromo(
       user_education::FeaturePromoParams params) = 0;
 

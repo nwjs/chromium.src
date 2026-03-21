@@ -21,7 +21,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/webid/account_selection_view.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/browser/webid/identity_request_account.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
@@ -218,12 +217,14 @@ IN_PROC_BROWSER_TEST_F(IdentityDialogControllerBrowserTest,
   MockAccountSelectionView* view_ptr = mock_view.get();
   controller->SetAccountSelectionViewForTesting(std::move(mock_view));
 
-  // Simulate an actor task starting and acting on the page.
-  EXPECT_CALL(*view_ptr, SetCanShowWidget(false)).Times(1);
+  // Simulate an actor task starting and acting on the page. Since the task is
+  // active SetCanShowWidget is called with `false` each time the task changes
+  // state (kCreated->kActing->kReflecting).
+  EXPECT_CALL(*view_ptr, SetCanShowWidget(false)).Times(2);
   TaskId task_id = SimulateNewActiveActorTask();
 
-  // Simulate the actor task finishing. This should restore visibility.
-  // We expect SetCanShowWidget(true) to be called.
+  // Simulate the actor task finishing. This should restore visibility. We
+  // expect SetCanShowWidget(true) to be called.
   EXPECT_CALL(*view_ptr, SetCanShowWidget(true)).Times(1);
   SimulateActorTaskFinished(controller.get(), task_id);
 
@@ -240,8 +241,8 @@ IN_PROC_BROWSER_TEST_F(IdentityDialogControllerBrowserTest,
   controller->SetAccountSelectionViewForTesting(std::move(mock_view));
 
   // Expect SetCanShowWidget(false) to be called when we get an active actor
-  // task.
-  EXPECT_CALL(*view_ptr, SetCanShowWidget(false)).Times(1);
+  // task. It's called each time ActorTask transitions state.
+  EXPECT_CALL(*view_ptr, SetCanShowWidget(false)).Times(2);
 
   // Simulate an actor task being active.
   SimulateNewActiveActorTask();
@@ -254,7 +255,8 @@ IN_PROC_BROWSER_TEST_F(IdentityDialogControllerBrowserTest,
   controller->ShowAccountsDialog(
       content::RelyingPartyData(kTopFrameEtldPlusOne,
                                 /*iframe_for_display=*/u""),
-      {idp_data}, accounts, blink::mojom::RpMode::kActive,
+      {idp_data}, accounts, /*filtered_accounts=*/{},
+      blink::mojom::RpMode::kActive,
       /*on_selected=*/base::DoNothing(),
       /*on_add_account=*/base::DoNothing(),
       /*dismiss_callback=*/base::DoNothing(),

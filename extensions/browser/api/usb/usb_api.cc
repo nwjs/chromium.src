@@ -18,9 +18,9 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/api/api_resource_manager.h"
 #include "extensions/browser/api/device_permissions_manager.h"
-#include "extensions/browser/api/device_permissions_prompt.h"
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/api/usb/usb_device_resource.h"
+#include "extensions/browser/api/usb_device_permissions_prompt.h"
 #include "extensions/browser/extension_function_constants.h"
 #include "extensions/common/api/usb.h"
 #include "extensions/common/permissions/permissions_data.h"
@@ -733,13 +733,13 @@ ExtensionFunction::ResponseAction UsbGetUserSelectedDevicesFunction::Run() {
         Error(function_constants::kCouldNotFindSenderWebContents));
   }
 
-  prompt_ =
-      ExtensionsAPIClient::Get()->CreateDevicePermissionsPrompt(web_contents);
+  prompt_ = ExtensionsAPIClient::Get()->CreateUsbDevicePermissionsPrompt(
+      web_contents);
   if (!prompt_) {
     return RespondNow(Error(kErrorNotSupported));
   }
 
-  prompt_->AskForUsbDevices(
+  prompt_->AskForDevices(
       extension(), browser_context(), multiple, std::move(filters),
       base::BindOnce(&UsbGetUserSelectedDevicesFunction::OnDevicesChosen,
                      this));

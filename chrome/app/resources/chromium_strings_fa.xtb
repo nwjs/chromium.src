@@ -27,6 +27,7 @@
 <translation id="126567311906253476">‏وقتی با <ph name="USER_EMAIL" /> به سیستم سرویس‌های Google مثل Gmail یا YouTube وارد می‌شوید، می‌توانید به‌طور خودکار با همان حساب به سیستم Chromium وارد شوید</translation>
 <translation id="1290883685122687410">خطای راه‌اندازی: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">‏راه‌اندازی نمایه Chromium جدید</translation>
+<translation id="132092532143527429">‏با «Gemini در Chromium» امتحان کنید</translation>
 <translation id="1324107359134968521">‏‫Chromium برای کاوش دستگاه‌های بلوتوث
 باید به بلوتوث دسترسی داشته باشد. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">تشخیص دادن زبان</translation>
@@ -164,7 +165,6 @@
 <translation id="2738871930057338499">‏اتصال به اینترنت برقرار نشد. HTTP ۴۰۳ ممنوع است. لطفاً پیکربندی پروکسی‌تان را بررسی کنید.</translation>
 <translation id="2753623023919742414">برای جستجو، کلیک کنید</translation>
 <translation id="2768103863314748511">‏تنظیم Chromium به‌عنوان نمایشگر PDF پیش‌فرض</translation>
-<translation id="277828055419948999">‏‫Chromium می‌تواند فیلدهای دشواری را که تکمیل خودکار استاندارد ممکن است ازدست بدهد تکمیل کند.</translation>
 <translation id="2785438272836277133">‏این افزونه حاوی بدافزار است و ناامن است. آن را از Chromium حذف کنید تا دیگر نتواند داده‌های شما (ازجمله اطلاعات شخصی) را در سایت‌هایی که بازدید می‌کنید ببیند و تغییر دهد.</translation>
 <translation id="2799223571221894425">راه‌اندازی مجدد</translation>
 <translation id="2803971713792056305">‏‫Chromium شما</translation>
@@ -239,7 +239,9 @@
 <translation id="3509308970982693815">‏لطفاً همه پنجره‌های Chromium را ببندید و دوباره سعی کنید.</translation>
 <translation id="3522404737534491619">‏برای هم‌رسانی پنجره، ضبط صفحه‌نمایش را در «تنظیمات سیستم» برای Chromium مجاز کنید</translation>
 <translation id="3530103706039034513">‏‫<ph name="EXISTING_USER" /> درحال‌حاضر به سیستم وارد شده است.  برای جدا نگه داشتن مرورتان، در نمایه خودتان با حساب <ph name="USER_EMAIL_ADDRESS" /> به سیستم Chromium وارد شوید.</translation>
+<translation id="3531741627422851418">‏رمزینه پاسخ‌سریع برای بارگیری مرورگر Chromium در دستگاه‌های همراه</translation>
 <translation id="3561853857681580870">‏برای هم‌رسانی صفحه‌نمایش، ضبط صفحه‌نمایش را در «تنظیمات سیستم» برای Chromium مجاز کنید.</translation>
+<translation id="3588112919289558122">‏محافظت بهبودیافته، بهینه‌سازی جاوا اسکریپت را برای سایت‌هایی که Chromium آن‌ها را نمی‌شناسد، خاموش می‌کند</translation>
 <translation id="3597003331831379823">راه‌اندازی با امتیازهای عالی اجرا نشد. <ph name="METAINSTALLER_ERROR" /></translation>
 <translation id="3600428265489994557">‏ورود به سیستم Chromium</translation>
 <translation id="3639635944603682591">‏داده‌های محصول مرور این کاربر از این دستگاه حذف می‌شود. برای بازیابی داده‌ها، با نام <ph name="USER_EMAIL" /> به سیستم Chromium وارد شوید.</translation>
@@ -476,6 +478,7 @@
 <translation id="6327105987658262776">به‌روزرسانی دردسترس نیست.</translation>
 <translation id="6333502561965082103">‏عملیات دیگری در Chromium درحال انجام است. لطفاً بعداً دوباره امتحان کنید.</translation>
 <translation id="6334986366598267305">‏اکنون استفاده از Chromium با حساب Google شما و در رایانه‌های مشترک آسان‌تر شده است.</translation>
+<translation id="6347002662287820329">‏با تنظیم کردن Chromium به‌عنوان مرورگر پیش‌فرض، به‌راحتی به ویژگی‌هایی که می‌شناسید، دوست دارید، و به آن‌ها اعتماد دارید دسترسی پیدا کنید.</translation>
 <translation id="6347933965114150440">‏میان‌بر Chromium</translation>
 <translation id="6366160072964553914">‏‫Chromium این بارگیری را مسدود کرد زیرا این فایل معمولاً بارگیری نمی‌شود و ممکن است خطرناک باشد</translation>
 <translation id="6373523479360886564">‏آیا مطمئن هستید که می‌خواهید Chromium را حذف نصب کنید؟</translation>
@@ -584,6 +587,9 @@ Chromium قادر به بازیابی تنظیمات شما نیست.</translati
 <translation id="7384121030444253939">‏دیگر از این افزونه پشتیبانی نمی‌شود. ‫Chromium توصیه می‌کند آن را حذف کنید.</translation>
 <translation id="7413153308467572558">‏کارتان را از جایی که متوقف کرده بودید ادامه دهید: Chromium هربار که آن را بازراه‌اندازی کنید، زبانه‌هایتان را بازمی‌گرداند. برای خاموش کردن این ویژگی، به اینجا بروید:</translation>
 <translation id="7427879960656355200">‏وارد کردن گذرواژه‌ها به Chromium</translation>
+<translation id="744815265653811511">‏۱. روی <ph name="BUTTON_LABEL" /> در زیر کلیک کنید
+۲. روی <ph name="BUTTON_2" /> در تنظیمات Windows کلیک کنید
+۳. روی <ph name="BUTTON_3" /> در اعلان Windows کلیک کنید تا Chromium را برای دسترسی سریع به نوار وظیفه سنجاق کنید</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7450541714075000668">نوشتار کپی شد</translation>
 <translation id="7451052299415159299">‏Chromium برای این سایت به مجوز دسترسی به دوربین نیاز دارد</translation>
@@ -591,7 +597,6 @@ Chromium قادر به بازیابی تنظیمات شما نیست.</translati
 <translation id="7461356015007898716">‏برای دریافت به‌روزرسانی‌های آتی Chromium، باید Windows 10 یا بالاتر داشته باشید. این رایانه از Windows 7 استفاده می‌کند.</translation>
 <translation id="7467949745582939695">‏Chromium راه‌اندازی مجدد شود؟</translation>
 <translation id="7483335560992089831">‏نمی‌توانید Chromium دارای نسخه مشابه با نسخه در حال اجرا را نصب کنید. لطفاً Chromium را ببندید و دوباره سعی کنید.</translation>
-<translation id="7517403744065880907">‏هرزمان به سیستم Chromium وارد شده باشید، می‌توانید گذرواژه‌ها و داده‌های دیگر را در «حساب Google» خود ذخیره کنید و از آن‌ها استفاده کنید. <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">‏سایت‌ها احتمالاً عملکرد موردانتظار را خواهند داشت. وقتی همه پنجره‌های Chromium را ببندید از سیستم اکثر سایت‌ها خارج خواهید شد، اما اگر به سیستم Chromium وارد شده باشید از «حساب Google» خارج نخواهید شد.</translation>
 <translation id="753534427205733210">{0,plural, =1{‏Chromium ‏۱ دقیقه دیگر راه‌اندازی مجدد می‌شود}one{‏Chromium ‏# دقیقه دیگر راه‌اندازی مجدد می‌شود}other{‏Chromium ‏# دقیقه دیگر راه‌اندازی مجدد می‌شود}}</translation>
 <translation id="7565444033145385702">‏برای محافظت از داده‌هایتان، به Chromium اجازه داده می‌شود اجازه‌های سایت‌هایی را که اخیراً از آن‌ها بازدید نکرده‌اید حذف کند.</translation>
@@ -600,7 +605,9 @@ Chromium قادر به بازیابی تنظیمات شما نیست.</translati
 <translation id="761356813943268536">‏Chromium درحال استفاده از دوربین و میکروفون شما است.</translation>
 <translation id="7617377681829253106">‏Chromium اکنون بهتر شده است</translation>
 <translation id="7622753900276619808">‏اکنون ویژگی‌های بیشتری در Chromium دردسترس شما قرار دارد</translation>
+<translation id="7624307931717240213">ما از اطلاعات برای بهبود این سرویس استفاده می‌کنیم. به «خط‌مشی رازداری» و «شرایط خدمات» مراجعه کنید.</translation>
 <translation id="7649070708921625228">راهنما</translation>
+<translation id="7650134251917003571">‏دریافت برنامه Chromium</translation>
 <translation id="7656340475565475526">‏اجازه دهید Chromium برایتان مرور کند</translation>
 <translation id="7658239707568436148">لغو</translation>
 <translation id="7686590090926151193">‏Chromium مرورگر پیش‌فرض شما نیست</translation>
@@ -734,7 +741,6 @@ Chromium قادر به بازیابی تنظیمات شما نیست.</translati
 <translation id="9183331186620388872">‏نکته Chromium: جستجو کردن با «لنز»</translation>
 <translation id="9185526690718004400">‏راه‌اندازی مجدد برای به‌روزرسانی Chromium</translation>
 <translation id="9190841055450128916">‏Chromium‏ (mDNS ورودی)</translation>
-<translation id="9206863043651638213">‏با ورود به سیستم Chromium، از مزایای بیشتری بهره‌مند شوید</translation>
 <translation id="924957577793602335">‏شخصی‌سازی کردن Chromium</translation>
 <translation id="93478295209880648">‏Chromium ممکن است درست کار نکند زیرا دیگر در Windows XP یا Windows Vista پشتیبانی نمی‌شود</translation>
 <translation id="945522503751344254">ارسال بازخورد</translation>

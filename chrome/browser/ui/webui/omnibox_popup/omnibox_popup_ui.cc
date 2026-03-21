@@ -65,6 +65,11 @@ bool OmniboxPopupUIConfig::IsWebUIEnabled(
          base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopup);
 }
 
+bool OmniboxPopupUIConfig::ShouldCrashOnJavascriptErrorInDevelopmentBuild()
+    const {
+  return true;
+}
+
 OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
     : TopChromeWebUIController(web_ui,
                                /*enable_chrome_send=*/true,
@@ -225,7 +230,6 @@ void OmniboxPopupUI::BindInterface(
       web_ui(),
       base::BindRepeating(&OmniboxPopupUI::GetOrCreateContextualSessionHandle,
                           base::Unretained(this)));
-  omnibox_handler_->SetEmbedder(embedder());
 }
 
 void OmniboxPopupUI::BindInterface(
@@ -239,6 +243,22 @@ void OmniboxPopupUI::CreatePageHandler(
     mojo::PendingReceiver<omnibox_popup::mojom::PageHandler> receiver) {
   popup_handler_ = std::make_unique<OmniboxPopupHandler>(std::move(receiver),
                                                          std::move(page));
+  popup_handler_->set_embedder(embedder());
+}
+
+void OmniboxPopupUI::BindInterface(
+    mojo::PendingReceiver<omnibox_popup_aim::mojom::PageHandlerFactory>
+        receiver) {
+  aim_page_factory_receiver_.reset();
+  aim_page_factory_receiver_.Bind(std::move(receiver));
+}
+
+void OmniboxPopupUI::CreatePageHandler(
+    mojo::PendingRemote<omnibox_popup_aim::mojom::Page> page,
+    mojo::PendingReceiver<omnibox_popup_aim::mojom::PageHandler> receiver) {
+  popup_aim_handler_ = std::make_unique<OmniboxPopupAimHandler>(
+      std::move(receiver), std::move(page), web_ui()->GetWebContents());
+  popup_aim_handler_->set_embedder(embedder());
 }
 
 void OmniboxPopupUI::BindInterface(
@@ -247,32 +267,6 @@ void OmniboxPopupUI::BindInterface(
     composebox_page_factory_receiver_.reset();
   }
   composebox_page_factory_receiver_.Bind(std::move(receiver));
-}
-
-contextual_search::ContextualSearchSessionHandle*
-OmniboxPopupUI::GetOrCreateContextualSessionHandle() {
-  if (!shared_session_handle_) {
-    auto* contextual_search_service =
-        ContextualSearchServiceFactory::GetForProfile(profile_);
-    if (contextual_search_service) {
-      shared_session_handle_ = contextual_search_service->CreateSession(
-          omnibox::CreateQueryControllerConfigParams(),
-          contextual_search::ContextualSearchSource::kOmnibox,
-          lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
-      // TODO(crbug.com/469875271): Determine what to do with the return value
-      // of this call, or move this call to a different location.
-      shared_session_handle_->CheckSearchContentSharingSettings(
-          profile_->GetPrefs());
-    }
-  }
-  return shared_session_handle_.get();
-}
-
-void OmniboxPopupUI::BindInterface(
-    mojo::PendingReceiver<omnibox_popup_aim::mojom::PageHandlerFactory>
-        receiver) {
-  aim_page_factory_receiver_.reset();
-  aim_page_factory_receiver_.Bind(std::move(receiver));
 }
 
 void OmniboxPopupUI::CreatePageHandler(
@@ -292,12 +286,19 @@ void OmniboxPopupUI::CreatePageHandler(
 
   // TODO(crbug.com/435288212): Move searchbox mojom to use factory pattern.
   composebox_handler_->SetPage(std::move(pending_searchbox_page));
-  composebox_handler_->SetEmbedder(embedder());
 }
 
-void OmniboxPopupUI::CreatePageHandler(
-    mojo::PendingRemote<omnibox_popup_aim::mojom::Page> page,
-    mojo::PendingReceiver<omnibox_popup_aim::mojom::PageHandler> receiver) {
-  popup_aim_handler_ = std::make_unique<OmniboxPopupAimHandler>(
-      std::move(receiver), std::move(page), this);
+contextual_search::ContextualSearchSessionHandle*
+OmniboxPopupUI::GetOrCreateContextualSessionHandle() {
+  if (!shared_session_handle_) {
+    auto* contextual_search_service =
+        ContextualSearchServiceFactory::GetForProfile(profile_);
+    if (contextual_search_service) {
+      shared_session_handle_ = contextual_search_service->CreateSession(
+          omnibox::CreateQueryControllerConfigParams(),
+          contextual_search::ContextualSearchSource::kOmnibox,
+          lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
+    }
+  }
+  return shared_session_handle_.get();
 }

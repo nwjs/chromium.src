@@ -9,6 +9,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
@@ -38,6 +39,7 @@ import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -70,6 +72,7 @@ import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
+import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
@@ -81,13 +84,18 @@ import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.google_bottom_bar.GoogleBottomBarCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinator;
+import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
+import org.chromium.chrome.browser.ui.signin.WebSigninAndHistorySyncCoordinatorSupplier;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarColorProvider;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
 import org.chromium.components.commerce.core.ShoppingService;
+import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.base.TestActivity;
@@ -113,18 +121,9 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Rule public FakeTimeTestRule mFakeTimeTestRule = new FakeTimeTestRule();
 
     @Mock private CustomTabActivityTabProvider mCustomTabProvider;
-
-    @Mock
-    private SettableMonotonicObservableSupplier<EphemeralTabCoordinator>
-            mEphemeralTabCoordinatorSupplier;
-
     @Mock private BrowserControlsManager mBrowserControlsManager;
-
-    @Mock
-    private BrowserStateBrowserControlsVisibilityDelegate
-            mBrowserStateBrowserControlsVisibilityDelegate;
-
     @Mock private ActivityWindowAndroid mWindowAndroid;
+    @Mock private ActivityResultTracker mActivityResultTracker;
     @Mock private OneshotSupplier<ChromeAndroidTask> mChromeAndroidTask;
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     @Mock private MenuOrKeyboardActionController mMenuOrKeyboardActionController;
@@ -135,7 +134,8 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Mock private Supplier<TabCreatorManager> mTabCreatorManagerSupplier;
     @Mock private FullscreenManager mFullscreenManager;
     @Mock private Supplier<TabContentManager> mTabContentManagerSupplier;
-    @Mock private Supplier<SnackbarManager> mSnackbarManagerSupplier;
+    private final MonotonicObservableSupplier<SnackbarManager> mSnackbarManagerSupplier =
+            ObservableSuppliers.alwaysNull();
     @Mock private Supplier<Boolean> mIsInOverviewModeSupplier;
     @Mock private AppMenuDelegate mAppMenuDelegate;
     @Mock private StatusBarColorProvider mStatusBarColorProvider;
@@ -154,9 +154,14 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
     @Mock private EdgeToEdgeManager mEdgeToEdgeManager;
     @Mock private IdentityServicesProvider mIdentityServicesProvider;
     @Mock private DesktopWindowStateManager mDesktopWindowStateManager;
+    @Mock private ModalDialogManager mModalDialogManager;
     @Mock private IdentityManager mIdentityManager;
     @Mock private Supplier<BrowserServicesThemeColorProvider> mBrowserServicesColorProviderSupplier;
 
+    private final SettableMonotonicObservableSupplier<EphemeralTabCoordinator>
+            mEphemeralTabCoordinatorSupplier = ObservableSuppliers.createMonotonic();
+    private BrowserStateBrowserControlsVisibilityDelegate
+            mBrowserStateBrowserControlsVisibilityDelegate;
     private final MonotonicObservableSupplier<ShareDelegate> mShareDelegateSupplier =
             ObservableSuppliers.alwaysNull();
     private final MonotonicObservableSupplier<BookmarkModel> mBookmarkModelSupplier =
@@ -165,8 +170,8 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
             ObservableSuppliers.alwaysNull();
     private final MonotonicObservableSupplier<TabModelSelector> mTabModelSelectorSupplier =
             ObservableSuppliers.alwaysNull();
-    private final MonotonicObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier =
-            ObservableSuppliers.alwaysNull();
+    private final NonNullObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier =
+            ObservableSuppliers.createNonNull(mModalDialogManager);
     private final MonotonicObservableSupplier<CompositorViewHolder> mCompositorViewHolderSupplier =
             ObservableSuppliers.alwaysNull();
     private final SettableMonotonicObservableSupplier<EdgeToEdgeController>
@@ -193,6 +198,9 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
         when(mWindowAndroid.getUnownedUserDataHost()).thenReturn(new UnownedUserDataHost());
         when(mWindowAndroid.getContext()).thenReturn(new WeakReference<>(mActivity));
         when(mIntentDataProvider.get()).thenReturn(mBrowserServicesIntentDataProvider);
+        mBrowserStateBrowserControlsVisibilityDelegate =
+                new BrowserStateBrowserControlsVisibilityDelegate(
+                        ObservableSuppliers.alwaysFalse());
         when(mBrowserControlsManager.getBrowserVisibilityDelegate())
                 .thenReturn(mBrowserStateBrowserControlsVisibilityDelegate);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
@@ -215,6 +223,7 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
                         mTabModelSelectorSupplier,
                         mBrowserControlsManager,
                         mWindowAndroid,
+                        mActivityResultTracker,
                         mChromeAndroidTask,
                         mActivityLifecycleDispatcher,
                         mLayoutManagerSupplier,
@@ -297,10 +306,38 @@ public final class BaseCustomTabRootUiCoordinatorUnitTest {
 
     @Test
     @MediumTest
+    @DisableFeatures({
+        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
+        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
+    })
     public void testInitProfileDependantFeatures_callsInitDefaultSearchEngine() {
         mBaseCustomTabRootUiCoordinator.initProfileDependentFeatures(mProfile);
 
         verify(mGoogleBottomBarCoordinator).initDefaultSearchEngine(mProfile);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
+        SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
+    })
+    public void testInitProfileDependantFeatures_WebSigninAndHistorySyncCoordinatorSupplier() {
+        SigninAndHistorySyncActivityLauncher launcherMock =
+                Mockito.mock(SigninAndHistorySyncActivityLauncher.class);
+        BottomSheetSigninAndHistorySyncCoordinator coordinatorMock =
+                Mockito.mock(BottomSheetSigninAndHistorySyncCoordinator.class);
+        when(launcherMock.createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any(), anyInt()))
+                .thenReturn(coordinatorMock);
+        SigninAndHistorySyncActivityLauncherImpl.setLauncherForTest(launcherMock);
+
+        mBaseCustomTabRootUiCoordinator.initProfileDependentFeatures(mProfile);
+
+        Assert.assertEquals(
+                "Coordinator retrieved from supplier should match the one created by the launcher",
+                coordinatorMock,
+                WebSigninAndHistorySyncCoordinatorSupplier.getValueOrNullFrom(mWindowAndroid));
     }
 
     @Test

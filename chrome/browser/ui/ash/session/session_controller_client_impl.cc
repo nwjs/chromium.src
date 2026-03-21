@@ -12,6 +12,7 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/session/session_controller.h"
 #include "ash/public/cpp/session/session_types.h"
+#include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/strings/utf_string_conversions.h"
@@ -146,9 +147,11 @@ void OnAcceptMultiprofilesIntroDialog(bool accept, bool never_show_again) {
 
 SessionControllerClientImpl::SessionControllerClientImpl(
     PrefService& local_state) {
-  SessionManager::Get()->AddObserver(this);
-  UserManager::Get()->AddSessionStateObserver(this);
-  UserManager::Get()->AddObserver(this);
+  session_observation_.Observe(SessionManager::Get());
+  user_manager_observation_.Observe(UserManager::Get());
+  user_session_state_observation_.Observe(UserManager::Get());
+  device_off_hours_controller_observation_.Observe(
+      ash::DeviceSettingsService::Get()->device_off_hours_controller());
 
   subscription_ = browser_shutdown::AddAppTerminatingCallback(base::BindOnce(
       &SessionControllerClientImpl::OnAppTerminating, base::Unretained(this)));
@@ -163,8 +166,6 @@ SessionControllerClientImpl::SessionControllerClientImpl(
       prefs::kSessionLengthLimit,
       base::BindRepeating(&SessionControllerClientImpl::SendSessionLengthLimit,
                           base::Unretained(this)));
-  ash::DeviceSettingsService::Get()->device_off_hours_controller()->AddObserver(
-      this);
   DCHECK(!g_session_controller_client_instance);
   g_session_controller_client_instance = this;
 }
@@ -176,18 +177,6 @@ SessionControllerClientImpl::~SessionControllerClientImpl() {
       session_controller_ == ash::SessionController::Get()) {
     session_controller_->SetClient(nullptr);
   }
-
-  if (supervised_user_profile_) {
-    SupervisedUserServiceFactory::GetForProfile(supervised_user_profile_)
-        ->RemoveObserver(this);
-  }
-
-  SessionManager::Get()->RemoveObserver(this);
-  UserManager::Get()->RemoveObserver(this);
-  UserManager::Get()->RemoveSessionStateObserver(this);
-  ash::DeviceSettingsService::Get()
-      ->device_off_hours_controller()
-      ->RemoveObserver(this);
 }
 
 void SessionControllerClientImpl::Init() {
@@ -401,11 +390,6 @@ void SessionControllerClientImpl::ActiveUserChanged(User* active_user) {
   SendUserSessionOrder();
 }
 
-void SessionControllerClientImpl::UserAddedToSession(const User* added_user) {
-  SendSessionInfoIfChanged();
-  SendUserSession(*added_user);
-}
-
 void SessionControllerClientImpl::LocalStateChanged(
     user_manager::UserManager* user_manager) {
   SendSessionInfoIfChanged();
@@ -547,6 +531,24 @@ void SessionControllerClientImpl::DoCycleActiveUser(
   DoSwitchActiveUser(account_id);
 }
 
+void SessionControllerClientImpl::OnSessionCreated(
+    const AccountId& account_id) {
+  // Since this is called in OnSessionCreated, there should be at least one
+  // session, so there should be the primary session always.
+  auto& primary_session =
+      CHECK_DEREF(session_manager::SessionManager::Get()->GetPrimarySession());
+  if (primary_session.account_id() == account_id) {
+    // TODO(crbug.com/473653626): This check is to keep the historical
+    // behavior, but maybe it is fine to send the user session info for
+    // the primary user session, too. Revisit here to investigate further.
+    return;
+  }
+
+  UserManager* const user_manager = UserManager::Get();
+  SendSessionInfoIfChanged();
+  SendUserSession(CHECK_DEREF(user_manager->FindUser(account_id)));
+}
+
 void SessionControllerClientImpl::OnSessionStateChanged() {
   TRACE_EVENT0("ui", "SessionControllerClientImpl::OnSessionStateChanged");
   if (SessionManager::Get()->session_state() == SessionState::ACTIVE) {
@@ -592,8 +594,8 @@ void SessionControllerClientImpl::OnLoginUserProfilePrepared(Profile* profile) {
     supervised_user_profile_ = profile;
 
     // Watch for changes to supervised user manager/custodians.
-    SupervisedUserServiceFactory::GetForProfile(supervised_user_profile_)
-        ->AddObserver(this);
+    supervised_user_service_observation_.Observe(
+        SupervisedUserServiceFactory::GetForProfile(supervised_user_profile_));
   }
 
   base::RepeatingClosure session_info_changed_closure = base::BindRepeating(

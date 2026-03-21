@@ -188,7 +188,8 @@ IN_PROC_BROWSER_TEST_P(LensOverlayHomeworkPageActionIconViewTest,
   EXPECT_TRUE(icon_view->GetVisible());
 
   // Focus in the location bar should hide the icon.
-  location_bar_view()->FocusLocation(false);
+  location_bar_view()->FocusLocation(/*is_user_initiated=*/false,
+                                     /*clear_focus_if_failed=*/false);
   ViewVisibilityWaiter(icon_view, false).Wait();
 
   EXPECT_TRUE(focus_manager->GetFocusedView());
@@ -210,7 +211,8 @@ IN_PROC_BROWSER_TEST_P(LensOverlayHomeworkPageActionIconViewTest,
   EXPECT_FALSE(icon_view->GetVisible());
 
   // Focus in the location bar should not show the icon.
-  location_bar_view()->FocusLocation(false);
+  location_bar_view()->FocusLocation(/*is_user_initiated=*/false,
+                                     /*clear_focus_if_failed=*/false);
   ViewVisibilityWaiter(icon_view, false).Wait();
 
   EXPECT_TRUE(focus_manager->GetFocusedView());
@@ -232,7 +234,8 @@ IN_PROC_BROWSER_TEST_P(LensOverlayHomeworkPageActionIconViewTest,
   EXPECT_FALSE(icon_view->GetVisible());
 
   // Focus in the location bar should not show the icon.
-  location_bar_view()->FocusLocation(false);
+  location_bar_view()->FocusLocation(/*is_user_initiated=*/false,
+                                     /*clear_focus_if_failed=*/false);
   ViewVisibilityWaiter(icon_view, false).Wait();
 
   EXPECT_TRUE(focus_manager->GetFocusedView());
@@ -303,11 +306,11 @@ class LensOverlayHomeworkPageActionIconViewTest_OptimizationFilter
         base::test::FeatureRefAndParams(
             lens::features::kLensOverlayEduActionChip,
             {{"max-shown-count", "3"}})};
-    if (is_migrated) {
-      enabled_features.push_back(base::test::FeatureRefAndParams(
-          features::kPageActionsMigration,
-          {{features::kPageActionsMigrationLensOverlayHomework.name, "true"}}));
-    }
+    enabled_features.push_back(base::test::FeatureRefAndParams(
+        features::kPageActionsMigration,
+        {{features::kPageActionsMigrationLensOverlayHomework.name,
+          is_migrated ? "true" : "false"}}));
+
     scoped_feature_list_.InitWithFeaturesAndParameters(
         enabled_features, {lens::features::kLensOverlayKeyboardSelection});
   }
@@ -340,7 +343,8 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_TRUE(icon_view->GetVisible());
 
   // Focus in the location bar should hide the icon.
-  location_bar_view()->FocusLocation(false);
+  location_bar_view()->FocusLocation(/*is_user_initiated=*/false,
+                                     /*clear_focus_if_failed=*/false);
   ViewVisibilityWaiter(icon_view, false).Wait();
 
   EXPECT_TRUE(focus_manager->GetFocusedView());
@@ -364,7 +368,8 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_FALSE(icon_view->GetVisible());
 
   // Focus in the location bar should not show the icon.
-  location_bar_view()->FocusLocation(false);
+  location_bar_view()->FocusLocation(/*is_user_initiated=*/false,
+                                     /*clear_focus_if_failed=*/false);
   ViewVisibilityWaiter(icon_view, false).Wait();
 
   EXPECT_TRUE(focus_manager->GetFocusedView());
@@ -388,7 +393,8 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_FALSE(icon_view->GetVisible());
 
   // Focus in the location bar should not show the icon.
-  location_bar_view()->FocusLocation(false);
+  location_bar_view()->FocusLocation(/*is_user_initiated=*/false,
+                                     /*clear_focus_if_failed=*/false);
   ViewVisibilityWaiter(icon_view, false).Wait();
 
   EXPECT_TRUE(focus_manager->GetFocusedView());

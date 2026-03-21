@@ -251,7 +251,6 @@ public class NewTabPageTest {
         int[] toolbarContentIds =
                 new int[] {
                     R.id.home_button,
-                    R.id.home_page_buttons_stub,
                     R.id.location_bar_background_view,
                     R.id.location_bar,
                     R.id.toolbar_buttons
@@ -268,6 +267,8 @@ public class NewTabPageTest {
     @MediumTest
     @Feature({"NewTabPage", "FeedNewTabPage", "RenderTest"})
     @DisableFeatures({"FeedHeaderRemoval", "WebFeedKillSwitch"})
+    // Restrict to Phones and Tablets because Desktop Android does not show feed in NTP.
+    @Restriction({DeviceFormFactor.PHONE_OR_TABLET})
     public void testRender_ArticleSectionHeader() throws Exception {
         // Scroll to the article section header in case it is not visible.
         onView(withId(R.id.feed_stream_recycler_view))

@@ -57,7 +57,11 @@ export class EligibilityListElement extends CrLitElement {
     this.refreshDetails_();
   }
 
-  protected async refreshDetails_() {
+  protected onRefreshDetailsClick_() {
+    this.refreshDetails_();
+  }
+
+  private async refreshDetails_() {
     const details =
         (await this.commerceInternalsApi_.getShoppingEligibilityDetails())
             .details;
@@ -65,6 +69,14 @@ export class EligibilityListElement extends CrLitElement {
     this.country_ = details.country;
     this.locale_ = details.locale;
     this.details_ = details.details;
+  }
+
+  protected getColor_(detail: EligibilityDetail): string {
+    return detail.value === detail.expectedValue ? 'green' : 'red';
+  }
+
+  protected getMark_(detail: EligibilityDetail): string {
+    return detail.value === detail.expectedValue ? '✔' : '✖';
   }
 }
 

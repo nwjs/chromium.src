@@ -61,9 +61,6 @@ class ASH_EXPORT VideoConferenceTrayController
     // Called when the state of microphone capturing is changed.
     virtual void OnMicrophoneCapturingStateChange(bool is_capturing) = 0;
 
-    // Called when the state of screen sharing is changed.
-    virtual void OnScreenSharingStateChange(bool is_capturing_screen) = 0;
-
     // Called when the Dlc download state is changed for `feature_tile_title` if
     // any DLC was registered for that effect.
     virtual void OnDlcDownloadStateChanged(
@@ -157,9 +154,6 @@ class ASH_EXPORT VideoConferenceTrayController
   // Gets the state for microphone mute. Virtual for testing/mocking.
   virtual bool GetMicrophoneMuted();
 
-  // Stops all screen sharing. Virtual for testing/mocking.
-  virtual void StopAllScreenShare();
-
   // Returns asynchronously a vector of media apps that will be displayed in the
   // "Return to app" panel of the bubble. Virtual for testing/mocking.
   virtual void GetMediaApps(base::OnceCallback<void(MediaApps)> ui_callback);
@@ -195,9 +189,8 @@ class ASH_EXPORT VideoConferenceTrayController
   void UpdateSidetoneSupportedState();
 
   // Handles device usage from a VC app while the device is system disabled.
-  virtual void HandleDeviceUsedWhileDisabled(
-      crosapi::mojom::VideoConferenceMediaDevice device,
-      const std::u16string& app_name);
+  virtual void HandleDeviceUsedWhileDisabled(VideoConferenceMediaDevice device,
+                                             const std::u16string& app_name);
 
   // media::CameraPrivacySwitchObserver:
   void OnCameraHWPrivacySwitchStateChanged(
@@ -223,8 +216,7 @@ class ASH_EXPORT VideoConferenceTrayController
 
   // Handles client updates such as a change of title or addition / removal of a
   // VC app. Virtual to allow mock classes to override for testing.
-  virtual void HandleClientUpdate(
-      crosapi::mojom::VideoConferenceClientUpdatePtr update);
+  virtual void HandleClientUpdate(VideoConferenceClientUpdate update);
 
   // Handles showing the shelf when a new app is added.
   void OnAppAdded();
@@ -269,7 +261,7 @@ class ASH_EXPORT VideoConferenceTrayController
                                      const std::u16string& app_name);
 
   UsedWhileDisabledNudgeType GetUsedWhileDisabledNudgeType(
-      crosapi::mojom::VideoConferenceMediaDevice device);
+      VideoConferenceMediaDevice device);
 
   // This keeps track the current VC media state. The state is being updated by
   // `UpdateWithMediaState()`, calling from `VideoConferenceManagerAsh`.

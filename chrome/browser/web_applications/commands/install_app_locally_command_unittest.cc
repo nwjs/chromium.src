@@ -26,7 +26,6 @@
 #include "chrome/browser/web_applications/web_app_management_type.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
-#include "chrome/common/chrome_features.h"
 #include "components/sync/base/time.h"
 #include "components/webapps/browser/install_result_code.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -83,9 +82,9 @@ class InstallAppLocallyCommandTest : public WebAppTest {
     info->user_display_mode = mojom::UserDisplayMode::kStandalone;
     info->icon_bitmaps.any = std::move(icon_map);
     if (install_state == proto::InstallState::SUGGESTED_FROM_MIGRATION) {
-      web_app::proto::WebAppMigrationSource source;
-      source.set_manifest_id("https://migration.example.com/start.html");
-      info->migration_sources.push_back(std::move(source));
+      info->migration_sources.emplace_back(
+          webapps::ManifestId(GURL("https://migration.example.com/start.html")),
+          MigrationBehavior::kSuggest);
     }
     base::test::TestFuture<const webapps::AppId&, webapps::InstallResultCode>
         result;

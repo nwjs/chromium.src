@@ -248,6 +248,7 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
         TabModelSelector selector = mTabFactory.getTabModelSelector();
         selector.getModel(false).getTabRemover().closeTabs(params, /* allowDialog= */ false);
         selector.getModel(true).getTabRemover().closeTabs(params, /* allowDialog= */ false);
+        mTabFactory.getTabModelOrchestrator().clearCurrentWindow();
         mTabPersistencePolicy.deleteMetadataStateFileAsync();
     }
 
@@ -402,7 +403,7 @@ public class CustomTabActivityTabController implements PauseResumeWithNativeObse
         // Listen to tab swapping and closing.
         mActivityTabProvider
                 .asObservable()
-                .addObserver((Callback<@Nullable Tab>) mTabProvider::swapTab);
+                .addSyncObserverAndPostIfNonNull((Callback<@Nullable Tab>) mTabProvider::swapTab);
     }
 
     private @Nullable Tab tryRestoringTab(TabModelOrchestrator tabModelOrchestrator) {

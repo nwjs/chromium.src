@@ -26,13 +26,17 @@ BLINK_COMMON_EXPORT extern const char kDisablePreferCompositingToLCDText[];
 BLINK_COMMON_EXPORT extern const char kDisableRGBA4444Textures[];
 BLINK_COMMON_EXPORT extern const char kDisableZeroCopy[];
 BLINK_COMMON_EXPORT extern const char kDumpRuntimeCallStats[];
+BLINK_COMMON_EXPORT extern const char kEnableDesktopAndroidScrollbars[];
 BLINK_COMMON_EXPORT extern const char
     kEnableGpuMemoryBufferCompositorResources[];
 BLINK_COMMON_EXPORT extern const char kEnableLeakDetectionHeapSnapshot[];
 BLINK_COMMON_EXPORT extern const char kEnablePreferCompositingToLCDText[];
 BLINK_COMMON_EXPORT extern const char kEnableRasterSideDarkModeForImages[];
 BLINK_COMMON_EXPORT extern const char kEnableRGBA4444Textures[];
+BLINK_COMMON_EXPORT extern const char kEnableWebGLImageChromium[];
 BLINK_COMMON_EXPORT extern const char kEnableZeroCopy[];
+BLINK_COMMON_EXPORT extern const char
+    kGpuMemoryBufferReadbackFromTextureForceDisabledForDebugging[];
 BLINK_COMMON_EXPORT extern const char kGpuRasterizationMSAASampleCount[];
 BLINK_COMMON_EXPORT extern const char kForceGpuMemAvailableMb[];
 BLINK_COMMON_EXPORT extern const char

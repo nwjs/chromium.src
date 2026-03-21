@@ -178,6 +178,17 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Served then served"/>
 </enum>
 
+<!-- LINT.IfChange(EntryPreservationReason) -->
+
+<enum name="EntryPreservationReason">
+  <int value="1" label="MatchesDefaultSearchProvider"/>
+  <int value="2" label="MatchesOtherDefaultSearchProvider"/>
+  <int value="3" label="NotSafeForAutoreplace"/>
+  <int value="4" label="NonPrepopulatedFromRegulatoryProgram"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/search_engines/util.cc:EntryPreservationReason) -->
+
 <!-- LINT.IfChange(FocusResultedInNavigationTypes) -->
 
 <enum name="FocusResultedInNavigationTypes">
@@ -346,6 +357,7 @@ chromium-metrics-reviews@google.com.
     global nor regional buckets returned a match. The data provided will be set
     without mixing in any prepopulated engine's data
   </int>
+  <int value="9" label="By prepopulate_id (migration)"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/search_engines/reconciling_template_url_data_holder.h:ReconciliationType) -->

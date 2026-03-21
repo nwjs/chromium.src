@@ -208,7 +208,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.ClientIdBackupRecoveredWithAge" units="hours"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -362,6 +362,26 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records attempts to access a file for the purpose of extracting initial
     stability metrics.
+  </summary>
+</histogram>
+
+<histogram name="UMA.FileMetricsProvider.PreviousSessionHistogramsCount"
+    units="histograms" expires_after="2027-02-28">
+  <owner>mthiesse@chromium.org</owner>
+  <owner>src/base/metrics/OWNERS</owner>
+  <summary>
+    Records the number of histograms recovered from a previous session through
+    FileMetricsProvider::ProvideIndependentMetrics.
+  </summary>
+</histogram>
+
+<histogram name="UMA.FileMetricsProvider.PreviousSessionMetricsRecovered"
+    enum="Boolean" expires_after="2027-02-28">
+  <owner>mthiesse@chromium.org</owner>
+  <owner>src/base/metrics/OWNERS</owner>
+  <summary>
+    Records whether recovering records from a previous session succeeded in
+    FileMetricsProvider::ProvideIndependentMetrics.
   </summary>
 </histogram>
 
@@ -604,7 +624,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.MetricsService.PendingOngoingLogOnForegrounded"
-    enum="Boolean" expires_after="2026-05-03">
+    enum="Boolean" expires_after="2026-08-30">
   <owner>lucnguyen@google.com</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -1026,7 +1046,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UMA.TruncatedEvents.UserAction" units="events"
-    expires_after="2026-08-02">
+    expires_after="2026-08-30">
   <owner>rkaplow@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>

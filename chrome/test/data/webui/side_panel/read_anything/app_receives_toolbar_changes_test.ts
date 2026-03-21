@@ -7,7 +7,7 @@ import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js'
 import type {AppElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {BrowserProxy, LineFocusController, LineFocusMovement, LineFocusStyle, setInstance, SpeechBrowserProxyImpl, SpeechController, ToolbarEvent, VoiceLanguageController} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertArrayEquals, assertEquals, assertFalse, assertLT, assertNotEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
-import {hasStyle, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
+import {hasStyle, microtasksFinished, whenCheck} from 'chrome-untrusted://webui-test/test_util.js';
 
 import {createApp, createSpeechSynthesisVoice, emitEvent, mockMetrics, setContent, setupBasicSpeech} from './common.js';
 import {FakeReadingMode} from './fake_reading_mode.js';
@@ -146,11 +146,11 @@ suite('AppReceivesToolbarChanges', () => {
       app.style.setProperty(
           '--color-read-anything-background-high-contrast', 'HighContrast');
       app.style.setProperty(
-          '--color-read-anything-background-low-contrast', 'LowContrast');
+          '--color-read-anything-background-low-contrast-light',
+          'LowContrastLight');
       app.style.setProperty(
-          '--color-read-anything-background-sepia-light', 'SepiaLight');
-      app.style.setProperty(
-          '--color-read-anything-background-sepia-dark', 'SepiaDark');
+          '--color-read-anything-background-low-contrast-dark',
+          'LowContrastDark');
 
       emitColorTheme(chrome.readingMode.darkTheme);
       assertTrue(
@@ -169,15 +169,13 @@ suite('AppReceivesToolbarChanges', () => {
       assertTrue(
           hasStyle(app.$.container, '--background-color', 'HighContrast'));
 
-      emitColorTheme(chrome.readingMode.lowContrastTheme);
+      emitColorTheme(chrome.readingMode.lowContrastLightTheme);
       assertTrue(
-          hasStyle(app.$.container, '--background-color', 'LowContrast'));
+          hasStyle(app.$.container, '--background-color', 'LowContrastLight'));
 
-      emitColorTheme(chrome.readingMode.sepiaLightTheme);
-      assertTrue(hasStyle(app.$.container, '--background-color', 'SepiaLight'));
-
-      emitColorTheme(chrome.readingMode.sepiaDarkTheme);
-      assertTrue(hasStyle(app.$.container, '--background-color', 'SepiaDark'));
+      emitColorTheme(chrome.readingMode.lowContrastDarkTheme);
+      assertTrue(
+          hasStyle(app.$.container, '--background-color', 'LowContrastDark'));
     });
 
     test('default theme uses default colors', () => {
@@ -221,6 +219,31 @@ suite('AppReceivesToolbarChanges', () => {
     assertEquals(expectedData, lineFocusController.getCurrentLineFocusStyle());
   });
 
+  test('line focus style change updates padding', async () => {
+    chrome.readingMode.isLineFocusEnabled = true;
+    emitEvent(
+        app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
+        {detail: {data: LineFocusMovement.STATIC}});
+    // The app needs content so it has a non-zero height.
+    app.updateContent();
+    await microtasksFinished();
+
+    emitEvent(
+        app, ToolbarEvent.LINE_FOCUS_STYLE,
+        {detail: {data: LineFocusStyle.UNDERLINE}});
+    await whenCheck(
+        app, () => window.getComputedStyle(app.$.container).paddingTop !== '');
+    const padding =
+        +window.getComputedStyle(app.$.container).paddingTop.replace('px', '');
+    assertLT(0, padding);
+
+    emitEvent(
+        app, ToolbarEvent.LINE_FOCUS_STYLE,
+        {detail: {data: LineFocusStyle.OFF}});
+    await microtasksFinished();
+    assertEquals('0px', window.getComputedStyle(app.$.container).paddingTop);
+  });
+
   test('line focus movement change updates line focus', () => {
     chrome.readingMode.isLineFocusEnabled = true;
 
@@ -257,6 +280,31 @@ suite('AppReceivesToolbarChanges', () => {
         +window.getComputedStyle(app.$.container).paddingTop.replace('px', '');
     assertLT(0, padding);
   });
+
+  test(
+      'line focus movement change does nothing with line focus off',
+      async () => {
+        chrome.readingMode.isLineFocusEnabled = true;
+        emitEvent(
+            app, ToolbarEvent.LINE_FOCUS_STYLE,
+            {detail: {data: LineFocusStyle.OFF}});
+        // The app needs content so it has a non-zero height.
+        app.updateContent();
+
+        let expectedData = LineFocusMovement.CURSOR;
+        emitEvent(
+            app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
+            {detail: {data: expectedData}});
+        await microtasksFinished();
+        assertEquals('', app.$.container.style.paddingTop);
+
+        expectedData = LineFocusMovement.STATIC;
+        emitEvent(
+            app, ToolbarEvent.LINE_FOCUS_MOVEMENT,
+            {detail: {data: expectedData}});
+        await microtasksFinished();
+        assertEquals('', app.$.container.style.paddingTop);
+      });
 
   test('line focus change does nothing with flag disabled', async () => {
     chrome.readingMode.isLineFocusEnabled = false;

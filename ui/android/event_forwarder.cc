@@ -37,20 +37,27 @@ EventForwarder::EventForwarder(ViewAndroid* view)
           kSendTouchMovesToEventForwarderObservers)) {}
 
 EventForwarder::~EventForwarder() {
-  if (!java_obj_.is_null()) {
-    Java_EventForwarder_destroy(jni_zero::AttachCurrentThread(), java_obj_);
-    java_obj_.Reset();
+  JNIEnv* env = jni_zero::AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> java_obj = GetJavaObject(env);
+  if (!java_obj.is_null()) {
+    Java_EventForwarder_destroy(env, java_obj);
   }
 }
 
-ScopedJavaLocalRef<jobject> EventForwarder::GetJavaObject() {
-  if (java_obj_.is_null()) {
-    JNIEnv* env = jni_zero::AttachCurrentThread();
-    java_obj_.Reset(
-        Java_EventForwarder_create(env, reinterpret_cast<intptr_t>(this),
-                                   features::IsTouchDragAndDropEnabled()));
+ScopedJavaLocalRef<jobject> EventForwarder::GetJavaObject(JNIEnv* env) {
+  return Java_EventForwarder_getJavaObject(env,
+                                           reinterpret_cast<int64_t>(this));
+}
+
+ScopedJavaLocalRef<jobject> EventForwarder::GetOrCreateJavaObject(JNIEnv* env) {
+  ScopedJavaLocalRef<jobject> java_obj = GetJavaObject(env);
+  if (java_obj.is_null()) {
+    java_obj =
+        Java_EventForwarder_create(env, reinterpret_cast<int64_t>(this),
+                                   features::IsTouchDragAndDropEnabled());
   }
-  return ScopedJavaLocalRef<jobject>(java_obj_);
+  DCHECK(!java_obj.is_null());
+  return java_obj;
 }
 
 bool EventForwarder::OnTouchEvent(JNIEnv* env,
@@ -416,10 +423,13 @@ void EventForwarder::RemoveObserver(Observer* observer) {
   observers_.RemoveObserver(observer);
 }
 
-float EventForwarder::GetCurrentTouchSequenceYOffset() {
-  CHECK(!java_obj_.is_null());
+gfx::PointF EventForwarder::GetCurrentTouchSequenceOffset() {
   JNIEnv* env = jni_zero::AttachCurrentThread();
-  return Java_EventForwarder_getWebContentsOffsetYInWindow(env, java_obj_);
+  auto java_obj = GetJavaObject(env);
+  CHECK(!java_obj.is_null());
+  return gfx::PointF(
+      Java_EventForwarder_getWebContentsOffsetXInWindow(env, java_obj),
+      Java_EventForwarder_getWebContentsOffsetYInWindow(env, java_obj));
 }
 
 }  // namespace ui

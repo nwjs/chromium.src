@@ -461,7 +461,6 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame(
     sk_sp<GrDeferredDisplayList> overdraw_ddl,
     std::unique_ptr<skgpu::graphite::Recording> graphite_recording,
     std::vector<raw_ptr<ImageContextImpl, VectorExperimental>> image_contexts,
-    std::vector<gpu::SyncToken> sync_tokens,
     base::OnceClosure on_finished,
     base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb) {
   TRACE_EVENT0("viz", "SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame");
@@ -617,7 +616,6 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass(
     sk_sp<GrDeferredDisplayList> overdraw_ddl,
     std::unique_ptr<skgpu::graphite::Recording> graphite_recording,
     std::vector<raw_ptr<ImageContextImpl, VectorExperimental>> image_contexts,
-    std::vector<gpu::SyncToken> sync_tokens,
     base::OnceClosure on_finished,
     base::OnceCallback<void(gfx::GpuFenceHandle)> return_release_fence_cb,
     const gfx::Rect& update_rect,
@@ -1940,10 +1938,6 @@ bool SkiaOutputSurfaceImplOnGpu::Initialize() {
     if (!InitializeForDawn()) {
       return false;
     }
-  } else if (context_state_->IsGraphiteMetal()) {
-    if (!InitializeForMetal()) {
-      return false;
-    }
   } else {
     if (!InitializeForGL()) {
       return false;
@@ -2220,35 +2214,6 @@ bool SkiaOutputSurfaceImplOnGpu::InitializeForDawn() {
 #else   // BUILDFLAG(SKIA_USE_DAWN)
   NOTREACHED();
 #endif  // BUILDFLAG(SKIA_USE_DAWN)
-}
-
-bool SkiaOutputSurfaceImplOnGpu::InitializeForMetal() {
-#if !BUILDFLAG(IS_APPLE)
-  NOTREACHED();
-#else
-  if (dependency_->IsOffscreen()) {
-    output_device_ = std::make_unique<SkiaOutputDeviceOffscreen>(
-        context_state_, gfx::SurfaceOrigin::kTopLeft,
-        renderer_settings_.requires_alpha_channel,
-        shared_gpu_deps_->memory_tracker(),
-        GetDidSwapBuffersCompleteCallback());
-  } else {
-    scoped_refptr<gl::Presenter> presenter = dependency_->CreatePresenter();
-    presenter_ = presenter.get();
-    CHECK(presenter_);
-
-#if BUILDFLAG(IS_MAC)
-    presenter_->SetVSyncDisplayID(renderer_settings_.display_id);
-#endif  // BUILDFLAG(IS_MAC)
-    output_device_ = std::make_unique<SkiaOutputDeviceBufferQueue>(
-        std::make_unique<OutputPresenterGL>(std::move(presenter), dependency_),
-        dependency_, shared_image_representation_factory_.get(),
-        shared_gpu_deps_->memory_tracker(), GetDidSwapBuffersCompleteCallback(),
-        GetReleaseOverlaysCallback());
-  }
-
-  return true;
-#endif  // !BUILDFLAG(IS_APPLE)
 }
 
 bool SkiaOutputSurfaceImplOnGpu::MakeCurrent(bool need_framebuffer) {
@@ -2693,32 +2658,16 @@ void SkiaOutputSurfaceImplOnGpu::CreateSolidColorSharedImage(
     gpu::Mailbox mailbox,
     const SkColor4f& color,
     const gfx::ColorSpace& color_space) {
-#if BUILDFLAG(IS_OZONE)
-  auto preferred_solid_color_format = ui::OzonePlatform::GetInstance()
-                                          ->GetSurfaceFactoryOzone()
-                                          ->GetPreferredFormatForSolidColor();
-  if (preferred_solid_color_format) {
-    solid_color_image_format_ = preferred_solid_color_format.value();
-  }
-#endif
-  DCHECK(solid_color_image_format_ == SinglePlaneFormat::kRGBA_8888 ||
-         solid_color_image_format_ == SinglePlaneFormat::kBGRA_8888);
-  // Create a 1x1 pixel span of the colour in |solid_color_image_format_|.
   gfx::Size size(1, 1);
   // Premultiply the SkColor4f to support transparent quads.
   SkColor4f premul{color[0] * color[3], color[1] * color[3],
                    color[2] * color[3], color[3]};
   const uint32_t premul_rgba_bytes = premul.toBytes_RGBA();
   uint32_t premul_bytes = premul_rgba_bytes;
-  if (solid_color_image_format_ == SinglePlaneFormat::kBGRA_8888) {
-    SkSwapRB(&premul_bytes, &premul_rgba_bytes, 1);
-  }
   auto pixel_span = base::byte_span_from_ref(premul_bytes);
 
-  // TODO(crbug.com/40237688) Some work is needed to properly support F16
-  // format.
   shared_image_factory_->CreateSharedImage(
-      mailbox, solid_color_image_format_, size, color_space,
+      mailbox, SinglePlaneFormat::kRGBA_8888, size, color_space,
       kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
       gpu::SHARED_IMAGE_USAGE_SCANOUT | gpu::SHARED_IMAGE_USAGE_DISPLAY_READ,
       "SkiaSolidColor", pixel_span);

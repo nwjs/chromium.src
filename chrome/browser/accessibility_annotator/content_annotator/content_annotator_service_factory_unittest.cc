@@ -5,14 +5,29 @@
 #include "chrome/browser/accessibility_annotator/content_annotator/content_annotator_service_factory.h"
 
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_annotations_service_factory.h"
+#include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
+#include "chrome/browser/page_content_annotations/page_embeddings_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/accessibility_annotator/core/accessibility_annotator_features.h"
+#include "components/page_content_annotations/content/page_content_extraction_service.h"
+#include "components/page_content_annotations/content/page_embeddings_service.h"
 #include "components/page_content_annotations/core/test_page_content_annotations_service.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace accessibility_annotator {
+
+class TestPageEmbeddingsService
+    : public page_content_annotations::PageEmbeddingsService {
+ public:
+  explicit TestPageEmbeddingsService(
+      page_content_annotations::PageContentExtractionService*
+          page_content_extraction_service)
+      : PageEmbeddingsService(page_content_extraction_service) {}
+};
 
 class ContentAnnotatorServiceFactoryTest : public testing::Test {
  public:
@@ -40,6 +55,33 @@ class ContentAnnotatorServiceFactoryTest : public testing::Test {
                   TestPageContentAnnotationsService::Create(
                       /*optimization_guide_model_provider=*/nullptr,
                       /*history_service=*/nullptr);
+            }));
+    page_content_annotations::PageContentExtractionServiceFactory::GetInstance()
+        ->SetTestingFactoryAndUse(
+            browser_context,
+            base::BindRepeating([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+              return std::make_unique<
+                  page_content_annotations::PageContentExtractionService>(
+                  /*os_crypt_async=*/nullptr, context->GetPath(),
+                  /*tracker=*/nullptr);
+            }));
+    OptimizationGuideKeyedServiceFactory::GetInstance()
+        ->SetTestingFactoryAndUse(
+            browser_context,
+            base::BindRepeating([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+              return std::make_unique<MockOptimizationGuideKeyedService>();
+            }));
+    page_content_annotations::PageEmbeddingsServiceFactory::GetInstance()
+        ->SetTestingFactoryAndUse(
+            browser_context,
+            base::BindRepeating([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+              return std::make_unique<TestPageEmbeddingsService>(
+                  page_content_annotations::
+                      PageContentExtractionServiceFactory::GetForProfile(
+                          Profile::FromBrowserContext(context)));
             }));
   }
 

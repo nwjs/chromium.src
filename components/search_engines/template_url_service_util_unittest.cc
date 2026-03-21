@@ -14,6 +14,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/values.h"
 #include "components/country_codes/country_codes.h"
@@ -22,6 +23,7 @@
 #include "components/regional_capabilities/regional_capabilities_country_id.h"
 #include "components/regional_capabilities/regional_capabilities_prefs.h"
 #include "components/regional_capabilities/regional_capabilities_service.h"
+#include "components/regional_capabilities/regional_capabilities_switches.h"
 #include "components/search_engines/keyword_web_data_service.h"
 #include "components/search_engines/search_engine_choice/search_engine_choice_service.h"
 #include "components/search_engines/search_engines_pref_names.h"
@@ -43,11 +45,13 @@ namespace {
 
 using regional_capabilities::CountryIdHolder;
 
+constexpr std::u16string_view sample_engine_name = u"Search engine name";
+
 std::unique_ptr<TemplateURLData> CreatePrepopulateTemplateURLData(
     int prepopulate_id,
     const std::string& keyword) {
   return std::make_unique<TemplateURLData>(
-      u"Search engine name", base::ASCIIToUTF16(keyword), "https://search.url",
+      sample_engine_name, base::ASCIIToUTF16(keyword), "https://search.url",
       "" /* suggest_url */, "" /* image_url */, "" /* image_translate_url */,
       "" /* new_tab_url */, "" /* contextual_search_url */, "" /* logo_url */,
       "" /* doodle_url */, "" /* search_url_post_params */,
@@ -127,9 +131,17 @@ TEST(TemplateURLServiceUtilTest, RemoveDuplicatePrepopulateIDs) {
   }
 }
 
+class TemplateURLServiceUtilWithEnvTest : public testing::Test {
+ protected:
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::MainThreadType::UI};
+  search_engines::SearchEnginesTestEnvironment search_engines_test_environment_;
+};
+
 // Tests correct interaction of Play API search engine during prepopulated list
 // update.
-TEST(TemplateURLServiceUtilTest, MergeEnginesFromPrepopulateData_PlayAPI) {
+TEST_F(TemplateURLServiceUtilWithEnvTest,
+       MergeEnginesFromPrepopulateData_PlayAPI) {
   std::vector<std::unique_ptr<TemplateURLData>> prepopulated_turls;
   TemplateURLService::OwnedTemplateURLVector local_turls;
 
@@ -142,8 +154,9 @@ TEST(TemplateURLServiceUtilTest, MergeEnginesFromPrepopulateData_PlayAPI) {
   const std::string prepopulated_search_url = "http://prepopulated.url";
   prepopulated_turls.push_back(CreatePrepopulateTemplateURLData(1, "play"));
   prepopulated_turls.back()->SetURL(prepopulated_search_url);
-  MergeEnginesFromPrepopulateData(nullptr, &prepopulated_turls, &local_turls,
-                                  nullptr, nullptr);
+  MergeEnginesFromPrepopulateData(
+      nullptr, &prepopulated_turls, &local_turls, nullptr,
+      search_engines_test_environment_.prepopulate_data_resolver(), nullptr);
   ASSERT_EQ(local_turls.size(), 1U);
   // Merged search engine should have both Play API flag and valid
   // prepopulate_id.
@@ -156,8 +169,9 @@ TEST(TemplateURLServiceUtilTest, MergeEnginesFromPrepopulateData_PlayAPI) {
   // preserves keyword of Play API search engine.
   prepopulated_turls.clear();
   prepopulated_turls.push_back(CreatePrepopulateTemplateURLData(1, "play2"));
-  MergeEnginesFromPrepopulateData(nullptr, &prepopulated_turls, &local_turls,
-                                  nullptr, nullptr);
+  MergeEnginesFromPrepopulateData(
+      nullptr, &prepopulated_turls, &local_turls, nullptr,
+      search_engines_test_environment_.prepopulate_data_resolver(), nullptr);
   ASSERT_EQ(local_turls.size(), 1U);
   ASSERT_EQ(local_turls[0]->GetRegulatoryExtensionType(),
             RegulatoryExtensionType::kAndroidEEA);
@@ -166,8 +180,9 @@ TEST(TemplateURLServiceUtilTest, MergeEnginesFromPrepopulateData_PlayAPI) {
   // Test that removing search engine from prepopulated list doesn't delete Play
   // API search engine record.
   prepopulated_turls.clear();
-  MergeEnginesFromPrepopulateData(nullptr, &prepopulated_turls, &local_turls,
-                                  nullptr, nullptr);
+  MergeEnginesFromPrepopulateData(
+      nullptr, &prepopulated_turls, &local_turls, nullptr,
+      search_engines_test_environment_.prepopulate_data_resolver(), nullptr);
   ASSERT_EQ(local_turls.size(), 1U);
   ASSERT_EQ(local_turls[0]->GetRegulatoryExtensionType(),
             RegulatoryExtensionType::kAndroidEEA);
@@ -176,7 +191,7 @@ TEST(TemplateURLServiceUtilTest, MergeEnginesFromPrepopulateData_PlayAPI) {
 
 // Tests that user modified fields are preserved and overwritten appropriately
 // in MergeIntoEngineData().
-TEST(TemplateURLServiceUtilTest, MergeIntoEngineData) {
+TEST(TemplateURLServiceUtilTest, MergeIntoEngineData_OverwriteUserEdits) {
   std::unique_ptr<TemplateURLData> original_turl_data =
       CreatePrepopulateTemplateURLData(1, "google");
   std::unique_ptr<TemplateURLData> url_to_update =
@@ -194,22 +209,71 @@ TEST(TemplateURLServiceUtilTest, MergeIntoEngineData) {
   // Set `merge_options` to kOverwriteUserEdits. This should NOT preserve the
   // modified fields.  `url_to_update` should keep the default keyword and name
   // values as well as safe_for_autoreplace being true.
-  MergeIntoEngineData(original_turl.get(), url_to_update.get(),
+  MergeIntoEngineData(original_turl->data(), *url_to_update.get(),
                       TemplateURLMergeOption::kOverwriteUserEdits);
 
   EXPECT_TRUE(url_to_update->safe_for_autoreplace);
-  EXPECT_EQ(url_to_update->short_name(), u"Search engine name");
+  EXPECT_EQ(url_to_update->short_name(), sample_engine_name);
   EXPECT_EQ(url_to_update->keyword(), u"google");
+  EXPECT_EQ(url_to_update->sync_guid, original_turl->sync_guid());
+}
+
+TEST(TemplateURLServiceUtilTest, MergeIntoEngineData_Default) {
+  std::unique_ptr<TemplateURLData> original_turl_data =
+      CreatePrepopulateTemplateURLData(1, "google");
+  std::unique_ptr<TemplateURLData> url_to_update =
+      CreatePrepopulateTemplateURLData(1, "google");
+
+  // Modify the keyword and title for original_turl and set safe_for_autoreplace
+  // to false to simulate a "user edited" template url.
+  original_turl_data->SetShortName(u"modified name");
+  original_turl_data->SetKeyword(u"newkeyword");
+  original_turl_data->safe_for_autoreplace = false;
+
+  std::unique_ptr<TemplateURL> original_turl =
+      std::make_unique<TemplateURL>(*original_turl_data);
 
   // Set `merge_options` to kDefault. This should preserve the modified
   // keyword and title fields from original_turl and update url_to_update
   // accordingly.
-  MergeIntoEngineData(original_turl.get(), url_to_update.get(),
+  MergeIntoEngineData(original_turl->data(), *url_to_update.get(),
                       TemplateURLMergeOption::kDefault);
 
   EXPECT_FALSE(url_to_update->safe_for_autoreplace);
   EXPECT_EQ(url_to_update->short_name(), u"modified name");
   EXPECT_EQ(url_to_update->keyword(), u"newkeyword");
+  EXPECT_EQ(url_to_update->sync_guid, original_turl->sync_guid());
+}
+
+TEST(TemplateURLServiceUtilTest, MergeIntoEngineData_SplitPrepopulatedEntry) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      switches::kPrepopulatedEnginesMigration};
+
+  std::unique_ptr<TemplateURLData> original_turl_data =
+      CreatePrepopulateTemplateURLData(1, "google");
+  std::unique_ptr<TemplateURLData> url_to_update =
+      CreatePrepopulateTemplateURLData(130, "google");
+
+  // Modify the keyword and title for original_turl and set safe_for_autoreplace
+  // to false to simulate a "user edited" template url.
+  original_turl_data->SetShortName(u"modified name");
+  original_turl_data->SetKeyword(u"newkeyword");
+  original_turl_data->safe_for_autoreplace = false;
+  original_turl_data->migrate_to_id = 130;
+
+  std::unique_ptr<TemplateURL> original_turl =
+      std::make_unique<TemplateURL>(*original_turl_data);
+
+  // Set `merge_options` to kSplitPrepopulatedEntry. This should skip resetting
+  // the `sync_guid`, ensuring that the split entry does not get merged with old
+  // sync data.
+  MergeIntoEngineData(original_turl->data(), *url_to_update.get(),
+                      TemplateURLMergeOption::kSplitPrepopulatedEntry);
+
+  EXPECT_FALSE(url_to_update->safe_for_autoreplace);
+  EXPECT_EQ(url_to_update->short_name(), u"modified name");
+  EXPECT_EQ(url_to_update->keyword(), u"newkeyword");
+  EXPECT_NE(url_to_update->sync_guid, original_turl->sync_guid());
 }
 
 class TemplateURLServiceUtilLoadTest : public testing::Test {

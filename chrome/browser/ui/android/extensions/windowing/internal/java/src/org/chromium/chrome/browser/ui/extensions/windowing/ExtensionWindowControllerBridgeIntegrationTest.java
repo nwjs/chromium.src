@@ -17,13 +17,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.BaseSwitches;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
@@ -55,25 +53,8 @@ import java.util.Collections;
 
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(value = Batch.PER_CLASS)
-@CommandLineFlags.Add({
-    // Force DeviceInfo#isDesktop() to be true so that the DISABLE_INSTANCE_LIMIT
-    // flag in @EnableFeatures can be effective when running tests on an
-    // emulator without "--force-desktop-android".
-    //
-    // See MultiWindowUtils#getMaxInstances() for the reason:
-    // https://source.chromium.org/chromium/chromium/src/+/main:chrome/android/java/src/org/chromium/chrome/browser/multiwindow/MultiWindowUtils.java;l=213;drc=0bcba72c5246a910240b311def40233f7d3f15af
-    BaseSwitches.FORCE_DESKTOP_ANDROID,
-    ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE
-})
-@Features.EnableFeatures({
-    // Disable ChromeTabbedActivity instance limit so that the total number of
-    // windows created by the entire test suite won't be limited.
-    //
-    // See MultiWindowUtils#getMaxInstances() for the reason:
-    // https://source.chromium.org/chromium/chromium/src/+/main:chrome/android/java/src/org/chromium/chrome/browser/multiwindow/MultiWindowUtils.java;l=209;drc=0bcba72c5246a910240b311def40233f7d3f15af
-    ChromeFeatureList.DISABLE_INSTANCE_LIMIT,
-    ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
-})
+@CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
+@Features.EnableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
 @MinAndroidSdkLevel(Build.VERSION_CODES.R)
 @NullMarked
 public class ExtensionWindowControllerBridgeIntegrationTest {
@@ -121,7 +102,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void startWebappActivity_addsExtensionWindowControllerBridgeToChromeAndroidTask() {
         // Act.
         mWebappActivityTestRule.startWebappActivity();
@@ -136,7 +116,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void startTwa_addsExtensionWindowControllerBridgeToChromeAndroidTask() throws Exception {
         // Act.
         CustomTabActivityTypeTestUtils.launchActivity(
@@ -264,7 +243,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void startWebappActivity_notifyExtensionInternalsOfWindowCreation() {
         // Arrange:
         // (1) Launch ChromeTabbedActivity. We need this to initialize native
@@ -298,7 +276,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void startTwa_notifyExtensionInternalsOfWindowCreation() throws Exception {
         // Arrange:
         // (1) Launch ChromeTabbedActivity. We need this to initialize native
@@ -456,7 +433,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void destroyWebappActivity_destroysExtensionWindowControllerBridge() {
         // Arrange.
         mWebappActivityTestRule.startWebappActivity();
@@ -476,7 +452,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void destroyTwa_destroysExtensionWindowControllerBridge() throws Exception {
         // Arrange.
         CustomTabActivityTypeTestUtils.launchActivity(
@@ -557,7 +532,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void destroyWebActivity_notifyExtensionInternalsOfWindowDestruction() {
         // Arrange:
         // (1) Start WebappActivity.
@@ -588,7 +562,6 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
 
     @Test
     @MediumTest
-    @DisabledTest(message = "crbug.com/486858979: Temporarily disabled to avoid crashes.")
     public void destroyTwa_notifyExtensionInternalsOfWindowDestruction() throws Exception {
         // Arrange:
         // (1) Start TWA.
@@ -648,10 +621,13 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
                     var chromeAndroidTask = getChromeAndroidTask(taskId);
                     assertNotNull(chromeAndroidTask);
 
+                    var activityWindowAndroid = chromeAndroidTask.getTopActivityWindowAndroid();
                     return (ExtensionWindowControllerBridgeImpl)
                             chromeAndroidTask.getFeatureForTesting(
                                     new ChromeAndroidTaskFeatureKey(
-                                            ExtensionWindowControllerBridge.class, profile));
+                                            ExtensionWindowControllerBridge.class,
+                                            profile,
+                                            activityWindowAndroid));
                 });
     }
 }

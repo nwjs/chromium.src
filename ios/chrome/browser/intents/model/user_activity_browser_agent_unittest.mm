@@ -13,6 +13,7 @@
 #import "base/memory/raw_ptr.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/scoped_command_line.h"
+#import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
 #import "base/test/with_feature_override.h"
 #import "base/values.h"
@@ -84,10 +85,6 @@
 
 @implementation FakeSceneController
 
-- (BOOL)URLIsOpenedInRegularMode:(const GURL&)URL {
-  return NO;
-}
-
 - (void)dismissModalsAndMaybeOpenSelectedTabInMode:
             (ApplicationModeForTabOpening)targetMode
                                  withUrlLoadParams:
@@ -112,6 +109,10 @@
 class UserActivityBrowserAgentTest : public PlatformTest {
  public:
   UserActivityBrowserAgentTest() {
+    ResetEnableNewStartupFlowEnabledForTesting();
+    scoped_feature_list_.InitAndDisableFeature(kEnableNewStartupFlow);
+    SaveEnableNewStartupFlowForNextStart();
+
     profile_ = TestProfileIOS::Builder().Build();
 
     scene_state_ = [[FakeSceneState alloc] initWithAppState:nil
@@ -135,6 +136,7 @@ class UserActivityBrowserAgentTest : public PlatformTest {
   ~UserActivityBrowserAgentTest() override {
     [scene_state_ shutdown];
     scene_state_ = nil;
+    ResetEnableNewStartupFlowEnabledForTesting();
   }
 
  protected:
@@ -201,6 +203,7 @@ class UserActivityBrowserAgentTest : public PlatformTest {
 
  private:
   web::WebTaskEnvironment task_environment_;
+  base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<TestProfileIOS> profile_;
   std::unique_ptr<TestBrowser> browser_;
 
@@ -215,10 +218,8 @@ class UserActivityBrowserAgentTest : public PlatformTest {
 TEST_F(UserActivityBrowserAgentTest,
        ProceedWithUserActivityWithIncognitoBrowser) {
   // UserActivityTypes to test.
-  NSArray* user_activity_types = @[
-    kShortcutNewIncognitoSearch, kSiriShortcutOpenInIncognito,
-    kShortcutLensFromSpotlight
-  ];
+  NSArray* user_activity_types =
+      @[ kShortcutNewIncognitoSearch, kSiriShortcutOpenInIncognito ];
 
   ForceIncognitoMode();
 
@@ -714,7 +715,6 @@ TEST_F(UserActivityBrowserAgentTest,
       kShortcutLensFromAppIconLongPress, @NO, @NO,
       @(START_LENS_FROM_APP_ICON_LONG_PRESS)
     ],
-    @[ kShortcutLensFromSpotlight, @NO, @NO, @(START_LENS_FROM_SPOTLIGHT) ]
   ];
 
   for (id parameters in parameters_to_test) {

@@ -12,6 +12,28 @@
  * element in WebUI.
  * TODO(crbug.com/40243115): Use TrackedElementManager in Help Bubbles.
  *
+ * ## Change Detection
+ *
+ * This manager detects element position/visibility changes through:
+ * - ResizeObserver: Detects size changes of tracked elements and viewport
+ *   resizes (document.body). Note: Does NOT detect pure position changes.
+ * - IntersectionObserver: Detects viewport intersection for fixed elements
+ * - MutationObserver: Used to detect when tracked elements are moved in the
+ *   DOM, or when their 'style' or 'class' attributes change (position changes)
+ * - Scroll events: Detects document scrolling (position changes)
+ *
+ * ### Known Limitations
+ *
+ * The following changes will NOT be detected:
+ * - Style/class attribute changes on parent or ancestor elements
+ * - Parent/ancestor elements being moved in the DOM
+ * - Direct CSS rule modifications via CSSOM (e.g., modifying
+ *   document.styleSheets or adding/removing <style> elements)
+ * - Position changes caused by other elements being added/removed nearby
+ *
+ * Note: Viewport resizes and media query changes triggered by resizing
+ * are detected via the document.body ResizeObserver.
+ *
  * ## Usage
  *
  * In C++, declare your ui::ElementIdentifier. Make sure it is registered as a
@@ -103,6 +125,13 @@ export interface Options {
    * are not in the regular flow of the document but they are always visible.
    */
   fixed?: boolean;
+
+  /**
+   * If this is set, this element will be marked as supporting anchor
+   * highlighting, and the method will be invoked when the highlight state
+   * (initially false) changes.
+   */
+  onHighlightChanged?: (highlighted: boolean) => void;
 }
 
 interface TrackedElement {
@@ -113,6 +142,7 @@ interface TrackedElement {
   visible: boolean;
   bounds: RectF;
   onVisibilityChanged?: (visible: boolean, bounds: RectF) => void;
+  onHighlightChanged?: (highlighted: boolean) => void;
 }
 
 function parseOptions(options?: Options) {
@@ -154,14 +184,25 @@ export class TrackedElementManager {
   }
 
   private trackedElementHandler_: TrackedElementHandlerInterface;
-  private trackedElements_: Map<HTMLElement, TrackedElement> = new Map();
+
+  // Mapped from native ID.
+  private trackedElements_: Map<string, TrackedElement> = new Map();
   private fixedElementObserver_: IntersectionObserver;
   private resizeObserver_: ResizeObserver;
+  // Observes attribute changes (style/class) on tracked elements.
+  private attributeMutationObserver_: MutationObserver;
+  // Observes document subtree for detached elements being added to DOM.
+  private documentMutationObserver_: MutationObserver;
   private debouncedUpdateAllBoundsCallback_: () => void;
 
   private constructor() {
     this.trackedElementHandler_ =
         TrackedElementProxyImpl.getInstance().getHandler();
+    const callbackRouter = TrackedElementProxyImpl.getInstance().callbackRouter;
+    this.trackedElementHandler_.setManager(
+        callbackRouter.$.bindNewPipeAndPassRemote());
+    callbackRouter.onElementHighlightChanged.addListener(
+        this.onElementHighlightChanged_.bind(this));
 
     this.debouncedUpdateAllBoundsCallback_ =
         debounceEnd(this.updateAllBounds_.bind(this), 50);
@@ -181,17 +222,81 @@ export class TrackedElementManager {
                 target as HTMLElement, isIntersecting)),
         {root: null});
 
+    // Observer for attribute changes on tracked elements.
+    this.attributeMutationObserver_ = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        // Style or class attribute changed on a tracked element.
+        const target = mutation.target as HTMLElement;
+        if (this.getTrackedElement_(target)) {
+          this.onElementVisibilityChanged_(target, computeIsVisible(target));
+        }
+      }
+    });
+
+    // Helper to check if a node or its descendants are tracked elements.
+    const checkTrackedNodes = (nodes: NodeList) => {
+      nodes.forEach(node => {
+        if (node instanceof HTMLElement) {
+          // Check if the node is a tracked element.
+          if (this.getTrackedElement_(node)) {
+            this.onElementVisibilityChanged_(node, computeIsVisible(node));
+          }
+          // Check if any descendants are tracked elements.
+          node.querySelectorAll('*').forEach(descendant => {
+            if (descendant instanceof HTMLElement &&
+                this.getTrackedElement_(descendant)) {
+              this.onElementVisibilityChanged_(
+                  descendant, computeIsVisible(descendant));
+            }
+          });
+        }
+      });
+    };
+
+    // Observer for document-level changes to catch tracked elements being
+    // added to or removed from the DOM tree.
+    this.documentMutationObserver_ = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        checkTrackedNodes(mutation.removedNodes);
+        checkTrackedNodes(mutation.addedNodes);
+      }
+    });
+
     document.addEventListener(
         'scroll', this.debouncedUpdateAllBoundsCallback_, {passive: true});
     this.resizeObserver_.observe(document.body);
+    // Observe the entire document to catch detached elements being added.
+    this.documentMutationObserver_.observe(
+        document, {childList: true, subtree: true});
+  }
+
+  private getTrackedElement_(element: HTMLElement): TrackedElement|undefined {
+    const nativeId = element.dataset['nativeId'];
+    if (!nativeId) {
+      return undefined;
+    }
+    const maybeTrackedElement = this.trackedElements_.get(nativeId);
+    // Make sure this is what we're actually tracking and not an element with
+    // a stale data-native-id.
+    if (maybeTrackedElement?.element === element) {
+      return maybeTrackedElement;
+    }
+    return undefined;
   }
 
   reset() {
     this.resizeObserver_.disconnect();
     this.fixedElementObserver_.disconnect();
+    this.attributeMutationObserver_.disconnect();
+    this.documentMutationObserver_.disconnect();
     document.removeEventListener(
         'scroll', this.debouncedUpdateAllBoundsCallback_);
     this.trackedElements_.clear();
+
+    // Reconnect global observers after clearing.
+    this.resizeObserver_.observe(document.body);
+    this.documentMutationObserver_.observe(
+        document, {childList: true, subtree: true});
   }
 
   /**
@@ -214,7 +319,7 @@ export class TrackedElementManager {
 
     // Remove tracking of the old element before registering the nativeId to a
     // new element.
-    if (this.trackedElements_.has(element)) {
+    if (this.getTrackedElement_(element)) {
       this.stopTracking(element);
     }
 
@@ -227,13 +332,25 @@ export class TrackedElementManager {
       visible: false,
       bounds: {x: 0, y: 0, width: 0, height: 0},
       onVisibilityChanged,
+      onHighlightChanged: options?.onHighlightChanged,
     };
-    this.trackedElements_.set(element, trackedElement);
+    this.trackedElements_.set(nativeId, trackedElement);
 
     if (trackedElement.fixed) {
       this.fixedElementObserver_.observe(element);
     } else {
       this.resizeObserver_.observe(element);
+    }
+
+    // Observe the element itself for style/class changes that affect position.
+    this.attributeMutationObserver_.observe(element, {
+      attributes: true,
+      attributeFilter: ['style', 'class'],
+    });
+
+    if (trackedElement.onHighlightChanged) {
+      this.trackedElementHandler_.trackedElementCanHighlightChanged(
+          nativeId, true);
     }
   }
 
@@ -244,20 +361,29 @@ export class TrackedElementManager {
    * @param element The element to stop tracking.
    */
   stopTracking(element: HTMLElement) {
-    const trackedElement = this.trackedElements_.get(element);
+    const trackedElement = this.getTrackedElement_(element);
     if (!trackedElement) {
       return;
     }
 
+    if (trackedElement.onHighlightChanged) {
+      this.trackedElementHandler_.trackedElementCanHighlightChanged(
+          trackedElement.nativeId, false);
+    }
     this.onElementVisibilityChanged_(element, false);
     if (trackedElement.fixed) {
       this.fixedElementObserver_.unobserve(element);
     } else {
       this.resizeObserver_.unobserve(element);
     }
-    this.trackedElements_.delete(element);
 
-    element.dataset['nativeId'] = '';
+    // Note: MutationObservers don't have unobserve(). The
+    // attributeMutationObserver_ and documentMutationObserver_ will still be
+    // observing, but since the element is no longer in trackedElements_,
+    // callbacks won't trigger.
+    this.trackedElements_.delete(trackedElement.nativeId);
+
+    delete element.dataset['nativeId'];
   }
 
   notifyElementActivated(element: HTMLElement) {
@@ -275,7 +401,7 @@ export class TrackedElementManager {
 
   private onElementVisibilityChanged_(
       element: HTMLElement, isVisible: boolean) {
-    const trackedElement = this.trackedElements_.get(element);
+    const trackedElement = this.getTrackedElement_(element);
     assert(trackedElement);
 
     const bounds: RectF = isVisible ? this.getElementBounds_(element) :
@@ -292,7 +418,8 @@ export class TrackedElementManager {
   }
 
   private updateAllBounds_() {
-    this.trackedElements_.forEach((_, element) => {
+    this.trackedElements_.forEach((trackedElement, _) => {
+      const element = trackedElement.element;
       this.onElementVisibilityChanged_(element, computeIsVisible(element));
     });
   }
@@ -305,7 +432,7 @@ export class TrackedElementManager {
     rect.width = bounds.width;
     rect.height = bounds.height;
 
-    const trackedElement = this.trackedElements_.get(element);
+    const trackedElement = this.getTrackedElement_(element);
     if (trackedElement) {
       const padding = trackedElement.padding;
       rect.x -= padding.left;
@@ -314,5 +441,14 @@ export class TrackedElementManager {
       rect.height += padding.top + padding.bottom;
     }
     return rect;
+  }
+
+  /* Called from browser to add/remove highlights. */
+  private onElementHighlightChanged_(nativeId: string, highlighted: boolean) {
+    const trackedElement = this.trackedElements_.get(nativeId);
+    const maybeCallback = trackedElement?.onHighlightChanged;
+    if (maybeCallback) {
+      maybeCallback(highlighted);
+    }
   }
 }

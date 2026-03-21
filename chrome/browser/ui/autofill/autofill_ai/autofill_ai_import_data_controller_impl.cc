@@ -204,6 +204,12 @@ void AutofillAiImportDataControllerImpl::OnBubbleClosed(
   }
 }
 
+bool AutofillAiImportDataControllerImpl::CanBeReshown() const {
+  // We reshow the prompt only if it is a save/update prompt that has not run
+  // yet. The other cases offer too little benefit to the user.
+  return IsSaveUpdatePrompt() && GetSaveUpdateState().prompt_result_callback;
+}
+
 void AutofillAiImportDataControllerImpl::OnBubbleDiscarded() {
   using enum AutofillClient::AutofillAiBubbleResult;
   MaybeRunSaveUpdateCallback(was_bubble_shown_ ? kNotInteracted : kUnknown);
@@ -265,6 +271,9 @@ int AutofillAiImportDataControllerImpl::
     case EntityTypeName::kVehicle:
       return IDR_AUTOFILL_SAVE_VEHICLE_LOTTIE;
     case EntityTypeName::kFlightReservation:
+      NOTREACHED()
+          << "Entity is read only and doesn't support saving/updating.";
+    case EntityTypeName::kOrder:
       NOTREACHED()
           << "Entity is read only and doesn't support saving/updating.";
   }

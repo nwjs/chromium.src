@@ -286,8 +286,11 @@ std::u16string CreditCard::NetworkForDisplay(const std::string& network) {
 int CreditCard::IconResourceId(Suggestion::Icon icon) {
   switch (icon) {
     case Suggestion::Icon::kCardAmericanExpress:
-      return ShouldUseNewFopDisplay() ? IDR_AUTOFILL_METADATA_CC_AMEX
-                                      : IDR_AUTOFILL_METADATA_CC_AMEX_OLD;
+      return base::FeatureList::IsEnabled(
+                 features::kAutofillEnableNewAmexNetworkArt)
+                 ? IDR_AUTOFILL_METADATA_CC_AMEX_NEW
+             : ShouldUseNewFopDisplay() ? IDR_AUTOFILL_METADATA_CC_AMEX
+                                        : IDR_AUTOFILL_METADATA_CC_AMEX_OLD;
     case Suggestion::Icon::kCardDiners:
       return ShouldUseNewFopDisplay() ? IDR_AUTOFILL_METADATA_CC_DINERS
                                       : IDR_AUTOFILL_METADATA_CC_DINERS_OLD;
@@ -357,6 +360,8 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kBnplGeneric:
     case Suggestion::Icon::kBnplAffirmUnlinked:
     case Suggestion::Icon::kBnplAffirmLinked:
+    case Suggestion::Icon::kBnplAfterpayLinked:
+    case Suggestion::Icon::kBnplAfterpayUnlinked:
     case Suggestion::Icon::kBnplZipUnlinked:
     case Suggestion::Icon::kBnplZipLinked:
     case Suggestion::Icon::kBnplKlarnaUnlinked:
@@ -438,10 +443,8 @@ double CreditCard::GetRankingScore(base::Time current_time) const {
 
 bool CreditCard::HasGreaterRankingThan(const CreditCard& other,
                                        base::Time comparison_time) const {
-  const double score = GetRankingScore(comparison_time);
-  const double other_score = other.GetRankingScore(comparison_time);
-  return usage_history_information_.CompareRankingScores(
-      score, other_score, other.usage_history_information_.use_date());
+  return usage_history_information_.HasGreaterRankingThan(
+      other.usage_history_information_, comparison_time);
 }
 
 bool CreditCard::SetMetadata(const PaymentsMetadata& metadata) {

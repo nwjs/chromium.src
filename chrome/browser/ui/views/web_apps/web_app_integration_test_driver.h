@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/web_applications/web_app_menu_model.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
+#include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_test_observers.h"
 #include "chrome/browser/web_applications/web_app_callback_app_identity.h"
@@ -78,6 +79,8 @@ enum class Site : int {
   kSubApp1,
   kSubApp2,
   kChromeUrl,
+  kStandaloneMigratedSuggested,
+  kStandaloneMigratedForced,
 };
 
 enum class InstallableSite {
@@ -96,7 +99,12 @@ enum class InstallableSite {
   kChromeUrl,
 };
 
-enum class Title { kStandaloneOriginal, kStandaloneUpdated };
+enum class Title {
+  kStandaloneOriginal,
+  kStandaloneUpdated,
+  kStandaloneMigratedSuggested,
+  kStandaloneMigratedForced,
+};
 
 enum class Color { kRed, kGreen, kGreenSmallDiff };
 
@@ -138,7 +146,9 @@ enum class FilesOptions {
 enum class UpdateDialogResponse {
   kAcceptUpdate,
   kCancelDialogAndUninstall,
+  kCancelDialogAndCancelUninstall,
   kIgnoreDialog,
+  kCloseDialog,
 };
 
 enum class SubAppInstallDialogOptions {
@@ -189,7 +199,7 @@ struct AppState {
            blink::mojom::DisplayMode effective_display_mode,
            std::optional<mojom::UserDisplayMode> user_display_mode,
            std::string manifest_launcher_icon_filename,
-           bool is_installed_locally,
+           proto::InstallState install_state,
            bool is_shortcut_created);
   ~AppState();
   AppState(const AppState&);
@@ -202,7 +212,7 @@ struct AppState {
   blink::mojom::DisplayMode effective_display_mode;
   std::optional<mojom::UserDisplayMode> user_display_mode;
   std::string manifest_launcher_icon_filename;
-  bool is_installed_locally;
+  proto::InstallState install_state;
   bool is_shortcut_created;
 };
 
@@ -330,6 +340,7 @@ class WebAppIntegrationTestDriver {
   void ManifestUpdateTitle(Site site, Title title);
   void ManifestUpdateDisplay(Site site, Display display);
   void ManifestUpdateScopeTo(Site app, Site scope);
+  void ManifestUpdateAddMigrateTo(Site app, Site to);
   void OpenInChrome();
   void SetOpenInTabFromAppHome(Site site);
   void SetOpenInTabFromAppSettings(Site site);
@@ -352,6 +363,8 @@ class WebAppIntegrationTestDriver {
   void QuitAppShim(Site site);
 #endif
   void TriggerUpdateDialogAndHandleResponse(UpdateDialogResponse response);
+  void CheckUpdateDialogIsShowing();
+  void HandleUpdateDialogResponse(UpdateDialogResponse response);
 
   // State Check Actions:
   void CheckAppListEmpty();
@@ -427,9 +440,14 @@ class WebAppIntegrationTestDriver {
   // the manifest url loaded as well.
   void AwaitManifestUpdateStartedPostNavigation(content::WebContents*);
 
+  void WaitForAppIdentityUpdateDialogToShow();
+
   void HandleAppIdentityUpdateDialogResponse(
       UpdateDialogResponse response,
       std::unique_ptr<WebAppMenuModel> menu_model);
+
+  void OnWidgetShown(views::Widget* widget);
+  void OnWidgetClosing(views::Widget* widget);
 
   webapps::AppId GetAppIdBySiteMode(Site site);
   GURL GetUrlForSite(Site site, const std::string& suffix = "");
@@ -537,7 +555,8 @@ class WebAppIntegrationTestDriver {
   // all actions.
   bool in_tear_down_ = false;
 
-  std::unique_ptr<views::NamedWidgetShownWaiter> app_id_update_dialog_waiter_;
+  views::AnyWidgetObserver any_widget_observer_;
+  raw_ptr<views::Widget> active_update_dialog_widget_ = nullptr;
   std::unique_ptr<OsIntegrationTestOverrideImpl::BlockingRegistration>
       override_registration_;
 

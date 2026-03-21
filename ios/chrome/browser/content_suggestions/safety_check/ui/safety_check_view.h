@@ -7,29 +7,21 @@
 
 #import <UIKit/UIKit.h>
 
-#import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_magic_stack_consumer.h"
-#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_updating.h"
-
-@protocol SafetyCheckAudience;
-@class SafetyCheckState;
+@class SafetyCheckConfig;
 @protocol MagicStackModuleContentViewDelegate;
 
 // A view that displays the Safety Check in the Magic Stack.
 //
 // This view shows users the current state of the Update Chrome, Password, and
 // Safe Browsing check.
-@interface SafetyCheckView
-    : UIView <NewTabPageColorUpdating, SafetyCheckMagicStackConsumer>
+@interface SafetyCheckView : UIView
 
-// Initializes the SafetyCheckView with `state` and `contentViewDelegate`.
-// TODO(crbug.com/391617946): Refactor content view delegate and methods that
-// use it out of the initializer.
-- (instancetype)initWithState:(SafetyCheckState*)state
-          contentViewDelegate:
-              (id<MagicStackModuleContentViewDelegate>)contentViewDelegate;
+// Delegate for the content view.
+@property(nonatomic, weak)
+    id<MagicStackModuleContentViewDelegate> contentViewDelegate;
 
-// The object that should handle user events.
-@property(nonatomic, weak) id<SafetyCheckAudience> audience;
+// Initializes the SafetyCheckView with `config`.
+- (instancetype)initWithConfig:(SafetyCheckConfig*)config;
 
 @end
 

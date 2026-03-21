@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Đã dừng ghi. Không thể sử dụng Trang tổng quan trò chơi ở chế độ máy tính bảng.</translation>
 <translation id="1024364763893396229">Lưu <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Pin của bút cảm ứng ở mức thấp</translation>
-<translation id="1036073649888683237">Để quản lý thông báo, hãy chuyển đến phần Cài đặt</translation>
 <translation id="1036348656032585052">Tắt</translation>
 <translation id="1037492556044956303">Đã thêm <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Hiển thị các đề xuất</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Cài đặt ứng dụng</translation>
 <translation id="2482878487686419369">Thông báo</translation>
 <translation id="2484513351006226581">Hãy nhấn <ph name="KEYBOARD_SHORTCUT" /> để chuyển bố cục bàn phím.</translation>
+<translation id="2485422356828889247">Gỡ cài đặt</translation>
 <translation id="2486214324139475545">Bản xem trước <ph name="DESK_NAME" />. Không gian làm việc đang hoạt động.</translation>
 <translation id="2486405091093637109">Đã thay đổi "<ph name="DISPLAY_NAME" />" thành độ phân giải <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Nếu bạn không xác nhận, chế độ cài đặt trước đó sẽ được khôi phục sau <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Tham gia</translation>

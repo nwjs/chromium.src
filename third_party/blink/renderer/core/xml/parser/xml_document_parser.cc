@@ -613,9 +613,10 @@ static bool IsLibxmlDefaultCatalogFile(const String& url_string) {
 
   // On Windows, libxml with catalogs enabled computes a URL relative
   // to where its DLL resides.
-  if (url_string.StartsWithIgnoringASCIICase("file:///") &&
-      url_string.EndsWithIgnoringASCIICase("/etc/catalog"))
+  if (url_string.StartsWithIgnoringAsciiCase("file:///") &&
+      url_string.EndsWithIgnoringAsciiCase("/etc/catalog")) {
     return true;
+  }
   return false;
 }
 
@@ -628,12 +629,15 @@ static bool ShouldAllowExternalLoad(const KURL& url) {
 
   // The most common DTD. There isn't much point in hammering www.w3c.org by
   // requesting this URL for every XHTML document.
-  if (url_string.StartsWithIgnoringASCIICase("http://www.w3.org/TR/xhtml"))
+  if (url_string.StartsWithIgnoringAsciiCase("http://www.w3.org/TR/xhtml")) {
     return false;
+  }
 
   // Similarly, there isn't much point in requesting the SVG DTD.
-  if (url_string.StartsWithIgnoringASCIICase("http://www.w3.org/Graphics/SVG"))
+  if (url_string.StartsWithIgnoringAsciiCase(
+          "http://www.w3.org/Graphics/SVG")) {
     return false;
+  }
 
   // The libxml doesn't give us a lot of context for deciding whether to allow
   // this request. In the worst case, this load could be for an external
@@ -666,7 +670,7 @@ static void* OpenFunc(const char* uri) {
   DCHECK(document);
   CHECK(IsMainThread());
 
-  KURL url(NullURL(), uri);
+  KURL url(NullUrl(), uri);
 
   // If the document has no ExecutionContext, it's detached. Detached documents
   // aren't allowed to fetch.
@@ -1098,10 +1102,13 @@ void XMLDocumentParser::StartElementNs(
   }
 
   AtomicString is;
+  bool has_customelementregistry_attr = false;
   for (const auto& attr : prefixed_attributes) {
     if (attr.GetName() == html_names::kIsAttr) {
       is = attr.Value();
-      break;
+    } else if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+               attr.GetName() == html_names::kCustomelementregistryAttr) {
+      has_customelementregistry_attr = true;
     }
   }
 
@@ -1110,6 +1117,19 @@ void XMLDocumentParser::StartElementNs(
     q_name = QualifiedName(g_null_atom,
                            AtomicString(StrCat({prefix, ":", local_name})),
                            g_null_atom);
+  }
+
+  CustomElementRegistry* registry = nullptr;
+  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
+      !has_customelementregistry_attr) {
+    // If the element doesn't have the customelementregistry attribute, then
+    // it should inherit its registry from its parent.
+    if (auto* parent_element = DynamicTo<Element>(current_node_.Get())) {
+      registry = parent_element->customElementRegistry();
+    } else {
+      registry =
+          CustomElementRegistry::DefaultRegistry(current_node_->GetDocument());
+    }
   }
 
   // If we are constructing a custom element, then we must run extra steps as
@@ -1121,8 +1141,8 @@ void XMLDocumentParser::StartElementNs(
   std::optional<ThrowOnDynamicMarkupInsertionCountIncrementer>
       throw_on_dynamic_markup_insertions;
   if (!parsing_fragment_) {
-    if (HTMLConstructionSite::LookUpCustomElementDefinition(
-            *document_, q_name, is, document_->customElementRegistry())) {
+    if (HTMLConstructionSite::LookUpCustomElementDefinition(*document_, q_name,
+                                                            is, registry)) {
       throw_on_dynamic_markup_insertions.emplace(document_);
       document_->GetAgent().event_loop()->PerformMicrotaskCheckpoint();
       reactions.emplace(isolate);
@@ -1133,7 +1153,7 @@ void XMLDocumentParser::StartElementNs(
       q_name,
       parsing_fragment_ ? CreateElementFlags::ByFragmentParser(document_)
                         : CreateElementFlags::ByParser(document_),
-      is, CustomElementRegistry::DefaultRegistry(current_node_->GetDocument()));
+      is, registry);
   // Check IsStopped() because custom element constructors may synchronously
   // trigger removal of the document and cancellation of this parser.
   if (IsStopped()) {
@@ -1266,7 +1286,7 @@ void XMLDocumentParser::Characters(base::span<const xmlChar> chars) {
   }
 
   CreateLeafTextNodeIfNeeded();
-  buffered_text_.AppendSpan(chars);
+  buffered_text_.append_range(chars);
 }
 
 void XMLDocumentParser::GetError(XMLErrors::ErrorType type,

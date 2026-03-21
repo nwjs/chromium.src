@@ -451,10 +451,12 @@ TEST_F(AddressTest, TestMergeStructuredAddresses) {
   // We use SetProfileInfo instead of SetRawInfo as it calls
   // FinalizeAfterImport() making it more similar to how the tree is handled in
   // prod - which is recommended as we're using tree's interfaces for merging.
-  test::SetProfileInfo(&profile1, "", "", "", "", "", "", "", "", "", "",
-                       /*zipcode=*/"12345", "", "");
-  test::SetProfileInfo(&profile2, "", "", "", "", "", "", "", "", "", "",
-                       /*zipcode=*/"1234", "", "");
+  test::SetProfileInfo(
+      &profile1,
+      test::SetProfileInfoOptionsBuilder().with_zipcode("12345").Build());
+  test::SetProfileInfo(
+      &profile2,
+      test::SetProfileInfoOptionsBuilder().with_zipcode("1234").Build());
 
   EXPECT_TRUE(profile_comparator.AreMergeable(profile1, profile2));
 
@@ -482,8 +484,9 @@ TEST_F(AddressTest, TestMergeStructuredAddresses) {
   AutofillProfile profile3("3", AutofillProfile::RecordType::kAccount,
                            AddressCountryCode(kLegacyHierarchyCountryCode));
 
-  test::SetProfileInfo(&profile3, "", "", "", "", "", "", "", "", "", "",
-                       "67890", "", "");
+  test::SetProfileInfo(
+      &profile3,
+      test::SetProfileInfoOptionsBuilder().with_zipcode("67890").Build());
   EXPECT_FALSE(profile_comparator.AreMergeable(profile1, profile3));
 }
 
@@ -774,6 +777,12 @@ TEST_F(AddressTest, TestSynthesizedNodesGeneration) {
             u"Opp to Ayyappa Swamy temple");
 }
 
+// Growth invariant is a property of a structured address model. It states that
+// in the address hierarchy, compound tokens need to contain
+// all information contained in their children (with the exception of stop
+// words that are not privacy/data governance sensitive).
+// This is to ensure that users can always access and modify all their data
+// from the settings view, even if not all the nodes are exposed in the UI.
 class AddressGrowthInvariantTest
     : public AddressTest,
       public testing::WithParamInterface<AddressCountryCode> {

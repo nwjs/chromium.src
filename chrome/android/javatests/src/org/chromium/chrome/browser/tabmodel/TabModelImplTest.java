@@ -15,11 +15,9 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.tabmodel.TabModelOrderControllerImpl.willOpenInForeground;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getIndexOnUiThread;
@@ -53,8 +51,6 @@ import org.chromium.base.test.util.RequiresRestart;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
-import org.chromium.chrome.browser.media.MediaCaptureDevicesDispatcherAndroid;
-import org.chromium.chrome.browser.media.MediaCaptureDevicesDispatcherAndroidJni;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tab.InterceptNavigationDelegateClientImpl;
@@ -103,9 +99,6 @@ public class TabModelImplTest {
             ChromeTransitTestRules.fastAutoResetCtaActivityRule();
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-
-    @Mock
-    private MediaCaptureDevicesDispatcherAndroid.Natives mMediaCaptureDevicesDispatcherAndroidJni;
 
     @Mock private TabModelObserver mTabModelObserver;
 
@@ -1055,32 +1048,6 @@ public class TabModelImplTest {
 
     @Test
     @SmallTest
-    @DisableFeatures(ChromeFeatureList.TAB_FREEZING_USES_DISCARD)
-    public void testFreezeTabOnCloseIfCapturingForMedia() {
-        MediaCaptureDevicesDispatcherAndroidJni.setInstanceForTesting(
-                mMediaCaptureDevicesDispatcherAndroidJni);
-        when(mMediaCaptureDevicesDispatcherAndroidJni.isCapturingAudio(any())).thenReturn(true);
-
-        mPage = Journeys.createRegularTabsWithWebPages(mPage, List.of(mTestUrl));
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    TabModel tabModel =
-                            mActivityTestRule.getActivity().getTabModelSelector().getModel(false);
-                    assertEquals(2, tabModel.getCount());
-                    Tab tab = tabModel.getTabAt(1);
-                    assertFalse(tab.isFrozen());
-                    tabModel.getTabRemover()
-                            .closeTabs(
-                                    TabClosureParams.closeTab(tab).build(),
-                                    /* allowDialog= */ false);
-
-                    // Tab should be frozen as a result.
-                    assertTrue(tab.isFrozen());
-                });
-    }
-
-    @Test
-    @SmallTest
     // TODO(crbug.com/457847264): Change to @Restriction(DeviceFormFactor.PHONE) after launch
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
     public void testCloseIncognitoTabSwitchesToNormalModelAndUpdatesIncognitoIndex() {
@@ -1308,7 +1275,6 @@ public class TabModelImplTest {
 
     @Test
     @SmallTest
-    @EnableFeatures(ChromeFeatureList.ANDROID_TAB_HIGHLIGHTING)
     public void testHighlightTabs() {
         createTabs(2);
 
@@ -2059,8 +2025,7 @@ public class TabModelImplTest {
                     mTabModelJni.pinTab(
                             tab1.getId(), /* showUngroupDialog= */ true, mTabModelActionListener);
                 });
-        onViewWaiting(withText(R.string.delete_tab_group_action), /* checkRootDialog= */ true)
-                .perform(click());
+        onViewWaiting(withText(R.string.delete_tab_group_action)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -2096,7 +2061,7 @@ public class TabModelImplTest {
                     mTabModelJni.pinTab(
                             tab1.getId(), /* showUngroupDialog= */ true, mTabModelActionListener);
                 });
-        onViewWaiting(withText(R.string.cancel), /* checkRootDialog= */ true).perform(click());
+        onViewWaiting(withText(R.string.cancel)).perform(click());
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {

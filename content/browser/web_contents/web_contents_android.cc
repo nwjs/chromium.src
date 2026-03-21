@@ -243,9 +243,8 @@ WebContentsAndroid::WebContentsAndroid(WebContentsImpl* web_contents)
       navigation_controller_(&(web_contents->GetController())) {
   GetAllocatedWebContentsAndroids().insert(this);
   JNIEnv* env = AttachCurrentThread();
-  obj_.Reset(
-      env, Java_WebContentsImpl_create(env, reinterpret_cast<intptr_t>(this),
-                                       navigation_controller_.GetJavaObject()));
+  Java_WebContentsImpl_create(env, reinterpret_cast<intptr_t>(this),
+                              navigation_controller_.GetJavaObject());
 }
 
 WebContentsAndroid::~WebContentsAndroid() {
@@ -255,12 +254,18 @@ WebContentsAndroid::~WebContentsAndroid() {
   offset_tag_mediator_ = nullptr;
   for (auto& observer : destruction_observers_)
     observer.WebContentsAndroidDestroyed(this);
-  Java_WebContentsImpl_clearNativePtr(AttachCurrentThread(), obj_);
+
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> java_obj = GetJavaObject();
+  CHECK(!java_obj.is_null());
+  Java_WebContentsImpl_clearNativePtr(env, java_obj);
 }
 
 base::android::ScopedJavaLocalRef<jobject>
 WebContentsAndroid::GetJavaObject() {
-  return base::android::ScopedJavaLocalRef<jobject>(obj_);
+  JNIEnv* env = AttachCurrentThread();
+  return Java_WebContentsImpl_getJavaObject(env,
+                                            reinterpret_cast<intptr_t>(this));
 }
 
 void WebContentsAndroid::CaptureContentAsBitmapForTesting(
@@ -795,7 +800,7 @@ int WebContentsAndroid::DownloadImage(
       url::GURLAndroid::ToNativeGURL(env, jurl), is_fav_icon, preferred_size,
       max_bitmap_size, bypass_cache,
       base::BindOnce(&WebContentsAndroid::OnFinishDownloadImage,
-                     weak_factory_.GetWeakPtr(), obj_,
+                     weak_factory_.GetWeakPtr(),
                      ScopedJavaGlobalRef<jobject>(env, jcallback)));
 }
 
@@ -840,7 +845,6 @@ ScopedJavaLocalRef<jobject> WebContentsAndroid::GetOrCreateEventForwarder(
 }
 
 void WebContentsAndroid::OnFinishDownloadImage(
-    const JavaRef<jobject>& obj,
     const JavaRef<jobject>& callback,
     int id,
     int http_status_code,
@@ -855,7 +859,7 @@ void WebContentsAndroid::OnFinishDownloadImage(
   ScopedJavaLocalRef<jobject> jurl = url::GURLAndroid::FromNativeGURL(env, url);
 
   for (const SkBitmap& bitmap : bitmaps) {
-    // WARNING: convering to java bitmaps results in duplicate memory
+    // WARNING: converting to java bitmaps results in duplicate memory
     // allocations, which increases the chance of OOMs if DownloadImage() is
     // misused.
     ScopedJavaLocalRef<jobject> jbitmap = gfx::ConvertToJavaBitmap(bitmap);
@@ -865,8 +869,9 @@ void WebContentsAndroid::OnFinishDownloadImage(
     Java_WebContentsImpl_createSizeAndAddToList(env, jsizes, size.width(),
                                                 size.height());
   }
-  Java_WebContentsImpl_onDownloadImageFinished(
-      env, obj, callback, id, http_status_code, jurl, jbitmaps, jsizes);
+  Java_WebContentsImpl_onDownloadImageFinished(env, GetJavaObject(), callback,
+                                               id, http_status_code, jurl,
+                                               jbitmaps, jsizes);
 }
 
 void WebContentsAndroid::SendOrientationChangeEvent(JNIEnv* env,

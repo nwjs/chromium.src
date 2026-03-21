@@ -7,6 +7,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/css/css_math_function_value.h"
 #include "third_party/blink/renderer/core/css/css_progress_value.h"
+#include "third_party/blink/renderer/core/css/css_revert_rule_value.h"
 #include "third_party/blink/renderer/core/css/css_scroll_value.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
 #include "third_party/blink/renderer/core/css/css_view_value.h"
@@ -73,6 +74,19 @@ TEST(CSSParsingUtilsTest, FontFamilyMathUseCount) {
   EXPECT_FALSE(document.IsWebDXFeatureCounted(feature));
   document.documentElement()->SetInnerHTMLWithoutTrustedTypes(
       "<style>.equation { font-family: math; }</style>");
+  EXPECT_TRUE(document.IsWebDXFeatureCounted(feature));
+}
+
+TEST(CSSParsingUtilsTest, ContrastColorUseCount) {
+  test::TaskEnvironment task_environment;
+  auto dummy_page_holder =
+      std::make_unique<DummyPageHolder>(gfx::Size(800, 600));
+  Page::InsertOrdinaryPageForTesting(&dummy_page_holder->GetPage());
+  Document& document = dummy_page_holder->GetDocument();
+  WebDXFeature feature = WebDXFeature::kContrastColor;
+  EXPECT_FALSE(document.IsWebDXFeatureCounted(feature));
+  document.documentElement()->SetInnerHTMLWithoutTrustedTypes(
+      "<style>span { background-color: contrast-color(blue); }</style>");
   EXPECT_TRUE(document.IsWebDXFeatureCounted(feature));
 }
 
@@ -472,6 +486,120 @@ TEST_P(PositionAreaXYSelfParseTest, ConsumeLegacyXYSelfPositionArea) {
   CSSValue* val = css_parsing_utils::ConsumePositionArea(stream);
   ASSERT_TRUE(val);
   EXPECT_EQ(val->CssText(), String(param.expected));
+}
+
+TEST(CSSParsingUtilsTest, ConsumeRevertRuleUnderFlags) {
+  test::TaskEnvironment task_environment;
+
+  // Disabled feature, kHTMLStandardMode.
+  {
+    ScopedCSSRevertRuleForTest scoped_feature(false);
+    const CSSParserContext* context = MakeContext(kHTMLStandardMode);
+    String text = "revert-rule";
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(css_parsing_utils::ConsumeCSSWideKeyword(stream, *context));
+  }
+
+  // Disabled feature, kUASheetMode.
+  {
+    ScopedCSSRevertRuleForTest scoped_feature(false);
+    const CSSParserContext* context = MakeContext(kUASheetMode);
+    String text = "revert-rule";
+    CSSParserTokenStream stream(text);
+    EXPECT_TRUE(IsA<cssvalue::CSSRevertRuleValue>(
+        css_parsing_utils::ConsumeCSSWideKeyword(stream, *context)));
+  }
+
+  // Enabled feature, kHTMLStandardMode.
+  {
+    ScopedCSSRevertRuleForTest scoped_feature(true);
+    const CSSParserContext* context = MakeContext(kHTMLStandardMode);
+    String text = "revert-rule";
+    CSSParserTokenStream stream(text);
+    EXPECT_TRUE(IsA<cssvalue::CSSRevertRuleValue>(
+        css_parsing_utils::ConsumeCSSWideKeyword(stream, *context)));
+  }
+
+  // Enabled feature, kUASheetMode.
+  {
+    ScopedCSSRevertRuleForTest scoped_feature(true);
+    const CSSParserContext* context = MakeContext(kUASheetMode);
+    String text = "revert-rule";
+    CSSParserTokenStream stream(text);
+    EXPECT_TRUE(IsA<cssvalue::CSSRevertRuleValue>(
+        css_parsing_utils::ConsumeCSSWideKeyword(stream, *context)));
+  }
+}
+
+TEST(CSSParsingUtilsTest, ConsumeUrlPattern) {
+  using css_parsing_utils::ConsumeUrlPattern;
+
+  const CSSParserContext* context = MakeContext(kHTMLStandardMode);
+
+  // Basic valid case.
+  {
+    String text = "url-pattern(\"foo\")";
+    CSSParserTokenStream stream(text);
+    EXPECT_TRUE(ConsumeUrlPattern(stream, *context));
+    EXPECT_TRUE(stream.AtEnd());
+  }
+
+  // Whitespace around argument.
+  {
+    String text = "url-pattern( \"foo\" )";
+    CSSParserTokenStream stream(text);
+    EXPECT_TRUE(ConsumeUrlPattern(stream, *context));
+    EXPECT_TRUE(stream.AtEnd());
+  }
+
+  // Clean up whitespace after block.
+  {
+    String text = "url-pattern(\"foo\")   ";
+    CSSParserTokenStream stream(text);
+    EXPECT_TRUE(ConsumeUrlPattern(stream, *context));
+    EXPECT_TRUE(stream.AtEnd());
+  }
+
+  // Invalid cases:
+
+  {
+    String text = "url-pattern()";
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(ConsumeUrlPattern(stream, *context));
+  }
+
+  {
+    String text = "url-pattern(0)";  // As seen in crbug.com/485056787.
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(ConsumeUrlPattern(stream, *context));
+  }
+
+  {
+    String text = "url-pattern(ident)";
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(ConsumeUrlPattern(stream, *context));
+  }
+
+  {
+    String text = "url-pattern(!)";
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(ConsumeUrlPattern(stream, *context));
+  }
+
+  {
+    String text = "url-pattern(ident())";
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(ConsumeUrlPattern(stream, *context));
+  }
+
+  {
+    String text = "url-pattern(\"foo\" junk)";
+    CSSParserTokenStream stream(text);
+    EXPECT_FALSE(ConsumeUrlPattern(stream, *context));
+    // On failure, ConsumeUrlPattern should return the stream
+    // in its origin state:
+    EXPECT_EQ(CSSValueID::kUrlPattern, stream.Peek().FunctionId());
+  }
 }
 
 }  // namespace

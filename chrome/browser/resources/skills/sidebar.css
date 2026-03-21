@@ -17,6 +17,11 @@
   padding-top: 14px;
 }
 
+/* Remove default focus ring in non-tabbing navigation */
+.cr-nav-menu-item:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Light Mode - Soft pastel background, colored text */
 .cr-nav-menu-item[selected] {
   background-color: var(--color-sys-primary-container);
@@ -45,22 +50,25 @@
 
 .footer {
   color: var(--cr-secondary-text-color);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 18px;
   padding-inline-end: 16px;
   padding-inline-start: 24px;
 }
 
 .branding {
   /* Hardcoded color for branding */
-  color: var(--google-blue-600);
+  color: #0957D0;
   font-weight: 500;
+  font-size: 12px;
+  letter-spacing: -0.2px;
 }
 
-.branding cr-icon {
-  height: 13px;
-  width: 13px;
-  vertical-align: middle;
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .branding {
+    color: #A8C7FA;
+  }
 }
 
 /* HCM */

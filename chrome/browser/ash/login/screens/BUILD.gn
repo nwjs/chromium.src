@@ -178,6 +178,7 @@ static_library("screens") {
     "//chrome/browser/ash/login/oobe_quick_start",
     "//chrome/browser/ash/login/saml",
     "//chrome/browser/ash/login/screens/chromevox_hint",
+    "//chrome/browser/ash/login/screens/osauth",
     "//chrome/browser/ash/login/version_updater",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/tpm",
@@ -207,6 +208,7 @@ static_library("screens") {
     "//chromeos/services/network_config/public/mojom:mojom_shared",
     "//chromeos/services/network_config/public/mojom:mojom_shared_cpp_sources",
     "//components/account_id",
+    "//components/application_locale_storage",
     "//components/login",
     "//components/prefs",
     "//components/services/app_service/public/cpp:app_types",
@@ -267,6 +269,7 @@ static_library("screens") {
     "//chrome/browser/ash/settings",
     "//chrome/browser/ash/system",
     "//chrome/browser/consent_auditor",
+    "//chrome/browser/enterprise/browser_management:management_identity",
     "//chrome/browser/notifications",
     "//chrome/browser/prefs:util",
     "//chrome/browser/signin",
@@ -289,6 +292,7 @@ static_library("screens") {
     "//chromeos/ash/components/demo_mode",
     "//chromeos/ash/components/growth",
     "//chromeos/ash/components/install_attributes",
+    "//chromeos/ash/components/login/session",
     "//chromeos/ash/components/osauth/public",
     "//chromeos/ash/components/policy",
     "//chromeos/ash/components/quick_start",
@@ -361,6 +365,7 @@ static_library("screens") {
     "//chrome/browser/ash/policy/handlers",
     "//chrome/browser/ui/ash/login",
     "//chrome/browser/ui/webui/ash/login/testapi",
+    "//chrome/browser/ash/login/screens/osauth",
   ]
 }
 
@@ -426,6 +431,7 @@ source_set("browser_tests") {
     "fingerprint_setup_browsertest.cc",
     "fjord_fw_update_screen_browsertest.cc",
     "fjord_station_setup_screen_browsertest.cc",
+    "fjord_touch_controller_screen_browsertest.cc",
     "gaia_info_screen_browsertest.cc",
     "gemini_intro_screen_browsertest.cc",
     "gesture_navigation_screen_browsertest.cc",

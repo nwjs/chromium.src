@@ -127,6 +127,11 @@ std::string_view GetStringNameForModelExecutionFeature(
     case proto::ModelExecutionFeature::
         MODEL_EXECUTION_FEATURE_GEMINI_ANTISCAM_PROTECTION:
       return "GeminiAntiscamProtection";
+    case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_CLASSIFIER:
+      return "Classifier";
+    case proto::ModelExecutionFeature::
+        MODEL_EXECUTION_FEATURE_CONTENT_ANNOTATION:
+      return "ContentAnnotation";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_UNSPECIFIED:
       return "Unknown";
       // Must be in sync with the ModelExecutionFeature variant in
@@ -152,6 +157,24 @@ optimization_guide::proto::OriginInfo GetClientOriginInfo() {
   optimization_guide::proto::OriginInfo origin_info;
   origin_info.set_platform(GetPlatform());
   return origin_info;
+}
+
+optimization_guide::proto::ChromePlatform GetChromePlatform() {
+#if BUILDFLAG(IS_WIN)
+  return optimization_guide::proto::CHROME_PLATFORM_WINDOWS;
+#elif BUILDFLAG(IS_IOS)
+  return optimization_guide::proto::CHROME_PLATFORM_IOS;
+#elif BUILDFLAG(IS_MAC)
+  return optimization_guide::proto::CHROME_PLATFORM_MAC;
+#elif BUILDFLAG(IS_CHROMEOS)
+  return optimization_guide::proto::CHROME_PLATFORM_CHROMEOS;
+#elif BUILDFLAG(IS_ANDROID)
+  return optimization_guide::proto::CHROME_PLATFORM_ANDROID;
+#elif BUILDFLAG(IS_LINUX)
+  return optimization_guide::proto::CHROME_PLATFORM_LINUX;
+#else
+  return optimization_guide::proto::CHROME_PLATFORM_UNKNOWN;
+#endif
 }
 
 void LogFeatureFlagsInfo(OptimizationGuideLogger* optimization_guide_logger,

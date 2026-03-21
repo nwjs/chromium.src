@@ -29,6 +29,7 @@
 <translation id="126567311906253476">Gmail (သို့) YouTube ကဲ့သို့ Google ဝန်ဆောင်မှုများသို့ <ph name="USER_EMAIL" /> ဖြင့် လက်မှတ်ထိုးဝင်သောအခါ ယင်းအကောင့်ဖြင့် Chromium သို့ အလိုအလျောက် လက်မှတ်ထိုးဝင်နိုင်သည်</translation>
 <translation id="1290883685122687410">စနစ်ထည့်သွင်းမှု အမှားအယွင်း- <ph name="METAINSTALLER_EXIT_CODE" />။ <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">သင်၏ Chromium ပရိုဖိုင်အသစ်ကို စနစ်ထည့်သွင်းပါ</translation>
+<translation id="132092532143527429">Chromium ရှိ Gemini ဖြင့် စမ်းသုံးပါ</translation>
 <translation id="1324107359134968521">Chromium သည် ဘလူးတုသ်သုံးစက်များကို ရှာဖွေရန်
  ဘလူးတုသ်သုံးခွင့် လိုအပ်သည်။ <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">ဘာသာစကား ရှာရန်</translation>
@@ -167,7 +168,6 @@
 <translation id="2738871930057338499">အင်တာနက် ချိတ်ဆက်၍ မရပါ။ တားမြစ်ထားသည့်အမှား HTTP 403။ သင့်ပရောက်စီ စီစဉ်သတ်မှတ်ချက်ကို စစ်ဆေးပါ။</translation>
 <translation id="2753623023919742414">ရှာဖွေရန် နှိပ်ပါ</translation>
 <translation id="2768103863314748511">Chromium ကို သင်၏ မူရင်း PDF ကြည့်ရှုစနစ်အဖြစ် သတ်မှတ်နိုင်သည်</translation>
-<translation id="277828055419948999">Chromium သည် ပုံမှန်အော်တိုဖြည့်ခြင်းက လွတ်သွားနိုင်သည့် ခက်ခဲသော အကွက်များကို အော်တိုဖြည့်နိုင်သည်</translation>
 <translation id="2785438272836277133">ဤနောက်ဆက်တွဲတွင် မဲလ်ဝဲပါဝင်ပြီး လုံခြုံမှုမရှိပါ။ ၎င်းကို Chromium မှ ဖယ်ရှားခြင်းဖြင့် သင့်ကိုယ်ရေးအချက်အလက်များအပါအဝင် သင်ဝင်ကြည့်သည့် ဝဘ်ဆိုက်များရှိ သင့်ဒေတာများကို ၎င်းက မြင်နိုင်၊ ပြောင်းနိုင်တော့မည်မဟုတ်ပါ။</translation>
 <translation id="2799223571221894425">ပြန်လည်ဖွင့်တင်ရန်</translation>
 <translation id="2803971713792056305">သင်၏ Chromium</translation>
@@ -243,7 +243,9 @@
 <translation id="3509308970982693815">ကျေးဇူးပြု၍ Chromium ၐင်းဒိုးများကို ပိတ်ပြီး ထပ်စမ်းပါ။</translation>
 <translation id="3522404737534491619">သင့်ဝင်းဒိုးကို မျှဝေရန် ‘စနစ် ဆက်တင်များ’ တွင် Chromium အတွက် ဖန်သားပြင်ရိုက်ကူးခြင်းကို ခွင့်ပြုပါ</translation>
 <translation id="3530103706039034513"><ph name="EXISTING_USER" /> သည် လက်မှတ်ထိုးဝင်ပြီးဖြစ်သည်။  သင်၏ ဘရောက်စ်လုပ်ခြင်းကို ခွဲခြားထားရန်အတွက် သင့်ကိုယ်ပိုင်ပရိုဖိုင်တွင် <ph name="USER_EMAIL_ADDRESS" /> အဖြစ် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ။</translation>
+<translation id="3531741627422851418">မိုဘိုင်းစက်ကိရိယာများတွင် Chromium ဘရောင်ဇာကို ဒေါင်းလုဒ်လုပ်ရန် QR ကုဒ်</translation>
 <translation id="3561853857681580870">သင့်ဖန်သားပြင်ကို မျှဝေရန် ‘စနစ် ဆက်တင်များ’ တွင် Chromium အတွက် ဖန်သားပြင်ရိုက်ကူးခြင်းကို ခွင့်ပြုပါ။</translation>
+<translation id="3588112919289558122">အဆင့်မြင့်ကာကွယ်မှုသည် Chromium မသိရှိသော ဝဘ်ဆိုက်များအတွက် JavaScript အကောင်းဆုံးချိန်ညှိခြင်းကို ပိတ်သည်</translation>
 <translation id="3597003331831379823">အထူးလုပ်ပိုင်ခွင့်များဖြင့် စနစ်ထည့်သွင်းမှုကို လုပ်ဆောင်၍ မရလိုက်ပါ။ <ph name="METAINSTALLER_ERROR" /></translation>
 <translation id="3600428265489994557">Chromium ကို လက်မှတ်ထိုးဝင်ပါ</translation>
 <translation id="3639635944603682591">ဤပုဂ္ဂိုလ်၏ ကြည့်ရှုမှုဒေတာများကို ဤကိရိယာမှနေ၍ ဖျက်လိုက်ပါမည်။ ဒေတာကို ပြန်လည်ရယူရန် <ph name="USER_EMAIL" />အဖြစ် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ။</translation>
@@ -481,6 +483,7 @@
 <translation id="6327105987658262776">အပ်ဒိတ် မရှိပါ။</translation>
 <translation id="6333502561965082103">Chromium တွင် အခြားလုပ်ဆောင်ချက်တစ်ခု မပြီးပြတ်သေးပါ။ ခဏကြာမှ ထပ်လုပ်ကြည့်ပါ။</translation>
 <translation id="6334986366598267305">ယခုအခါ သင့် Google အကောင့်ဖြင့် Chromium နှင့် မျှဝေထားသည့် ကွန်ပျူတာများတွင် အသုံးပြုရ ပိုမိုလွယ်ကူလာပါသည်။</translation>
+<translation id="6347002662287820329">Chromium ကို မူရင်း ဘရောင်ဇာအဖြစ် သတ်မှတ်ပြီး သင်ရင်းနှီး၊ နှစ်သက်၍ ယုံကြည်စိတ်ချသော တူးလ်များကို အလွယ်တကူသုံးခွင့် ရရှိနိုင်သည်။</translation>
 <translation id="6347933965114150440">Chromium ဖြတ်လမ်းလင့်ခ်</translation>
 <translation id="6366160072964553914">ဤဖိုင်ကို ဒေါင်းလုဒ်လုပ်လေ့မရှိသည့်အပြင် အန္တရာယ်ရှိနိုင်သဖြင့် Chromium က ဤဒေါင်းလုဒ်ကို ပိတ်ထားသည်</translation>
 <translation id="6373523479360886564">သင်သည် Google Chromium ကို ဖြုတ်ချင်တာ သေချာလား?</translation>
@@ -590,6 +593,8 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="7384121030444253939">ဤနောက်ဆက်တွဲကို မပံ့ပိုးတော့ပါ။ သို့ဖြစ်၍ ၎င်းကို ဖယ်ရှားရန် Chromium က အကြံပြုပါသည်။</translation>
 <translation id="7413153308467572558">သင်ရပ်ထားခဲ့သည့်နေရာမှ ဆက်လုပ်မည်- Chromium သည် သင်ပြန်စလိုက်တိုင်း တဘ်များကို ပြန်ပြောင်းသည်။ ၎င်းကိုပိတ်ရန် သွားပါ-</translation>
 <translation id="7427879960656355200">Chromium တွင် စကားဝှက်များကို ထည့်သွင်းခြင်း</translation>
+<translation id="744815265653811511">၁။ အောက်ရှိ <ph name="BUTTON_LABEL" /> ကို နှိပ်ပါ
+၂။ သင့် Windows ဆက်တင်များတွင် <ph name="BUTTON_2" /> ကို နှိပ်ပါ အမြန်သုံးခွင့်အတွက် Chromium ကို သင့်လုပ်ဆောင်စရာဘားတွင် ပင်ထိုးရန် Windows အကြောင်းကြားချက်ရှိ <ph name="BUTTON_3" /> ကို နှိပ်ပါ</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7450541714075000668">စာသားကူးယူပြီးပါပြီ</translation>
 <translation id="7451052299415159299">ဤဝဘ်ဆိုက်အတွက် Chromium သည် သင်၏ ကင်မရာကို အသုံးပြုခွင့်ရရန် လိုအပ်ပါသည်</translation>
@@ -597,7 +602,6 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="7461356015007898716">နောက်ပိုင်းထွက်မည့် Chromium အပ်ဒိတ်များ ရယူရန် Windows 10 နှင့်အထက် လိုအပ်မည်။ ဤကွန်ပျူတာက Windows 7 သုံးနေသည်။</translation>
 <translation id="7467949745582939695">Chromium ပြန်ဖွင့်မလား။</translation>
 <translation id="7483335560992089831">လက်ရှိ အချိန်မှာ ဖွင့်သုံးထားသည့် Chromium ဗားရှင်းကိုပဲ တပ်ဆင်၍ မရနိုင်ပါ။ ကျေးဇူးပြုပြီး Chromium ကို ပိတ်လိုက်ကာ ထပ်စမ်းပါ။</translation>
-<translation id="7517403744065880907">Chromium သို့ လက်မှတ်ထိုးဝင်ထားချိန်တိုင်း သင့် Google Account တွင် စကားဝှက်နှင့် အခြားအရာများကို သိမ်းပြီး သုံးမည်။ <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">ဝဘ်ဆိုက်က မျှော်မှန်းထားသည့်အတိုင်း အလုပ်လုပ်နိုင်သည်။ Chromium ဝင်းဒိုးအားလုံးကို ပိတ်သောအခါ ဝဘ်ဆိုက်အများစုမှ သင်ထွက်သွားမည်။ Chromium သို့ လက်မှတ်ထိုးဝင်ထားပါက သင့် Google Account မှ ထွက်မည်မဟုတ်ပါ။</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium ကို ၁ မိနစ်အကြာတွင် ပြန်လည်စတင်ပါမည်}other{Chromium ကို # မိနစ်အကြာတွင် ပြန်လည်စတင်ပါမည်}}</translation>
 <translation id="7565444033145385702">သင့်ဒေတာကို ကာကွယ်ရန် လတ်တလော သင်ဝင်ကြည့်ထားခြင်း မရှိသော ဝဘ်ဆိုက်များမှ ခွင့်ပြုချက်များကို Chromium အား ဖယ်ရှားခွင့်ပြုပါ။</translation>
@@ -606,7 +610,9 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="761356813943268536">Chromium သင်သည် သင်၏ ကင်မရာ နှင့် မိုက်ခရိုဖုန်းကို သုံးနေသည်။</translation>
 <translation id="7617377681829253106">Chromium သည် ပိုလို့ကို ကောင်းလာပါပြီ</translation>
 <translation id="7622753900276619808">Chromium တွင် နောက်ထပ်တူးလ်များကို ရနိုင်ပါပြီ</translation>
+<translation id="7624307931717240213">အချက်အလက်များကို ဤဝန်ဆောင်မှု ပိုကောင်းစေရန် သုံးသည်။ ကိုယ်ရေးအချက်အလက်လုံခြုံမှုဆိုင်ရာ မူဝါဒနှင့် ဝန်ဆောင်မှုစည်းမျဉ်းများကိုကြည့်ပါ။</translation>
 <translation id="7649070708921625228">အကူအညီ</translation>
+<translation id="7650134251917003571">Chromium အက်ပ် ရယူရန်</translation>
 <translation id="7656340475565475526">Chromium ကို သင့်အတွက် ဘရောက်စ်လုပ်ခွင့်ပြုပါ</translation>
 <translation id="7658239707568436148">မလုပ်တော့</translation>
 <translation id="7686590090926151193">Chromium သည် သင်၏ မူရင်းဘရောင်ဇာ မဟုတ်ပါ</translation>
@@ -740,7 +746,6 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="9183331186620388872">Chromium အကြံပြုချက်- Lens ဖြင့် ရှာပါ</translation>
 <translation id="9185526690718004400">&amp;Chromium အပ်ဒိတ်လုပ်ရန် ပြန်ဖွင့်ပါ</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
-<translation id="9206863043651638213">Chromium သို့ လက်မှတ်ထိုးဝင်ထားသောအခါ ပိုမိုရယူနိုင်ခြင်း</translation>
 <translation id="924957577793602335">Chromium ကို သင့်စိတ်ကြိုက်ပြုလုပ်ပါ</translation>
 <translation id="93478295209880648">Windows XP သို့မဟုတ် Windows Vista တွင် မပံ့ပိုးတော့သောကြောင့် Chromium လုပ်ဆောင်မှု မှန်ကန်ချင်မှ မှန်ကန်မည်</translation>
 <translation id="945522503751344254">အကြံပြုချက် ပေးပို့မည်</translation>

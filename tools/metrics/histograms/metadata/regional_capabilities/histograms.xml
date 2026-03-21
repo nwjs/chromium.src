@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="RegionalCapabilities.ActiveRegionalProgram2"
-    enum="ActiveRegionalProgram" expires_after="2026-06-07">
+    enum="ActiveRegionalProgram" expires_after="2026-08-09">
   <owner>ljjlee@google.com</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -40,7 +40,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RegionalCapabilities.Debug.AndroidProgramResolution"
-    enum="AndroidProgramResolution" expires_after="2026-03-01">
+    enum="AndroidProgramResolution" expires_after="2026-09-01">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -50,8 +50,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="RegionalCapabilities.Debug.DefaultHighlightingResult"
+    enum="BooleanSuccess" expires_after="2026-03-01">
+  <owner>dgn@chromium.org</owner>
+  <owner>chrome-regionalcapabilities@google.com</owner>
+  <summary>
+    Records whether the current default search engine was successfully found in
+    the list of engines to be offered on the choice screen when highlighting is
+    requested.
+
+    Recorded when the profile is eligible to see a choice screen, and is putting
+    together the data (list of engines, and if possible, which to highlight) to
+    display on that choice screen. Should be emitted once per profile that show
+    the choice screen, even if multiple windows (on desktop) are each showing a
+    dialog.
+  </summary>
+</histogram>
+
 <histogram name="RegionalCapabilities.Debug.HasActiveRegionalProgram"
-    enum="Boolean" expires_after="2026-03-01">
+    enum="Boolean" expires_after="2026-09-01">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -62,7 +79,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="RegionalCapabilities.Debug.ProgramSpecificExclusion"
-    enum="RegionalProgramSpecificExclusion" expires_after="2026-03-01">
+    enum="RegionalProgramSpecificExclusion" expires_after="2026-09-01">
   <owner>dgn@chromium.org</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>

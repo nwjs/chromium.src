@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/formats/mp4/box_reader.h"
 
 #include <stdint.h>
@@ -14,6 +9,7 @@
 
 #include <memory>
 
+#include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "media/base/mock_media_log.h"
@@ -28,20 +24,6 @@ using ::testing::StrictMock;
 
 namespace media {
 namespace mp4 {
-
-static const uint8_t kSkipBox[] = {
-    // Top-level test box containing three children
-    0x00, 0x00, 0x00, 0x40, 's', 'k', 'i', 'p', 0x01, 0x02, 0x03, 0x04, 0x05,
-    0x06, 0x07, 0x08, 0xf9, 0x0a, 0x0b, 0x0c, 0xfd, 0x0e, 0x0f, 0x10,
-    // Ordinary (8-byte header) child box
-    0x00, 0x00, 0x00, 0x0c, 'p', 's', 's', 'h', 0xde, 0xad, 0xbe, 0xef,
-    // Extended-size header child box
-    0x00, 0x00, 0x00, 0x01, 'p', 's', 's', 'h', 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x14, 0xfa, 0xce, 0xca, 0xfe,
-    // Empty free box
-    0x00, 0x00, 0x00, 0x08, 'f', 'r', 'e', 'e',
-    // Trailing garbage
-    0x00};
 
 struct FreeBox : Box {
   bool Parse(BoxReader* reader) override {
@@ -94,7 +76,19 @@ class BoxReaderTest : public testing::Test {
 
  protected:
   std::vector<uint8_t> GetBuf() {
-    return std::vector<uint8_t>(kSkipBox, kSkipBox + sizeof(kSkipBox));
+    return {// Top-level test box containing three children
+            0x00, 0x00, 0x00, 0x40, 's', 'k', 'i', 'p', 0x01, 0x02, 0x03, 0x04,
+            0x05, 0x06, 0x07, 0x08, 0xf9, 0x0a, 0x0b, 0x0c, 0xfd, 0x0e, 0x0f,
+            0x10,
+            // Ordinary (8-byte header) child box
+            0x00, 0x00, 0x00, 0x0c, 'p', 's', 's', 'h', 0xde, 0xad, 0xbe, 0xef,
+            // Extended-size header child box
+            0x00, 0x00, 0x00, 0x01, 'p', 's', 's', 'h', 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x14, 0xfa, 0xce, 0xca, 0xfe,
+            // Empty free box
+            0x00, 0x00, 0x00, 0x08, 'f', 'r', 'e', 'e',
+            // Trailing garbage
+            0x00};
   }
 
   void TestTopLevelBox(base::span<const uint8_t> data, uint32_t fourCC) {

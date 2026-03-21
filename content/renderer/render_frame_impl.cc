@@ -137,6 +137,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/not_implemented_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/public/cpp/web_sandbox_flags.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
@@ -309,10 +310,6 @@ using network::mojom::ReferrerPolicy;
 namespace content {
 
 namespace {
-
-// Feature to combine the UpdateState IPC that's sent during commit time with
-// the DidCommit* IPCs. See: http://crbug.com/424829233
-BASE_FEATURE(kReducePageStateIpcs, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const int kExtraCharsBeforeAndAfterSelection = 100;
 const size_t kMaxURLLogChars = 1024;
@@ -605,7 +602,8 @@ blink::mojom::CommonNavigationParamsPtr MakeCommonNavigationParams(
   // because it is loaded immediately by the FrameLoader.
   blink::mojom::NavigationType navigation_type =
       blink::mojom::NavigationType::DIFFERENT_DOCUMENT;
-  if (info->navigation_type == blink::kWebNavigationTypeReload) {
+  if (info->navigation_type == blink::kWebNavigationTypeReload ||
+      info->navigation_type == blink::kWebNavigationTypeFormResubmittedReload) {
     if (load_flags & net::LOAD_BYPASS_CACHE)
       navigation_type = blink::mojom::NavigationType::RELOAD_BYPASSING_CACHE;
     else
@@ -970,6 +968,12 @@ void FillMiscNavigationParams(
 
   navigation_params->has_text_fragment_token =
       common_params.text_fragment_token;
+
+  if (commit_params.internal_scroll_to_text_fragment) {
+    navigation_params->internal_scroll_to_text_fragment =
+        blink::WebString::FromUTF8(
+            *commit_params.internal_scroll_to_text_fragment);
+  }
 
   navigation_params->is_browser_initiated = commit_params.is_browser_initiated;
 
@@ -1630,7 +1634,10 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
       // This conversion is a little sad, as this often comes from a
       // WebString...
       WebString::FromUTF8(replication_state->name),
-      replication_state->frame_policy.sandbox_flags, base_url);
+      replication_state->frame_policy.sandbox_flags, base_url,
+      params->sandbox_origin_token ? std::make_unique<base::UnguessableToken>(
+                                         params->sandbox_origin_token.value())
+                                   : nullptr);
   if (!params->is_on_initial_empty_document)
     render_frame->frame_->SetIsNotOnInitialEmptyDocument();
 
@@ -3307,6 +3314,8 @@ void RenderFrameImpl::CommitSameDocumentNavigation(
 
   if (commit_status == blink::mojom::CommitResult::Ok) {
     base::WeakPtr<RenderFrameImpl> weak_this = weak_factory_.GetWeakPtr();
+    base::WeakPtr<DocumentState> weak_document_state =
+        document_state->GetWeakPtr();
     // Same-document navigations on data URLs loaded with a valid base URL
     // should keep the base URL as document URL.
     bool use_base_url_for_data_url =
@@ -3365,7 +3374,8 @@ void RenderFrameImpl::CommitSameDocumentNavigation(
     // Similarly, check whether `navigation_state` is still the state associated
     // with the WebDocumentLoader. It may have been preempted by a navigation
     // started by an event handler.
-    if (!weak_this || document_state->navigation_state() != navigation_state) {
+    if (!weak_this || !weak_document_state ||
+        document_state->navigation_state() != navigation_state) {
       return;
     }
   }
@@ -3691,9 +3701,14 @@ blink::WebLocalFrame* RenderFrameImpl::CreateChildFrame(
   blink::LocalFrameToken frame_token;
   base::UnguessableToken devtools_frame_token;
   blink::DocumentToken document_token;
+  // Stored as unique_ptr to enforce move-only semantics, ensuring the token is
+  // consumed exactly once. Always populated from FrameRoutingInfo
+  // (pre-allocated before we know if the frame is sandboxed), but only used if
+  // the frame actually ends up being sandboxed.
+  std::unique_ptr<base::UnguessableToken> sandbox_origin_token;
   if (!RenderThread::Get()->GenerateFrameRoutingID(
-          child_routing_id, frame_token, devtools_frame_token,
-          document_token)) {
+          child_routing_id, frame_token, devtools_frame_token, document_token,
+          sandbox_origin_token)) {
     return nullptr;
   }
   trace_event.child_frame_token = frame_token;
@@ -3753,7 +3768,8 @@ blink::WebLocalFrame* RenderFrameImpl::CreateChildFrame(
       scope, child_render_frame,
       child_render_frame->blink_interface_registry_.get(), frame_token);
   finish_creation(web_frame, document_token,
-                  std::move(browser_interface_broker));
+                  std::move(browser_interface_broker),
+                  std::move(sandbox_origin_token));
 
   child_render_frame->in_frame_tree_ = true;
   child_render_frame->Initialize(/*parent=*/GetWebFrame());
@@ -5200,12 +5216,6 @@ void RenderFrameImpl::UpdateStateForCommit(
     blink::WebHistoryCommitType commit_type,
     ui::PageTransition transition,
     NavigationState* navigation_state) {
-  if (!base::FeatureList::IsEnabled(kReducePageStateIpcs)) {
-    // We need to update the last committed session history entry with state for
-    // the previous page. Do this before updating the current history item.
-    SendUpdateState();
-  }
-
   UpdateNavigationHistory(commit_type, navigation_state);
 
   if (!frame_->Parent()) {  // Only for top frames.
@@ -5252,8 +5262,7 @@ void RenderFrameImpl::DidCommitNavigationInternal(
   // UpdateStateForCommit() since that call will update the current history
   // item.
   std::optional<blink::PageState> previous_page_state = std::nullopt;
-  if (base::FeatureList::IsEnabled(kReducePageStateIpcs) &&
-      !GetWebFrame()->GetCurrentHistoryItem().IsNull()) {
+  if (!GetWebFrame()->GetCurrentHistoryItem().IsNull()) {
     previous_page_state = GetWebFrame()->CurrentHistoryItemToPageState();
   }
   UpdateStateForCommit(commit_type, transition, navigation_state);
@@ -5749,6 +5758,8 @@ void RenderFrameImpl::SynchronouslyCommitAboutBlankForBug778318(
   // This quirk is internal to the renderer, so just reuse the previous
   // DocumentToken.
   navigation_params->document_token = frame_->GetDocument().Token();
+  navigation_params->origin_to_commit =
+      frame_->GetDocument().GetSecurityOrigin();
   navigation_params->is_synchronous_commit_for_bug_778318 = true;
   // We need the provider to be non-null, otherwise Blink crashes, even
   // though the provider should not be used for any actual networking.
@@ -6297,7 +6308,8 @@ void RenderFrameImpl::BeginNavigationInternal(
 
   bool is_duplicate_navigation = false;
   base::TimeDelta nav_start_diff;
-
+  bool is_on_target_origin =
+      GetContentClient()->IsUrlInIgnoreDuplicateNavsOrigins(common_params->url);
   if (navigation_client_impl_ &&
       navigation_client_impl_->HasBeginNavigationParams()) {
     // We ignore navigations that are identical to the ongoing navigation. This
@@ -6327,6 +6339,12 @@ void RenderFrameImpl::BeginNavigationInternal(
   base::UmaHistogramBoolean(
       "Navigation.RendererInitiated.IsDuplicateWithoutThresholdCheck2",
       is_duplicate_navigation);
+  if (is_on_target_origin) {
+    base::UmaHistogramBoolean(
+        "Navigation.RendererInitiated.IsDuplicateWithoutThresholdCheck2."
+        "OnTargetOrigins",
+        is_duplicate_navigation);
+  }
   if (is_duplicate_navigation) {
     // The navigation is similar to a previous navigation. Check if it's started
     // close enough to the start of the previous navigation, in which case we
@@ -6339,6 +6357,16 @@ void RenderFrameImpl::BeginNavigationInternal(
     base::UmaHistogramTimes(
         "Navigation.RendererInitiated.DuplicateNavStartTimeDiff2",
         nav_start_diff);
+    if (is_on_target_origin) {
+      base::UmaHistogramBoolean(
+          "Navigation.RendererInitiated.DuplicateNavIsUnderThreshold2."
+          "OnTargetOrigins",
+          start_diff_under_threshold);
+      base::UmaHistogramTimes(
+          "Navigation.RendererInitiated.DuplicateNavStartTimeDiff2."
+          "OnTargetOrigins",
+          nav_start_diff);
+    }
     const auto& new_input_start = common_params->input_start;
     const auto& old_input_start =
         navigation_client_impl_->common_params().input_start;
@@ -6360,6 +6388,12 @@ void RenderFrameImpl::BeginNavigationInternal(
       base::UmaHistogramTimes(
           "Navigation.RendererInitiated.DuplicateNavInputTimeDiff2",
           input_diff);
+      if (is_on_target_origin) {
+        base::UmaHistogramTimes(
+            "Navigation.RendererInitiated.DuplicateNavInputTimeDiff2."
+            "OnTargetOrigins",
+            input_diff);
+      }
     }
     if (start_diff_under_threshold &&
         GetContentClient()->ShouldIgnoreDuplicateNavs(
@@ -6997,6 +7031,7 @@ WebView* RenderFrameImpl::CreateNewWindow(
   main_frame_params->frame = std::move(pending_frame_receiver);
   main_frame_params->interface_broker = std::move(browser_interface_broker);
   main_frame_params->document_token = reply->document_token;
+  main_frame_params->sandbox_origin_token = reply->sandbox_origin_token;
   main_frame_params->policy_container = std::move(reply->policy_container);
   main_frame_params->associated_interface_provider_remote =
       std::move(associated_interface_provider);

@@ -192,6 +192,10 @@ class MockPasswordStoreObserver : public PasswordStoreInterface::Observer {
               (PasswordStoreInterface * store,
                const std::vector<PasswordForm>& retained_passwords),
               (override));
+  MOCK_METHOD((void),
+              OnErrorStateChanged,
+              (PasswordStoreInterface*, ActionableError),
+              (override));
 };
 
 // Can be used to wait for changes (add or change password) in the password
@@ -215,6 +219,9 @@ class PasswordStoreWaiter : public PasswordStoreInterface::Observer {
   void OnLoginsRetained(
       PasswordStoreInterface* store,
       const std::vector<PasswordForm>& retained_passwords) override {}
+
+  void OnErrorStateChanged(PasswordStoreInterface* store,
+                           ActionableError error) override {}
 
   base::ScopedObservation<PasswordStoreInterface,
                           PasswordStoreInterface::Observer>

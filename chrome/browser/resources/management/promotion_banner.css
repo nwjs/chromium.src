@@ -46,13 +46,13 @@
 .blue-pill-button {
   background-color: #0B57D0; /* Replaced with direct color */
   width: 202px;
-  padding: 8px 0px 8px 0px;
+  padding: 8px 0 8px 0;
   text-align: center;
   line-height: 20px;
   font-size: 13px;
   font-weight: 500;
   border: none;
-  color: #FFFFFF; /* Replaced with direct color */
+  color: #FFF; /* Replaced with direct color */
   border-radius: 50px;
   cursor: pointer;
   text-decoration: none;
@@ -112,11 +112,11 @@
   }
 
   .banner-title {
-    color: #FFFFFF; /* Replaced with direct color */
+    color: #FFF; /* Replaced with direct color */
   }
 
   .banner-description {
-    color: #FFFFFF; /* Replaced with direct color */
+    color: #FFF; /* Replaced with direct color */
   }
 
   #close-icon-container {

@@ -28,7 +28,7 @@ void CheckGeminiEligibility(AuthenticationService* auth_service,
 void ResetGemini() {}
 
 void UpdatePageAttachmentState(
-    BWGPageContextAttachmentState bwg_attachment_state) {}
+    GeminiPageContextAttachmentState gemini_attachment_state) {}
 
 bool IsProtectedUrl(std::string url) {
   return false;
@@ -56,5 +56,13 @@ GeminiViewState GetCurrentGeminiViewState() {
 void RequestUIChange(GeminiUIElementType ui_element_type) {}
 
 void AttachImage(UIImage* image) {}
+
+GeminiClientMode GetCurrentClientMode() {
+  return GeminiClientMode::kUnknown;
+}
+
+GeminiPageContextAttachmentState GetCurrentPageContextAttachmentState() {
+  return GeminiPageContextAttachmentState::kUnknown;
+}
 
 }  // namespace ios::provider

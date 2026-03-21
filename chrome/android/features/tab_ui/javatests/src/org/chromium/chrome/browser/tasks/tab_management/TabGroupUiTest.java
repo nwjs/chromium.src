@@ -17,7 +17,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstCardFromTabSwitcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstTabInDialog;
@@ -75,6 +74,7 @@ import org.chromium.chrome.test.transit.ntp.RegularNewTabPageStation;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.ui.UiSwitches;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.ViewUtils;
 
@@ -114,7 +114,8 @@ public class TabGroupUiTest {
 
     @Test
     @MediumTest
-    public void testStripShownOnGroupTabPage() {
+    @CommandLineFlags.Add(UiSwitches.ENABLE_EDGE_TO_EDGE_DEBUG_LAYERS)
+    public void testStripShownOnGroupTabPage_JavaViews() {
         final ChromeTabbedActivity cta = mActivityTestRule.getActivity();
         createTabs(cta, false, 2);
         enterTabSwitcher(cta);
@@ -433,8 +434,8 @@ public class TabGroupUiTest {
 
     @Test
     @MediumTest
-    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN)
-    public void testStripShownOnGroupTabPage_EdgeToEdgeWithoutBottomChin() throws Exception {
+    @CommandLineFlags.Add(UiSwitches.ENABLE_EDGE_TO_EDGE_DEBUG_LAYERS)
+    public void testStripShownOnGroupTabPage_BottomControlsSceneLayer() throws Exception {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Profile profile =
@@ -472,9 +473,9 @@ public class TabGroupUiTest {
                         .getToolbarManager()
                         .getBottomControlsCoordinatorForTesting();
 
-        assertTrue(
-                "Scene overlay should be visible",
-                coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
+        // Scene overlay should be visible
+        CriteriaHelper.pollUiThread(
+                () -> coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     coordinator.simulateEdgeToEdgeChangeForTesting(
@@ -483,9 +484,9 @@ public class TabGroupUiTest {
                             /* isPageOptedIntoEdgeToEdge= */ true);
                 });
 
-        assertFalse(
-                "Scene overlay should be hidden.",
-                coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
+        // Scene overlay should be hidden
+        CriteriaHelper.pollUiThread(
+                () -> !coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
 
         // Force a bitmap capture.
         ThreadUtils.runOnUiThreadBlocking(
@@ -493,8 +494,8 @@ public class TabGroupUiTest {
                     coordinator.getResourceAdapterForTesting().triggerBitmapCapture();
                 });
 
-        assertTrue(
-                "Scene overlay should visible after bitmap capture.",
-                coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
+        // Scene overlay should visible after bitmap capture
+        CriteriaHelper.pollUiThread(
+                () -> coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
     }
 }

@@ -20,8 +20,9 @@
 
 #include "third_party/blink/renderer/core/svg/svg_tests.h"
 
+#include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/mathml_names.h"
-#include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 #include "third_party/blink/renderer/core/svg/svg_static_string_list.h"
@@ -70,15 +71,17 @@ void SVGTests::SynchronizeAllSVGAttributes() const {
   SVGElement::SynchronizeListOfSVGAttributes(attrs);
 }
 
-static bool IsLangTagPrefix(const String& lang_tag, const String& language) {
-  if (!lang_tag.StartsWithIgnoringASCIICase(language))
+static bool IsLangTagPrefix(const String& lang_tag,
+                            const StringView& language) {
+  if (!lang_tag.StartsWithIgnoringAsciiCase(language)) {
     return false;
+  }
   return lang_tag.length() == language.length() ||
          lang_tag[language.length()] == '-';
 }
 
 static bool MatchLanguageList(const String& lang_tag,
-                              const Vector<String>& languages) {
+                              const Vector<StringView>& languages) {
   for (const auto& value : languages) {
     if (IsLangTagPrefix(lang_tag, value))
       return true;
@@ -89,13 +92,13 @@ static bool MatchLanguageList(const String& lang_tag,
 bool SVGTests::IsValid() const {
   if (system_language_->IsSpecified()) {
     bool match_found = false;
-    Vector<String> languages;
-    system_language_->ContextElement()
-        ->GetDocument()
-        .GetPage()
-        ->GetChromeClient()
-        .AcceptLanguages()
-        .Split(',', languages);
+    String accept_languages = system_language_->ContextElement()
+                                  ->GetDocument()
+                                  .GetPage()
+                                  ->GetSettings()
+                                  .GetAcceptLanguages();
+    Vector<StringView> languages =
+        StringView(accept_languages).SplitSkippingEmpty(',');
     for (const auto& lang_tag : system_language_->Value()->Values()) {
       if (MatchLanguageList(lang_tag, languages)) {
         match_found = true;

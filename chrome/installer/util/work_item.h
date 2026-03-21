@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -68,20 +69,6 @@ class WorkItem {
   //                   systems, and 64-bit on 64-bit systems).
   // See http://msdn.microsoft.com/en-us/library/windows/desktop/aa384129.aspx
   static const REGSAM kWow64Default = 0;
-  // Possible states
-  enum CopyOverWriteOption {
-    ALWAYS,          // Always overwrite regardless of what existed before.
-    NEVER,           // Not used currently.
-    IF_DIFFERENT,    // Overwrite if different. Currently only applies to file.
-    IF_NOT_PRESENT,  // Copy only if file/directory do not exist already.
-    NEW_NAME_IF_IN_USE  // Copy to a new path if dest is in use(only files).
-  };
-
-  // Options for the MoveTree work item.
-  enum MoveTreeOption {
-    ALWAYS_MOVE,      // Always attempt to do a move operation.
-    CHECK_DUPLICATES  // Only move if the move target is different.
-  };
 
   // Abstract base class for the conditions used by ConditionWorkItemList.
   // TODO(robertshield): Move this out of WorkItem.
@@ -100,16 +87,10 @@ class WorkItem {
 
   // Create a CopyTreeWorkItem that recursively copies a file system hierarchy
   // from source path to destination path.
-  // * If overwrite_option is ALWAYS, the created CopyTreeWorkItem always
-  //   overwrites files.
-  // * If overwrite_option is NEW_NAME_IF_IN_USE, file is copied with an
-  //   alternate name specified by alternative_path.
   static CopyTreeWorkItem* CreateCopyTreeWorkItem(
       const base::FilePath& source_path,
       const base::FilePath& dest_path,
-      const base::FilePath& temp_path,
-      CopyOverWriteOption overwrite_option,
-      const base::FilePath& alternative_path);
+      const base::FilePath& temp_path);
 
   // Create a CreateDirWorkItem that creates a directory at the given path.
   static CreateDirWorkItem* CreateCreateDirWorkItem(const base::FilePath& path);
@@ -143,11 +124,17 @@ class WorkItem {
 
   // Create a MoveTreeWorkItem that recursively moves a file system hierarchy
   // from source path to destination path.
+  struct MoveTreeOptions {
+    // If true, only move if dest_path is different.
+    bool check_for_duplicates = false;
+    // If true, do not fail if source_path cannot be fully deleted.
+    bool lenient_deletion = false;
+  };
   static MoveTreeWorkItem* CreateMoveTreeWorkItem(
       const base::FilePath& source_path,
       const base::FilePath& dest_path,
       const base::FilePath& temp_path,
-      MoveTreeOption duplicate_option);
+      MoveTreeOptions options);
 
   // Create a SetRegValueWorkItem that sets a registry value with REG_SZ type
   // at the key with specified path.
@@ -193,10 +180,12 @@ class WorkItem {
   // a list of WorkItems.
   static WorkItemList* CreateWorkItemList();
 
-  // Create a conditional work item list that will execute only if
-  // condition->ShouldRun() returns true. The WorkItemList instance
-  // assumes ownership of condition.
-  static WorkItemList* CreateConditionalWorkItemList(Condition* condition);
+  // Create a conditional work item that will execute either `if_item` or
+  // `else_item` based on the result of `condition->ShouldRun()`.
+  static WorkItem* CreateConditionalWorkItem(
+      std::unique_ptr<Condition> condition,
+      std::unique_ptr<WorkItem> if_item,
+      std::unique_ptr<WorkItem> else_item);
 
   // Perform the actions of WorkItem. Returns true if success or if
   // best_effort(). Can only be called once per instance.

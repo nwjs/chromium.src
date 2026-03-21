@@ -239,8 +239,8 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
   // so consideration should be taken if updating the
   // underlying implementation (or its dependencies).
   bool IsPrefetchDuplicate(
-      GURL& url,
-      std::optional<net::HttpNoVarySearchData> no_vary_search_hint);
+      const GURL& url,
+      const std::optional<net::HttpNoVarySearchData>& no_vary_search_hint);
 
   using BlobCallback = base::OnceCallback<void(std::unique_ptr<BlobHandle>)>;
   using BlobContextGetter =
@@ -327,7 +327,7 @@ class CONTENT_EXPORT BrowserContext : public base::SupportsUserData {
   bool ShutdownStarted();
 
   // Returns a unique string associated with this browser context.
-  virtual const std::string& UniqueId();
+  virtual const std::string& UniqueId() const;
 
   // Gets media service for storing/retrieving video decoding performance stats.
   // Exposed here rather than StoragePartition because all SiteInstances should

@@ -6,7 +6,6 @@
 
 load("@builtin//struct.star", "module")
 load("./clang_all.star", "clang_all")
-load("./clang_code_coverage_wrapper.star", "clang_code_coverage_wrapper")
 load("./clang_exception.star", "clang_exception")
 load("./config.star", "config")
 load("./gn_logs.star", "gn_logs")
@@ -20,13 +19,7 @@ def __filegroups(ctx):
     fg.update(clang_all.filegroups(ctx))
     return fg
 
-def __clang_compile_coverage(ctx, cmd):
-    clang_command = clang_code_coverage_wrapper.run(ctx, list(cmd.args))
-    ctx.actions.fix(args = clang_command)
-
-__handlers = {
-    "clang_compile_coverage": __clang_compile_coverage,
-}
+__handlers = {}
 __handlers.update(clang_all.handlers)
 
 def __step_config(ctx, step_config):
@@ -76,13 +69,18 @@ def __step_config(ctx, step_config):
                 win_sdk.step_config(ctx, step_config)
         remote_wrapper = reproxy_config.get("remote_wrapper")
         input_root_absolute_path = gn_logs.read(ctx).get("clang_need_input_root_absolute_path") == "true"
-        canonicalize_dir = not input_root_absolute_path
 
         timeout = "2m"
         if (not reproxy.enabled(ctx)) and use_windows_worker:
             # use longer timeout for siso native
             # it takes long time for input fetch (many files in sysroot etc)
             timeout = "4m"
+
+        # Remote linking with ThinLTO takes much longer.
+        # Linking browser_tests takes 50m locally. On remote with gVisor,
+        # it takes even more.
+        use_thin_lto = gn_logs.read(ctx).get("use_thin_lto") == "true"
+        remote_link_timeout = "80m" if use_thin_lto else "10m"
 
         reproxy_config_inputs = []
         reproxy_config_inputs.extend(reproxy_config.get("inputs", []))
@@ -92,6 +90,7 @@ def __step_config(ctx, step_config):
         rules.extend([
             {
                 "name": "clang-cl/cxx",
+                "handler": "clang_compile",
                 "action": "(.*_)?cxx",
                 "command_prefix": "..\\..\\third_party\\llvm-build\\Release+Asserts\\bin\\clang-cl.exe",
                 "inputs": reproxy_config_inputs + [
@@ -100,12 +99,12 @@ def __step_config(ctx, step_config):
                 "platform_ref": "clang-cl",
                 "remote": remote,
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
                 "remote_wrapper": remote_wrapper,
                 "timeout": timeout,
             },
             {
                 "name": "clang-cl/cc",
+                "handler": "clang_compile",
                 "action": "(.*_)?cc",
                 "command_prefix": "..\\..\\third_party\\llvm-build\\Release+Asserts\\bin\\clang-cl.exe",
                 "inputs": reproxy_config_inputs + [
@@ -114,7 +113,6 @@ def __step_config(ctx, step_config):
                 "platform_ref": "clang-cl",
                 "remote": remote,
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
                 "remote_wrapper": remote_wrapper,
                 "timeout": timeout,
             },
@@ -129,7 +127,6 @@ def __step_config(ctx, step_config):
                 "platform_ref": "clang-cl",
                 "remote": remote,
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
                 "remote_wrapper": remote_wrapper,
                 "timeout": timeout,
             },
@@ -144,7 +141,6 @@ def __step_config(ctx, step_config):
                 "platform_ref": "clang-cl",
                 "remote": remote,
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
                 "remote_wrapper": remote_wrapper,
                 "timeout": timeout,
             },
@@ -174,8 +170,7 @@ def __step_config(ctx, step_config):
                 "remote_wrapper": remote_wrapper,
                 "platform_ref": "lld-link",
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
-                "timeout": "2m",
+                "timeout": remote_link_timeout,
             },
             {
                 "name": "lld-link/solink_module",
@@ -194,8 +189,7 @@ def __step_config(ctx, step_config):
                 "remote_wrapper": remote_wrapper,
                 "platform_ref": "lld-link",
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
-                "timeout": "2m",
+                "timeout": remote_link_timeout,
             },
             {
                 "name": "lld-link/link",
@@ -214,8 +208,7 @@ def __step_config(ctx, step_config):
                 "remote_wrapper": remote_wrapper,
                 "platform_ref": "lld-link",
                 "input_root_absolute_path": input_root_absolute_path,
-                "canonicalize_dir": canonicalize_dir,
-                "timeout": "4m",
+                "timeout": remote_link_timeout,
             },
         ])
         step_config = clang_exception.step_config(ctx, step_config, use_windows_worker)

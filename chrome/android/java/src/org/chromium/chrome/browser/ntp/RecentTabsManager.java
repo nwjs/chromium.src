@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper;
 import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper.ForeignSession;
 import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper.ForeignSessionTab;
 import org.chromium.chrome.browser.signin.SigninAndHistorySyncActivityLauncherImpl;
+import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.signin.services.SigninManager;
@@ -110,7 +111,7 @@ public class RecentTabsManager
             Profile profile,
             ActivityResultTracker activityResultTracker,
             BottomSheetController bottomSheetController,
-            Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+            Supplier<ModalDialogManager> modalDialogManagerSupplier,
             SnackbarManager snackbarManager,
             Runnable showHistoryManager,
             RecentlyClosedEntriesManager recentlyClosedEntriesManager) {
@@ -134,7 +135,7 @@ public class RecentTabsManager
                         activityResultTracker,
                         SigninAndHistorySyncActivityLauncherImpl.get(),
                         SupplierUtils.of(bottomSheetController),
-                        modalDialogManagerSupplier,
+                        modalDialogManagerSupplier.get(),
                         snackbarManager,
                         DeviceLockActivityLauncherImpl.get(),
                         new RecentTabsSigninPromoDelegate(
@@ -477,7 +478,7 @@ public class RecentTabsManager
 
     // ProfileDataCache.Observer implementation.
     @Override
-    public void onProfileDataUpdated(String accountEmail) {
+    public void onProfileDataUpdated(DisplayableProfileData profileData) {
         update();
     }
 

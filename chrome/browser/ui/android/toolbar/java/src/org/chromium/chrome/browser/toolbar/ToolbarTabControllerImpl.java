@@ -14,7 +14,6 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowApp
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
-import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.toolbar.bottom.BottomControlsCoordinator;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -115,11 +114,9 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
             newTab.goBack();
             if (mMultiInstanceManager == null) return false;
             // Move tab to a new window.
-            mMultiInstanceManager.moveTabsToWindow(
-                    /* destWindowId= */ MultiInstanceManager.INVALID_WINDOW_ID,
+            mMultiInstanceManager.moveTabsToNewWindow(
                     Collections.singletonList(newTab),
-                    /* destTabIndex= */ TabList.INVALID_TAB_INDEX,
-                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                    /* finalizeCallback= */ null,
                     NewWindowAppSource.KEYBOARD_SHORTCUT);
             // Don't run mOnSuccessRunnable since nothing happened in the current tab.
             return true;
@@ -160,11 +157,9 @@ public class ToolbarTabControllerImpl implements ToolbarTabController {
             newTab.goForward();
             if (mMultiInstanceManager == null) return false;
             // Move tab to a new window.
-            mMultiInstanceManager.moveTabsToWindow(
-                    /* destWindowId= */ MultiInstanceManager.INVALID_WINDOW_ID,
+            mMultiInstanceManager.moveTabsToNewWindow(
                     Collections.singletonList(newTab),
-                    /* destTabIndex= */ TabList.INVALID_TAB_INDEX,
-                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX,
+                    /* finalizeCallback= */ null,
                     NewWindowAppSource.KEYBOARD_SHORTCUT);
             // Don't run mOnSuccessRunnable since nothing happened in the current tab.
             return true;

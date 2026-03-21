@@ -10,6 +10,8 @@
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/core/dom/processing_instruction.h"
+#include "third_party/blink/renderer/core/dom/qualified_name.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
 #include "third_party/blink/renderer/core/html/parser/text_resource_decoder.h"
@@ -183,6 +185,125 @@ TEST_P(HTMLDocumentParserTest, AppendNoPrefetch) {
   EXPECT_TRUE(parser->DidPumpTokenizerForTesting());
   // Cancel any pending work to make sure that RuntimeFeatures DCHECKs do not
   // fire.
+  static_cast<DocumentParser*>(parser)->StopParsing();
+}
+
+TEST_P(HTMLDocumentParserTest, ProcessingInstruction) {
+  auto& document = To<HTMLDocument>(GetDocument());
+  HTMLDocumentParser* parser = CreateParser(document);
+  ScopedParserDetacher detacher(parser);
+
+  parser->AppendBytes(base::byte_span_from_cstring("<?target data?>"));
+  test::RunPendingTasks();
+
+  Node* last = document.lastChild();
+  ASSERT_TRUE(last);
+  EXPECT_EQ(Node::kProcessingInstructionNode, last->getNodeType());
+  ProcessingInstruction* pi = To<ProcessingInstruction>(last);
+  EXPECT_EQ("target", pi->target());
+  EXPECT_EQ("data", pi->data());
+
+  static_cast<DocumentParser*>(parser)->StopParsing();
+}
+
+TEST_P(HTMLDocumentParserTest, ProcessingInstructionSimpleAttribute) {
+  auto& document = To<HTMLDocument>(GetDocument());
+  HTMLDocumentParser* parser = CreateParser(document);
+  ScopedParserDetacher detacher(parser);
+
+  parser->AppendBytes(base::byte_span_from_cstring("<?target name=\"n\">"));
+  test::RunPendingTasks();
+
+  Node* last = document.lastChild();
+  ASSERT_TRUE(last);
+  EXPECT_EQ(Node::kProcessingInstructionNode, last->getNodeType());
+  ProcessingInstruction* pi = To<ProcessingInstruction>(last);
+  EXPECT_EQ("target", pi->target());
+  EXPECT_EQ("name=\"n\"", pi->data());
+  EXPECT_EQ("n", pi->getAttribute(AtomicString("name")));
+
+  static_cast<DocumentParser*>(parser)->StopParsing();
+}
+
+TEST_P(HTMLDocumentParserTest, ProcessingInstructionAttributeChange) {
+  auto& document = To<HTMLDocument>(GetDocument());
+  HTMLDocumentParser* parser = CreateParser(document);
+  ScopedParserDetacher detacher(parser);
+
+  parser->AppendBytes(base::byte_span_from_cstring("<?target name=\"n\">"));
+  test::RunPendingTasks();
+
+  Node* last = document.lastChild();
+  ASSERT_TRUE(last);
+  EXPECT_EQ(Node::kProcessingInstructionNode, last->getNodeType());
+  ProcessingInstruction* pi = To<ProcessingInstruction>(last);
+  EXPECT_EQ("target", pi->target());
+  EXPECT_EQ("name=\"n\"", pi->data());
+  EXPECT_EQ("n", pi->getAttribute(AtomicString("name")));
+  pi->setData("name=\"m\" value=v");
+  EXPECT_EQ("name=\"m\" value=v", pi->data());
+  EXPECT_EQ("m", pi->getAttribute(AtomicString("name")));
+  EXPECT_EQ("v", pi->getAttribute(AtomicString("value")));
+
+  static_cast<DocumentParser*>(parser)->StopParsing();
+}
+
+TEST_P(HTMLDocumentParserTest, ProcessingInstructionGTSign) {
+  auto& document = To<HTMLDocument>(GetDocument());
+  HTMLDocumentParser* parser = CreateParser(document);
+  ScopedParserDetacher detacher(parser);
+
+  parser->AppendBytes(base::byte_span_from_cstring("<?target name=\"n\">"));
+  test::RunPendingTasks();
+
+  Node* last = document.lastChild();
+  ASSERT_TRUE(last);
+  EXPECT_EQ(Node::kProcessingInstructionNode, last->getNodeType());
+  ProcessingInstruction* pi = To<ProcessingInstruction>(last);
+  pi->setData("name=n > value=v");
+  EXPECT_EQ("target", pi->target());
+  EXPECT_EQ("name=n > value=v", pi->data());
+  EXPECT_EQ("n", pi->getAttribute(AtomicString("name")));
+  EXPECT_EQ(g_null_atom, pi->getAttribute(AtomicString("value")));
+
+  static_cast<DocumentParser*>(parser)->StopParsing();
+}
+
+TEST_P(HTMLDocumentParserTest, ProcessingInstructionEmptyAttribute) {
+  auto& document = To<HTMLDocument>(GetDocument());
+  HTMLDocumentParser* parser = CreateParser(document);
+  ScopedParserDetacher detacher(parser);
+
+  parser->AppendBytes(base::byte_span_from_cstring("<?target name=\"\">"));
+  test::RunPendingTasks();
+
+  Node* last = document.lastChild();
+  ASSERT_TRUE(last);
+  EXPECT_EQ(Node::kProcessingInstructionNode, last->getNodeType());
+  ProcessingInstruction* pi = To<ProcessingInstruction>(last);
+  EXPECT_EQ("target", pi->target());
+  EXPECT_EQ("name=\"\"", pi->data());
+  EXPECT_EQ("", pi->getAttribute(AtomicString("name")));
+
+  static_cast<DocumentParser*>(parser)->StopParsing();
+}
+
+TEST_P(HTMLDocumentParserTest, ProcessingInstructionttributeNoQuotes) {
+  auto& document = To<HTMLDocument>(GetDocument());
+  HTMLDocumentParser* parser = CreateParser(document);
+  ScopedParserDetacher detacher(parser);
+
+  parser->AppendBytes(base::byte_span_from_cstring("<?target name=v>"));
+  test::RunPendingTasks();
+
+  Node* last = document.lastChild();
+  ASSERT_TRUE(last);
+  EXPECT_EQ(Node::kProcessingInstructionNode, last->getNodeType());
+  ProcessingInstruction* pi = To<ProcessingInstruction>(last);
+  EXPECT_EQ("target", pi->target());
+  EXPECT_EQ("name=v", pi->data());
+  EXPECT_EQ("v", pi->getAttribute(AtomicString("name")));
+
   static_cast<DocumentParser*>(parser)->StopParsing();
 }
 

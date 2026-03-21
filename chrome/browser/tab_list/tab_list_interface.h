@@ -22,6 +22,10 @@ class Profile;
 class SessionID;
 class TabListInterfaceObserver;
 
+namespace content {
+class WebContents;
+}
+
 namespace gfx {
 class Range;
 }
@@ -78,11 +82,24 @@ class TabListInterface {
   // Get the `opener` tab from `target` tab.
   virtual tabs::TabInterface* GetOpenerForTab(tabs::TabHandle target) = 0;
 
-  // Attempts to discard the renderer for the `tab` from memory.
+  // Insert `web_contents` into a TabListInterface at target `index`.
+  // If `should_pin` is true, the tab will be pinned. On desktop, this
+  // corresponds to the `ADD_PINNED` flag. Other actions on insertion (like
+  // making the tab active) are not supported by this method.
+  // The tab can optionally be added to a `group`.
+  // Returns the interface for the newly inserted tab.
+  virtual tabs::TabInterface* InsertWebContentsAt(
+      int index,
+      std::unique_ptr<content::WebContents> web_contents,
+      bool should_pin,
+      std::optional<tab_groups::TabGroupId> group) = 0;
+
+  // Attempts to discard the renderer for the `tab` from memory and return the
+  // discarded WebContents if successful.
   //
   // For details refer to:
   // docs/website/site/chromium-os/chromiumos-design-docs/tab-discarding-and-reloading/index.md
-  virtual void DiscardTab(tabs::TabHandle tab) = 0;
+  virtual content::WebContents* DiscardTab(tabs::TabHandle tab) = 0;
 
   // Duplicates the `tab` to the next adjacent index. Returns the newly-
   // created tab.

@@ -8,6 +8,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 
 namespace actor {
 
@@ -35,6 +36,8 @@ BASE_FEATURE(kActorBypassTOUValidationForGuestView,
 BASE_FEATURE(kGlicActionUseOptimizationGuide, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicExternalProtocolActionResultCode,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicGranularBlockingActionResultCodes,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicBlockNavigationToDangerousContentTypes,
@@ -71,6 +74,11 @@ BASE_FEATURE_PARAM(bool,
                    kGlicIncludeHardcodedBlockListEntries,
                    &kGlicCrossOriginNavigationGating,
                    "include_hardcoded_block_list_entries",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kGlicAllowImplicitToolOriginGrants,
+                   &kGlicCrossOriginNavigationGating,
+                   "allow_implicit_tool_origin_grants",
                    true);
 
 BASE_FEATURE(kGlicRecordNavigationConfirmationRequestMetrics,
@@ -149,5 +157,9 @@ BASE_FEATURE(kActorSendBrowserSignalForAction,
 
 BASE_FEATURE(kGlicActorLoadAndExtractContentTool,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<base::TimeDelta>
+    kGlicActorLoadAndExtractContentToolTimeout{
+        &kGlicActorLoadAndExtractContentTool, "timeout", base::Seconds(30)};
 
 }  // namespace actor

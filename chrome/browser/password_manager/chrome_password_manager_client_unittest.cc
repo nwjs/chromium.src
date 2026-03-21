@@ -986,7 +986,7 @@ TEST_P(ChromePasswordManagerClientAutomatedTest, SavingDependsOnAutomation) {
 }
 
 // Check that password manager is disabled on about:blank pages.
-// See https://crbug.com/756587.
+// See https://crbug.com/40088741.
 TEST_F(ChromePasswordManagerClientTest, SavingAndFillingDisabledForAboutBlank) {
   const GURL kUrl(url::kAboutBlankURL);
   NavigateAndCommit(kUrl);
@@ -1697,8 +1697,8 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       static_cast<MockPasswordStoreInterface*>(
           GetClient()->GetAccountPasswordStore());
   base::WeakPtr<PasswordStoreConsumer> store_consumer;
-  EXPECT_CALL(*mock_account_store, IsAbleToSavePasswords)
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*mock_account_store, GetError)
+      .WillRepeatedly(Return(password_manager::ActionableError::kNoError));
   EXPECT_CALL(*mock_account_store, GetLogins(_, _))
       .WillOnce(SaveArg<1>(&store_consumer));
 
@@ -1745,8 +1745,8 @@ TEST_F(ChromePasswordManagerClientAndroidTest,
       static_cast<MockPasswordStoreInterface*>(
           GetClient()->GetProfilePasswordStore());
 
-  EXPECT_CALL(*mock_profile_store, IsAbleToSavePasswords)
-      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*mock_profile_store, GetError)
+      .WillRepeatedly(Return(password_manager::ActionableError::kNoError));
   EXPECT_CALL(*mock_profile_store, GetLogins(_, _))
       .WillOnce(SaveArg<1>(&store_consumer));
   driver->GetPasswordManager()->OnPasswordFormsParsed(driver.get(),

@@ -18,12 +18,15 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_future.h"
+#include "chrome/browser/web_applications/jobs/finalize_install_job.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
+#include "chrome/browser/web_applications/test/fake_os_integration_manager.h"
 #include "chrome/browser/web_applications/test/fake_web_app_database_factory.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
+#include "chrome/browser/web_applications/test/fake_web_contents_manager.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_sync_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test.h"
@@ -573,7 +576,7 @@ TEST_F(WebAppSyncBridgeTest, ApplyIncrementalSyncChanges_AddUpdateDelete) {
       GetAppIdFromWebAppSpecifics(sync_app_to_add);
 
   WebAppSpecifics sync_app_to_update = CreateWebAppSpecificsForTesting(
-      "To Update, Updated", GURL("https://www.to_update.com/"));
+      "To Update", GURL("https://www.to_update.com/"));
 
   syncer::EntityChangeList entity_changes;
 
@@ -737,6 +740,79 @@ TEST_F(WebAppSyncBridgeTest,
 
   EXPECT_TRUE(IsDatabaseRegistryEqualToRegistrar(
       /*exclude_current_os_integration=*/true));
+}
+
+TEST_F(WebAppSyncBridgeTest, MigrateFromSourceAppInSameSyncChange) {
+  StartWebAppProvider();
+
+  // 1. Install source app locally with OS integration.
+  const GURL kSourceStartUrl("https://example.com/source");
+  const webapps::AppId source_app_id =
+      test::InstallDummyWebApp(profile(), "Source App", kSourceStartUrl,
+                               webapps::WebappInstallSource::SYNC);
+  {
+    ScopedRegistryUpdate update = sync_bridge().BeginUpdate();
+    WebApp* source_app = update->UpdateApp(source_app_id);
+    source_app->SetInstallState(
+        proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
+  }
+
+  // 2. Setup fake OS integration data for source app.
+  auto* fake_os_manager =
+      provider().os_integration_manager().AsTestOsIntegrationManager();
+  ShortcutLocations locations;
+  locations.on_desktop = true;
+  locations.in_quick_launch_bar = true;
+  fake_os_manager->SetAppExistingShortcuts(kSourceStartUrl, locations);
+  fake_os_manager->SetShortcutInfoForApp(source_app_id,
+                                         std::make_unique<ShortcutInfo>());
+
+  // 3. Prepare sync change: DELETE source app, ADD target app.
+  const GURL kTargetStartUrl("https://example.com/target");
+  WebAppSpecifics target_specifics =
+      CreateWebAppSpecificsForTesting("Target App", kTargetStartUrl);
+  target_specifics.set_migrated_from_manifest_id(kSourceStartUrl.spec());
+  const webapps::AppId target_app_id =
+      GetAppIdFromWebAppSpecifics(target_specifics);
+
+  // Setup page for target app so InstallFromSyncCommand succeeds.
+  auto& web_contents_manager =
+      static_cast<FakeWebContentsManager&>(provider().web_contents_manager());
+  auto& fake_page_state =
+      web_contents_manager.GetOrCreatePageState(kTargetStartUrl);
+  fake_page_state.url_load_result = webapps::WebAppUrlLoaderResult::kUrlLoaded;
+  blink::mojom::ManifestPtr manifest = blink::mojom::Manifest::New();
+  manifest->name = u"Target App";
+  manifest->start_url = kTargetStartUrl;
+  manifest->id = kTargetStartUrl;
+  fake_page_state.manifest_before_default_processing = std::move(manifest);
+
+  syncer::EntityChangeList entity_changes;
+  // Delete source
+  entity_changes.push_back(
+      syncer::EntityChange::CreateDelete(source_app_id, syncer::EntityData()));
+  // Add target
+  ConvertSpecificsToEntityChange(
+      target_specifics, syncer::EntityChange::ACTION_ADD, &entity_changes);
+
+  // 4. Apply changes.
+  WebAppTestInstallObserver install_observer(profile());
+  install_observer.BeginListening({target_app_id});
+
+  sync_bridge().ApplyIncrementalSyncChanges(
+      sync_bridge().CreateMetadataChangeList(), std::move(entity_changes));
+
+  // 5. Wait for target app installation.
+  EXPECT_EQ(install_observer.Wait(), target_app_id);
+
+  // 6. Verify target app inherited OS integration state.
+  const WebApp* target_app = registrar().GetAppById(target_app_id);
+  ASSERT_TRUE(target_app);
+  EXPECT_EQ(target_app->install_state(),
+            proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
+
+  provider().command_manager().AwaitAllCommandsCompleteForTesting();
+  EXPECT_TRUE(target_app->current_os_integration_states().has_shortcut());
 }
 
 // Commits local data (e.g. installed web apps) before sync is hooked up. This
@@ -1068,11 +1144,11 @@ TEST_F(WebAppSyncBridgeTest, SpecificsProtoWithNewFieldPreserved) {
   // sync_proto.SerializeAsString();
   const char kStartUrl[] = "https://example.com/launchurl";
   const std::string serialized_proto =
-      "\n\035https://example.com/launchurl\022\tTest "
-      "name\030\001\372\265\277\024\005hello";
+      "\n\x1Dhttps://example.com/launchurl\x12\tTest "
+      "name\x18\x1*\x14https://example.com/\xFA\xB5\xBF\x14\x5hello";
   const GURL start_url = GURL(kStartUrl);
-  const webapps::AppId app_id =
-      GenerateAppId(/*manifest_id_path=*/std::nullopt, start_url);
+  const webapps::AppId app_id = GenerateAppIdFromManifestId(
+      GenerateManifestIdFromStartUrlOnly(start_url));
 
   // Parse the proto.
   WebAppSpecifics sync_proto;
@@ -1098,8 +1174,6 @@ TEST_F(WebAppSyncBridgeTest, SpecificsProtoWithNewFieldPreserved) {
   const WebApp* app = fake_provider().registrar_unsafe().GetAppById(app_id);
   ASSERT_TRUE(app);
 
-  // Clear the fields added due to normalizing the proto in `SetSyncProto` and
-  // `ApplySyncDataToApp`.
   WebAppSpecifics result_proto = app->sync_proto();
   result_proto.clear_relative_manifest_id();
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1228,7 +1302,7 @@ class WebAppSyncBridgeTest_UserDisplayModeSplit
       // UDM mitigations mess with the installed local state, disable them so
       // the state matches the intention of the test.
       : disable_user_display_mode_sync_mitigations_for_testing_(
-            &WebAppInstallFinalizer::
+            &FinalizeInstallJob::
                 DisableUserDisplayModeSyncMitigationsForTesting(),
             true)
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -1316,17 +1390,15 @@ TEST_P(WebAppSyncBridgeTest_UserDisplayModeSplit, SyncUpdateToUserDisplayMode) {
     if (local_other_platform_udm()) {
       ScopedRegistryUpdate update = sync_bridge().BeginUpdate();
       WebApp* web_app = update->UpdateApp(app_id);
-      DCHECK(web_app);
-      WebAppSpecifics sync_proto = web_app->sync_proto();
+      CHECK(web_app);
 
       if (IsChromeOs()) {
-        sync_proto.set_user_display_mode_default(
+        web_app->UpdateDefaultUserDisplayModeInSyncProto(
             local_other_platform_udm().value());
       } else {
-        sync_proto.set_user_display_mode_cros(
+        web_app->UpdateCrOsUserDisplayModeInSyncProto(
             local_other_platform_udm().value());
       }
-      web_app->SetSyncProto(std::move(sync_proto));
     }
   }
 

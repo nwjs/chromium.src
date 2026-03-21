@@ -11,6 +11,7 @@
 #include "components/autofill/core/browser/data_model/payments/bnpl_issuer.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/payments/legal_message_line.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "ui/gfx/range/range.h"
 #include "url/gurl.h"
 
@@ -81,6 +82,18 @@ struct BnplTosModel {
   LegalMessageLines legal_message_lines;
 };
 
+// Return all BNPL Issuer contexts including eligibility in order of:
+// eligible + linked, eligible + unlinked, uneligible + linked,
+// uneligible + unlinked.
+std::vector<BnplIssuerContext> GetSortedBnplIssuerContext(
+    const AutofillClient& client,
+    std::optional<int64_t> checkout_amount);
+
+// Returns the appropriate suggestion icon based on the issuer and its link
+// status.
+Suggestion::Icon GetBnplSuggestionIcon(BnplIssuer::IssuerId issuer_id,
+                                       bool is_linked);
+
 // Returns the selection option text for a given BNPL issuer.
 std::u16string GetBnplIssuerSelectionOptionText(
     BnplIssuer::IssuerId issuer_id,
@@ -98,9 +111,8 @@ TextWithLink GetBnplUiFooterTextForAi(
 // Returns true if the user has initiated an action on the credit card form
 // and the current context meets all conditions for BNPL eligibility to be
 // shown.
-bool ShouldAppendBnplSuggestion(const AutofillClient& client,
-                                bool is_card_number_field_empty,
-                                FieldType trigger_field_type);
+bool ShouldShowBnplSuggestions(const AutofillClient& client,
+                               FieldType trigger_field_type);
 
 // Determines if autofill BNPL is supported.
 // Returns true if:
@@ -108,6 +120,12 @@ bool ShouldAppendBnplSuggestion(const AutofillClient& client,
 // 2. The `client` has an `AutofillOptimizationGuideDecider` assigned.
 // 3. The URL being visited is within the BNPL issuer allowlist.
 bool IsEligibleForBnpl(const AutofillClient& client);
+
+// Determines if Pay Later tab should open initially with the loading spinner to
+// indicate that amount extraction is in progress. Returns true if the AI terms
+// have been seen by the user before.
+bool ShouldStartPayLaterWithLoadingSpinner(
+    const PaymentsDataManager& payments_data_manager);
 
 }  // namespace payments
 

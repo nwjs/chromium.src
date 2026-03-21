@@ -16,8 +16,8 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
@@ -87,6 +87,10 @@ class ContextualTasksSidePanelCoordinatorInteractiveUiTest
     scoped_feature_list_.InitAndEnableFeature(kContextualTasks);
   }
   ~ContextualTasksSidePanelCoordinatorInteractiveUiTest() override = default;
+
+  void SetPanelSuppressed(bool suppressed) {
+    GetCoordinator()->SetPanelSuppressedForTesting(suppressed);
+  }
 
   void SetUpTasks() {
     ActiveTaskContextProvider::From(browser())->AddObserver(
@@ -593,17 +597,17 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
             new_task.GetTaskId(), sessions::SessionTabHelper::IdForTab(
                                       tab_list->GetActiveTab()->GetContents()));
         coordinator->OnTaskChanged(web_contents1, new_task.GetTaskId());
-        EXPECT_TRUE(coordinator->IsSidePanelOpen());
+        EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
 
         // Activate tab1, it associates with the task2 WebContents.
         tab_list->ActivateTab(tab_list->GetTab(1)->GetHandle());
         EXPECT_NE(web_contents1, coordinator->GetActiveWebContents());
-        EXPECT_TRUE(coordinator->IsSidePanelOpen());
+        EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
 
         // Activate tab0, it associates with the new WebContents.
         tab_list->ActivateTab(tab_list->GetTab(0)->GetHandle());
         EXPECT_EQ(web_contents1, coordinator->GetActiveWebContents());
-        EXPECT_TRUE(coordinator->IsSidePanelOpen());
+        EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
       }));
 }
 
@@ -628,17 +632,17 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
             task_id2_, sessions::SessionTabHelper::IdForTab(
                            tab_list->GetActiveTab()->GetContents()));
         coordinator->OnTaskChanged(web_contents1, task_id2_);
-        EXPECT_TRUE(coordinator->IsSidePanelOpen());
+        EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
 
         // Activate tab1, now it associates with the current WebContents.
         tab_list->ActivateTab(tab_list->GetTab(1)->GetHandle());
         EXPECT_EQ(web_contents1, coordinator->GetActiveWebContents());
-        EXPECT_TRUE(coordinator->IsSidePanelOpen());
+        EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
 
         // Activate tab0, it still associates with the current WebContents.
         tab_list->ActivateTab(tab_list->GetTab(0)->GetHandle());
         EXPECT_EQ(web_contents1, coordinator->GetActiveWebContents());
-        EXPECT_TRUE(coordinator->IsSidePanelOpen());
+        EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
       }));
 }
 
@@ -885,18 +889,13 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
-                       DoNotOpenSidePanelOnTabChanged) {
+                       DoNotOpenPanelWhenSuppressed) {
   SetUpTasks();
 
   TabListInterface* tab_list = TabListInterface::From(browser());
   ContextualTasksSidePanelCoordinator* coordinator = GetCoordinator();
 
-  // Set Customize Chrome side panel not to override.
-  // Customize Chrome side panel is much easier to setup and always available.
-  coordinator->SetSidePanelIdNotToOverrideForTesting(
-      SidePanelEntry::Id::kCustomizeChrome);
-
-  // Show next side panel.
+  // Show panel.
   coordinator->Show(false,
                     omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT);
   EXPECT_TRUE(coordinator->IsPanelOpenForContextualTask());
@@ -904,18 +903,21 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
   // Show Customize Chrome side panel.
   chrome::ExecuteCommand(browser(), IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL);
 
-  // Verify next side panel is closed.
+  // Verify the panel is closed.
   EXPECT_FALSE(coordinator->IsPanelOpenForContextualTask());
+
+  // Set the panel to be suppressed. This mimics the behavior where the glic
+  // panel is open and suppresses the Contextual Tasks panel.
+  SetPanelSuppressed(true);
 
   // Add a new foreground tab not associated with a task.
   chrome::AddTabAt(browser(), GURL(chrome::kChromeUISettingsURL), -1, true);
 
-  // Verify the side panel is closed.
+  // Verify the panel is closed.
   EXPECT_FALSE(coordinator->IsPanelOpenForContextualTask());
 
   // Activate the previous tab.
-  // Verify the next side panel is still closed because Customize Chrome side
-  // panel is open.
+  // Verify the panel is still closed because it is suppressed.
   tab_list->ActivateTab(tab_list->GetTab(0)->GetHandle());
   EXPECT_FALSE(coordinator->IsPanelOpenForContextualTask());
 }

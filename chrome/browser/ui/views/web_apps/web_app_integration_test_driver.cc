@@ -56,10 +56,12 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
@@ -445,7 +447,34 @@ base::flat_map<Site, SiteConfig> g_site_configs = {
       .icon_color = SK_ColorGREEN,
       .alternate_titles = {"Site A - Updated name"},
       .base_url = content::GetWebUIURLString("webapps_integration_tests")}},
+    {Site::kStandaloneMigratedSuggested,
+     {.relative_url =
+          "/webapps_integration/standalone/migrated_suggested/basic.html",
+      .relative_manifest_id =
+          "webapps_integration/standalone/migrated_suggested/basic.html",
+      .app_name = "Site A Suggested",
+      // WCO disabled is the defaulting state so the title when disabled
+      // should match with the app's name.
+      .wco_not_enabled_title = u"Site A Suggested",
+      .icon_color = SK_ColorRED,
+      .alternate_titles = {"Site A Suggested"}}},
+    {Site::kStandaloneMigratedForced,
+     {.relative_url =
+          "/webapps_integration/standalone/migrated_forced/basic.html",
+      .relative_manifest_id =
+          "webapps_integration/standalone/migrated_forced/basic.html",
+      .app_name = "Site A Forced",
+      // WCO disabled is the defaulting state so the title when disabled
+      // should match with the app's name.
+      .wco_not_enabled_title = u"Site A Forced",
+      .icon_color = SK_ColorRED,
+      .alternate_titles = {"Site A Forced"}}},
 };
+
+SiteConfig GetSiteConfiguration(Site site) {
+  CHECK(g_site_configs.contains(site));
+  return g_site_configs.find(site)->second;
+}
 
 struct DisplayConfig {
   std::string manifest_url_param;
@@ -463,6 +492,11 @@ base::flat_map<Display, DisplayConfig> g_display_configs = {
      {.manifest_url_param =
           "?manifest=manifest_window_controls_overlay.json"}}};
 
+DisplayConfig GetDisplayUpdateConfiguration(Display display) {
+  CHECK(g_display_configs.contains(display));
+  return g_display_configs.find(display)->second;
+}
+
 struct ScopeConfig {
   std::string manifest_url_param;
 };
@@ -476,14 +510,20 @@ ScopeConfig GetScopeUpdateConfiguration(Site scope) {
   return g_scope_configs.find(scope)->second;
 }
 
-DisplayConfig GetDisplayUpdateConfiguration(Display display) {
-  CHECK(g_display_configs.contains(display));
-  return g_display_configs.find(display)->second;
-}
+struct MigrateToConfig {
+  std::string manifest_url_param;
+};
 
-SiteConfig GetSiteConfiguration(Site site) {
-  CHECK(g_site_configs.contains(site));
-  return g_site_configs.find(site)->second;
+base::flat_map<Site, MigrateToConfig> g_migrate_to_configs = {
+    {Site::kStandaloneMigratedSuggested,
+     {.manifest_url_param = "?manifest=manifest_migrate_suggested.json"}},
+    {Site::kStandaloneMigratedForced,
+     {.manifest_url_param = "?manifest=manifest_migrate_forced.json"}},
+};
+
+MigrateToConfig GetMigrateToConfiguration(Site site) {
+  CHECK(g_migrate_to_configs.contains(site));
+  return g_migrate_to_configs.find(site)->second;
 }
 
 std::string GetRelativeSubAppPath(Site sub_app) {
@@ -541,19 +581,21 @@ SiteConfig GetSiteConfigurationFromAppName(const std::string& app_name) {
 }
 #endif
 
-class BrowserAddedWaiter final : public BrowserListObserver {
+class BrowserAddedWaiter final : public BrowserCollectionObserver {
  public:
-  BrowserAddedWaiter() { BrowserList::AddObserver(this); }
-  ~BrowserAddedWaiter() override { BrowserList::RemoveObserver(this); }
+  BrowserAddedWaiter() {
+    browser_collection_observation_.Observe(
+        GlobalBrowserCollection::GetInstance());
+  }
 
   void Wait(const base::Location& location = base::Location::Current()) {
     run_loop_.Run(location);
   }
 
-  // BrowserListObserver
-  void OnBrowserAdded(Browser* browser) override {
-    browser_added_ = browser;
-    BrowserList::RemoveObserver(this);
+  // BrowserCollectionObserver
+  void OnBrowserCreated(BrowserWindowInterface* browser) override {
+    browser_added_ = browser->GetBrowserForMigrationOnly();
+    browser_collection_observation_.Reset();
     // Post a task to ensure the Remove event has been dispatched to all
     // observers.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -564,6 +606,8 @@ class BrowserAddedWaiter final : public BrowserListObserver {
  private:
   base::RunLoop run_loop_;
   raw_ptr<Browser> browser_added_ = nullptr;
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observation_{this};
 };
 
 BrowserWindowInterface* GetAppBrowserForAppId(const Profile* profile,
@@ -604,7 +648,7 @@ content::WebContents* GetAnyWebContentsForAppId(const webapps::AppId& app_id) {
   return result;
 }
 
-class UninstallCompleteWaiter final : public BrowserListObserver,
+class UninstallCompleteWaiter final : public BrowserCollectionObserver,
                                       public WebAppInstallManagerObserver {
  public:
   explicit UninstallCompleteWaiter(
@@ -614,17 +658,13 @@ class UninstallCompleteWaiter final : public BrowserListObserver,
       : profile_(profile),
         app_id_(app_id),
         app_unregistration_waiter_(profile, app_id, readiness) {
-    BrowserList::AddObserver(this);
+    browser_collection_observation_.Observe(
+        GlobalBrowserCollection::GetInstance());
     WebAppProvider* provider = WebAppProvider::GetForTest(profile);
-    observation_.Observe(&provider->install_manager());
+    install_manager_observation_.Observe(&provider->install_manager());
     uninstall_complete_ =
         provider->registrar_unsafe().GetAppById(app_id) == nullptr;
     MaybeFinishWaiting();
-  }
-
-  ~UninstallCompleteWaiter() override {
-    BrowserList::RemoveObserver(this);
-    observation_.Reset();
   }
 
   void Wait() {
@@ -632,8 +672,8 @@ class UninstallCompleteWaiter final : public BrowserListObserver,
     run_loop_.Run();
   }
 
-  // BrowserListObserver
-  void OnBrowserRemoved(Browser* browser) override {
+  // BrowserCollectionObserver
+  void OnBrowserClosed(BrowserWindowInterface* browser) override {
     if (WebAppBrowserController::IsForWebApp(browser, app_id_)) {
       LOG(INFO) << base::StringPrintf("App browser closed: %p", browser);
       MaybeFinishWaiting();
@@ -669,8 +709,8 @@ class UninstallCompleteWaiter final : public BrowserListObserver,
       return;
     }
 
-    BrowserList::RemoveObserver(this);
-    observation_.Reset();
+    browser_collection_observation_.Reset();
+    install_manager_observation_.Reset();
     // Post a task to ensure the Remove event has been dispatched to all
     // observers.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -684,8 +724,10 @@ class UninstallCompleteWaiter final : public BrowserListObserver,
   base::RunLoop run_loop_;
   apps::AppReadinessWaiter app_unregistration_waiter_;
 
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observation_{this};
   base::ScopedObservation<WebAppInstallManager, WebAppInstallManagerObserver>
-      observation_{this};
+      install_manager_observation_{this};
 };
 
 std::optional<ProfileState> GetStateForProfile(StateSnapshot* state_snapshot,
@@ -817,7 +859,7 @@ class MenuButtonUpdateListener {
 
     // Wait for the menu button to be updated.
     if (!menu_update_future_.IsReady()) {
-      CHECK(menu_update_future_.Wait());
+      ASSERT_TRUE(menu_update_future_.Wait());
     }
   }
 
@@ -854,7 +896,7 @@ AppState::AppState(webapps::AppId app_id,
                    blink::mojom::DisplayMode effective_display_mode,
                    std::optional<mojom::UserDisplayMode> user_display_mode,
                    std::string manifest_launcher_icon_filename,
-                   bool installed_locally,
+                   proto::InstallState install_state,
                    bool shortcut_created)
     : id(std::move(app_id)),
       name(std::move(app_name)),
@@ -864,7 +906,7 @@ AppState::AppState(webapps::AppId app_id,
       user_display_mode(user_display_mode),
       manifest_launcher_icon_filename(
           std::move(manifest_launcher_icon_filename)),
-      is_installed_locally(installed_locally),
+      install_state(install_state),
       is_shortcut_created(shortcut_created) {}
 AppState::~AppState() = default;
 AppState::AppState(const AppState&) = default;
@@ -875,7 +917,7 @@ bool AppState::operator==(const AppState& other) const {
          user_display_mode == other.user_display_mode &&
          manifest_launcher_icon_filename ==
              other.manifest_launcher_icon_filename &&
-         is_installed_locally == other.is_installed_locally &&
+         install_state == other.install_state &&
          is_shortcut_created == other.is_shortcut_created;
 }
 
@@ -942,7 +984,7 @@ std::ostream& operator<<(std::ostream& os, const StateSnapshot& snapshot) {
                    static_cast<int>(app.effective_display_mode));
       app_dict.Set("manifest_launcher_icon_filename",
                    app.manifest_launcher_icon_filename);
-      app_dict.Set("is_installed_locally", app.is_installed_locally);
+      app_dict.Set("install_state", app.install_state);
       app_dict.Set("is_shortcut_created", app.is_shortcut_created);
 
       app_dicts.Set(app_pair.first, std::move(app_dict));
@@ -958,7 +1000,13 @@ std::ostream& operator<<(std::ostream& os, const StateSnapshot& snapshot) {
 }
 
 WebAppIntegrationTestDriver::WebAppIntegrationTestDriver(TestDelegate* delegate)
-    : delegate_(delegate) {}
+    : delegate_(delegate),
+      any_widget_observer_(views::test::AnyWidgetTestPasskey{}) {
+  any_widget_observer_.set_shown_callback(base::BindRepeating(
+      &WebAppIntegrationTestDriver::OnWidgetShown, base::Unretained(this)));
+  any_widget_observer_.set_closing_callback(base::BindRepeating(
+      &WebAppIntegrationTestDriver::OnWidgetClosing, base::Unretained(this)));
+}
 
 WebAppIntegrationTestDriver::~WebAppIntegrationTestDriver() = default;
 
@@ -995,6 +1043,12 @@ void WebAppIntegrationTestDriver::SetUpOnMainThread() {
 void WebAppIntegrationTestDriver::TearDownOnMainThread() {
   in_tear_down_ = true;
   LOG(INFO) << "TearDownOnMainThread: Start.";
+
+  // Print debug information if there was a failure.
+  if (testing::Test::HasFailure()) {
+    base::TimeDelta log_time = base::TimeTicks::Now() - start_time_;
+    test::LogDebugInfoToConsole(GetAllProfiles(), log_time);
+  }
 
 #if BUILDFLAG(IS_CHROMEOS)
   if (delegate_->IsSyncTest()) {
@@ -1052,30 +1106,59 @@ void WebAppIntegrationTestDriver::TearDownOnMainThread() {
   override_registration_.reset();
 
   LOG(INFO) << "TearDownOnMainThread: Complete.";
+}
 
-  // Print debug information if there was a failure.
-  if (testing::Test::HasFailure()) {
-    base::TimeDelta log_time = base::TimeTicks::Now() - start_time_;
-    test::LogDebugInfoToConsole(GetAllProfiles(), log_time);
+void WebAppIntegrationTestDriver::OnWidgetShown(views::Widget* widget) {
+  if (widget->GetName() == "WebAppUpdateReviewDialog") {
+    active_update_dialog_widget_ = widget;
   }
+}
+
+void WebAppIntegrationTestDriver::OnWidgetClosing(views::Widget* widget) {
+  if (active_update_dialog_widget_ == widget) {
+    active_update_dialog_widget_ = nullptr;
+  }
+}
+
+void WebAppIntegrationTestDriver::WaitForAppIdentityUpdateDialogToShow() {
+  if (!active_update_dialog_widget_) {
+    views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
+                                         "WebAppUpdateReviewDialog");
+    views::Widget* widget = waiter.WaitIfNeededAndGet();
+    ASSERT_EQ(widget, active_update_dialog_widget_);
+  }
+  ASSERT_TRUE(active_update_dialog_widget_);
 }
 
 void WebAppIntegrationTestDriver::HandleAppIdentityUpdateDialogResponse(
     UpdateDialogResponse response,
     std::unique_ptr<WebAppMenuModel> menu_model) {
-  views::Widget* manifest_update_widget =
-      app_id_update_dialog_waiter_->WaitIfNeededAndGet();
+  // The `menu_model` is being reset in the beginning,
+  // since the `AppMenuModel` holds a raw_ptr to a `Browser`, that starts
+  // dangling as soon as the browser is shutdown as a result of
+  // uninstallation.
+  menu_model.reset();
+
+  views::Widget* manifest_update_widget = active_update_dialog_widget_;
   ASSERT_TRUE(manifest_update_widget != nullptr);
+
+  // Accepting a migration could change the currently active app id, so observe
+  // for any newly installed apps.
+  WebAppInstallManagerObserverAdapter observer(profile());
+
   switch (response) {
     case UpdateDialogResponse::kAcceptUpdate:
+      observer.SetWebAppMigratedDelegate(
+          base::BindLambdaForTesting([&](const webapps::AppId& source_app_id,
+                                         const webapps::AppId& target_app_id) {
+            if (active_app_id_ == source_app_id) {
+              active_app_id_ = target_app_id;
+            }
+          }));
+
       views::test::AcceptDialog(manifest_update_widget);
       break;
     case UpdateDialogResponse::kCancelDialogAndUninstall: {
-      // The `menu_model` is being reset in the beginning for this use-case,
-      // since the `AppMenuModel` holds a raw_ptr to a `Browser`, that starts
-      // dangling as soon as the browser is shutdown as a result of
-      // uninstallation.
-      menu_model.reset();
       auto uninstall_dialog_view =
           std::make_unique<views::NamedWidgetShownWaiter>(
               views::test::AnyWidgetTestPasskey{},
@@ -1089,7 +1172,21 @@ void WebAppIntegrationTestDriver::HandleAppIdentityUpdateDialogResponse(
       views::test::AcceptDialog(uninstall_dialog_widget);
       uninstall_destroyed.Wait();
     } break;
-    case UpdateDialogResponse::kIgnoreDialog:
+    case UpdateDialogResponse::kCancelDialogAndCancelUninstall: {
+      auto uninstall_dialog_view =
+          std::make_unique<views::NamedWidgetShownWaiter>(
+              views::test::AnyWidgetTestPasskey{},
+              "WebAppUninstallDialogDelegateView");
+      views::test::CancelDialog(manifest_update_widget);
+      views::Widget* uninstall_dialog_widget = uninstall_dialog_widget =
+          uninstall_dialog_view->WaitIfNeededAndGet();
+      ASSERT_NE(uninstall_dialog_widget, nullptr);
+      views::test::WidgetDestroyedWaiter uninstall_destroyed(
+          uninstall_dialog_widget);
+      views::test::CancelDialog(uninstall_dialog_widget);
+      uninstall_destroyed.Wait();
+    } break;
+    case UpdateDialogResponse::kIgnoreDialog: {
       views::test::WidgetDestroyedWaiter destroyed_waiter(
           manifest_update_widget);
       views::ElementTrackerViews* tracker_views =
@@ -1103,6 +1200,13 @@ void WebAppIntegrationTestDriver::HandleAppIdentityUpdateDialogResponse(
       ASSERT_NE(nullptr, button);
       views::test::ButtonTestApi(button).NotifyClick(ui::test::TestEvent());
       destroyed_waiter.Wait();
+    } break;
+    case UpdateDialogResponse::kCloseDialog: {
+      views::test::WidgetDestroyedWaiter destroyed_waiter(
+          manifest_update_widget);
+      manifest_update_widget->Close();
+      destroyed_waiter.Wait();
+    } break;
   }
   // Wait for the pending update to be applied, or the uninstall command to
   // finish running.
@@ -2363,6 +2467,24 @@ void WebAppIntegrationTestDriver::ManifestUpdateScopeTo(Site app, Site scope) {
   AfterStateChangeAction();
 }
 
+void WebAppIntegrationTestDriver::ManifestUpdateAddMigrateTo(Site app,
+                                                             Site to) {
+  if (!BeforeStateChangeAction(__FUNCTION__)) {
+    return;
+  }
+
+  webapps::AppId app_id = GetAppIdBySiteMode(app);
+  GURL url =
+      GetUrlForSite(app, GetMigrateToConfiguration(to).manifest_url_param);
+  ForceUpdateManifestContents(
+      app, url,
+      /*wait_for_pending_updates_to_arrive=*/
+      provider()->registrar_unsafe().AppMatches(
+          app_id, WebAppFilter::IsAppValidMigrationSource()));
+
+  AfterStateChangeAction();
+}
+
 void WebAppIntegrationTestDriver::OpenInChrome() {
   if (!BeforeStateChangeAction(__FUNCTION__)) {
     return;
@@ -2482,10 +2604,17 @@ void WebAppIntegrationTestDriver::SwitchIncognitoProfile() {
   if (!BeforeStateChangeAction(__FUNCTION__)) {
     return;
   }
-  content::WebContentsAddedObserver nav_observer;
+  BrowserAddedWaiter browser_added_waiter;
   CHECK(chrome::ExecuteCommand(browser(), IDC_NEW_INCOGNITO_WINDOW));
   ASSERT_EQ(1U, chrome::GetIncognitoBrowserCount());
-  nav_observer.GetWebContents();
+  browser_added_waiter.Wait();
+  Browser* incognito_browser = browser_added_waiter.browser_added();
+  ASSERT_TRUE(incognito_browser);
+  content::WebContents* active_contents =
+      incognito_browser->tab_strip_model()->GetActiveWebContents();
+  if (active_contents) {
+    content::WaitForLoadStop(active_contents);
+  }
   std::vector<Profile*> otr_profiles = profile()->GetAllOffTheRecordProfiles();
   CHECK(!otr_profiles.empty());
   active_profile_ = otr_profiles.back();
@@ -2815,14 +2944,33 @@ void WebAppIntegrationTestDriver::TriggerUpdateDialogAndHandleResponse(
   size_t index = 0;
   const bool found = app_menu_model->GetModelAndIndexForCommandId(
       IDC_WEB_APP_UPGRADE_DIALOG, &model, &index);
-  EXPECT_TRUE(found);
+  ASSERT_TRUE(found);
   EXPECT_TRUE(model->IsEnabledAt(index));
 
-  app_id_update_dialog_waiter_ =
-      std::make_unique<views::NamedWidgetShownWaiter>(
-          views::test::AnyWidgetTestPasskey{}, "WebAppUpdateReviewDialog");
   app_menu_model->ExecuteCommand(IDC_WEB_APP_UPGRADE_DIALOG, /*event_flags=*/0);
+  WaitForAppIdentityUpdateDialogToShow();
   HandleAppIdentityUpdateDialogResponse(response, std::move(app_menu_model));
+  AfterStateChangeAction();
+}
+
+void WebAppIntegrationTestDriver::CheckUpdateDialogIsShowing() {
+  if (!BeforeStateCheckAction(__FUNCTION__)) {
+    return;
+  }
+  WaitForAppIdentityUpdateDialogToShow();
+  ASSERT_TRUE(active_update_dialog_widget_);
+  ASSERT_TRUE(app_browser());
+  EXPECT_TRUE(app_browser()->GetBrowserView().GetProperty(
+      kIsPwaUpdateDialogShowingKey));
+  AfterStateCheckAction();
+}
+
+void WebAppIntegrationTestDriver::HandleUpdateDialogResponse(
+    UpdateDialogResponse response) {
+  if (!BeforeStateChangeAction(__FUNCTION__)) {
+    return;
+  }
+  HandleAppIdentityUpdateDialogResponse(response, nullptr);
   AfterStateChangeAction();
 }
 
@@ -2909,7 +3057,8 @@ void WebAppIntegrationTestDriver::CheckAppInListNotLocallyInstalled(Site site) {
   std::optional<AppState> app_state =
       GetAppBySiteMode(after_state_change_action_state_.get(), profile(), site);
   ASSERT_TRUE(app_state.has_value());
-  EXPECT_FALSE(app_state->is_installed_locally);
+  EXPECT_NE(app_state->install_state, proto::INSTALLED_WITH_OS_INTEGRATION);
+  EXPECT_NE(app_state->install_state, proto::INSTALLED_WITHOUT_OS_INTEGRATION);
 #if !BUILDFLAG(IS_CHROMEOS)
   content::TestWebUI test_web_ui;
   content::WebContents* web_contents =
@@ -3081,7 +3230,9 @@ void WebAppIntegrationTestDriver::CheckAppNotInList(Site site) {
   }
   std::optional<AppState> app_state =
       GetAppBySiteMode(after_state_change_action_state_.get(), profile(), site);
-  EXPECT_FALSE(app_state.has_value());
+  if (app_state.has_value()) {
+    EXPECT_EQ(app_state->install_state, proto::SUGGESTED_FROM_MIGRATION);
+  }
 #if !BUILDFLAG(IS_CHROMEOS)
   content::TestWebUI test_web_ui;
   content::WebContents* web_contents =
@@ -3220,6 +3371,12 @@ void WebAppIntegrationTestDriver::CheckAppTitle(Site site, Title title) {
       break;
     case Title::kStandaloneUpdated:
       expected = "Site A - Updated name";
+      break;
+    case Title::kStandaloneMigratedSuggested:
+      expected = "Site A Suggested";
+      break;
+    case Title::kStandaloneMigratedForced:
+      expected = "Site A Forced";
       break;
   }
   EXPECT_EQ(app_state->name, expected);
@@ -3666,12 +3823,12 @@ void WebAppIntegrationTestDriver::CheckPwaWindowCreatedImpl(Profile* profile,
   int after_state_app_window_count = 0;
   webapps::AppId app_id = GetAppIdBySiteMode(site);
   for (const auto& browser_pair : before_action_profile->browsers) {
-    if (AppBrowserController::IsForWebApp(browser_pair.first, app_id)) {
+    if (browser_pair.second.app_id == app_id) {
       before_state_app_window_count++;
     }
   }
   for (const auto& browser_pair : after_action_profile->browsers) {
-    if (AppBrowserController::IsForWebApp(browser_pair.first, app_id)) {
+    if (browser_pair.second.app_id == app_id) {
       after_state_app_window_count++;
     }
   }
@@ -4141,9 +4298,7 @@ webapps::AppId GetAppIdForIsolatedSite(Site site) {
     // isolated-app:// origin based on the signing key of the app.
     GURL parent_app_origin = url_info.origin().GetURL();
     GURL start_url = parent_app_origin.Resolve(GetRelativeSubAppPath(site));
-    return GenerateAppId(
-        /*manifest_id_path=*/std::nullopt, start_url,
-        /*parent_manifest_id=*/webapps::ManifestId(parent_app_origin));
+    return GenerateAppId(/*manifest_id_path=*/std::nullopt, start_url);
   }
 
   return url_info.app_id();
@@ -4162,10 +4317,7 @@ webapps::AppId WebAppIntegrationTestDriver::GetAppIdBySiteMode(Site site) {
 
   if (site_config.parent_site) {
     auto parent_site = GetSiteConfiguration(site_config.parent_site.value());
-    return GenerateAppId(
-        manifest_id, start_url,
-        webapps::ManifestId(
-            GetTestServerForSiteMode(site).GetURL(parent_site.relative_url)));
+    return GenerateAppId(manifest_id, start_url);
   } else {
     return GenerateAppId(manifest_id, start_url);
   }
@@ -4278,15 +4430,14 @@ WebAppIntegrationTestDriver::ConstructStateSnapshot() {
             registrar.GetAppEffectiveDisplayMode(app_id),
             registrar.GetAppUserDisplayMode(app_id),
             manifest_launcher_icon_filename,
-            registrar.IsInstallState(
-                app_id, {web_app::proto::INSTALLED_WITHOUT_OS_INTEGRATION,
-                         web_app::proto::INSTALLED_WITH_OS_INTEGRATION}),
+            registrar.GetInstallState(app_id).value(),
             IsShortcutAndIconCreated(profile, registrar.GetAppShortName(app_id),
                                      app_id));
 #if !BUILDFLAG(IS_CHROMEOS)
-        if (registrar.IsInstallState(
-                app_id, {web_app::proto::INSTALLED_WITHOUT_OS_INTEGRATION,
-                         web_app::proto::INSTALLED_WITH_OS_INTEGRATION})) {
+        if (state.install_state ==
+                web_app::proto::INSTALLED_WITHOUT_OS_INTEGRATION ||
+            state.install_state ==
+                web_app::proto::INSTALLED_WITH_OS_INTEGRATION) {
           CheckAppSettingsAppState(profile->GetOriginalProfile(), state);
         }
 #endif
@@ -4825,13 +4976,12 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   enabled_features.push_back(features::kIsolatedWebApps);
   enabled_features.push_back(features::kPwaUpdateDialogForIcon);
   enabled_features.push_back(features::kRecordWebAppDebugInfo);
-  enabled_features.push_back(features::kWebAppUsePrimaryIcon);
 #if !BUILDFLAG(IS_CHROMEOS)
   // TODO(b/313492499): Update test driver to work with new intent picker UI.
   enabled_features.push_back(features::kPwaNavigationCapturing);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
   enabled_features.push_back(features::kWebAppPredictableAppUpdating);
-  enabled_features.push_back(features::kSilentPolicyAndDefaultAppUpdating);
+  enabled_features.push_back(blink::features::kWebAppMigrationApi);
 
   scoped_feature_list_.InitWithFeatures(enabled_features, {});
 }

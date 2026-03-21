@@ -180,6 +180,16 @@ class CORE_EXPORT AtomicHTMLToken {
     return data_;
   }
 
+  const String& ProcessingInstructionTarget() const {
+    DCHECK_EQ(type_, HTMLToken::kProcessingInstruction);
+    return processing_instruction_target_;
+  }
+
+  const String& ProcessingInstructionData() const {
+    DCHECK_EQ(type_, HTMLToken::kProcessingInstruction);
+    return data_;
+  }
+
   // FIXME: Distinguish between a missing public identifer and an empty one.
   Vector<UChar>& PublicIdentifier() const {
     DCHECK_EQ(type_, HTMLToken::DOCTYPE);
@@ -192,23 +202,6 @@ class CORE_EXPORT AtomicHTMLToken {
     return doctype_data_->system_identifier_;
   }
 
-  DOMPartTokenType DOMPartType() const {
-    DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-    DCHECK_EQ(type_, HTMLToken::kDOMPart);
-    return dom_part_data_->type_;
-  }
-
-  Vector<String> DOMPartMetadata() const {
-    DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-    DCHECK_EQ(type_, HTMLToken::kDOMPart);
-    return dom_part_data_->metadata_;
-  }
-
-  DOMPartsNeeded GetDOMPartsNeeded() {
-    DCHECK_EQ(type_, HTMLToken::kStartTag);
-    return dom_parts_needed_;
-  }
-
   explicit AtomicHTMLToken(HTMLToken& token)
       : type_(token.GetType()), name_(HTMLTokenNameFromToken(token)) {
     switch (type_) {
@@ -217,14 +210,9 @@ class CORE_EXPORT AtomicHTMLToken {
       case HTMLToken::DOCTYPE:
         doctype_data_ = token.ReleaseDoctypeData();
         break;
-      case HTMLToken::kDOMPart:
-        DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-        dom_part_data_ = token.ReleaseDOMPartData();
-        break;
       case HTMLToken::kEndOfFile:
         break;
       case HTMLToken::kStartTag:
-        dom_parts_needed_ = token.GetDOMPartsNeeded();
         [[fallthrough]];
       case HTMLToken::kEndTag: {
         self_closing_ = token.SelfClosing();
@@ -245,6 +233,11 @@ class CORE_EXPORT AtomicHTMLToken {
       case HTMLToken::kCharacter:
       case HTMLToken::kComment:
         data_ = token.Data().AsString();
+        break;
+      case HTMLToken::kProcessingInstruction:
+        data_ = token.Data().AsString();
+        processing_instruction_target_ =
+            token.GetProcessingInstructionTarget().AsString();
         break;
     }
   }
@@ -322,6 +315,10 @@ class CORE_EXPORT AtomicHTMLToken {
 
   // For DOM Parts
   std::unique_ptr<DOMPartData> dom_part_data_;
+
+  // For Processing Instructions
+  String processing_instruction_target_;
+
   DOMPartsNeeded dom_parts_needed_;
 
   // For StartTag and EndTag

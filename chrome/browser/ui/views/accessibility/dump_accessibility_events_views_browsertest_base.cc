@@ -11,13 +11,16 @@
 #include "base/files/file_util.h"
 #include "base/functional/callback_helpers.h"
 #include "base/path_service.h"
+#include "base/run_loop.h"
 #include "base/strings/escape.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/test/bind.h"
 #include "build/build_config.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_tree_manager.h"
+#include "ui/accessibility/platform/inspect/ax_inspect_scenario.h"
 #include "ui/accessibility/platform/inspect/ax_tree_formatter.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget.h"
@@ -32,7 +35,16 @@
 #endif
 
 #if BUILDFLAG(IS_LINUX)
-#include "ui/accessibility/platform/inspect/ax_event_recorder_auralinux.h"
+#include "ui/views/widget/desktop_aura/desktop_window_tree_host_platform.h"
+
+namespace views {
+class WidgetAXManager;
+std::unique_ptr<ui::AXEventRecorder> CreateViewsAXEventRecorderAuraLinux(
+    base::ProcessId pid,
+    const ui::AXTreeSelector& selector,
+    WidgetAXManager* widget_ax_manager);
+void CleanupViewsAXEventRecorderAuraLinux();
+}  // namespace views
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -47,6 +59,54 @@ void CleanupViewsAXEventRecorderMac();
 #endif
 
 namespace views {
+
+// --- EventRecordingSession implementation ---
+
+EventRecordingSession::EventRecordingSession() = default;
+
+EventRecordingSession::EventRecordingSession(
+    DumpAccessibilityEventsViewsTestBase* test,
+    std::string test_name)
+    : test_(test), test_name_(std::move(test_name)) {}
+
+EventRecordingSession::~EventRecordingSession() {
+  if (test_ && !compared_) {
+    test_->StopRecordingAndCompare(test_name_);
+  }
+}
+
+EventRecordingSession::EventRecordingSession(EventRecordingSession&& other)
+    : test_(other.test_),
+      test_name_(std::move(other.test_name_)),
+      compared_(other.compared_) {
+  other.test_ = nullptr;
+  other.compared_ = true;
+}
+
+EventRecordingSession& EventRecordingSession::operator=(
+    EventRecordingSession&& other) {
+  if (this != &other) {
+    // If this session hasn't compared yet, do it now before overwriting.
+    if (test_ && !compared_) {
+      test_->StopRecordingAndCompare(test_name_);
+    }
+    test_ = other.test_;
+    test_name_ = std::move(other.test_name_);
+    compared_ = other.compared_;
+    other.test_ = nullptr;
+    other.compared_ = true;
+  }
+  return *this;
+}
+
+void EventRecordingSession::StopAndCompare() {
+  CHECK(test_) << "Cannot StopAndCompare on an invalid session.";
+  CHECK(!compared_) << "StopAndCompare already called on this session.";
+  test_->StopRecordingAndCompare(test_name_);
+  compared_ = true;
+}
+
+// --- DumpAccessibilityEventsViewsTestBase implementation ---
 
 DumpAccessibilityEventsViewsTestBase::DumpAccessibilityEventsViewsTestBase()
     : test_helper_(GetParam().api_type) {}
@@ -87,7 +147,38 @@ void DumpAccessibilityEventsViewsTestBase::SetUpOnMainThread() {
   SetUpTestWidget();
   SetUpTestViews();
 
-  BeginRecordingEvents();
+  // When ViewsAX is enabled, view additions and property changes during
+  // SetUpTestViews() are queued as async tasks via WidgetAXManager. Flush
+  // them now so BrowserAccessibilityManager has the complete initial tree
+  // before the test body runs. Without this, the first SendPendingUpdate()
+  // would batch initial node additions together with test-triggered changes,
+  // and AXEventGenerator wouldn't detect attribute changes on newly-added
+  // nodes (since there's no previous state to compare against).
+  base::RunLoop().RunUntilIdle();
+
+#if BUILDFLAG(IS_LINUX)
+  // On Wayland, widget activation is asynchronous (compositor-controlled).
+  // FocusManager::SetFocusedViewWithReason() defers focus changes when
+  // Widget::IsActive() returns false, which means no focus events are fired.
+  // Widget::IsActive() requires both platform-level (is_active_ in
+  // DesktopWindowTreeHostPlatform) and aura-level (wm::IsActiveWindow)
+  // activation. SimulateNativeActivate only sets the aura level, leaving
+  // is_active_ false on Wayland. Directly invoking OnActivationChanged()
+  // on the platform host simulates the compositor's activation response,
+  // setting both levels synchronously without requiring a compositor
+  // roundtrip.
+  if (widget_ && widget_->IsVisible()) {
+    static_cast<DesktopWindowTreeHostPlatform*>(
+        widget_->GetNativeWindow()->GetHost())
+        ->OnActivationChanged(true);
+  }
+#endif
+
+  // Flush any remaining async events generated during setup (e.g.
+  // OnActivationChanged() above queues kWindowActivated via WidgetAXManager
+  // when ViewsAX is enabled). Without this, StopRecordingAndCompare()'s
+  // RunUntilIdle() would flush stale setup events during recording.
+  base::RunLoop().RunUntilIdle();
 }
 
 void DumpAccessibilityEventsViewsTestBase::TearDown() {
@@ -97,13 +188,23 @@ void DumpAccessibilityEventsViewsTestBase::TearDown() {
 }
 
 void DumpAccessibilityEventsViewsTestBase::TearDownOnMainThread() {
+  // EventRecordingSession objects handle comparison automatically via their
+  // destructor (which fires at the end of the test body, before this method).
+  // This method only needs to clean up platform state.
   if (event_recorder_) {
-    event_recorder_->StopListeningToEvents();
+    if (recording_events_) {
+      // Safety net: if recording is still active (e.g., test exited early
+      // without the session being destroyed), stop it.
+      event_recorder_->StopListeningToEvents();
+      recording_events_ = false;
+    }
     event_recorder_.reset();
   }
 
 #if BUILDFLAG(IS_MAC)
   CleanupViewsAXEventRecorderMac();
+#elif BUILDFLAG(IS_LINUX)
+  CleanupViewsAXEventRecorderAuraLinux();
 #endif
 
   widget_.reset();
@@ -153,50 +254,59 @@ void DumpAccessibilityEventsViewsTestBase::ChooseFeatures(
     std::vector<base::test::FeatureRef>* enabled_features,
     std::vector<base::test::FeatureRef>* disabled_features) {}
 
-void DumpAccessibilityEventsViewsTestBase::BeginRecordingEvents() {
-  CHECK(!recording_events_) << "Already recording events. Did you forget to "
-                               "call EndTestAndCompareEvents()?";
+EventRecordingSession
+DumpAccessibilityEventsViewsTestBase::BeginRecordingEvents(
+    const std::string& test_name) {
+  CHECK(!recording_events_) << "Already recording events.";
 
-  event_recorder_ = CreateEventRecorder();
-  if (!event_recorder_) {
-    GTEST_SKIP() << "Event recorder not available for "
-                 << GetTestParams().ToString();
+  // Check whether an expectation file exists for this platform.
+  base::FilePath expected_file = GetExpectationFilePath(test_name);
+  if (expected_file.empty()) {
+    return EventRecordingSession();
   }
 
-  std::vector<ui::AXPropertyFilter> filters = DefaultFilters();
-  filters.insert(filters.end(), additional_filters_.begin(),
-                 additional_filters_.end());
-  event_recorder_->SetPropertyFilters(filters);
+  // Create the event recorder if needed.
+  if (!event_recorder_) {
+    event_recorder_ = CreateEventRecorder();
+    if (!event_recorder_) {
+      return EventRecordingSession();
+    }
+  }
+
+  // Configure filters and start listening. Only pass DefaultFilters() to the
+  // event recorder — these control how element properties are formatted in
+  // EventReceived(). The additional_filters_ (DENY/ALLOW patterns for event
+  // names) are applied later in FilterEventLogs() for event-level filtering.
+  // Passing event-name filters like DENY:* to the recorder's formatter would
+  // suppress all element properties, producing empty element descriptions.
+  event_recorder_->SetPropertyFilters(DefaultFilters());
   event_recorder_->ListenToEvents(base::DoNothing());
-
   recording_events_ = true;
+
+  return EventRecordingSession(this, test_name);
 }
 
-bool DumpAccessibilityEventsViewsTestBase::EndTestAndCompareEvents(
+void DumpAccessibilityEventsViewsTestBase::StopRecordingAndCompare(
     const std::string& test_name) {
-  CHECK(recording_events_) << "Not recording events. Did you forget to call "
-                              "BeginRecordingEvents()?";
+  if (recording_events_) {
+    // Fire the end-of-test event on the root view. This is needed for UIA
+    // tests which wait for this event before collecting results.
+    views::View* root_view = GetTargetRootView();
+    CHECK(root_view);
+    root_view->GetViewAccessibility().NotifyEvent(ax::mojom::Event::kEndOfTest,
+                                                  true);
 
-  // Fire the end-of-test event on the root view. This is needed for UIA tests
-  // which wait for this event before collecting results.
-  views::View* root_view = GetTargetRootView();
-  CHECK(root_view);
-  root_view->GetViewAccessibility().NotifyEvent(ax::mojom::Event::kEndOfTest,
-                                                true);
+    // Flush any pending async WidgetAXManager updates so that
+    // BrowserAccessibilityManager fires the corresponding platform events
+    // before we stop listening.
+    base::RunLoop().RunUntilIdle();
 
-  event_recorder_->StopListeningToEvents();
-  event_recorder_->WaitForDoneRecording();
-  recording_events_ = false;
+    event_recorder_->StopListeningToEvents();
+    event_recorder_->WaitForDoneRecording();
+    recording_events_ = false;
+  }
 
-  return ValidateAgainstExpectation(test_name, CollectEventLogs());
-}
-
-void DumpAccessibilityEventsViewsTestBase::RunEventTest(
-    const std::string& test_name,
-    base::OnceClosure action) {
-  BeginRecordingEvents();
-  std::move(action).Run();
-  EXPECT_TRUE(EndTestAndCompareEvents(test_name));
+  EXPECT_TRUE(ValidateAgainstExpectation(test_name, CollectEventLogs()));
 }
 
 std::unique_ptr<ui::AXEventRecorder>
@@ -239,9 +349,8 @@ DumpAccessibilityEventsViewsTestBase::CreateEventRecorder() {
   if (GetApiType() != ui::AXApiType::kLinux) {
     return nullptr;
   }
-  // For Linux, we pass nullptr for manager since we're not testing web content.
-  return std::make_unique<ui::AXEventRecorderAuraLinux>(
-      /*manager=*/nullptr, base::GetCurrentProcId(), selector);
+  return CreateViewsAXEventRecorderAuraLinux(base::GetCurrentProcId(), selector,
+                                             widget_->ax_manager());
 #else
   return nullptr;
 #endif
@@ -282,8 +391,8 @@ DumpAccessibilityEventsViewsTestBase::DefaultFilters() const {
                        ui::AXPropertyFilter::ALLOW);
   filters.emplace_back("AXValueChanged*", ui::AXPropertyFilter::ALLOW);
 #elif BUILDFLAG(IS_LINUX)
-  filters.emplace_back("state-changed:*", ui::AXPropertyFilter::ALLOW);
-  filters.emplace_back("focus-event:*", ui::AXPropertyFilter::ALLOW);
+  filters.emplace_back("STATE-CHANGE:*", ui::AXPropertyFilter::ALLOW);
+  filters.emplace_back("FOCUS-EVENT:*", ui::AXPropertyFilter::ALLOW);
 #endif
 
   return filters;
@@ -295,12 +404,26 @@ void DumpAccessibilityEventsViewsTestBase::AddPropertyFilter(
   additional_filters_.emplace_back(filter_str, type);
 }
 
-void DumpAccessibilityEventsViewsTestBase::LoadFiltersFromFile(
-    const base::FilePath& filter_file) {
-  std::optional<ui::AXInspectScenario> scenario =
-      test_helper_.ParseScenario(filter_file, DefaultFilters());
-  if (scenario) {
-    scenario_ = std::move(*scenario);
+void DumpAccessibilityEventsViewsTestBase::AddAllowFilter(
+    const std::string& filter_str) {
+  AddPropertyFilter(filter_str, ui::AXPropertyFilter::ALLOW);
+}
+
+void DumpAccessibilityEventsViewsTestBase::AddDenyFilter(
+    const std::string& filter_str) {
+  AddPropertyFilter(filter_str, ui::AXPropertyFilter::DENY);
+}
+
+void DumpAccessibilityEventsViewsTestBase::SetFilters(
+    const std::string& directives) {
+  std::vector<std::string> lines = base::SplitString(
+      directives, "\n", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  ui::AXInspectScenario scenario =
+      test_helper_.ParseScenario(lines, DefaultFilters());
+  // Extract only the filters that were added beyond the defaults.
+  for (size_t i = DefaultFilters().size(); i < scenario.property_filters.size();
+       ++i) {
+    additional_filters_.push_back(std::move(scenario.property_filters[i]));
   }
 }
 
@@ -334,14 +457,15 @@ DumpAccessibilityEventsViewsTestBase::CollectEventLogs() {
 
 std::vector<std::string> DumpAccessibilityEventsViewsTestBase::FilterEventLogs(
     const std::vector<std::string>& event_logs) const {
-  if (scenario_.property_filters.empty()) {
-    return event_logs;
-  }
+  // Build the combined filter list: default filters + any filters added via
+  // AddPropertyFilter() in individual tests.
+  std::vector<ui::AXPropertyFilter> filters = DefaultFilters();
+  filters.insert(filters.end(), additional_filters_.begin(),
+                 additional_filters_.end());
 
   std::vector<std::string> filtered;
   for (const auto& event_log : event_logs) {
-    if (ui::AXTreeFormatter::MatchesPropertyFilters(scenario_.property_filters,
-                                                    event_log, true)) {
+    if (ui::AXTreeFormatter::MatchesPropertyFilters(filters, event_log, true)) {
       filtered.push_back(base::EscapeNonASCII(event_log));
     }
   }

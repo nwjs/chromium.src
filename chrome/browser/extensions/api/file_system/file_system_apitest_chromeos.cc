@@ -44,7 +44,7 @@
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/ui_base_types.h"
 
-// TODO(michaelpg): Port these tests to app_shell: crbug.com/505926.
+// TODO(michaelpg): Port these tests to app_shell: crbug.com/40425056.
 
 using file_manager::VolumeManager;
 
@@ -109,8 +109,9 @@ class ScopedAddListenerObserver : public EventRouter::Observer {
   // EventRouter::Observer overrides.
   void OnListenerAdded(const EventListenerInfo& details) override {
     // Call the callback only once, as the listener may be added multiple times.
-    if (details.extension_id != extension_id_ || !callback_)
+    if (details.extension_id != extension_id_ || !callback_) {
       return;
+    }
 
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, std::move(callback_));

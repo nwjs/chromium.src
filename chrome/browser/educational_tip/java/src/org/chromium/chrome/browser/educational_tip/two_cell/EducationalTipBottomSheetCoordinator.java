@@ -4,16 +4,25 @@
 
 package org.chromium.chrome.browser.educational_tip.two_cell;
 
+import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_DESCRIPTION;
+import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_LIST_ITEMS;
+import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_LIST_ITEMS_ON_CLICK;
+import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_TITLE;
+
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.educational_tip.EducationTipModuleActionDelegate;
 import org.chromium.chrome.browser.educational_tip.R;
-import org.chromium.chrome.browser.setup_list.SetupListModuleUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+
+import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Coordinator for the bottom sheet container in the two-cell educational tip. It is responsible for
@@ -21,32 +30,55 @@ import org.chromium.ui.modelutil.PropertyModel;
  */
 @NullMarked
 public class EducationalTipBottomSheetCoordinator {
+    private final Context mContext;
     private final BottomSheetContent mBottomSheetContent;
     private final BottomSheetController mBottomSheetController;
     private final PropertyModel mModel;
 
+    private final Supplier<List<EducationalTipBottomSheetItem>>
+            mRankedEducationalTipProviderSupplier;
+
     /**
      * @param actionDelegate The instance of {@link EducationTipModuleActionDelegate}.
      */
-    public EducationalTipBottomSheetCoordinator(EducationTipModuleActionDelegate actionDelegate) {
+    public EducationalTipBottomSheetCoordinator(
+            EducationTipModuleActionDelegate actionDelegate,
+            Supplier<List<EducationalTipBottomSheetItem>> rankedEducationalTipProviderSupplier) {
+        mRankedEducationalTipProviderSupplier = rankedEducationalTipProviderSupplier;
+        mContext = actionDelegate.getContext();
         mBottomSheetController = actionDelegate.getBottomSheetController();
         View contentView =
-                LayoutInflater.from(actionDelegate.getContext())
+                LayoutInflater.from(mContext)
                         .inflate(
                                 R.layout.educational_tip_setup_list_see_more_bottom_sheet_layout,
                                 /* root= */ null);
-        mBottomSheetContent = new EducationalTipBottomSheetContent(contentView);
+        mBottomSheetContent = new EducationalTipBottomSheetContent(mContext, contentView);
 
         mModel = new PropertyModel.Builder(EducationalTipBottomSheetProperties.ALL_KEYS).build();
+        PropertyModelChangeProcessor.create(
+                mModel, contentView, EducationalTipBottomSheetViewBinder::bind);
+
+        mModel.set(
+                BOTTOM_SHEET_LIST_ITEMS_ON_CLICK, () -> dismissBottomSheet(/* animate= */ false));
     }
 
     public void showBottomSheet() {
-        // TODO(crbug.com/479597724): Set title and description based on number of completed items.
-        // Determines order of module types.
         mModel.set(
-                EducationalTipBottomSheetProperties.BOTTOM_SHEET_LIST_ITEMS,
-                SetupListModuleUtils.getRankedModuleTypes());
+                BOTTOM_SHEET_TITLE,
+                mContext.getString(R.string.educational_tip_see_more_bottom_sheet_title));
+        mModel.set(
+                BOTTOM_SHEET_DESCRIPTION,
+                mContext.getString(R.string.educational_tip_see_more_bottom_sheet_description));
+        mModel.set(BOTTOM_SHEET_LIST_ITEMS, mRankedEducationalTipProviderSupplier.get());
 
         mBottomSheetController.requestShowContent(mBottomSheetContent, /* animate= */ true);
+    }
+
+    public void dismissBottomSheet(boolean animate) {
+        mBottomSheetController.hideContent(mBottomSheetContent, animate);
+    }
+
+    PropertyModel getModelForTesting() {
+        return mModel;
     }
 }

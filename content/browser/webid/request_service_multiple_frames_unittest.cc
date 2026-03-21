@@ -189,6 +189,7 @@ class TestDialogController
       content::RelyingPartyData rp_data,
       const std::vector<IdentityProviderDataPtr>& idp_list,
       const std::vector<IdentityRequestAccountPtr>& accounts,
+      const std::vector<IdentityRequestAccountPtr>& filtered_accounts,
       blink::mojom::RpMode rp_mode,
       IdentityRequestDialogController::AccountSelectionCallback on_selected,
       IdentityRequestDialogController::LoginToIdPCallback on_add_account,
@@ -251,7 +252,7 @@ class RequestServiceMultipleFramesTest : public RenderViewHostImplTestHarness {
         GURL(),                      // picture
         "(403) 293-3421",            // phone
         "@kenr",                     // username
-        std::vector<std::string>(),  // potentially_approved_origin_hashes
+        std::vector<std::string>(),  // potentially_approved_site_hashes
         std::vector<std::string>(),  // login_hints
         std::vector<std::string>(),  // domain_hints
         std::vector<std::string>()   // labels

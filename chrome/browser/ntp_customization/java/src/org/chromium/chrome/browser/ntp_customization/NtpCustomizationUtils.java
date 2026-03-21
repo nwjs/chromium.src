@@ -4,8 +4,6 @@
 
 package org.chromium.chrome.browser.ntp_customization;
 
-import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
-
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.CHROME_COLORS;
 import static org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType.FEED;
@@ -723,7 +721,6 @@ public class NtpCustomizationUtils {
      *
      * @param themeColorId The new color theme id.
      */
-    @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
     public static void setNtpThemeColorIdToSharedPreference(@NtpThemeColorId int themeColorId) {
         SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
         prefsManager.writeInt(ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_COLOR_ID, themeColorId);
@@ -976,21 +973,21 @@ public class NtpCustomizationUtils {
      * @param context Used to look up current day/night mode status.
      * @param defaultGoogleLogoDrawable The drawable instance for default Google Logo.
      */
-    public static void setTintForDefaultGoogleLogo(
+    public static @Nullable Integer setTintForDefaultGoogleLogo(
             Context context, @Nullable Drawable defaultGoogleLogoDrawable) {
         if (defaultGoogleLogoDrawable == null) {
-            return;
+            return null;
         }
 
         @NtpBackgroundType
         int backgroundType = NtpCustomizationConfigManager.getInstance().getBackgroundType();
+        Integer primaryColor =
+                NtpCustomizationUtils.getPrimaryColorFromCustomizedThemeColor(
+                        context, /* checkDailyRefresh= */ false);
+
         getTintedGoogleLogoDrawableImpl(
-                context,
-                defaultGoogleLogoDrawable,
-                backgroundType,
-                () ->
-                        NtpCustomizationUtils.getPrimaryColorFromCustomizedThemeColor(
-                                context, /* checkDailyRefresh= */ false));
+                context, defaultGoogleLogoDrawable, backgroundType, () -> primaryColor);
+        return primaryColor;
     }
 
     /**

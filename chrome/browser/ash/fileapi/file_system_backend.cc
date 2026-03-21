@@ -24,7 +24,6 @@
 #include "chrome/browser/ash/fileapi/observable_file_system_operation_impl.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
-#include "chrome/common/url_constants.h"
 #include "chromeos/ash/components/dbus/cros_disks/cros_disks_client.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "components/file_access/scoped_file_access_delegate.h"
@@ -414,7 +413,7 @@ bool FileSystemBackend::HasInplaceCopyImplementation(
     case storage::kFileSystemTypeDriveFs:
       return true;
     // TODO(fukino): Support in-place copy for DocumentsProvider.
-    // crbug.com/953603.
+    // crbug.com/189883198.
     case storage::kFileSystemTypeArcDocumentsProvider:
     case storage::kFileSystemTypeLocal:
     case storage::kFileSystemTypeArcContent:

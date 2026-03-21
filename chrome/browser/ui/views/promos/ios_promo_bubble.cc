@@ -12,10 +12,10 @@
 #include "base/memory/raw_ptr.h"
 #include "base/not_fatal_until.h"
 #include "build/branding_buildflags.h"
+#include "chrome/browser/desktop_to_mobile_promos/promos_pref_names.h"
+#include "chrome/browser/desktop_to_mobile_promos/promos_utils.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/promos/promos_pref_names.h"
-#include "chrome/browser/promos/promos_utils.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
@@ -251,8 +251,9 @@ IOSPromoConstants::IOSPromoTypeConfigs SetUpTabGroupsBubble(
           IDS_IOS_DESKTOP_TAB_GROUPS_PROMO_BUBBLE_DESCRIPTION_QR;
       config.accept_button_text_id =
           IDS_IOS_DESKTOP_PROMO_BUBBLE_BUTTON_ACCEPT_QR;
-      // TODO (crbug.com/479229912): Add the Tab Groups QR code image once the
-      // URL is provided.
+      config.promo_image =
+          CreateQrCodeImage(IOSPromoConstants::kIOSPromoTabGroupsQRCodeURL);
+      config.qr_code_url = IOSPromoConstants::kIOSPromoTabGroupsQRCodeURL;
       break;
     case BubbleType::kReminder:
       config.promo_title_id =
@@ -290,8 +291,9 @@ IOSPromoConstants::IOSPromoTypeConfigs SetUpPriceTrackingBubble(
           IDS_IOS_DESKTOP_PRICE_TRACKING_DESCRIPTION_QR;
       config.accept_button_text_id =
           IDS_IOS_DESKTOP_PROMO_BUBBLE_BUTTON_ACCEPT_QR;
-      // TODO (crbug.com/479229912): Add the Price Tracking QR code image once
-      // the URL is provided.
+      config.promo_image =
+          CreateQrCodeImage(IOSPromoConstants::kIOSPromoPriceTrackingQRCodeURL);
+      config.qr_code_url = IOSPromoConstants::kIOSPromoPriceTrackingQRCodeURL;
       break;
     case BubbleType::kReminder:
       config.promo_title_id =
@@ -506,6 +508,12 @@ std::unique_ptr<views::View> IOSPromoBubble::CreateImageAndBodyTextView(
             .SetCornerRadius(
                 views::LayoutProvider::Get()->GetCornerRadiusMetric(
                     views::Emphasis::kHigh));
+
+    if (bubble_type == BubbleType::kQRCode) {
+      image_view_builder.SetAccessibleName(
+          l10n_util::GetStringUTF16(IDS_IOS_DESKTOP_PROMO_QR_CODE_ALT_TEXT));
+    }
+
     auto image_container_builder =
         views::Builder<views::View>()
             .SetLayoutManager(std::make_unique<views::FillLayout>())
@@ -528,7 +536,7 @@ std::unique_ptr<views::View> IOSPromoBubble::CreateImageAndBodyTextView(
           .SetID(IOSPromoConstants::kDescriptionLabelID)
           .SetText(
               l10n_util::GetStringUTF16(ios_promo_config.promo_description_id))
-          .SetTextContext(views::style::CONTEXT_BUBBLE_FOOTER)
+          .SetTextContext(views::style::CONTEXT_DIALOG_BODY_TEXT)
           .SetTextStyle(views::style::STYLE_SECONDARY)
           .SetEnabledColor(kColorDesktopToIOSPromoFooterSubtitleLabel)
           .SetMultiLine(true)

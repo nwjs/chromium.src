@@ -12,7 +12,6 @@
 #include "base/stl_util.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
-#include "components/send_tab_to_self/target_device_info.h"
 #include "components/sharing_message/features.h"
 #include "components/sharing_message/proto/sharing_message.pb.h"
 #include "components/sharing_message/sharing_constants.h"
@@ -20,6 +19,7 @@
 #include "components/sharing_message/sharing_utils.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync_device_info/device_info.h"
+#include "components/sync_device_info/device_name_util.h"
 #include "components/sync_device_info/local_device_info_provider.h"
 #include "components/sync_device_info/local_device_info_util.h"
 
@@ -37,8 +37,8 @@ SharingTargetDeviceInfo ConvertDeviceInfo(const syncer::DeviceInfo* device,
                                           bool use_short_name) {
   CHECK(device);
 
-  const send_tab_to_self::SharingDeviceNames device_names =
-      send_tab_to_self::GetSharingDeviceNames(device);
+  const syncer::DeviceDisplayNames device_names =
+      syncer::GetDeviceDisplayNames(device);
 
   const std::string& client_name =
       use_short_name ? device_names.short_name : device_names.full_name;
@@ -58,14 +58,6 @@ SharingDeviceSourceSync::SharingDeviceSourceSync(
     : sync_service_(sync_service),
       local_device_info_provider_(local_device_info_provider),
       device_info_tracker_(device_info_tracker) {
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::MayBlock(), base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-      base::BindOnce(syncer::GetPersonalizableDeviceNameBlocking),
-      base::BindOnce(
-          &SharingDeviceSourceSync::InitPersonalizableLocalDeviceName,
-          weak_ptr_factory_.GetWeakPtr()));
-
   if (!device_info_tracker_->IsSyncing()) {
     device_info_tracker_->AddObserver(this);
   }
@@ -111,8 +103,7 @@ SharingDeviceSourceSync::GetDeviceCandidates(
 
 bool SharingDeviceSourceSync::IsReady() {
   return IsSyncDisabledForSharing(sync_service_) ||
-         (personalizable_local_device_name_ &&
-          device_info_tracker_->IsSyncing() &&
+         (device_info_tracker_->IsSyncing() &&
           local_device_info_provider_->GetLocalDeviceInfo());
 }
 
@@ -131,13 +122,6 @@ void SharingDeviceSourceSync::SetDeviceInfoTrackerForTesting(
   if (!device_info_tracker_->IsSyncing()) {
     device_info_tracker_->AddObserver(this);
   }
-  MaybeRunReadyCallbacks();
-}
-
-void SharingDeviceSourceSync::InitPersonalizableLocalDeviceName(
-    std::string personalizable_local_device_name) {
-  personalizable_local_device_name_ =
-      std::move(personalizable_local_device_name);
   MaybeRunReadyCallbacks();
 }
 
@@ -196,22 +180,19 @@ SharingDeviceSourceSync::ConvertAndDeduplicateDevices(
                      device2->last_updated_timestamp();
             });
 
-  std::unordered_map<const syncer::DeviceInfo*,
-                     send_tab_to_self::SharingDeviceNames>
+  std::unordered_map<const syncer::DeviceInfo*, syncer::DeviceDisplayNames>
       device_names_map;
   std::unordered_set<std::string> full_names;
   std::unordered_map<std::string, int> short_names_counter;
 
   // To prevent adding candidates with same full name as local device.
-  full_names.insert(send_tab_to_self::GetSharingDeviceNames(
+  full_names.insert(syncer::GetDeviceDisplayNames(
                         local_device_info_provider_->GetLocalDeviceInfo())
                         .full_name);
-  // To prevent M78- instances of Chrome with same device model from showing up.
-  full_names.insert(*personalizable_local_device_name_);
 
   for (const syncer::DeviceInfo* device : devices) {
-    send_tab_to_self::SharingDeviceNames device_names =
-        send_tab_to_self::GetSharingDeviceNames(device);
+    syncer::DeviceDisplayNames device_names =
+        syncer::GetDeviceDisplayNames(device);
 
     // Only insert the first occurrence of each device name.
     auto inserted = full_names.insert(device_names.full_name);
@@ -232,7 +213,7 @@ SharingDeviceSourceSync::ConvertAndDeduplicateDevices(
       continue;
     }
 
-    const send_tab_to_self::SharingDeviceNames& device_names = it->second;
+    const syncer::DeviceDisplayNames& device_names = it->second;
     bool unique_short_name = short_names_counter[device_names.short_name] == 1;
 
     converted_devices.push_back(

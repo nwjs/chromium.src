@@ -37,15 +37,9 @@
 #include "ui/gfx/skia_span_util.h"
 
 #if BUILDFLAG(IS_WIN)
-// XpsObjectModel.h indirectly includes <wincrypt.h> which is
-// incompatible with Chromium's OpenSSL. By including wincrypt_shim.h
-// first, problems are avoided.
-// clang-format off
-#include "base/win/wincrypt_shim.h"
+#include <objbase.h>
 
 #include <XpsObjectModel.h>
-#include <objbase.h>
-// clang-format on
 
 #include "third_party/skia/include/docs/SkXPSDocument.h"
 #include "third_party/skia/include/encode/SkPngRustEncoder.h"
@@ -117,6 +111,24 @@ void AppendFormFieldDescFromAccessibleName(const ui::AXNode* ax_node,
   }
 }
 
+// Maps AX ListStyle to PDF ListNumbering attribute value.
+const char* GetListNumberingFromListStyle(ax::mojom::ListStyle list_style) {
+  switch (list_style) {
+    case ax::mojom::ListStyle::kDisc:
+      return chrome_pdf::kPDFListNumberingDisc;
+    case ax::mojom::ListStyle::kCircle:
+      return chrome_pdf::kPDFListNumberingCircle;
+    case ax::mojom::ListStyle::kSquare:
+      return chrome_pdf::kPDFListNumberingSquare;
+    case ax::mojom::ListStyle::kNumeric:
+      return chrome_pdf::kPDFListNumberingDecimal;
+    case ax::mojom::ListStyle::kImage:
+    case ax::mojom::ListStyle::kOther:
+    case ax::mojom::ListStyle::kNone:
+      return nullptr;
+  }
+}
+
 // Convert an AXNode into a SkPDF::StructureElementNode in order to make a
 // tagged (accessible) PDF. Returns true on success and false if we don't
 // have enough data to build a valid tree.
@@ -162,6 +174,9 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
       }
       break;
     }
+    case ax::mojom::Role::kFigcaption:
+      tag->fTypeString = chrome_pdf::kPDFStructureTypeCaption;
+      break;
     case ax::mojom::Role::kCode:
       tag->fTypeString = chrome_pdf::kPDFStructureTypeCode;
       break;
@@ -181,9 +196,34 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
     case ax::mojom::Role::kStrong:
       tag->fTypeString = chrome_pdf::kPDFStructureTypeStrong;
       break;
-    case ax::mojom::Role::kList:
-      tag->fTypeString = chrome_pdf::kPDFStructureTypeList;
+    case ax::mojom::Role::kRuby:
+      tag->fTypeString = chrome_pdf::kPDFStructureTypeRuby;
       break;
+    case ax::mojom::Role::kRubyAnnotation:
+      tag->fTypeString = chrome_pdf::kPDFStructureTypeRubyText;
+      break;
+    case ax::mojom::Role::kList: {
+      tag->fTypeString = chrome_pdf::kPDFStructureTypeList;
+      // Get the list style from the first list item child to determine
+      // ordered vs unordered list type for the ListNumbering attribute.
+      for (size_t i = 0; i < ax_node->GetUnignoredChildCount(); i++) {
+        const ui::AXNode* child = ax_node->GetUnignoredChildAtIndex(i);
+        if (child->GetRole() == ax::mojom::Role::kListItem) {
+          int list_style_int =
+              child->GetIntAttribute(ax::mojom::IntAttribute::kListStyle);
+          auto list_style = static_cast<ax::mojom::ListStyle>(list_style_int);
+          const char* list_numbering =
+              GetListNumberingFromListStyle(list_style);
+          if (list_numbering) {
+            tag->fAttributes.appendName(chrome_pdf::kPDFListAttributeOwner,
+                                        chrome_pdf::kPDFListNumberingAttribute,
+                                        list_numbering);
+          }
+          break;
+        }
+      }
+      break;
+    }
     case ax::mojom::Role::kListMarker:
       tag->fTypeString = chrome_pdf::kPDFStructureTypeListItemLabel;
       break;
@@ -229,10 +269,18 @@ bool RecursiveBuildStructureTree(const ui::AXNode* ax_node,
           chrome_pdf::kPDFTableCellHeadersAttribute, header_ids);
       break;
     }
+    case ax::mojom::Role::kCanvas:
+    case ax::mojom::Role::kDocCover:
+    case ax::mojom::Role::kSvgRoot:
+      // These roles may contain rich fallback/descendant semantics.
+      // Only map to Figure when there are no children.
+      if (ax_node->GetUnignoredChildCount() > 0) {
+        tag->fTypeString = chrome_pdf::kPDFStructureTypeNonStruct;
+        break;
+      }
+      [[fallthrough]];
+    case ax::mojom::Role::kGraphicsSymbol:
     case ax::mojom::Role::kImage:
-      // TODO(thestig): Figure out if the `ax::mojom::Role::kFigure` case should
-      // share code with the `ax::mojom::Role::kImage` case, and if `valid`
-      // should be set.
       valid = true;
       [[fallthrough]];
     case ax::mojom::Role::kFigure: {

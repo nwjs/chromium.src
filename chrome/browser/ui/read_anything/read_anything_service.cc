@@ -16,9 +16,9 @@
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
 #include "chrome/browser/ui/read_anything/read_anything_service_factory.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/grit/browser_resources.h"
 #include "extensions/browser/extension_system.h"
@@ -103,8 +103,7 @@ void ReadAnythingService::SetupDesktopEngine() {
 
   // Install the TTS extension via the component updater if the
   // component updater flag is enabled.
-  if (features::IsReadAnythingReadAloudEnabled() &&
-      !features::IsWasmTtsEngineAutoInstallDisabled()) {
+  if (!features::IsWasmTtsEngineAutoInstallDisabled()) {
     // Trigger an on-demand update of the engine to ensure the TTS extension
     // is available to provide natural voices as soon as reading mode is opened.
     component_updater::WasmTtsEngineComponentInstallerPolicy::

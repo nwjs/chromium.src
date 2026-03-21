@@ -21,9 +21,8 @@
 #import "ios/chrome/browser/content_suggestions/safety_check/model/safety_check_utils.h"
 #import "ios/chrome/browser/content_suggestions/safety_check/public/safety_check_constants.h"
 #import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_audience.h"
-#import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_consumer_source.h"
-#import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_magic_stack_consumer.h"
-#import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_state.h"
+#import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_config.h"
+#import "ios/chrome/browser/content_suggestions/safety_check/ui/safety_check_item_type.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_consumer.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_view_controller_audience.h"
 #import "ios/chrome/browser/passwords/model/password_checkup_utils.h"
@@ -38,7 +37,6 @@
     ProfileStateObserver,
     PrefObserverDelegate,
     SafetyCheckAudience,
-    SafetyCheckConsumerSource,
     SafetyCheckManagerObserver>
 @end
 
@@ -59,9 +57,7 @@
   ProfileState* _profileState;
   // Used by the Safety Check (Magic Stack) module for the current Safety Check
   // state.
-  SafetyCheckState* _safetyCheckState;
-  // The Safety Check (Magic Stack) consumer.
-  id<SafetyCheckMagicStackConsumer> _safetyCheckConsumer;
+  SafetyCheckConfig* _safetyCheckConfig;
 }
 
 - (instancetype)initWithSafetyCheckManager:
@@ -69,8 +65,7 @@
                                 localState:(PrefService*)localState
                                  userState:(PrefService*)userState
                               profileState:(ProfileState*)profileState {
-  self = [super init];
-  if (self) {
+  if ((self = [super init])) {
     _safetyCheckManager = safetyCheckManager;
     _localState = localState;
     _userState = userState;
@@ -100,10 +95,10 @@
           safety_check::prefs::kSafetyCheckHomeModuleEnabled,
           &_userPrefChangeRegistrar);
 
-      _safetyCheckState = [self initialSafetyCheckState];
+      _safetyCheckConfig = [self initialSafetyCheckState];
 
       if (ShouldHideSafetyCheckModuleIfNoIssues()) {
-        [self updateIssueCount:[_safetyCheckState numberOfIssues]];
+        [self updateIssueCount:[_safetyCheckConfig numberOfIssues]];
       }
 
       _safetyCheckManagerObserver =
@@ -111,7 +106,8 @@
 
       if (_profileState.initStage > ProfileInitStage::kUIReady &&
           _profileState.firstSceneHasInitializedUI &&
-          _safetyCheckState.runningState == RunningSafetyCheckState::kRunning) {
+          _safetyCheckConfig.runningState ==
+              RunningSafetyCheckState::kRunning) {
         // When the Safety Check Manager can automatically trigger Safety
         // Checks, the Magic Stack should never initiate a Safety Check run.
         //
@@ -128,10 +124,7 @@
 }
 
 - (void)disconnect {
-  _safetyCheckConsumer = nil;
-
-  _safetyCheckState.audience = nil;
-  _safetyCheckState.safetyCheckConsumerSource = nil;
+  _safetyCheckConfig.audience = nil;
 
   _safetyCheckManagerObserver.reset();
 
@@ -145,8 +138,8 @@
   _profileState = nil;
 }
 
-- (SafetyCheckState*)safetyCheckState {
-  return _safetyCheckState;
+- (SafetyCheckConfig*)safetyCheckConfig {
+  return _safetyCheckConfig;
 }
 
 - (void)disableModule {
@@ -154,19 +147,12 @@
 }
 
 - (void)reset {
-  _safetyCheckState = [[SafetyCheckState alloc]
+  _safetyCheckConfig = [[SafetyCheckConfig alloc]
       initWithUpdateChromeState:UpdateChromeSafetyCheckState::kDefault
                   passwordState:PasswordSafetyCheckState::kDefault
               safeBrowsingState:SafeBrowsingSafetyCheckState::kDefault
                    runningState:RunningSafetyCheckState::kDefault];
-  _safetyCheckState.audience = self;
-  _safetyCheckState.safetyCheckConsumerSource = self;
-}
-
-#pragma mark - SafetyCheckConsumerSource
-
-- (void)addConsumer:(id<SafetyCheckMagicStackConsumer>)consumer {
-  _safetyCheckConsumer = consumer;
+  _safetyCheckConfig.audience = self;
 }
 
 #pragma mark - SafetyCheckAudience
@@ -181,27 +167,28 @@
 - (void)passwordCheckStateChanged:(PasswordSafetyCheckState)state
            insecurePasswordCounts:(password_manager::InsecurePasswordCounts)
                                       insecurePasswordCounts {
-  _safetyCheckState.passwordState = state;
-  _safetyCheckState.weakPasswordsCount = insecurePasswordCounts.weak_count;
-  _safetyCheckState.reusedPasswordsCount = insecurePasswordCounts.reused_count;
-  _safetyCheckState.compromisedPasswordsCount =
+  _safetyCheckConfig.passwordState = state;
+  _safetyCheckConfig.weakPasswordsCount = insecurePasswordCounts.weak_count;
+  _safetyCheckConfig.reusedPasswordsCount = insecurePasswordCounts.reused_count;
+  _safetyCheckConfig.compromisedPasswordsCount =
       insecurePasswordCounts.compromised_count;
 }
 
 - (void)safeBrowsingCheckStateChanged:(SafeBrowsingSafetyCheckState)state {
-  _safetyCheckState.safeBrowsingState = state;
+  _safetyCheckConfig.safeBrowsingState = state;
 }
 
 - (void)updateChromeCheckStateChanged:(UpdateChromeSafetyCheckState)state {
-  _safetyCheckState.updateChromeState = state;
+  _safetyCheckConfig.updateChromeState = state;
 }
 
 - (void)runningStateChanged:(RunningSafetyCheckState)state {
-  _safetyCheckState.runningState = state;
-  _safetyCheckState.shouldShowSeeMore = [_safetyCheckState numberOfIssues] > 2;
+  _safetyCheckConfig.runningState = state;
+  _safetyCheckConfig.shouldShowSeeMore =
+      [_safetyCheckConfig numberOfIssues] > 2;
 
   if (ShouldHideSafetyCheckModuleIfNoIssues()) {
-    [self updateIssueCount:[_safetyCheckState numberOfIssues]];
+    [self updateIssueCount:[_safetyCheckConfig numberOfIssues]];
   }
 
   if (safety_check_prefs::IsSafetyCheckInMagicStackDisabled(_userState)) {
@@ -211,11 +198,11 @@
     return;
   }
 
-  // Ensures the consumer gets the latest Safety Check state only when the
-  // running state changes; this avoids calling the consumer every time an
+  // Ensures the delegate gets the latest Safety Check state only when the
+  // running state changes; this avoids calling the delegate every time an
   // individual check state changes.
-  _safetyCheckState.audience = self;
-  [_safetyCheckConsumer safetyCheckStateDidChange:_safetyCheckState];
+  _safetyCheckConfig.audience = self;
+  [self safetyCheckStateDidChange:_safetyCheckConfig];
 }
 
 - (void)safetyCheckManagerWillShutdown {
@@ -235,7 +222,7 @@
   if (!safety_check_prefs::IsSafetyCheckInMagicStackDisabled(_userState) &&
       nextInitStage == ProfileInitStage::kFinal &&
       profileState.firstSceneHasInitializedUI &&
-      _safetyCheckState.runningState == RunningSafetyCheckState::kRunning) {
+      _safetyCheckConfig.runningState == RunningSafetyCheckState::kRunning) {
     // When the Safety Check Manager can automatically trigger Safety Checks,
     // the Magic Stack should never initiate a Safety Check run.
     //
@@ -253,17 +240,17 @@
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
   if (preferenceName == prefs::kIosSettingsSafetyCheckLastRunTime ||
       preferenceName == prefs::kIosSafetyCheckManagerSafeBrowsingCheckResult) {
-    _safetyCheckState.lastRunTime = [self latestSafetyCheckRunTimestamp];
+    _safetyCheckConfig.lastRunTime = [self latestSafetyCheckRunTimestamp];
 
-    _safetyCheckState.safeBrowsingState =
+    _safetyCheckConfig.safeBrowsingState =
         SafeBrowsingSafetyCheckStateForName(
             _localState->GetString(
                 prefs::kIosSafetyCheckManagerSafeBrowsingCheckResult))
-            .value_or(_safetyCheckState.safeBrowsingState);
+            .value_or(_safetyCheckConfig.safeBrowsingState);
 
     // Trigger a module update when the Last Run Time, or Safe Browsing state,
     // has changed.
-    [self runningStateChanged:_safetyCheckState.runningState];
+    [self runningStateChanged:_safetyCheckConfig.runningState];
   } else if (preferenceName ==
                  safety_check::prefs::kSafetyCheckHomeModuleEnabled &&
              !_userState->GetBoolean(
@@ -274,11 +261,11 @@
 
 #pragma mark - Private
 
-// Creates the initial `SafetyCheckState` based on the previous check states
+// Creates the initial `SafetyCheckConfig` based on the previous check states
 // stored in Prefs, or (for development builds) the overridden check states via
 // Experimental settings.
-- (SafetyCheckState*)initialSafetyCheckState {
-  SafetyCheckState* state = [[SafetyCheckState alloc]
+- (SafetyCheckConfig*)initialSafetyCheckState {
+  SafetyCheckConfig* config = [[SafetyCheckConfig alloc]
       initWithUpdateChromeState:UpdateChromeSafetyCheckState::kDefault
                   passwordState:PasswordSafetyCheckState::kDefault
               safeBrowsingState:SafeBrowsingSafetyCheckState::kDefault
@@ -288,21 +275,21 @@
   std::optional<UpdateChromeSafetyCheckState> overrideUpdateChromeState =
       experimental_flags::GetUpdateChromeSafetyCheckState();
 
-  state.updateChromeState = overrideUpdateChromeState.value_or(
+  config.updateChromeState = overrideUpdateChromeState.value_or(
       _safetyCheckManager->GetUpdateChromeCheckState());
 
   // Password check.
   std::optional<PasswordSafetyCheckState> overridePasswordState =
       experimental_flags::GetPasswordSafetyCheckState();
 
-  state.passwordState = overridePasswordState.value_or(
+  config.passwordState = overridePasswordState.value_or(
       _safetyCheckManager->GetPasswordCheckState());
 
   // Safe Browsing check.
   std::optional<SafeBrowsingSafetyCheckState> overrideSafeBrowsingState =
       experimental_flags::GetSafeBrowsingSafetyCheckState();
 
-  state.safeBrowsingState = overrideSafeBrowsingState.value_or(
+  config.safeBrowsingState = overrideSafeBrowsingState.value_or(
       _safetyCheckManager->GetSafeBrowsingCheckState());
 
   // Insecure credentials.
@@ -322,9 +309,9 @@
   // NOTE: If any password counts are overriden via Experimental
   // settings, all password counts will be considered overriden.
   if (passwordCountsOverride) {
-    state.weakPasswordsCount = overrideWeakPasswordsCount.value_or(0);
-    state.reusedPasswordsCount = overrideReusedPasswordsCount.value_or(0);
-    state.compromisedPasswordsCount =
+    config.weakPasswordsCount = overrideWeakPasswordsCount.value_or(0);
+    config.reusedPasswordsCount = overrideReusedPasswordsCount.value_or(0);
+    config.compromisedPasswordsCount =
         overrideCompromisedPasswordsCount.value_or(0);
   } else {
     std::vector<password_manager::CredentialUIEntry> insecureCredentials =
@@ -334,19 +321,20 @@
         password_manager::CountInsecurePasswordsPerInsecureType(
             insecureCredentials);
 
-    state.weakPasswordsCount = counts.weak_count;
-    state.reusedPasswordsCount = counts.reused_count;
-    state.compromisedPasswordsCount = counts.compromised_count;
+    config.weakPasswordsCount = counts.weak_count;
+    config.reusedPasswordsCount = counts.reused_count;
+    config.compromisedPasswordsCount = counts.compromised_count;
   }
 
-  state.lastRunTime = [self latestSafetyCheckRunTimestamp];
-  state.runningState = CanRunSafetyCheck(state.lastRunTime)
-                           ? RunningSafetyCheckState::kRunning
-                           : RunningSafetyCheckState::kDefault;
-  state.audience = self;
-  state.safetyCheckConsumerSource = self;
+  config.lastRunTime = [self latestSafetyCheckRunTimestamp];
+  config.runningState = CanRunSafetyCheck(config.lastRunTime)
+                            ? RunningSafetyCheckState::kRunning
+                            : RunningSafetyCheckState::kDefault;
+  config.audience = self;
+  config.itemType = [config isRunning] ? SafetyCheckItemType::kRunning
+                                       : SafetyCheckItemType::kDefault;
 
-  return state;
+  return config;
 }
 
 // Returns the last run time of the Safety Check, regardless if the check was
@@ -382,6 +370,12 @@
 
   _userState->SetInteger(
       prefs::kHomeCustomizationMagicStackSafetyCheckIssuesCount, issuesCount);
+}
+
+// Informs this mediator's delegate that the Safety Check state did change.
+- (void)safetyCheckStateDidChange:(SafetyCheckConfig*)config {
+  (void)config;
+  [self.delegate safetyCheckMagicStackMediatorDidReconfigureItem];
 }
 
 @end

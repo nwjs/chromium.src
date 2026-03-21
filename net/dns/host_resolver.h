@@ -41,6 +41,7 @@
 namespace net {
 
 class AddressList;
+class CanaryDomainService;
 class ContextHostResolver;
 class DnsClient;
 struct DnsConfigOverrides;
@@ -81,7 +82,10 @@ class NET_EXPORT HostResolver {
 
     std::string ToString() const;
 
+    // Returns the requested type. HasScheme() must return true to use the first
+    // method, second to use the second.
     const url::SchemeHostPort& AsSchemeHostPort() const;
+    const HostPortPair& AsHostPortPair() const;
 
     bool operator==(const Host& other) const { return host_ == other.host_; }
 
@@ -562,6 +566,10 @@ class NET_EXPORT HostResolver {
   virtual HostResolverManager* GetManagerForTesting();
   virtual const URLRequestContext* GetContextForTesting() const;
   virtual handles::NetworkHandle GetTargetNetworkForTesting() const;
+
+  // Creates a CanaryDomainService that uses this resolver. Can return nullptr,
+  // for example, if the resolver is shutting down.
+  virtual std::unique_ptr<CanaryDomainService> CreateCanaryDomainService();
 
   // Creates a new HostResolver. `manager` must outlive the returned resolver.
   //

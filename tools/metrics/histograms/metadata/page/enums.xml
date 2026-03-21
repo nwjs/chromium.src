@@ -259,7 +259,7 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="(Deprecated) Local Card Migration"/>
   <int value="8" label="Manage Passwords"/>
   <int value="9" label="Payments Offer Notification"/>
-  <int value="10" label="Price Tracking"/>
+  <int value="10" label="(Deprecated) Price Tracking"/>
   <int value="11" label="PWA Install"/>
   <int value="12" label="(Deprecated) QR Code Generator"/>
   <int value="13" label="(Deprecated) Reader Mode"/>
@@ -288,6 +288,9 @@ chromium-metrics-reviews@google.com.
   <int value="36" label="Reading mode"/>
   <int value="37" label="Contextual Task"/>
   <int value="38" label="JS Optimizations"/>
+  <int value="39" label="RecordReplay"/>
+  <int value="40" label="Indigo"/>
+  <int value="41" label="Federation"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/page_action/page_action_icon_type.h:PageActionIconType) -->
@@ -396,6 +399,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/page_load_metrics/google/browser/prerender_prewarm_navigation_data.h:PrerenderPrewarmNavigationStatus) -->
+
+<!-- LINT.IfChange(PriorPrewarmCommitStatus) -->
+
+<enum name="PriorPrewarmCommitStatus">
+  <int value="0" label="No prewarm triggered"/>
+  <int value="1" label="Prewarm triggered, not committed"/>
+  <int value="2" label="Prewarm triggered, committed"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/page_load_metrics/google/browser/prerender_prewarm_navigation_data.h:PriorPrewarmCommitStatus) -->
 
 <!-- LINT.IfChange(WebViewPageAttemptResult) -->
 

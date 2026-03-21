@@ -8,6 +8,7 @@
 #include "build/build_config.h"
 #include "extensions/browser/api/messaging/native_message_host.h"
 #include "extensions/browser/api/messaging/native_message_port_dispatcher.h"
+#include "extensions/browser/api/system_display/display_info_provider.h"
 
 namespace extensions {
 
@@ -120,8 +121,8 @@ ExtensionsAPIClient::CreateContentRulesRegistry(
   return nullptr;
 }
 
-std::unique_ptr<DevicePermissionsPrompt>
-ExtensionsAPIClient::CreateDevicePermissionsPrompt(
+std::unique_ptr<UsbDevicePermissionsPrompt>
+ExtensionsAPIClient::CreateUsbDevicePermissionsPrompt(
     content::WebContents* web_contents) const {
   return nullptr;
 }

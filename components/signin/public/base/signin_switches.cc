@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "base/time/time.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_pref_names.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -217,6 +218,19 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    base::Milliseconds(3000));
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kDisableU18FeedbackDesktop, base::FEATURE_DISABLED_BY_DEFAULT);
+constexpr base::FeatureParam<U18FeedbackDesktopState>::Option
+    kDisableU18FeedbackDesktopStates[] = {
+        {U18FeedbackDesktopState::kEnabled, "enabled"},
+        {U18FeedbackDesktopState::kForced, "forced"},
+};
+constexpr base::FeatureParam<U18FeedbackDesktopState>
+    kDisableU18FeedbackDesktopState{&kDisableU18FeedbackDesktop, "state",
+                                    U18FeedbackDesktopState::kEnabled,
+                                    &kDisableU18FeedbackDesktopStates};
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 #if BUILDFLAG(IS_ANDROID)
 // Whether activityless sign-in should be used for all entry points.
 BASE_FEATURE(kEnableActivitylessSigninAllEntryPoint,
@@ -274,13 +288,23 @@ bool IsChromeRefreshTokenBindingEnabled(const PrefService* profile_prefs) {
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
+#if !defined(NDEBUG)
+BASE_FEATURE(kEnableFakeCapabilityForTesting,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Enables binding the OAuthMultilogin cookies to a device with DBSC prototype.
 //
 // If `kEnableOAuthMultiloginStandardCookiesBinding` is enabled, DBSC standard
 // takes precedence over DBSC prototype.
 BASE_FEATURE(kEnableOAuthMultiloginCookiesBinding,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_WIN)
+);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -291,7 +315,12 @@ BASE_FEATURE(kEnableOAuthMultiloginCookiesBinding,
 // NOTE: This flag is meant to be used in conjunction with the
 // `kEnableOAuthMultiloginCookiesBinding` flag.
 BASE_FEATURE(kEnableOAuthMultiloginCookiesBindingServerExperiment,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_WIN)
+);
 BASE_FEATURE_PARAM(bool,
                    kOAuthMultiloginCookieBindingEnforced,
                    &kEnableOAuthMultiloginCookiesBindingServerExperiment,
@@ -348,6 +377,15 @@ constexpr base::FeatureParam<SeamlessSigninStringType>
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+BASE_FEATURE(kEnableSearchAIModeSigninPromo, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kEnforceCanSignInToChromeCapability,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Enables the management disclaimer for managed signed profiles. All signed in
 // profiles that never saw the management disclaimer will be shown the
 // management disclaimer when they open Chrome. Every time the primary signed in
@@ -361,9 +399,35 @@ const base::FeatureParam<base::TimeDelta>
         base::Hours(8)};
 #endif
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-BASE_FEATURE(kForcedDiceMigration, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kFirstRunDesktopRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFirstRunDesktopChoiceScreenRefresh,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsFirstRunDesktopRefreshEnabled(bool is_in_search_engine_choice_region) {
+  if (is_in_search_engine_choice_region &&
+      !base::FeatureList::IsEnabled(kFirstRunDesktopChoiceScreenRefresh)) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(kFirstRunDesktopRefresh);
+}
+constexpr base::FeatureParam<FirstRunDesktopSignInPromoVariation>::Option
+    kFirstRunDesktopSignInPromoVariations[] = {
+        {FirstRunDesktopSignInPromoVariation::kDefault, "default"},
+        {FirstRunDesktopSignInPromoVariation::kDontSignInInTheTopCorner,
+         "dont-sign-in-in-the-top-corner"},
+        {FirstRunDesktopSignInPromoVariation::kDontSignInOnGaiaPage,
+         "dont-sign-in-on-gaia-page"},
+};
+constexpr base::FeatureParam<FirstRunDesktopSignInPromoVariation>
+    kFirstRunDesktopSignInPromoVariation{
+        &kFirstRunDesktopRefresh, "sign-in-promo-variation",
+        FirstRunDesktopSignInPromoVariation::kDefault,
+        &kFirstRunDesktopSignInPromoVariations};
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+BASE_FEATURE(kFirstRunDesktopRevamp, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kForceHistoryOptInScreen, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -376,7 +440,7 @@ BASE_FEATURE(kForceStartupSigninPromo, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kFRESignInAlternativeSecondaryButtonText,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -396,31 +460,14 @@ BASE_FEATURE(kIdentityInAuthErrorFollowUps, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kMakeIdentityManagerSourceOfAccounts,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 // When enabled a new library is used to fetch accounts via
 // AccountManagerAccountManagerDelegate
 BASE_FEATURE(kMigrateAccountManagerDelegate, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kNonDefaultGaiaOriginCheck, base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-BASE_FEATURE(kOfferMigrationToDiceUsers, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kOfferMigrationToDiceUsersMinDelay,
-                   &kOfferMigrationToDiceUsers,
-                   "offer_migration_to_dice_users_min_delay",
-                   base::Seconds(30));
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kOfferMigrationToDiceUsersMaxDelay,
-                   &kOfferMigrationToDiceUsers,
-                   "offer_migration_to_dice_users_max_delay",
-                   base::Minutes(5));
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kOfferMigrationToDiceUsersMinTimeBetweenDialogs,
-                   &kOfferMigrationToDiceUsers,
-                   "offer_migration_to_dice_users_min_time_between_dialogs",
-                   base::Days(7));
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kOpenAllProfilesFromProfilePickerExperiment,
@@ -467,14 +514,15 @@ constexpr base::FeatureParam<ProfilePickerVariation>
 
 BASE_FEATURE(kProfilesReordering, base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kReadContextualAccountCapabilities,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kRestrictDeviceManagementServiceOAuthScope,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-BASE_FEATURE(kRollbackDiceMigration, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kShowProfilePickerToAllUsersExperiment,
@@ -500,6 +548,20 @@ const base::FeatureParam<int> kContextualSigninPromoDismissedThreshold(
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kSignInPromoMaterialNextUI, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+BASE_FEATURE(kSigninPromoOnAvatarPill, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSigninPromoOnAvatarPillStartupDelayForPromoShow,
+                   &kSigninPromoOnAvatarPill,
+                   "startup_delay_for_promo_show",
+                   base::Seconds(30));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSigninPromoOnAvatarPillDelayForNextPromoAllowed,
+                   &kSigninPromoOnAvatarPill,
+                   "delay_for_next_promo_allowed",
+                   base::Days(7));
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 BASE_FEATURE(kSigninWindows10DepreciationStateForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -559,6 +621,8 @@ BASE_FEATURE(kSupportErrorsInProfilePicker, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kSupportForcedSigninPolicy, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Killswitch for the support of AddSession in web sign-in flow.
 BASE_FEATURE(kSupportWebSigninAddSession, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -580,12 +644,6 @@ BASE_FEATURE(kUseIssueTokenToFetchAccessTokens,
 
 BASE_FEATURE(kUsePrimaryAndTonalButtonsForPromos,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-BASE_FEATURE(kWebSigninLeadsToImplicitlySignedInState,
-             // THIS IS A TEST-ONLY FLAG AND SHOULD NEVER BE ENABLED.
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 // keep-sorted end
 

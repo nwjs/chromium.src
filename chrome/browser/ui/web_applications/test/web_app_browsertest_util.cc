@@ -26,12 +26,12 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
@@ -204,6 +204,22 @@ webapps::AppId InstallWebAppFromPage(Browser* browser, const GURL& app_url) {
             webapps::InstallResultCode::kSuccessNewInstall);
 
   return install_future.Get<webapps::AppId>();
+}
+
+Browser* InstallWebAppFromPageGetBrowser(Browser* browser,
+                                         const GURL& app_url) {
+  // Create new tab to navigate, install, automatically pop out and then
+  // close. This sequence avoids altering the browser window state it started
+  // with.
+  chrome::AddTabAt(browser, app_url, /*index=*/-1,
+                   /*foreground=*/true);
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
+  webapps::AppId app_id = InstallWebAppFromPage(browser, app_url);
+
+  Browser* app_browser = browser_created_observer.Wait();
+  CHECK_NE(app_browser, browser);
+  CHECK(AppBrowserController::IsForWebApp(app_browser, app_id));
+  return app_browser;
 }
 
 webapps::AppId InstallWebAppFromPageAndCloseAppBrowser(Browser* browser,
@@ -558,12 +574,10 @@ std::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url) {
 }
 
 BrowserWaiter::BrowserWaiter(BrowserWindowInterface* filter) : filter_(filter) {
-  BrowserList::AddObserver(this);
+  observation_.Observe(GlobalBrowserCollection::GetInstance());
 }
 
-BrowserWaiter::~BrowserWaiter() {
-  BrowserList::RemoveObserver(this);
-}
+BrowserWaiter::~BrowserWaiter() = default;
 
 Browser* BrowserWaiter::AwaitAdded(const base::Location& location) {
   added_run_loop_.Run(location);
@@ -577,18 +591,18 @@ Browser* BrowserWaiter::AwaitRemoved(const base::Location& location) {
   return removed_browser_;
 }
 
-void BrowserWaiter::OnBrowserAdded(Browser* browser) {
+void BrowserWaiter::OnBrowserCreated(BrowserWindowInterface* browser) {
   if (filter_ && browser != filter_) {
     return;
   }
-  added_browser_ = browser;
+  added_browser_ = browser->GetBrowserForMigrationOnly();
   added_run_loop_.Quit();
 }
-void BrowserWaiter::OnBrowserRemoved(Browser* browser) {
+void BrowserWaiter::OnBrowserClosed(BrowserWindowInterface* browser) {
   if (filter_ && browser != filter_) {
     return;
   }
-  removed_browser_ = browser;
+  removed_browser_ = browser->GetBrowserForMigrationOnly();
   removed_run_loop_.Quit();
 }
 

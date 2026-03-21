@@ -195,6 +195,12 @@ class SharingDeviceRegistrationImplTest : public testing::Test {
           sync_pb::SharingSpecificFields::OPTIMIZATION_GUIDE_PUSH_NOTIFICATION);
     }
 
+    if (sharing_device_registration_
+            .IsOneTimeTokenBackendNotificationSupported()) {
+      features.insert(
+          sync_pb::SharingSpecificFields::ONE_TIME_TOKEN_BACKEND_NOTIFICATION);
+    }
+
     return features;
   }
 
@@ -238,6 +244,24 @@ TEST_F(SharingDeviceRegistrationImplTest, IsSharedClipboardSupported_False) {
   SetSharedClipboardPolicy(false);
 
   EXPECT_FALSE(sharing_device_registration_.IsSharedClipboardSupported());
+}
+
+TEST_F(SharingDeviceRegistrationImplTest,
+       IsOneTimeTokenBackendNotificationSupported_True) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOneTimeTokenBackendNotification);
+
+  EXPECT_TRUE(sharing_device_registration_
+                  .IsOneTimeTokenBackendNotificationSupported());
+}
+
+TEST_F(SharingDeviceRegistrationImplTest,
+       IsOneTimeTokenBackendNotificationSupported_False) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kOneTimeTokenBackendNotification);
+
+  EXPECT_FALSE(sharing_device_registration_
+                   .IsOneTimeTokenBackendNotificationSupported());
 }
 
 TEST_F(SharingDeviceRegistrationImplTest, RegisterDeviceTest_Success) {

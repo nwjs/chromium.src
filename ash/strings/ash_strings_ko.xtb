@@ -9,7 +9,6 @@
 <translation id="101823271612280837">녹화가 중지되었습니다. 태블릿 모드에서는 게임 대시보드를 사용할 수 없습니다.</translation>
 <translation id="1024364763893396229"><ph name="NAME" /> 저장</translation>
 <translation id="1032891413405719768">스타일러스 배터리 부족</translation>
-<translation id="1036073649888683237">알림을 관리하려면 설정으로 이동하세요.</translation>
 <translation id="1036348656032585052">사용 중지</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> 추가됨</translation>
 <translation id="1038106730571050514">추천 보기</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">앱 설치</translation>
 <translation id="2482878487686419369">알림</translation>
 <translation id="2484513351006226581">키보드 레이아웃을 전환하려면 <ph name="KEYBOARD_SHORTCUT" />을(를) 누르세요.</translation>
+<translation id="2485422356828889247">제거</translation>
 <translation id="2486214324139475545"><ph name="DESK_NAME" /> 미리보기입니다. 활성 데스크입니다.</translation>
 <translation id="2486405091093637109">"<ph name="DISPLAY_NAME" />" 디스플레이가 <ph name="RESOLUTION" />(<ph name="REFRESH_RATE" />Hz) 해상도로 변경되었습니다. 확인하지 않으면 <ph name="TIMEOUT_SECONDS" /> 후 이전 설정으로 복원됩니다.</translation>
 <translation id="2487915095798731898">가입</translation>

@@ -9,6 +9,7 @@
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_security_policy_violation_event_init.h"
+#include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
@@ -66,6 +67,40 @@ void AuditsIssue::ReportQuirksModeIssue(ExecutionContext* execution_context,
   execution_context->AddInspectorIssue(AuditsIssue(std::move(issue)));
 }
 
+std::unique_ptr<protocol::Audits::SourceCodeLocation> CreateProtocolLocation(
+    const SourceLocation& location) {
+  auto protocol_location = protocol::Audits::SourceCodeLocation::create()
+                               .setUrl(location.Url())
+                               .setLineNumber(location.LineNumber() - 1)
+                               .setColumnNumber(location.ColumnNumber())
+                               .build();
+  if (location.ScriptId()) {
+    protocol_location->setScriptId(String::Number(location.ScriptId()));
+  }
+  return protocol_location;
+}
+
+void AuditsIssue::ReportDocumentCookiePerformanceIssue(
+    ExecutionContext* execution_context) {
+  auto* source_location = CaptureSourceLocation(execution_context);
+  auto performance_issue_details =
+      protocol::Audits::PerformanceIssueDetails::create()
+          .setSourceCodeLocation(CreateProtocolLocation(*source_location))
+          .setPerformanceIssueType(
+              protocol::Audits::PerformanceIssueTypeEnum::DocumentCookie)
+          .build();
+  auto issue_details =
+      protocol::Audits::InspectorIssueDetails::create()
+          .setPerformanceIssueDetails(std::move(performance_issue_details))
+          .build();
+  auto issue =
+      protocol::Audits::InspectorIssue::create()
+          .setCode(protocol::Audits::InspectorIssueCodeEnum::PerformanceIssue)
+          .setDetails(std::move(issue_details))
+          .build();
+  execution_context->AddInspectorIssue(AuditsIssue(std::move(issue)));
+}
+
 namespace {
 
 protocol::Network::CorsError RendererCorsIssueCodeToProtocol(
@@ -80,19 +115,6 @@ protocol::Network::CorsError RendererCorsIssueCodeToProtocol(
   }
 }
 }  // namespace
-
-std::unique_ptr<protocol::Audits::SourceCodeLocation> CreateProtocolLocation(
-    const SourceLocation& location) {
-  auto protocol_location = protocol::Audits::SourceCodeLocation::create()
-                               .setUrl(location.Url())
-                               .setLineNumber(location.LineNumber() - 1)
-                               .setColumnNumber(location.ColumnNumber())
-                               .build();
-  if (location.ScriptId()) {
-    protocol_location->setScriptId(String::Number(location.ScriptId()));
-  }
-  return protocol_location;
-}
 
 protocol::Audits::GenericIssueErrorType
 AuditsIssue::GenericIssueErrorTypeToProtocol(
@@ -152,6 +174,10 @@ AuditsIssue::GenericIssueErrorTypeToProtocol(
         kManualTextPolicyControlledFeatureInfo:
       return protocol::Audits::GenericIssueErrorTypeEnum::
           ManualTextPolicyControlledFeatureInfo;
+    case mojom::blink::GenericIssueErrorType::
+        kFormModelContextParameterMissingTitleAndDescription:
+      return protocol::Audits::GenericIssueErrorTypeEnum::
+          FormModelContextParameterMissingTitleAndDescription;
   }
 }
 
@@ -1017,6 +1043,57 @@ void AuditsIssue::ReportPermissionElementIssue(
               protocol::Audits::InspectorIssueCodeEnum::PermissionElementIssue)
           .setDetails(std::move(issue_details))
           .build();
+  execution_context->AddInspectorIssue(AuditsIssue(std::move(issue)));
+}
+
+// static
+void AuditsIssue::ReportSelectivePermissionsInterventionIssue(
+    ExecutionContext* execution_context,
+    const String& api_name,
+    const AdTracker::AdScriptAncestry& ad_ancestry,
+    const SourceLocation& source_location) {
+  auto ancestry_chain =
+      std::make_unique<protocol::Array<protocol::Audits::AdScriptIdentifier>>();
+  for (const auto& ad_script : ad_ancestry.ancestry_chain) {
+    ancestry_chain->emplace_back(
+        protocol::Audits::AdScriptIdentifier::create()
+            .setScriptId(String::Number(ad_script.id.value()))
+            .setDebuggerId(
+                ToCoreString(ad_script.context_id.toString()->string()))
+            .setName(ad_script.name)
+            .build());
+  }
+
+  auto ad_ancestry_protocol = protocol::Audits::AdAncestry::create()
+                                  .setAdAncestryChain(std::move(ancestry_chain))
+                                  .build();
+
+  if (ad_ancestry.root_script_filterlist_rule.IsValid()) {
+    ad_ancestry_protocol->setRootScriptFilterlistRule(
+        String::FromUTF8(ad_ancestry.root_script_filterlist_rule.ToString()));
+  }
+
+  auto intervention_details =
+      protocol::Audits::SelectivePermissionsInterventionIssueDetails::create()
+          .setApiName(api_name)
+          .setAdAncestry(std::move(ad_ancestry_protocol))
+          .build();
+
+  if (source_location.HasStackTrace()) {
+    intervention_details->setStackTrace(source_location.BuildInspectorObject());
+  }
+
+  auto details = protocol::Audits::InspectorIssueDetails::create()
+                     .setSelectivePermissionsInterventionIssueDetails(
+                         std::move(intervention_details))
+                     .build();
+
+  auto issue = protocol::Audits::InspectorIssue::create()
+                   .setCode(protocol::Audits::InspectorIssueCodeEnum::
+                                SelectivePermissionsInterventionIssue)
+                   .setDetails(std::move(details))
+                   .build();
+
   execution_context->AddInspectorIssue(AuditsIssue(std::move(issue)));
 }
 

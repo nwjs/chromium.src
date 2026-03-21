@@ -5,22 +5,53 @@
 #include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 
 #include "base/notimplemented.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_dashboard_controller.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "ui/views/bubble/bubble_border.h"
 
-WebUILocationBar::WebUILocationBar(
-    chrome::BrowserCommandController* command_controller,
-    WebUIToolbarWebView* toolbar_view)
-    : LocationBar(command_controller), toolbar_view_(toolbar_view) {}
+WebUILocationBar::WebUILocationBar(Browser* browser,
+                                   LocationBarView::Delegate* delegate)
+    : LocationBar(browser->command_controller()),
+      browser_(browser),
+      delegate_(delegate) {}
 
 WebUILocationBar::~WebUILocationBar() = default;
 
-void WebUILocationBar::FocusLocation(bool is_user_initiated) {
+void WebUILocationBar::Init(WebUIToolbarWebView* toolbar_view) {
+  toolbar_view_ = toolbar_view;
+
+  // TODO(crbug.com/474060773): Replace the View with a WebUI impl.
+  permission_dashboard_view_ =
+      toolbar_view->AddChildView(std::make_unique<PermissionDashboardView>());
+
+  permission_dashboard_controller_ =
+      std::make_unique<PermissionDashboardController>(
+          /*location_bar=*/this,
+          /*content_settings_image_delegate=*/this, permission_dashboard_view_);
+
+  omnibox_controller_ =
+      std::make_unique<OmniboxController>(std::make_unique<ChromeOmniboxClient>(
+          /*location_bar=*/this, browser_, browser_->profile()));
+
+  is_initialized_ = true;
+}
+
+void WebUILocationBar::FocusLocation(bool is_user_initiated,
+                                     bool clear_focus_if_failed) {
   NOTIMPLEMENTED();
 }
 
 void WebUILocationBar::FocusSearch() {
+  NOTIMPLEMENTED();
+}
+
+void WebUILocationBar::UpdateFocusBehavior(bool toolbar_visible) {
   NOTIMPLEMENTED();
 }
 
@@ -42,29 +73,30 @@ OmniboxView* WebUILocationBar::GetOmniboxView() {
 }
 
 OmniboxController* WebUILocationBar::GetOmniboxController() {
+  return omnibox_controller_.get();
+}
+
+bool WebUILocationBar::ShouldCloseOmniboxPopup(ui::MouseEvent* event) {
   NOTIMPLEMENTED();
-  return nullptr;
+  return false;
 }
 
 ChipController* WebUILocationBar::GetChipController() {
-  NOTIMPLEMENTED();
-  return nullptr;
+  return permission_dashboard_controller_->request_chip_controller();
 }
 
 content::WebContents* WebUILocationBar::GetWebContents() {
-  NOTIMPLEMENTED();
-  return nullptr;
+  return delegate_->GetWebContents();
 }
 
 LocationBarModel* WebUILocationBar::GetLocationBarModel() {
-  NOTIMPLEMENTED();
-  return nullptr;
+  return delegate_->GetLocationBarModel();
 }
 
 std::optional<bubble_anchor_util::AnchorConfiguration>
 WebUILocationBar::GetChipAnchor() {
   NOTIMPLEMENTED();
-  return {{nullptr, nullptr, views::BubbleBorder::TOP_LEFT}};
+  return {{nullptr, std::nullopt, views::BubbleBorder::TOP_LEFT}};
 }
 
 ui::TrackedElement* WebUILocationBar::GetAnchorOrNull() {
@@ -73,8 +105,7 @@ ui::TrackedElement* WebUILocationBar::GetAnchorOrNull() {
 }
 
 Browser* WebUILocationBar::GetBrowser() {
-  NOTIMPLEMENTED();
-  return nullptr;
+  return browser_.get();
 }
 
 void WebUILocationBar::OnChanged() {
@@ -85,19 +116,20 @@ void WebUILocationBar::UpdateWithoutTabRestore() {
   NOTIMPLEMENTED();
 }
 
+bool WebUILocationBar::IsInitialized() const {
+  return is_initialized_;
+}
+
 bool WebUILocationBar::IsVisible() const {
-  NOTIMPLEMENTED();
-  return true;
+  return toolbar_view_ && toolbar_view_->GetVisible();
 }
 
 bool WebUILocationBar::IsDrawn() const {
-  NOTIMPLEMENTED();
-  return true;
+  return toolbar_view_ && toolbar_view_->IsDrawn();
 }
 
-bool WebUILocationBar::IsTopLevelFullscreen() const {
-  NOTIMPLEMENTED();
-  return false;
+bool WebUILocationBar::IsFullscreen() const {
+  return toolbar_view_ && toolbar_view_->GetWidget()->IsFullscreen();
 }
 
 bool WebUILocationBar::IsEditingOrEmpty() const {
@@ -115,13 +147,13 @@ gfx::Rect WebUILocationBar::Bounds() const {
 }
 
 gfx::Size WebUILocationBar::MinimumSize() const {
-  NOTIMPLEMENTED();
-  return gfx::Size();
+  // TODO(crbug.com/474060468): Proper calculation.
+  return gfx::Size(400, 34);
 }
 
 gfx::Size WebUILocationBar::PreferredSize() const {
-  NOTIMPLEMENTED();
-  return gfx::Size();
+  // TODO(crbug.com/474060468): Proper calculation.
+  return gfx::Size(400, 34);
 }
 
 void WebUILocationBar::Update(content::WebContents* contents) {
@@ -138,6 +170,22 @@ bool WebUILocationBar::HasSecurityStateChanged() {
 }
 
 LocationBarTesting* WebUILocationBar::GetLocationBarForTesting() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+bool WebUILocationBar::ShouldHideContentSettingImage() {
+  NOTIMPLEMENTED();
+  return false;
+}
+
+content::WebContents* WebUILocationBar::GetContentSettingWebContents() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+ContentSettingBubbleModelDelegate*
+WebUILocationBar::GetContentSettingBubbleModelDelegate() {
   NOTIMPLEMENTED();
   return nullptr;
 }

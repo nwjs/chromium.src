@@ -10,10 +10,11 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
+#include "remoting/base/constants.h"
 #include "remoting/protocol/authenticator.h"
 #include "remoting/protocol/fake_authenticator.h"
 #include "remoting/protocol/session_plugin.h"
-#include "third_party/libjingle_xmpp/xmllite/xmlelement.h"
+#include "remoting/signaling/jingle_message_xml_converter.h"
 
 namespace remoting::protocol {
 
@@ -107,7 +108,7 @@ void FakeSession::Close(ErrorCode error,
 }
 
 void FakeSession::SendTransportInfo(
-    std::unique_ptr<jingle_xmpp::XmlElement> transport_info) {
+    std::unique_ptr<JingleTransportInfo> transport_info) {
   if (!peer_) {
     return;
   }
@@ -124,29 +125,24 @@ void FakeSession::SendTransportInfo(
 }
 
 void FakeSession::ProcessTransportInfo(
-    std::unique_ptr<jingle_xmpp::XmlElement> transport_info) {
-  transport_->ProcessTransportInfo(transport_info.get());
+    std::unique_ptr<JingleTransportInfo> transport_info) {
+  transport_->ProcessTransportInfo(*transport_info);
 }
 
 void FakeSession::AddPlugin(SessionPlugin* plugin) {
   DCHECK(plugin);
-  for (const auto& message : attachments_) {
-    if (message) {
-      JingleMessage jingle_message;
-      jingle_message.AddAttachment(
-          std::make_unique<jingle_xmpp::XmlElement>(*message));
-      plugin->OnIncomingMessage(*(jingle_message.attachments_legacy));
+  for (const auto& attachment : attachments_) {
+    if (attachment.host_attributes || attachment.host_config) {
+      plugin->OnIncomingMessage(attachment);
     }
   }
 }
 
-void FakeSession::SetAttachment(
-    size_t round,
-    std::unique_ptr<jingle_xmpp::XmlElement> attachment) {
-  while (attachments_.size() <= round) {
-    attachments_.emplace_back();
+void FakeSession::SetAttachment(size_t round, const Attachment& attachment) {
+  if (attachments_.size() <= round) {
+    attachments_.resize(round + 1);
   }
-  attachments_[round] = std::move(attachment);
+  attachments_[round] = attachment;
 }
 
 }  // namespace remoting::protocol

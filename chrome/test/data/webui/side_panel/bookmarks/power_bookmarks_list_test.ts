@@ -19,7 +19,7 @@ import type {CrUrlListItemElement} from 'chrome://resources/cr_elements/cr_url_l
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertArrayEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
@@ -27,7 +27,7 @@ import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {TestPluralStringProxy} from 'chrome://webui-test/test_plural_string_proxy.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {createTestBookmarks, getBookmarks, getBookmarksInList, getBookmarkWithId, getPowerBookmarksRowElement, initializeUi} from './power_bookmarks_list_test_util.js';
+import {createTestBookmarks, getBookmarks, getBookmarksInList, getBookmarkWithId, getPowerBookmarksRowElement, getPowerBookmarksRowItemElement, initializeUi} from './power_bookmarks_list_test_util.js';
 import {TestBookmarksApiProxy} from './test_bookmarks_api_proxy.js';
 
 suite('General', () => {
@@ -52,13 +52,13 @@ suite('General', () => {
   }
 
   function getCrUrlListItemElementWithId(id: string): CrUrlListItemElement|
-      undefined {
-    const powerBookmarkRowElement =
-        getPowerBookmarksRowElement(powerBookmarksList, id);
-    if (!powerBookmarkRowElement) {
-      return undefined;
+      null {
+    const powerBookmarkRowItemElement =
+        getPowerBookmarksRowItemElement(powerBookmarksList, id);
+    if (!powerBookmarkRowItemElement) {
+      return null;
     }
-    return powerBookmarkRowElement.currentUrlListItem_;
+    return powerBookmarkRowItemElement.$.crUrlListItem;
   }
 
   function isHidden(element: HTMLElement): boolean {
@@ -94,7 +94,7 @@ suite('General', () => {
     );
     const bookmarkListItem = getCrUrlListItemElementWithId(id);
     assertTrue(!!bookmarkListItem);
-    await bookmarkListItem.updateComplete;
+    await microtasksFinished();
     bookmarkListItem.click();
     await checkboxClicked;
   }
@@ -159,18 +159,18 @@ suite('General', () => {
 
     test('RebuildsKeyboardNavigationOnBoomkmarkNodeAdded', async () => {
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-      assertEquals(
-          JSON.stringify(
-              powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                  .getElementsForTesting()
-                  .map((el: HTMLElement) => el.id)),
-          JSON.stringify([
+      assertArrayEquals(
+          powerBookmarksList.getKeyboardNavigationServiceforTesting()
+              .getElementsForTesting()
+              .map((el: HTMLElement) => el.id),
+          [
             'bookmark-SIDE_PANEL_BOOKMARK_BAR_ID',
             'bookmark-5',
             'bookmark-4',
             'bookmark-3',
-          ]));
+          ]);
 
       bookmarksApi.callbackRouterRemote.onBookmarkNodeAdded({
         id: '999',
@@ -185,70 +185,71 @@ suite('General', () => {
       });
       await microtasksFinished();
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-      assertEquals(
-          JSON.stringify(
-              powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                  .getElementsForTesting()
-                  .map((el: HTMLElement) => el.id)),
-          JSON.stringify([
+      assertArrayEquals(
+          powerBookmarksList.getKeyboardNavigationServiceforTesting()
+              .getElementsForTesting()
+              .map((el: HTMLElement) => el.id),
+          [
             'bookmark-SIDE_PANEL_BOOKMARK_BAR_ID',
             'bookmark-5',
             'bookmark-999',
             'bookmark-4',
             'bookmark-3',
-          ]));
+          ]);
     });
 
     test('RebuildsKeyboardNavigationOnRemoved', async () => {
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-      assertEquals(
-          JSON.stringify(
-              powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                  .getElementsForTesting()
-                  .map((el: HTMLElement) => el.id)),
-          JSON.stringify([
+      assertArrayEquals(
+          powerBookmarksList.getKeyboardNavigationServiceforTesting()
+              .getElementsForTesting()
+              .map((el: HTMLElement) => el.id),
+          [
             'bookmark-SIDE_PANEL_BOOKMARK_BAR_ID',
             'bookmark-5',
             'bookmark-4',
             'bookmark-3',
-          ]));
+          ]);
 
       bookmarksApi.callbackRouterRemote.onBookmarkNodesRemoved(['4']);
       await flushTasks();
       await waitAfterNextRender(powerBookmarksList);
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-      assertEquals(
-          JSON.stringify(
-              powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                  .getElementsForTesting()
-                  .map((el: HTMLElement) => el.id)),
-          JSON.stringify([
+      assertArrayEquals(
+          powerBookmarksList.getKeyboardNavigationServiceforTesting()
+              .getElementsForTesting()
+              .map((el: HTMLElement) => el.id),
+          [
             'bookmark-SIDE_PANEL_BOOKMARK_BAR_ID',
             'bookmark-5',
             'bookmark-3',
-          ]));
+          ]);
     });
 
     test('RebuildsKeyboardNavigationFiltered', async () => {
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
-      assertEquals(
-          JSON.stringify(
-              powerBookmarksList.getKeyboardNavigationServiceforTesting()
-                  .getElementsForTesting()
-                  .map((el: HTMLElement) => el.id)),
-          JSON.stringify([
+      assertArrayEquals(
+          powerBookmarksList.getKeyboardNavigationServiceforTesting()
+              .getElementsForTesting()
+              .map((el: HTMLElement) => el.id),
+          [
             'bookmark-SIDE_PANEL_BOOKMARK_BAR_ID',
             'bookmark-5',
             'bookmark-4',
             'bookmark-3',
-          ]));
+          ]);
 
       await performSearch('child');
       await microtasksFinished();
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
       assertEquals(
           JSON.stringify(
@@ -264,6 +265,7 @@ suite('General', () => {
 
     test('RebuildsKeyboardNavigationMoved', async () => {
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
       assertEquals(
           JSON.stringify(
@@ -288,6 +290,7 @@ suite('General', () => {
       );
       await microtasksFinished();
       await flushTasks();
+      powerBookmarksList.flushNavigationElementsDebouncerForTesting();
 
       assertEquals(
           JSON.stringify(
@@ -365,7 +368,7 @@ suite('General', () => {
 
       const crUrlListItemElement = getCrUrlListItemElementWithId('3');
       assertTrue(!!crUrlListItemElement);
-      await crUrlListItemElement.updateComplete;
+      await microtasksFinished();
 
       assertEquals('New title', crUrlListItemElement.title);
     });
@@ -729,10 +732,11 @@ suite('General', () => {
               ?.getBookmarkDescriptionForTests(folder));
     });
 
-    test('SetsExpandedDescription', () => {
+    test('SetsExpandedDescription', async () => {
       const viewButton: HTMLElement =
           powerBookmarksList.shadowRoot!.querySelector('#viewButton')!;
       viewButton.click();
+      await microtasksFinished();
 
       const folder = getBookmarkWithId(powerBookmarksList, '4');
       assertTrue(!!folder);
@@ -766,14 +770,14 @@ suite('General', () => {
 
       await flushTasks();
 
-      const rowElement =
-          getPowerBookmarksRowElement(powerBookmarksList, renamedBookmarkId);
-      assertTrue(!!rowElement);
+      const rowItemElement = getPowerBookmarksRowItemElement(
+          powerBookmarksList, renamedBookmarkId);
+      assertTrue(!!rowItemElement);
       let input =
-          rowElement.shadowRoot.querySelector<CrInputElement>('cr-input');
+          rowItemElement.shadowRoot.querySelector<CrInputElement>('cr-input');
       assertTrue(!!input);
 
-      const inputChange = eventToPromise('input-change', rowElement);
+      const inputChange = eventToPromise('input-change', rowItemElement);
 
       const newName = 'foo';
       input.value = newName;
@@ -788,7 +792,8 @@ suite('General', () => {
       assertEquals(
           renamedBookmarkId, bookmarksApi.getArgs('renameBookmark')[0][0]);
       assertEquals(newName, bookmarksApi.getArgs('renameBookmark')[0][1]);
-      input = rowElement.shadowRoot.querySelector<CrInputElement>('cr-input');
+      input =
+          rowItemElement.shadowRoot.querySelector<CrInputElement>('cr-input');
       assertFalse(!!input);
     });
 
@@ -802,11 +807,15 @@ suite('General', () => {
           powerBookmarksList.shadowRoot!.querySelector<PowerBookmarkRowElement>(
               `#bookmark-${renamedBookmarkId}`);
       assertTrue(!!rowElement);
+      const rowItemElement =
+          rowElement.shadowRoot.querySelector('power-bookmark-row-item');
+      assertTrue(!!rowItemElement);
       let input =
-          rowElement.shadowRoot.querySelector<CrInputElement>('cr-input');
+          rowItemElement.shadowRoot.querySelector<CrInputElement>('cr-input');
       const inputBlurred = eventToPromise(
           'input-change',
-          getPowerBookmarksRowElement(powerBookmarksList, renamedBookmarkId)!);
+          getPowerBookmarksRowItemElement(
+              powerBookmarksList, renamedBookmarkId)!);
       assertTrue(!!input);
       input.inputElement.blur();
       await inputBlurred;
@@ -814,7 +823,8 @@ suite('General', () => {
       await flushTasks();
 
       // Blurring the input should remove it.
-      input = rowElement.shadowRoot.querySelector<CrInputElement>('cr-input');
+      input =
+          rowItemElement.shadowRoot.querySelector<CrInputElement>('cr-input');
       assertFalse(!!input);
     });
 
@@ -1093,6 +1103,7 @@ suite('General', () => {
       // Simulate a drag occurring and then click the folder.
       getPowerBookmarksRowElement(powerBookmarksList, '5')!.hasActiveDrag =
           true;
+      await microtasksFinished();
 
       getCrUrlListItemElementWithId('5')!.click();
       await flushTasks();

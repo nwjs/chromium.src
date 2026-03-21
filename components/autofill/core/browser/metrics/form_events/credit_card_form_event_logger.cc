@@ -148,7 +148,7 @@ void CreditCardFormEventLogger::OnDidShowSuggestions(
 
   if (!has_logged_suggestions_shown_on_bnpl_eligible_merchant_ &&
       payments::IsEligibleForBnpl(owner_->client())) {
-    LogBnplFormEvent(BnplFormEvent::kSuggestionsShown);
+    LogBnplFormEvent(BnplFormEvent::kSuggestionsShownOnBnplEligiblePage);
     has_logged_suggestions_shown_on_bnpl_eligible_merchant_ = true;
   }
 }
@@ -736,8 +736,11 @@ void CreditCardFormEventLogger::OnSuggestionsShownOnce(
 void CreditCardFormEventLogger::OnSuggestionsShownSubmittedOnce(
     const FormStructure& form) {
   if (!has_logged_form_filling_suggestion_filled_) {
-    const CreditCard& credit_card =
-        client().GetFormDataImporter()->ExtractCreditCardFromForm(form).card;
+    const CreditCard& credit_card = client()
+                                        .GetFormDataImporter()
+                                        ->GetPaymentsFormDataImporter()
+                                        .ExtractCreditCardFromForm(form)
+                                        .card;
     Log(GetCardNumberStatusFormEvent(credit_card), form);
   }
 }

@@ -9,8 +9,6 @@
 #include <memory>
 #include <string_view>
 
-#include "ash/constants/ash_features.h"
-#include "ash/webui/shortcut_customization_ui/url_constants.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/map_util.h"
 #include "base/feature_list.h"
@@ -71,7 +69,8 @@
 #include "url/url_util.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ash/webui/connectivity_diagnostics/url_constants.h"
+#include "ash/constants/ash_features.h"
+#include "ash/constants/webui_url_constants.h"
 #include "ash/webui/settings/public/constants/routes.mojom.h"
 #include "ash/webui/settings/public/constants/routes_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
@@ -306,19 +305,6 @@ void ShowSiteSettingsFileSystemImpl(Browser* browser,
   Navigate(&params);
 }
 
-#if BUILDFLAG(IS_CHROMEOS)
-void ShowSystemAppInternal(Profile* profile,
-                           const ash::SystemWebAppType type,
-                           const ash::SystemAppLaunchParams& params) {
-  ash::LaunchSystemWebAppAsync(profile, type, params);
-}
-void ShowSystemAppInternal(Profile* profile, const ash::SystemWebAppType type) {
-  ash::SystemAppLaunchParams params;
-  params.launch_source = apps::LaunchSource::kUnknown;
-  ash::LaunchSystemWebAppAsync(profile, type, params);
-}
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 Browser* GetOrCreateBrowserForProfile(Profile* profile) {
   Browser* browser = chrome::FindTabbedBrowser(profile, false);
   if (!browser) {
@@ -434,7 +420,7 @@ void ShowBetaForum(Browser* browser) {
 
 void ShowSlow(Browser* browser) {
 #if BUILDFLAG(IS_CHROMEOS)
-  ShowSingletonTab(browser, GURL(kChromeUISlowURL));
+  ShowSingletonTab(browser, GURL(ash::kChromeUISlowURL));
 #endif
 }
 
@@ -572,6 +558,13 @@ void ShowPasswordManager(BrowserWindowInterface* bwi) {
                                          GURL(kChromeUIPasswordManagerURL));
 }
 
+void ShowPasswordManagerSettings(BrowserWindowInterface* bwi) {
+  base::RecordAction(UserMetricsAction("Options_ShowPasswordManagerSettings"));
+  ShowSingletonTabIgnorePathOverwriteNTP(
+      bwi->GetBrowserForMigrationOnly(),
+      GURL(kChromeUIPasswordManagerSettingsURL));
+}
+
 void ShowPasswordDetailsPage(Browser* browser,
                              const std::string& password_domain_name) {
   base::RecordAction(
@@ -668,10 +661,6 @@ void ShowTravel(BrowserWindowInterface* bwi) {
   ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kTravelSubPage);
 }
 
-void ShowAutofill(BrowserWindowInterface* bwi) {
-  ShowSettingsSubPage(bwi->GetBrowserForMigrationOnly(), kAutofillSubPage);
-}
-
 void ShowAllSitesSettingsFilteredByRwsOwner(
     Browser* browser,
     const std::string& rws_owner_host_name) {
@@ -717,56 +706,6 @@ void ShowAppManagementPage(Profile* profile,
   chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(profile,
                                                                sub_page);
 }
-
-void ShowGraduationApp(Profile* profile) {
-  ash::SystemAppLaunchParams params;
-  params.launch_source = apps::LaunchSource::kFromOtherApp;
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::GRADUATION, params);
-}
-
-GURL GetOSSettingsUrl(std::string_view sub_page) {
-  DCHECK(sub_page.empty() || chromeos::settings::IsOSSettingsSubPage(sub_page))
-      << sub_page;
-  return GURL(base::StrCat({kChromeUIOSSettingsURL, sub_page}));
-}
-
-void ShowPrintManagementApp(Profile* profile) {
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::PRINT_MANAGEMENT);
-}
-
-void ShowConnectivityDiagnosticsApp(Profile* profile) {
-  ShowSystemAppInternal(profile,
-                        ash::SystemWebAppType::CONNECTIVITY_DIAGNOSTICS);
-}
-
-void ShowScanningApp(Profile* profile) {
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::SCANNING);
-}
-
-void ShowDiagnosticsApp(Profile* profile) {
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::DIAGNOSTICS);
-}
-
-void ShowFirmwareUpdatesApp(Profile* profile) {
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::FIRMWARE_UPDATE);
-}
-
-void ShowShortcutCustomizationApp(Profile* profile) {
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::SHORTCUT_CUSTOMIZATION);
-}
-
-void ShowShortcutCustomizationApp(Profile* profile,
-                                  const std::string& action,
-                                  const std::string& category) {
-  const std::string query_string =
-      base::StrCat({"action=", action, "&category=", category});
-  ash::SystemAppLaunchParams params;
-  params.launch_source = apps::LaunchSource::kUnknown;
-  params.url = GURL(base::StrCat(
-      {ash::kChromeUIShortcutCustomizationAppURL, "?", query_string}));
-  ShowSystemAppInternal(profile, ash::SystemWebAppType::SHORTCUT_CUSTOMIZATION,
-                        params);
-}
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -796,9 +735,5 @@ void ShowWebAppSettings(Profile* profile,
   ShowWebAppSettingsImpl(/*browser=*/nullptr, profile, app_id, entry_point);
 }
 #endif
-
-void ShowAllComparisonTables(Browser* browser) {
-  ShowSingletonTab(browser, GURL(commerce::kChromeUICompareUrl));
-}
 
 }  // namespace chrome

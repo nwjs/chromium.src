@@ -63,7 +63,10 @@ enum class ActivityType {
   kPreFirstTab,
 
   // Chrome is running embedded in another application as auth-dedicated tab.
-  // TODO(b/353517557): Add a link to a developer guide
+  //
+  // See:
+  //   -
+  //   https://developer.android.com/reference/androidx/browser/auth/AuthTabIntent
   kAuthTab,
 
   kMaxValue = kAuthTab,
@@ -92,6 +95,17 @@ enum class MultipleUserProfilesState {
   kSingleProfile = 1,
   kMultipleProfiles = 2,
   kMaxValue = kMultipleProfiles,
+};
+
+// The type of Profile and UI that is used by the custom tab.
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.flags
+enum class CustomTabProfileType {
+  // The normal user profile.
+  kRegular = 0,
+  // An off-the-record profile with incognito UI.
+  kIncognito = 1,
+  // An off-the-record profile without references to incognito mode.
+  kEphemeral = 2,
 };
 
 // Returns the CustomTabs.Visible histogram value that corresponde to |type|.

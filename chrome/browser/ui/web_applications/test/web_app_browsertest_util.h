@@ -12,7 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/ui/browser_list_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
@@ -23,6 +23,7 @@
 
 class Browser;
 class BrowserWindowInterface;
+class GlobalBrowserCollection;
 class GURL;
 class Profile;
 
@@ -48,6 +49,12 @@ class WebAppInstallManager;
 // Navigates to |app_url| and installs app without any installability checks.
 // Always selects to open app in its own window.
 webapps::AppId InstallWebAppFromPage(Browser* browser, const GURL& app_url);
+
+// Navigates to |app_url| and installs app without any installability checks.
+// Always selects to open app in its own window. Returns the browser for the
+// newly installed app. Use AppBrowserController::From(browser)->app_id() to get
+// the app id.
+Browser* InstallWebAppFromPageGetBrowser(Browser* browser, const GURL& app_url);
 
 // Same as InstallWebAppFromPage() but waits for the app browser window to
 // appear and closes it.
@@ -135,7 +142,7 @@ std::optional<webapps::AppId> ForceInstallWebApp(Profile* profile, GURL url);
 // Helper class that lets you await one Browser added and one Browser removed
 // event. Optionally filters to a specific Browser with |filter|. Useful for
 // closing the web app window that appears after installation from page.
-class BrowserWaiter : public BrowserListObserver {
+class BrowserWaiter : public BrowserCollectionObserver {
  public:
   explicit BrowserWaiter(BrowserWindowInterface* filter = nullptr);
   ~BrowserWaiter() override;
@@ -145,9 +152,9 @@ class BrowserWaiter : public BrowserListObserver {
   Browser* AwaitRemoved(
       const base::Location& location = base::Location::Current());
 
-  // BrowserListObserver:
-  void OnBrowserAdded(Browser* browser) override;
-  void OnBrowserRemoved(Browser* browser) override;
+  // BrowserCollectionObserver:
+  void OnBrowserCreated(BrowserWindowInterface* browser) override;
+  void OnBrowserClosed(BrowserWindowInterface* browser) override;
 
  private:
   const raw_ptr<BrowserWindowInterface, AcrossTasksDanglingUntriaged> filter_ =
@@ -158,6 +165,9 @@ class BrowserWaiter : public BrowserListObserver {
 
   base::RunLoop removed_run_loop_;
   raw_ptr<Browser, AcrossTasksDanglingUntriaged> removed_browser_ = nullptr;
+
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      observation_{this};
 };
 
 class UpdateAwaiter : public WebAppInstallManagerObserver {

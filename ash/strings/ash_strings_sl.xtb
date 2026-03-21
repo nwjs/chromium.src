@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Snemanje je ustavljeno. Nadzorne plošče igre ni mogoče uporabljati v načinu tabličnega računalnika.</translation>
 <translation id="1024364763893396229">Shranite napravo <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Baterija pisala je skoraj izpraznjena</translation>
-<translation id="1036073649888683237">Če želite upravljati obvestila, odprite nastavitve</translation>
 <translation id="1036348656032585052">Izklop</translation>
 <translation id="1037492556044956303">Dodana je bila naprava <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Prikaz predlogov</translation>
@@ -427,6 +426,7 @@ Povezanih je toliko naprav: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2478076885740497414">Namestitev aplikacije</translation>
 <translation id="2482878487686419369">Obvestila</translation>
 <translation id="2484513351006226581">Pritisnite <ph name="KEYBOARD_SHORTCUT" />, če želite preklopiti postavitev tipkovnice</translation>
+<translation id="2485422356828889247">Odmeščanje</translation>
 <translation id="2486214324139475545">Predogled namizja »<ph name="DESK_NAME" />«. Aktivno namizje.</translation>
 <translation id="2486405091093637109">Ločljivost zaslona »<ph name="DISPLAY_NAME" />« je bila spremenjena na <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Brez potrditve bodo prejšnje nastavitve obnovljene čez <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Pridruži se</translation>

@@ -846,16 +846,16 @@ TEST_P(TabStripModelTest, TestTabHandlesAcrossModels) {
   const tabs::TabHandle handle = tabstrip()->GetTabAtIndex(0)->GetHandle();
   content::WebContents* raw_contents = handle.Get()->GetContents();
   tabstrip()->AppendWebContents(CreateWebContentsWithID(2), true);
-  content::WebContents* const opener = tabstrip()->GetWebContentsAt(1);
+  tabs::TabInterface* const opener = tabstrip()->GetTabAtIndex(1);
 
   ASSERT_EQ(0, tabstrip()->GetIndexOfTab(handle.Get()));
   ASSERT_EQ(handle, tabstrip()->GetTabAtIndex(0)->GetHandle());
   ASSERT_EQ(tabstrip(),
             handle.Get()->GetBrowserWindowInterface()->GetTabStripModel());
 
-  tabstrip()->SetOpenerOfWebContentsAt(0, opener);
+  tabstrip()->SetOpenerOfTabAt(0, opener);
   ASSERT_NE(nullptr, tabstrip()->GetOpenerOfTabAt(0));
-  ASSERT_EQ(opener, tabstrip()->GetOpenerOfTabAt(0)->GetContents());
+  ASSERT_EQ(opener, tabstrip()->GetOpenerOfTabAt(0));
   tabstrip()->SetTabPinned(0, true);
   ASSERT_EQ(true, handle.Get()->IsPinned());
   tabstrip()->SetTabBlocked(0, true);
@@ -1066,7 +1066,7 @@ TEST_P(TabStripModelTest, TestDetachGroupNewSelection) {
   // Test the first preference is a tab the group opened.
   tabstrip()->ActivateTabAt(2);
   tabstrip()->ForgetAllOpeners();
-  tabstrip()->SetOpenerOfWebContentsAt(0, tabstrip()->GetWebContentsAt(1));
+  tabstrip()->SetOpenerOfTabAt(0, tabstrip()->GetTabAtIndex(1));
   std::unique_ptr<DetachedTabCollection> detached_group =
       tabstrip()->DetachTabGroupForInsertion(group_id);
 
@@ -1075,7 +1075,7 @@ TEST_P(TabStripModelTest, TestDetachGroupNewSelection) {
   tabstrip()->InsertDetachedTabGroupAt(std::move(detached_group), 1);
   tabstrip()->ActivateTabAt(1);
   tabstrip()->ForgetAllOpeners();
-  tabstrip()->SetOpenerOfWebContentsAt(4, tabstrip()->GetWebContentsAt(1));
+  tabstrip()->SetOpenerOfTabAt(4, tabstrip()->GetTabAtIndex(1));
   detached_group = tabstrip()->DetachTabGroupForInsertion(group_id);
 
   EXPECT_EQ(tabstrip()->active_index(), 2);
@@ -1084,9 +1084,9 @@ TEST_P(TabStripModelTest, TestDetachGroupNewSelection) {
   tabstrip()->InsertDetachedTabGroupAt(std::move(detached_group), 1);
   tabstrip()->ActivateTabAt(1);
   tabstrip()->ForgetAllOpeners();
-  tabstrip()->SetOpenerOfWebContentsAt(2, tabstrip()->GetWebContentsAt(3));
-  tabstrip()->SetOpenerOfWebContentsAt(1, tabstrip()->GetWebContentsAt(4));
-  tabstrip()->SetOpenerOfWebContentsAt(0, tabstrip()->GetWebContentsAt(4));
+  tabstrip()->SetOpenerOfTabAt(2, tabstrip()->GetTabAtIndex(3));
+  tabstrip()->SetOpenerOfTabAt(1, tabstrip()->GetTabAtIndex(4));
+  tabstrip()->SetOpenerOfTabAt(0, tabstrip()->GetTabAtIndex(4));
 
   detached_group = tabstrip()->DetachTabGroupForInsertion(group_id);
   EXPECT_EQ(tabstrip()->active_index(), 0);
@@ -1095,7 +1095,7 @@ TEST_P(TabStripModelTest, TestDetachGroupNewSelection) {
   tabstrip()->InsertDetachedTabGroupAt(std::move(detached_group), 1);
   tabstrip()->ActivateTabAt(1);
   tabstrip()->ForgetAllOpeners();
-  tabstrip()->SetOpenerOfWebContentsAt(2, tabstrip()->GetWebContentsAt(3));
+  tabstrip()->SetOpenerOfTabAt(2, tabstrip()->GetTabAtIndex(3));
 
   detached_group = tabstrip()->DetachTabGroupForInsertion(group_id);
   EXPECT_EQ(tabstrip()->active_index(), 1);
@@ -1253,7 +1253,8 @@ TEST_P(TabStripModelTest, TestBasicOpenerAPI) {
 
   // Specify the last tab as the opener of the others.
   for (int i = 0; i < tabstrip()->count() - 1; ++i) {
-    tabstrip()->SetOpenerOfWebContentsAt(i, raw_contents5);
+    tabstrip()->SetOpenerOfTabAt(
+        i, tabs::TabInterface::GetFromContents(raw_contents5));
   }
 
   for (int i = 0; i < tabstrip()->count() - 1; ++i) {
@@ -2593,6 +2594,93 @@ TEST_P(TabStripModelTest, MoveGroupWithinSplitRemovesSplit) {
 
   tabstrip()->CloseAllTabs();
   EXPECT_TRUE(tabstrip()->empty());
+}
+
+TEST_P(TabStripModelTest, AddToNewGroupRemovesPartialSplits) {
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0}));
+
+  // Create a split with tabs 0 and 1.
+  tabstrip()->ActivateTabAt(
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  split_tabs::SplitTabId retain_split = tabstrip()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  // Create a split with tabs 2 and 3.
+  tabstrip()->ActivateTabAt(
+      2, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  split_tabs::SplitTabId remove_split = tabstrip()->AddToNewSplit(
+      {3}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  // Add the entire first split, and part of the second split to a new group.
+  // Expect only the second split to be removed.
+  tabstrip()->AddToNewGroup({0, 1, 2});
+  EXPECT_TRUE(tabstrip()->ContainsSplit(retain_split));
+  EXPECT_FALSE(tabstrip()->ContainsSplit(remove_split));
+}
+
+TEST_P(TabStripModelTest, AddToExistingGroupRemovesPartialSplits) {
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tabstrip(), 6, 0, {0}));
+
+  // Create an existing group with tab 5.
+  tab_groups::TabGroupId group = tabstrip()->AddToNewGroup({5});
+
+  // Create a split with tabs 0 and 1.
+  tabstrip()->ActivateTabAt(
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  split_tabs::SplitTabId retain_split = tabstrip()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  // Create a split with tabs 2 and 3.
+  tabstrip()->ActivateTabAt(
+      2, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  split_tabs::SplitTabId remove_split = tabstrip()->AddToNewSplit(
+      {3}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  // Add the entire first split, and part of the second split to the existing
+  // group. Expect only the second split to be removed.
+  tabstrip()->AddToExistingGroup({0, 1, 2}, group);
+  EXPECT_TRUE(tabstrip()->ContainsSplit(retain_split));
+  EXPECT_FALSE(tabstrip()->ContainsSplit(remove_split));
+}
+
+TEST_P(TabStripModelTest, RemoveFromGroupRemovesPartialSplits) {
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tabstrip(), 5, 0, {0}));
+
+  // Add tabs 0 - 3 to a group.
+  tabstrip()->AddToNewGroup({0, 1, 2, 3});
+
+  // Create a split with tabs 0 and 1.
+  tabstrip()->ActivateTabAt(
+      0, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  split_tabs::SplitTabId retain_split = tabstrip()->AddToNewSplit(
+      {1}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  // Create a split with tabs 2 and 3.
+  tabstrip()->ActivateTabAt(
+      2, TabStripUserGestureDetails(
+             TabStripUserGestureDetails::GestureType::kOther));
+  split_tabs::SplitTabId remove_split = tabstrip()->AddToNewSplit(
+      {3}, split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  // Remove the entire first split, and part of the second split. Expect only
+  // the second split to be removed.
+  tabstrip()->RemoveFromGroup({0, 1, 2});
+  EXPECT_TRUE(tabstrip()->ContainsSplit(retain_split));
+  EXPECT_FALSE(tabstrip()->ContainsSplit(remove_split));
 }
 
 TEST_P(TabStripModelTest, SplitLayoutTest) {
@@ -5239,6 +5327,24 @@ TEST_P(TabStripModelTest, PinTabInGroupUngroups) {
   tabstrip()->CloseAllTabs();
 }
 
+TEST_P(TabStripModelTest, TogglePinnedTabInSplitUnsplits) {
+  ASSERT_NO_FATAL_FAILURE(
+      PrepareTabstripForSelectionTest(tabstrip(), 5, 2, {0}));
+  tabstrip()->ActivateTabAt(0);
+  tabstrip()->AddToNewSplit({1}, split_tabs::SplitTabVisualData(),
+                            split_tabs::SplitTabCreatedSource::kToolbarButton);
+  tabstrip()->ActivateTabAt(2);
+  tabstrip()->AddToNewSplit({3}, split_tabs::SplitTabVisualData(),
+                            split_tabs::SplitTabCreatedSource::kToolbarButton);
+  EXPECT_EQ("0ps 1ps 2s 3s 4", GetTabStripStateString(tabstrip()));
+
+  EXPECT_EQ(1, tabstrip()->SetTabPinned(0, false));
+  EXPECT_EQ("1p 0 2s 3s 4", GetTabStripStateString(tabstrip()));
+
+  EXPECT_EQ(1, tabstrip()->SetTabPinned(2, true));
+  EXPECT_EQ("1p 2p 0 3 4", GetTabStripStateString(tabstrip()));
+}
+
 TEST_P(TabStripModelTest, RemoveTabFromGroupNoopForUngroupedTab) {
   tabstrip()->AppendWebContents(CreateWebContents(), true);
 
@@ -5849,14 +5955,15 @@ TEST_P(TabStripModelTest, MoveWebContentsAtCorrectlySendsGroupClearedEvent) {
 TEST_P(TabStripModelTest, DanglingOpener) {
   PrepareTabs(tabstrip(), 2);
 
-  WebContents* contents_1 = tabstrip()->GetWebContentsAt(0);
-  WebContents* contents_2 = tabstrip()->GetWebContentsAt(1);
-  ASSERT_TRUE(contents_1);
-  ASSERT_TRUE(contents_2);
+  tabs::TabInterface* tab_1 = tabstrip()->GetTabAtIndex(0);
+  tabs::TabInterface* tab_2 = tabstrip()->GetTabAtIndex(1);
+  WebContents* contents_2 = tab_2->GetContents();
+  ASSERT_TRUE(tab_1);
+  ASSERT_TRUE(tab_2);
 
   // Set the openers for the two tabs to each other.
-  tabstrip()->SetOpenerOfWebContentsAt(0, contents_2);
-  tabstrip()->SetOpenerOfWebContentsAt(1, contents_1);
+  tabstrip()->SetOpenerOfTabAt(0, tab_2);
+  tabstrip()->SetOpenerOfTabAt(1, tab_1);
   EXPECT_EQ("0 1", GetTabStripStateString(tabstrip()));
 
   // Move the first tab to the end of the tab tabstrip()->
@@ -6263,7 +6370,7 @@ TEST_P(TabStripModelTest, AppendTab) {
   ASSERT_EQ(4, tabstrip()->count());
 
   // Force the opener of tab in index 1 to be tab at index 0.
-  tabstrip()->SetOpenerOfWebContentsAt(1, tabstrip()->GetWebContentsAt(0));
+  tabstrip()->SetOpenerOfTabAt(1, tabstrip()->GetTabAtIndex(0));
   ASSERT_EQ(tabstrip()->GetTabAtIndex(0), tabstrip()->GetOpenerOfTabAt(1));
 
   // Detach 2 tabs for the test, one for each option.
@@ -7010,7 +7117,6 @@ TEST_F(TabStripModelCallbackTest, MoveTabToGroupThenDeleteGroup) {
   tabstrip()->CloseAllTabs();
 }
 
-#if BUILDFLAG(ENABLE_GLIC)
 TEST_P(TabStripModelTest, CommandGlicUnshare) {
   tabstrip()->AppendWebContents(CreateWebContentsWithID(1), true);
   EXPECT_TRUE(tabstrip()->IsContextMenuCommandEnabled(
@@ -7019,7 +7125,6 @@ TEST_P(TabStripModelTest, CommandGlicUnshare) {
   // This should not crash (it CHECKs the delegate returns true).
   tabstrip()->ExecuteContextMenuCommand(0, TabStripModel::CommandGlicUnshare);
 }
-#endif
 
 TEST_P(TabStripModelTest, TabStripUIWasSetResetOnObserverRemoval) {
   MockTabStripModelObserver observer;

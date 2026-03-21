@@ -4,7 +4,6 @@
 
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_tab_helper.h"
 
-#import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
 #import "base/metrics/histogram_functions.h"
@@ -16,12 +15,11 @@
 #import "ios/chrome/browser/enterprise/common/util.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_metrics.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_pasteboard_manager.h"
-#import "ios/chrome/browser/enterprise/data_controls/utils/data_controls_utils.h"
+#import "ios/chrome/browser/enterprise/enterprise_dialog/model/warning_dialog.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/components/enterprise/data_controls/features.h"
 #import "ios/web/public/web_state.h"
 #import "ui/base/clipboard/clipboard_metadata.h"
 #import "ui/base/l10n/l10n_util.cc"
@@ -36,11 +34,6 @@ DataControlsTabHelper::~DataControlsTabHelper() = default;
 
 void DataControlsTabHelper::ShouldAllowCopy(
     base::OnceCallback<void(bool)> callback) {
-  if (!IsClipboardDataControlsEnabled()) {
-    std::move(callback).Run(true);
-    return;
-  }
-
   // TODO(crbug.com/444224082): Include size and format type for copy
   // operations.
   ui::ClipboardMetadata metadata;
@@ -53,7 +46,7 @@ void DataControlsTabHelper::ShouldAllowCopy(
   switch (verdicts.copy_action_verdict.level()) {
     case Rule::Level::kWarn:
       ShowWarningDialog(
-          DataControlsDialog::Type::kClipboardCopyWarn,
+          enterprise::DialogType::kClipboardCopyWarn,
           GetManagementDomain(profile),
           base::BindOnce(&DataControlsTabHelper::FinishCopy,
                          weak_factory_.GetWeakPtr(), source_url,
@@ -75,11 +68,6 @@ void DataControlsTabHelper::ShouldAllowCopy(
 
 void DataControlsTabHelper::ShouldAllowPaste(
     base::OnceCallback<void(bool)> callback) {
-  if (!IsClipboardDataControlsEnabled()) {
-    std::move(callback).Run(true);
-    return;
-  }
-
   // TODO(crbug.com/444224082): Include size and format type for paste
   // operations.
   ui::ClipboardMetadata metadata;
@@ -105,7 +93,7 @@ void DataControlsTabHelper::ShouldAllowPaste(
   switch (policy_verdict.verdict.level()) {
     case Rule::Level::kWarn:
       ShowWarningDialog(
-          DataControlsDialog::Type::kClipboardPasteWarn, domain,
+          enterprise::DialogType::kClipboardPasteWarn, domain,
           base::BindOnce(
               &DataControlsTabHelper::FinishPaste, weak_factory_.GetWeakPtr(),
               destination_url, source.source_url, profile->AsWeakPtr(),
@@ -133,10 +121,6 @@ void DataControlsTabHelper::ShouldAllowCut(
 }
 
 bool DataControlsTabHelper::ShouldAllowShare() {
-  if (!IsClipboardDataControlsEnabled()) {
-    return true;
-  }
-
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
   const GURL& source_url = web_state_->GetLastCommittedURL();
@@ -146,8 +130,8 @@ bool DataControlsTabHelper::ShouldAllowShare() {
   return verdict.level() != Rule::Level::kBlock;
 }
 
-void DataControlsTabHelper::SetDataControlsCommandsHandler(
-    id<DataControlsCommands> handler) {
+void DataControlsTabHelper::SetEnterpriseCommandsHandler(
+    id<EnterpriseCommands> handler) {
   commands_handler_ = handler;
 }
 
@@ -158,10 +142,6 @@ void DataControlsTabHelper::SetSnackbarHandler(
 void DataControlsTabHelper::DidFinishClipboardRead() {
   DataControlsPasteboardManager::GetInstance()
       ->RestorePlaceholderToGeneralPasteboardIfNeeded();
-}
-
-bool DataControlsTabHelper::IsClipboardDataControlsEnabled() const {
-  return base::FeatureList::IsEnabled(kEnableClipboardDataControlsIOS);
 }
 
 void DataControlsTabHelper::FinishCopy(const GURL& source_url,
@@ -278,14 +258,14 @@ void DataControlsTabHelper::FinishPaste(
 }
 
 void DataControlsTabHelper::ShowWarningDialog(
-    DataControlsDialog::Type dialog_type,
+    enterprise::DialogType dialog_type,
     std::string_view org_domain,
     base::OnceCallback<void(bool)> on_bypassed_callback) {
   if (commands_handler_) {
     [commands_handler_
-        showDataControlsWarningDialog:dialog_type
-                   organizationDomain:org_domain
-                             callback:std::move(on_bypassed_callback)];
+        showEnterpriseWarningDialog:dialog_type
+                 organizationDomain:org_domain
+                           callback:std::move(on_bypassed_callback)];
   } else {
     if (on_bypassed_callback) {
       std::move(on_bypassed_callback).Run(false);

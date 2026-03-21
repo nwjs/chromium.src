@@ -71,11 +71,17 @@ source_set("feedback_impl") {
     "//components/safe_browsing/core/common:safe_browsing_prefs",
   ]
   public_deps = [ "//components/feedback" ]
-  if (!is_android) {
+  if (is_android) {
+    sources += [ "report_unsafe_site_dialog_android.cc" ]
+  } else {
     sources += [
       "feedback_dialog_utils.cc",
       "feedback_uploader_chrome.cc",
       "feedback_uploader_factory_chrome.cc",
+      "report_unsafe_site_dialog_views.cc",
+      "report_unsafe_site_dialog_views.h",
+      "screenshot_taker.cc",
+      "screenshot_taker.h",
       "show_feedback_page.cc",
       "system_logs/about_system_logs_fetcher.cc",
       "system_logs/about_system_logs_fetcher.h",
@@ -113,6 +119,7 @@ source_set("feedback_impl") {
       "//chrome/browser/extensions",
       "//chrome/browser/first_party_sets",
       "//chrome/browser/google",
+      "//chrome/browser/metrics",
       "//chrome/browser/performance_manager/public/user_tuning",
       "//chrome/browser/signin",
       "//chrome/browser/sync",
@@ -120,6 +127,8 @@ source_set("feedback_impl") {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/bubble",
+      "//chrome/browser/ui/webui/top_chrome",
       "//chrome/browser/updater",
       "//chrome/common",
       "//components/device_event_log",

@@ -53,6 +53,12 @@ class VerticalTabStripController : public TabContextMenuController::Delegate {
                               const gfx::Point& point,
                               ui::mojom::MenuSourceType source_type);
 
+  void ShiftTabNext(const tabs::TabInterface* tab_interface);
+  void ShiftTabPrevious(const tabs::TabInterface* tab_interface);
+  void ShiftGroupUp(const tab_groups::TabGroupId& group);
+  void ShiftGroupDown(const tab_groups::TabGroupId& group);
+  void MoveTabFirst(const tabs::TabInterface* tab_interface);
+  void MoveTabLast(const tabs::TabInterface* tab_interface);
   void SelectTab(const tabs::TabInterface* tab_interface,
                  const TabStripUserGestureDetails& event);
   void CloseTab(const tabs::TabInterface* tab_interface);
@@ -76,6 +82,9 @@ class VerticalTabStripController : public TabContextMenuController::Delegate {
   }
 
   VerticalTabDragHandler& GetDragHandler() { return drag_handler_.get(); }
+  const VerticalTabDragHandler& GetDragHandler() const {
+    return drag_handler_.get();
+  }
 
   TabHoverCardController* GetHoverCardController() {
     return hover_card_controller_.get();
@@ -106,6 +115,12 @@ class VerticalTabStripController : public TabContextMenuController::Delegate {
 
   void RecordMetricsOnTabSelectionChange(
       std::optional<tab_groups::TabGroupId> group);
+
+  void ShiftTabRelative(const tabs::TabInterface* tab_interface, int offset);
+  void ShiftGroupRelative(const tab_groups::TabGroupId& group, int offset);
+
+  void AnnounceTabAddedToGroup(tab_groups::TabGroupId group_id);
+  void AnnounceTabRemovedFromGroup(tab_groups::TabGroupId group_id);
 
   std::unique_ptr<TabContextMenuController> context_menu_controller_;
   std::unique_ptr<TabMenuModelFactory> menu_model_factory_;

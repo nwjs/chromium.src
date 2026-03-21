@@ -7,6 +7,7 @@
 #import "base/functional/callback.h"
 #import "base/types/expected.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
+#import "ios/chrome/browser/intelligence/actuation/model/actuation_error.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
@@ -20,13 +21,12 @@
 NavigateTool::~NavigateTool() = default;
 
 // static
-base::expected<std::unique_ptr<NavigateTool>, ActuationTool::ActuationError>
+base::expected<std::unique_ptr<NavigateTool>, ActuationError>
 NavigateTool::Create(const optimization_guide::proto::NavigateAction& action,
                      ProfileIOS* profile) {
   if (!action.has_tab_id() || !action.has_url()) {
     return base::unexpected(
-        ActuationError{ActuationErrorCode::kToolCreationFailed,
-                       "NavigateAction proto is missing tab id or url."});
+        ActuationError{ActuationErrorCode::kCreationMissingRequiredFields});
   }
 
   BrowserList* browser_list = BrowserListFactory::GetForProfile(profile);
@@ -37,21 +37,18 @@ NavigateTool::Create(const optimization_guide::proto::NavigateAction& action,
   Browser* browser = browser_and_index.browser;
   if (tab_index == WebStateList::kInvalidIndex || !browser) {
     return base::unexpected(
-        ActuationError{ActuationErrorCode::kToolCreationFailed,
-                       "Target tab isn't in any Browser."});
+        ActuationError{ActuationErrorCode::kCreationTargetTabNotFound});
   }
 
   WebStateList* web_state_list = browser->GetWebStateList();
   if (!web_state_list) {
     return base::unexpected(
-        ActuationError{ActuationErrorCode::kToolCreationFailed,
-                       "Failed to get WebStateList from browser."});
+        ActuationError{ActuationErrorCode::kCreationMissingWebStateList});
   }
   web::WebState* web_state = web_state_list->GetWebStateAt(tab_index);
   if (!web_state) {
     return base::unexpected(
-        ActuationError{ActuationErrorCode::kToolCreationFailed,
-                       "Failed to get WebState from WebStateList."});
+        ActuationError{ActuationErrorCode::kCreationMissingWebState});
   }
   return std::unique_ptr<NavigateTool>(
       new NavigateTool(action.url(), web_state->GetWeakPtr(), web_state_list,
@@ -62,33 +59,36 @@ NavigateTool::Create(const optimization_guide::proto::NavigateAction& action,
 // ActuationService.
 void NavigateTool::Execute(ActuationCallback callback) {
   if (!web_state_ || !web_state_list_ || !url_loader_) {
-    std::move(callback).Run(
-        base::unexpected(ActuationError{ActuationErrorCode::kExecutionFailed,
-                                        "Missing required dependencies."}));
+    std::move(callback).Run(base::unexpected(
+        ActuationError{ActuationErrorCode::kExecutionMissingDependencies}));
     return;
   }
 
   GURL url(url_);
   if (!url.is_valid()) {
     std::move(callback).Run(base::unexpected(
-        ActuationError{ActuationErrorCode::kExecutionFailed, "Invalid URL"}));
+        ActuationError{ActuationErrorCode::kNavigationInvalidURL}));
     return;
   }
 
-  // TODO(crbug.com/472291687): UrlLoadingBrowserAgent does not support
-  // navigating a background tab, so activate the targeted tab before
-  // navigating.
-  int tab_index = web_state_list_->GetIndexOfWebState(web_state_.get());
-  if (tab_index == WebStateList::kInvalidIndex) {
-    std::move(callback).Run(
-        base::unexpected(ActuationError{ActuationErrorCode::kExecutionFailed,
-                                        "Tab is no longer in the browser."}));
+  // Unrealized WebStates are restored, but not fully functional, tabs that
+  // haven't been activated yet. They do not support navigation.
+  if (!web_state_->IsRealized()) {
+    std::move(callback).Run(base::unexpected(
+        ActuationError{ActuationErrorCode::kNavigationTabNotRealized}));
+
     return;
   }
-  web_state_list_->ActivateWebStateAt(tab_index);
+
+  // These params are selected to align with
+  // chrome/browser/actor/tools/navigate_tool.cc.
   UrlLoadParams params = UrlLoadParams::InCurrentTab(url);
   params.from_chrome = true;
-  url_loader_->Load(params);
+  params.user_initiated = false;
+  params.web_params.transition_type =
+      ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL;
+  params.web_params.is_renderer_initiated = false;
+  url_loader_->LoadUrlInTab(params, web_state_.get());
   std::move(callback).Run(base::ok());
 }
 

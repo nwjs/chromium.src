@@ -109,6 +109,10 @@ export class PrintPreviewMarginControlElement extends
     }
   }
 
+  override firstUpdated() {
+    this.addEventListener('input-change', e => this.onInputChange_(e));
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
 
@@ -126,10 +130,6 @@ export class PrintPreviewMarginControlElement extends
         changedProperties.has('pageSize') || changedProperties.has('side')) {
       this.updatePosition_();
     }
-  }
-
-  override firstUpdated() {
-    this.addEventListener('input-change', e => this.onInputChange_(e));
   }
 
   /** @return The input element for InputBehavior. */
@@ -249,11 +249,6 @@ export class PrintPreviewMarginControlElement extends
         '.', this.measurementSystem.decimalDelimiter);
   }
 
-  private fire_(eventName: string, detail?: any) {
-    this.dispatchEvent(
-        new CustomEvent(eventName, {bubbles: true, composed: true, detail}));
-  }
-
   /**
    * @param e Contains the new value of the input.
    */
@@ -268,18 +263,18 @@ export class PrintPreviewMarginControlElement extends
       return;
     }
 
-    this.fire_('text-change', value);
+    this.fire('text-change', value);
   }
 
   protected onBlur_() {
     this.focused_ = false;
     this.resetAndUpdate();
-    this.fire_('text-blur', this.invalid || !this.$.input.value);
+    this.fire('text-blur', this.invalid || !this.$.input.value);
   }
 
   protected onFocus_() {
     this.focused_ = true;
-    this.fire_('text-focus');
+    this.fire('text-focus');
   }
 
   private updatePosition_() {

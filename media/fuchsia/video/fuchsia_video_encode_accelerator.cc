@@ -2,11 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/40285824): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "media/fuchsia/video/fuchsia_video_encode_accelerator.h"
 
 #include <fuchsia/media/cpp/fidl.h>
@@ -26,6 +21,7 @@
 
 #include "base/bits.h"
 #include "base/check_op.h"
+#include "base/compiler_specific.h"
 #include "base/containers/queue.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/fuchsia/process_context.h"
@@ -297,8 +293,8 @@ void FuchsiaVideoEncodeAccelerator::VideoFrameWriterQueue::CopyFrameToBuffer(
   DCHECK_LE(dst_size_, buffers_[buffer_index].size());
 
   uint8_t* dst_y = buffers_[buffer_index].GetWritableMemory().data();
-  uint8_t* dst_u = dst_y + dst_y_plane_size_;
-  uint8_t* dst_v = dst_u + dst_y_plane_size_ / 4;
+  uint8_t* dst_u = UNSAFE_TODO(dst_y + dst_y_plane_size_);
+  uint8_t* dst_v = UNSAFE_TODO(dst_u + dst_y_plane_size_ / 4);
 
   auto& frame = item.frame;
   CHECK_LE(frame->coded_size().width(), coded_size_.width());
@@ -497,7 +493,7 @@ void FuchsiaVideoEncodeAccelerator::Encode(scoped_refptr<VideoFrame> frame,
   DCHECK(config_);
   DCHECK_EQ(frame->format(), PIXEL_FORMAT_I420);
   DCHECK(!frame->coded_size().IsEmpty());
-  CHECK(frame->IsMappable());
+  CHECK(frame->HasDirectCpuAccess());
 
   // Fuchsia VEA ignores the frame's `visible_rect` and encodes the whole
   // `coded_size`. So we need to check that `coded_size` fits in the allocated

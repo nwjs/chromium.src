@@ -21,6 +21,18 @@ public interface TabStripContextMenuDelegate {
     /** Called when the "Reopen closed tab/tabs/group" menu item is selected. */
     void onReopenClosedEntry();
 
+    /** Returns the number of tabs in the current tab model. */
+    int getTabCount();
+
+    /** Called when the "Bookmark all tabs" menu item is selected. */
+    void onBookmarkAllTabs();
+
     /** Called when the "Name window" menu item is selected. */
     void onNameWindow();
+
+    /** Called when the "Pin Gemini" menu item is selected. */
+    void onPinGlic();
+
+    /** Called when the "Unpin Gemini" menu item is selected. */
+    void onUnpinGlic();
 }

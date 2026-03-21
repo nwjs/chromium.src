@@ -33,6 +33,7 @@
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/manifest_handlers/kiosk_mode_info.h"
+#include "extensions/common/manifest_handlers/message_serialization_info.h"
 #include "extensions/common/manifest_handlers/mime_types_handler.h"
 #include "extensions/common/manifest_handlers/oauth2_manifest_handler.h"
 #include "extensions/common/manifest_handlers/offline_enabled_info.h"
@@ -53,10 +54,7 @@
 
 namespace extensions {
 
-void RegisterCommonManifestHandlers() {
-  // TODO(devlin): Pass in |registry| rather than Get()ing it.
-  ManifestHandlerRegistry* registry = ManifestHandlerRegistry::Get();
-
+void RegisterCommonManifestHandlers(ManifestHandlerRegistry* registry) {
   registry->RegisterHandler(std::make_unique<AboutPageHandler>());
   registry->RegisterHandler(std::make_unique<AutomationHandler>());
   registry->RegisterHandler(std::make_unique<AppDisplayManifestHandler>());
@@ -83,6 +81,7 @@ void RegisterCommonManifestHandlers() {
   registry->RegisterHandler(std::make_unique<InputComponentsHandler>());
 #endif
   registry->RegisterHandler(std::make_unique<KioskModeHandler>());
+  registry->RegisterHandler(std::make_unique<MessageSerializationHandler>());
   registry->RegisterHandler(std::make_unique<MimeTypesHandlerParser>());
   registry->RegisterHandler(std::make_unique<OAuth2ManifestHandler>());
   registry->RegisterHandler(std::make_unique<OfflineEnabledHandler>());

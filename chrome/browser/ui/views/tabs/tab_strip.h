@@ -58,9 +58,11 @@ namespace ui {
 class ListSelectionModel;
 }
 
+#include "chrome/browser/ui/tabs/tab_data.h"
+
 namespace tabs {
-enum class TabAlert;
-}  // namespace tabs
+struct TabData;
+}
 
 // A View that represents the TabStripModel. The TabStrip has the
 // following responsibilities:
@@ -133,12 +135,12 @@ class TabStrip : public views::View,
   struct AddTabData {
     int index;
     tabs::TabHandle handle;
-    TabRendererData data;
+    tabs::TabData data;
   };
   void AddTabsAt(const std::vector<AddTabData>& tabs_datas);
 
   // Moves a tab.
-  void MoveTab(int from_model_index, int to_model_index, TabRendererData data);
+  void MoveTab(int from_model_index, int to_model_index, tabs::TabData data);
 
   // Removes a tab at the specified index. If the tab with `contents` is being
   // dragged then the drag is completed.
@@ -149,7 +151,7 @@ class TabStrip : public views::View,
   void OnTabWillBeRemoved(content::WebContents* contents, int model_index);
 
   // Sets the tab data at the specified model index.
-  void SetTabData(int model_index, TabRendererData data);
+  void SetTabData(int model_index, tabs::TabData data);
 
   // Sets the tab group at the specified model index.
   void AddTabToGroup(std::optional<tab_groups::TabGroupId> group,
@@ -216,9 +218,6 @@ class TabStrip : public views::View,
   // TODO(tbergquist): This should return an optional<size_t>.
   std::optional<int> GetModelIndexOf(const TabSlotView* view) const;
 
-  // Gets the number of Tabs in the tab strip.
-  int GetTabCount() const;
-
   // Cover method for TabStripController::GetCount.
   int GetModelCount() const;
 
@@ -284,6 +283,7 @@ class TabStrip : public views::View,
                              const gfx::Point& p,
                              ui::mojom::MenuSourceType source_type) override;
   void TabKeyboardFocusChangedTo(const tabs::TabInterface* tab) override;
+  int GetTabCount() const override;
   bool IsActiveTab(const TabSlotView* tab) const override;
   bool IsTabSelected(const TabSlotView* tab) const override;
   bool IsFocusInTabs() const override;

@@ -14,6 +14,7 @@
 #include "net/base/net_errors.h"
 #include "net/base/network_anonymization_key.h"
 #include "net/base/url_util.h"
+#include "net/dns/canary_domain_service.h"
 #include "net/dns/host_resolver.h"
 #include "net/log/net_log_with_source.h"
 #include "url/gurl.h"
@@ -82,27 +83,37 @@ MappedHostResolver::CreateServiceEndpointRequest(
     NetworkAnonymizationKey network_anonymization_key,
     NetLogWithSource net_log,
     ResolveHostParameters parameters) {
-  // All call sites of this function should have a valid scheme.
-  CHECK(host.HasScheme());
-  GURL rewritten_url = host.AsSchemeHostPort().GetURL();
-  HostMappingRules::RewriteResult result = rules_.RewriteUrl(rewritten_url);
+  if (host.HasScheme()) {
+    GURL rewritten_url = host.AsSchemeHostPort().GetURL();
+    HostMappingRules::RewriteResult result = rules_.RewriteUrl(rewritten_url);
 
-  switch (result) {
-    case HostMappingRules::RewriteResult::kRewritten:
-      DCHECK(rewritten_url.is_valid());
-      DCHECK_NE(rewritten_url.host(), "^NOTFOUND");
-      return impl_->CreateServiceEndpointRequest(
-          Host(url::SchemeHostPort(rewritten_url)),
-          std::move(network_anonymization_key), std::move(net_log),
-          std::move(parameters));
-    case HostMappingRules::RewriteResult::kInvalidRewrite:
-      // Treat any invalid mapping as if it was "^NOTFOUND" (which should itself
-      // result in `kInvalidRewrite`).
+    switch (result) {
+      case HostMappingRules::RewriteResult::kRewritten:
+        DCHECK(rewritten_url.is_valid());
+        DCHECK_NE(rewritten_url.host(), "^NOTFOUND");
+        return impl_->CreateServiceEndpointRequest(
+            Host(url::SchemeHostPort(rewritten_url)),
+            std::move(network_anonymization_key), std::move(net_log),
+            std::move(parameters));
+      case HostMappingRules::RewriteResult::kInvalidRewrite:
+        // Treat any invalid mapping as if it was "^NOTFOUND" (which should
+        // itself result in `kInvalidRewrite`).
+        return CreateFailingServiceEndpointRequest(ERR_NAME_NOT_RESOLVED);
+      case HostMappingRules::RewriteResult::kNoMatchingRule:
+        return impl_->CreateServiceEndpointRequest(
+            std::move(host), std::move(network_anonymization_key),
+            std::move(net_log), std::move(parameters));
+    }
+  } else {
+    HostPortPair rewritten = host.AsHostPortPair();
+    rules_.RewriteHost(&rewritten);
+
+    if (rewritten.host() == "^NOTFOUND") {
       return CreateFailingServiceEndpointRequest(ERR_NAME_NOT_RESOLVED);
-    case HostMappingRules::RewriteResult::kNoMatchingRule:
-      return impl_->CreateServiceEndpointRequest(
-          std::move(host), std::move(network_anonymization_key),
-          std::move(net_log), std::move(parameters));
+    }
+    return impl_->CreateServiceEndpointRequest(
+        Host(std::move(rewritten)), std::move(network_anonymization_key),
+        std::move(net_log), std::move(parameters));
   }
 }
 
@@ -129,6 +140,11 @@ bool MappedHostResolver::IsHappyEyeballsV3Enabled() const {
 
 HostResolverManager* MappedHostResolver::GetManagerForTesting() {
   return impl_->GetManagerForTesting();
+}
+
+std::unique_ptr<CanaryDomainService>
+MappedHostResolver::CreateCanaryDomainService() {
+  return impl_->CreateCanaryDomainService();
 }
 
 }  // namespace net

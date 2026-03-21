@@ -7,11 +7,9 @@
 
 #include "chrome/browser/extensions/api/chrome_device_permissions_prompt.h"
 #include "chrome/browser/extensions/api/chrome_extensions_api_client.h"
-#include "chrome/browser/extensions/system_display/display_info_provider.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/browser/api/system_display/display_info_provider.h"
 #include "extensions/buildflags/buildflags.h"
 
 // TODO(crbug.com/417770773): This file contains the parts of
@@ -23,15 +21,10 @@ static_assert(BUILDFLAG(ENABLE_EXTENSIONS));
 
 namespace extensions {
 
-std::unique_ptr<DevicePermissionsPrompt>
-ChromeExtensionsAPIClient::CreateDevicePermissionsPrompt(
+std::unique_ptr<UsbDevicePermissionsPrompt>
+ChromeExtensionsAPIClient::CreateUsbDevicePermissionsPrompt(
     content::WebContents* web_contents) const {
-  return std::make_unique<ChromeDevicePermissionsPrompt>(web_contents);
-}
-
-std::unique_ptr<DisplayInfoProvider>
-ChromeExtensionsAPIClient::CreateDisplayInfoProvider() const {
-  return CreateChromeDisplayInfoProvider();
+  return std::make_unique<ChromeUsbDevicePermissionsPrompt>(web_contents);
 }
 
 std::vector<KeyedServiceBaseFactory*>

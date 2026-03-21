@@ -74,24 +74,18 @@ PixelTest::PixelTest(GraphicsBackend backend)
     auto* command_line = base::CommandLine::ForCurrentProcess();
     bool use_gpu = command_line->HasSwitch(::switches::kUseGpuInTests);
     // Force the use of Graphite even if disallowed for other reasons e.g.
-    // ANGLE Metal is not enabled on Mac. Use dawn-swiftshader backend if
+    // ANGLE Metal is not enabled on Mac. Use swiftshader backend if
     // kUseGpuInTests is not set.
     command_line->AppendSwitch(::switches::kEnableSkiaGraphite);
-    command_line->AppendSwitchASCII(
-        ::switches::kSkiaGraphiteBackend,
-        use_gpu ? ::switches::kSkiaGraphiteBackendDawn
-                : ::switches::kSkiaGraphiteBackendDawnSwiftshader);
+    if (!use_gpu) {
+      command_line->AppendSwitchASCII(
+          ::switches::kSkiaGraphiteDawnBackend,
+          ::switches::kSkiaGraphiteDawnBackendSwiftshader);
+    }
     init_dawn = true;
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     init_vulkan = true;
 #endif
-  } else if (backend == kSkiaGraphiteMetal) {
-    scoped_feature_list_.InitAndEnableFeature(features::kSkiaGraphite);
-    auto* command_line = base::CommandLine::ForCurrentProcess();
-    // Force the use of Graphite even if disallowed for other reasons.
-    command_line->AppendSwitch(::switches::kEnableSkiaGraphite);
-    command_line->AppendSwitchASCII(::switches::kSkiaGraphiteBackend,
-                                    ::switches::kSkiaGraphiteBackendMetal);
   } else {
     // Ensure that we don't accidentally have vulkan or graphite enabled.
     scoped_feature_list_.InitWithFeatures(

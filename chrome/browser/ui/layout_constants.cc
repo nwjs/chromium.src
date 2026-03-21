@@ -9,7 +9,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/common/chrome_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/ui_base_features.h"
@@ -61,13 +60,6 @@ int GetLayoutConstant(LayoutConstant constant) {
       return touch_ui ? 3 : 2;
     case LayoutConstant::kLocationBarPageInfoIconVerticalPadding:
       return touch_ui ? 3 : 5;
-    case LayoutConstant::kLocationBarLeadingDecorationEdgePadding:
-      // TODO(manukh): See comment in `LocationBarView::Layout()`. We have too
-      //   many feature permutations that would affect this and other layout
-      //   constants, so instead of spreading the permutation logic here and
-      //   elsewhere, it's consolidated in `Layout()` and will be moved back
-      //   here once we decide on a permutation.
-      NOTREACHED();
     case LayoutConstant::kLocationBarTrailingDecorationEdgePadding:
       return touch_ui ? 3 : 12;
     case LayoutConstant::kLocationBarTrailingDecorationInnerPadding:
@@ -109,6 +101,9 @@ int GetLayoutConstant(LayoutConstant constant) {
       return 1;
     case LayoutConstant::kToolbarButtonHeight:
       return touch_ui ? 48 : 34;
+    case LayoutConstant::kToolbarButtonIconSize:
+      return touch_ui ? kDefaultTouchableIconSize
+                      : kDefaultIconSizeChromeRefresh;
     case LayoutConstant::kToolbarDividerCornerRadius:
       return 1;
     case LayoutConstant::kToolbarDividerHeight:
@@ -121,7 +116,7 @@ int GetLayoutConstant(LayoutConstant constant) {
       return touch_ui ? 0 : 4;
     case LayoutConstant::kToolbarIconDefaultMargin:
       return touch_ui ? 0 : 2;
-    case LayoutConstant::kToolbarStandardSpacing:
+    case LayoutConstant::kLocationBarMargin:
       return touch_ui ? 12 : 9;
     case LayoutConstant::kToolbarHeightSidePanelInset:
       return 8;

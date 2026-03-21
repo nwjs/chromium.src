@@ -17,6 +17,9 @@
 // View controller for the app bar.
 @interface AppBarViewController : UIViewController <AppBarConsumer>
 
+// Unhides the spotlight anchor view if `shouldShow`.
+- (void)toggleSpotlightView:(BOOL)shouldShow;
+
 // The mutator.
 @property(nonatomic, weak) id<AppBarMutator> mutator;
 // This view controller's LayoutGuideCenter.
@@ -25,6 +28,9 @@
 @property(nonatomic, weak) id<SceneCommands> sceneHandler;
 // Tab Grid handler.
 @property(nonatomic, weak) id<TabGridCommands> tabGridHandler;
+
+// Updates the App Bar's subviews for a given rotation angle.
+- (void)updateForAngle:(CGFloat)angle;
 
 @end
 

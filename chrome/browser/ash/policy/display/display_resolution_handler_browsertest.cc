@@ -17,7 +17,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ash/login/test/device_state_mixin.h"
 #include "chrome/browser/ash/policy/display/device_display_cros_browser_test.h"
-#include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
@@ -363,7 +362,13 @@ IN_PROC_BROWSER_TEST_P(DisplayResolutionBootTest, PRE_Reboot) {
       << "Initial primary display scale after policy set";
 }
 
-IN_PROC_BROWSER_TEST_P(DisplayResolutionBootTest, Reboot) {
+// TODO(crbug.com/489591497): Re-enable this after fixing flakiness.
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_Reboot DISABLED_Reboot
+#else
+#define MAYBE_Reboot Reboot
+#endif
+IN_PROC_BROWSER_TEST_P(DisplayResolutionBootTest, MAYBE_Reboot) {
   const PolicyValue policy_value = GetParam();
 
   AddExternalDisplay(display_helper()->GetDisplayManager());

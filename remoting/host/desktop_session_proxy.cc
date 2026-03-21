@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "base/compiler_specific.h"
@@ -41,6 +42,7 @@
 #include "remoting/proto/control.pb.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/capability_names.h"
+#include "remoting/protocol/desktop_capturer_proxy.h"
 #include "third_party/webrtc/modules/desktop_capture/mouse_cursor.h"
 
 namespace remoting {
@@ -117,7 +119,13 @@ std::unique_ptr<DesktopCapturer> DesktopSessionProxy::CreateVideoCapturer(
     RequestMojoVideoCapturer(id, capturer_weakptr);
   }
 
-  return video_capturer;
+  // WebrtcVideoStream accesses the capturer on a dedicated thread, while IPC
+  // is handled on the current thread, so we need to wrap it with a capturer
+  // proxy.
+  auto capturer_proxy = std::make_unique<DesktopCapturerProxy>(
+      base::SequencedTaskRunner::GetCurrentDefault());
+  capturer_proxy->set_capturer(std::move(video_capturer));
+  return capturer_proxy;
 }
 
 std::unique_ptr<protocol::MouseCursorMonitor>
@@ -591,6 +599,13 @@ void DesktopSessionProxy::SetUpUrlForwarder(
   }
   set_up_url_forwarder_callback_ = callback;
   desktop_session_control_->SetUpUrlForwarder();
+}
+
+std::string_view DesktopSessionProxy::client_jid() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  return client_session_control_ ? client_session_control_->client_jid()
+                                 : std::string_view{};
 }
 
 void DesktopSessionProxy::OnUrlForwarderStateChange(

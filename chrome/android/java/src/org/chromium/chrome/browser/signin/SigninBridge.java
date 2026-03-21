@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.signin;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.accounts.AccountManager;
@@ -30,12 +31,19 @@ import org.chromium.chrome.browser.signin.services.SigninPreferencesManager;
 import org.chromium.chrome.browser.signin.services.WebSigninBridge;
 import org.chromium.chrome.browser.sync.settings.AccountManagementFragment;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig.NoAccountSigninMode;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncConfig.WithAccountSigninMode;
+import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.SigninUtils;
+import org.chromium.chrome.browser.ui.signin.WebSigninAndHistorySyncCoordinatorSupplier;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerDelegate;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerLaunchMode;
 import org.chromium.chrome.browser.ui.signin.account_picker.WebSigninAccountPickerDelegate;
+import org.chromium.chrome.browser.ui.signin.account_picker.WebSigninDelegateContext;
+import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerProvider;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
@@ -47,6 +55,7 @@ import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.browser.WebSigninTrackerResult;
+import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
@@ -91,7 +100,8 @@ final class SigninBridge {
     @VisibleForTesting static final int ACCOUNT_PICKER_BOTTOM_SHEET_DISMISS_LIMIT = 3;
 
     /**
-     * Starts a flow to add a Google account to the device.
+     * Starts a flow to add a Google account to the device. A bottomsheet will be opened after there
+     * is no primary account.
      *
      * @param tab The target tab for the continueUrl navigation.
      * @param prefilledEmail The email address to prefill in the add account flow, or null if no
@@ -103,6 +113,17 @@ final class SigninBridge {
             Tab tab,
             @Nullable @JniType("std::string") String prefilledEmail,
             @JniType("GURL") GURL continueUrl) {
+        startAddAccountFlow(
+                tab, prefilledEmail, continueUrl, new AccountPickerBottomSheetCoordinatorFactory());
+    }
+
+    /** See {@link SigninBridge#startAddAccountFlow()} above. */
+    @VisibleForTesting
+    static void startAddAccountFlow(
+            Tab tab,
+            @Nullable String prefilledEmail,
+            GURL continueUrl,
+            AccountPickerBottomSheetCoordinatorFactory factory) {
         ThreadUtils.assertOnUiThread();
         WindowAndroid windowAndroid = tab.getWindowAndroid();
         if (windowAndroid == null || !tab.isUserInteractable()) {
@@ -126,21 +147,48 @@ final class SigninBridge {
                     }
                     windowAndroid.showIntent(
                             intent,
-                            (int resultCode, @Nullable Intent data) -> {
-                                @Nullable String addedAccountEmail =
-                                        data == null
-                                                ? prefilledEmail
-                                                : data.getStringExtra(
-                                                        AccountManager.KEY_ACCOUNT_NAME);
-                                if (SigninFeatureMap.isEnabled(
-                                                SigninFeatures.ENABLE_ADD_SESSION_REDIRECT)
-                                        && resultCode == Activity.RESULT_OK) {
-                                    waitForCookiesAndRedirect(
-                                            tab, addedAccountEmail, continueUrl, initialTabURL);
-                                }
-                            },
+                            getIntentCallback(
+                                    tab, prefilledEmail, continueUrl, factory, initialTabURL),
                             null);
                 });
+    }
+
+    private static WindowAndroid.IntentCallback getIntentCallback(
+            Tab tab,
+            @Nullable String prefilledEmail,
+            GURL continueUrl,
+            AccountPickerBottomSheetCoordinatorFactory factory,
+            GURL initialTabURL) {
+        return (int resultCode, @Nullable Intent data) -> {
+            @Nullable String addedAccountEmail =
+                    data == null
+                            ? prefilledEmail
+                            : data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+            if (SigninFeatureMap.isEnabled(SigninFeatures.ENABLE_ADD_SESSION_REDIRECT)
+                    && resultCode == Activity.RESULT_OK) {
+                IdentityManager identityManager =
+                        assumeNonNull(
+                                IdentityServicesProvider.get()
+                                        .getIdentityManager(tab.getProfile().getOriginalProfile()));
+
+                // If the account is added to the device but there is no primary
+                // account then surface the bottom sheet otherwise wait for
+                // cookies to be minted.
+                if (identityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN) == null) {
+                    openAccountPickerBottomSheet(
+                            tab,
+                            continueUrl,
+                            factory,
+                            assumeNonNull(
+                                            identityManager.findExtendedAccountInfoByEmailAddress(
+                                                    assumeNonNull(addedAccountEmail)))
+                                    .getId());
+                    return;
+                }
+
+                waitForCookiesAndRedirect(tab, addedAccountEmail, continueUrl, initialTabURL);
+            }
+        };
     }
 
     /**
@@ -256,8 +304,7 @@ final class SigninBridge {
         if (context == null) {
             return;
         }
-        // TODO(b/41493784): Update this when the new sign-in flow will be used for the web signin
-        // entry point.
+
         AccountPickerBottomSheetStrings strings =
                 new AccountPickerBottomSheetStrings.Builder(
                                 context.getString(
@@ -270,6 +317,28 @@ final class SigninBridge {
                                 context.getString(R.string.signin_account_picker_dismiss_button))
                         .build();
 
+        if (SigninFeatureMap.getInstance().isActivitylessSigninAllEntryPointEnabled()) {
+            BottomSheetSigninAndHistorySyncConfig.Builder builder =
+                    new BottomSheetSigninAndHistorySyncConfig.Builder(
+                            strings,
+                            NoAccountSigninMode.BOTTOM_SHEET,
+                            WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
+                            HistorySyncConfig.OptInMode.NONE,
+                            context.getString(R.string.history_sync_title),
+                            context.getString(R.string.history_sync_subtitle));
+            if (selectedAccountId != null) {
+                builder.selectedCoreAccountId(selectedAccountId);
+            }
+            BottomSheetSigninAndHistorySyncConfig config = builder.build();
+            BottomSheetSigninAndHistorySyncCoordinator coordinator =
+                    assertNonNull(
+                            WebSigninAndHistorySyncCoordinatorSupplier.getValueOrNullFrom(
+                                    windowAndroid));
+            coordinator.startSigninFlow(
+                    config, new WebSigninDelegateContext(tab.getId(), continueUrl));
+            return;
+        }
+
         factory.create(
                 windowAndroid,
                 signinManager.getIdentityManager(),
@@ -280,6 +349,36 @@ final class SigninBridge {
                 DeviceLockActivityLauncherImpl.get(),
                 AccountPickerLaunchMode.DEFAULT,
                 selectedAccountId);
+    }
+
+    /**
+     * Starts the flow to reauthenticate.
+     *
+     * @param tab The target tab for the continueUrl navigation.
+     * @param selectedAccountId The account to be reauthenticated .
+     */
+    @CalledByNative
+    private static void startUpdateCredentialsFlow(
+            Tab tab, @JniType("CoreAccountId") CoreAccountId selectedAccountId) {
+        assert selectedAccountId != null;
+        WindowAndroid windowAndroid = tab.getWindowAndroid();
+        if (windowAndroid == null || !tab.isUserInteractable()) {
+            // The page is opened in the background, ignore the header. See
+            // https://crbug.com/1145031#c5 and https://crbug.com/323424409 for details.
+            return;
+        }
+        AccountManagerFacade accountManagerFacade = AccountManagerFacadeProvider.getInstance();
+        Profile profile = tab.getProfile().getOriginalProfile();
+        IdentityManager identityManager =
+                assertNonNull(IdentityServicesProvider.get().getIdentityManager(profile));
+
+        accountManagerFacade.updateCredentials(
+                assertNonNull(
+                        identityManager.findExtendedAccountInfoByAccountId(selectedAccountId)),
+                assumeNonNull(windowAndroid.getActivity().get()),
+                (response) -> {
+                    // TODO(crbug.com/465701665): Redirect user if there is a specified URL.
+                });
     }
 
     private SigninBridge() {}

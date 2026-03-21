@@ -76,10 +76,8 @@ bool CheckNewWebAppConflictsWithExistingInstallation(
 
   // If there is an existing crafted or DIY app that has the same manifest_id,
   // do not promote installation.
-  if (provider->registrar_unsafe().IsInstallState(
-          installing_app_id,
-          {web_app::proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-           web_app::proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION})) {
+  if (provider->registrar_unsafe().AppMatches(
+          installing_app_id, web_app::WebAppFilter::InstalledInChrome())) {
     return true;
   }
 
@@ -100,7 +98,8 @@ bool CheckNewWebAppConflictsWithExistingInstallation(
   std::optional<AppId> non_diy_extended_scope_app_id =
       provider->registrar_unsafe().FindBestAppWithUrlInScope(
           start_url,
-          web_app::WebAppFilter::IsCraftedAppAndOpensInDedicatedWindow(),
+          web_app::WebAppFilter::IsCraftedApp() &
+              web_app::WebAppFilter::OpensInDedicatedWindow(),
           {.exclude_scope_extensions = false});
   if (non_diy_extended_scope_app_id) {
     return true;
@@ -138,7 +137,10 @@ WebappInstallSource WebappsClientDesktop::GetInstallSource(
 AppBannerManager* WebappsClientDesktop::GetAppBannerManager(
     content::WebContents* web_contents) {
   CHECK(web_contents);
-  return AppBannerManagerDesktop::FromWebContents(web_contents);
+  if (auto* manager = AppBannerManagerDesktop::FromWebContents(web_contents)) {
+    return manager->app_banner_manager();
+  }
+  return nullptr;
 }
 
 void WebappsClientDesktop::DoesNewWebAppConflictWithExistingInstallation(

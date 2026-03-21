@@ -6,9 +6,11 @@ package org.chromium.ui.widget;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.os.IBinder;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -23,6 +25,7 @@ import androidx.annotation.StyleRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ObserverList;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -41,6 +44,8 @@ import java.util.function.Supplier;
 public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observer {
     private static final int MIN_TOUCHABLE_HEIGHT_DIP = 50; // 48dp touch target plus 1dp margin.
     private static final int MIN_TOUCHABLE_WIDTH_DIP = 50; // 48dp touch target plus 1dp margin.
+
+    private static @Nullable Runnable sShowHookForTesting;
 
     /** An observer that is notified of AnchoredPopupWindow layout changes. */
     public interface LayoutObserver {
@@ -1153,8 +1158,8 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
         }
 
         if (hasMinimalSize()) {
-            mPopupWindow.update(
-                    popupRect.left, popupRect.top, popupRect.width(), popupRect.height());
+            Point origin = compensateForRootViewOrigin(popupRect.left, popupRect.top);
+            mPopupWindow.update(origin.x, origin.y, popupRect.width(), popupRect.height());
         }
     }
 
@@ -1193,8 +1198,38 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
                 && mPopupSpec.popupRect.width() >= density * MIN_TOUCHABLE_WIDTH_DIP;
     }
 
+    private Point compensateForRootViewOrigin(int x, int y) {
+        // Top-level windows are attached directly to the WindowManager except in some edge cases
+        // like during destruction.
+        if (mRootView.getLayoutParams() instanceof WindowManager.LayoutParams wmlp) {
+            // {@code WindowManager.LayoutParams.[x|y]} holds the coordinates of the window of
+            // {@link mRootView} relative to the origin of the application window. If {@link
+            // mRootView} is already in a popup window and we're trying to create another one on top
+            // of it, we compensate for it here to give the coordinates relative to the application
+            // window.
+            x += wmlp.x;
+            y += wmlp.y;
+        }
+
+        return new Point(x, y);
+    }
+
+    /**
+     * Sets a hook to be called when {@link #showPopupWindow()} is called.
+     *
+     * @param hook The hook to be called.
+     */
+    public static void setShowHookForTesting(@Nullable Runnable hook) {
+        sShowHookForTesting = hook;
+        ResettersForTesting.register(() -> sShowHookForTesting = null);
+    }
+
     @VisibleForTesting
     void showPopupWindow() {
+        if (sShowHookForTesting != null) {
+            sShowHookForTesting.run();
+            return;
+        }
         if (mAnimateFromAnchor && mAnimationStyleId == 0) {
             int animationStyle =
                     calculateAnimationStyle(
@@ -1202,14 +1237,33 @@ public class AnchoredPopupWindow implements OnTouchListener, RectProvider.Observ
                             mPopupSpec.positionParams.isPositionToLeft);
             mPopupWindow.setAnimationStyle(animationStyle);
         }
+
+        assert hasMinimalSize();
+        mPopupWindow.setContentView(getOrCreateContentView());
+
+        Point origin =
+                compensateForRootViewOrigin(mPopupSpec.popupRect.left, mPopupSpec.popupRect.top);
+
+        // HACK: Create a fake View that returns the application window token so that we can nest
+        // {@link PopupWindow}s. {@link WindowManager} forbids using the window token of a
+        // sub-window to create a new window, so we have to pass it the window token of the
+        // application window. See: crbug.com/445218701.
+        View tokenProxyView =
+                new View(mContext) {
+                    @Override
+                    public IBinder getWindowToken() {
+                        return mRootView.getApplicationWindowToken();
+                    }
+
+                    @Override
+                    public View getRootView() {
+                        return mRootView.getRootView();
+                    }
+                };
+
         try {
-            assert hasMinimalSize();
-            mPopupWindow.setContentView(getOrCreateContentView());
             mPopupWindow.showAtLocation(
-                    mRootView,
-                    Gravity.TOP | Gravity.START,
-                    mPopupSpec.popupRect.left,
-                    mPopupSpec.popupRect.top);
+                    tokenProxyView, Gravity.TOP | Gravity.START, origin.x, origin.y);
         } catch (WindowManager.BadTokenException e) {
             // Intentionally ignore BadTokenException. This can happen in a real edge case where
             // parent.getWindowToken is not valid. See http://crbug.com/826052.

@@ -10,11 +10,11 @@ export function getHtml(this: ReadAnythingToolbarElement) {
   // clang-format off
   return html`<!--_html_template_start_-->
 <div id="toolbarContainer" class="${this.getToolbarContainerClass_()}"
-    role="toolbar" aria-label="${this.getToolbarAriaLabel_()}"
-    @keydown="${this.onToolbarKeyDown_}"
+    role="toolbar" aria-label="$i18n{readingModeReadAloudToolbarLabel}"
+    tabindex="${this.isImmersiveEnabled_ ? 0 : -1}"
+    @keydown="${this.onToolbarKeydown_}"
     @reset-toolbar="${this.onResetToolbar_}"
     @toolbar-overflow="${this.onToolbarOverflow_}">
-  ${this.shouldShowToolbarAudioControls_() ? html`
     <span id="audio-controls" class="audio-background-${this.getAudioState_()}">
       <span ?hidden="${this.hideSpinner_}">
         <picture class="spinner toolbar-button audio-controls">
@@ -65,60 +65,30 @@ export function getHtml(this: ReadAnythingToolbarElement) {
         </cr-button>
       ` : ''}
     </span>
-    ${!this.isImmersiveEnabled_ ? html`
-      <cr-button class="toolbar-button" id="rate"
+  ${!this.isImmersiveEnabled_ ? html`
+    <cr-button class="toolbar-button" id="rate"
           tabindex="${this.getRateTabIndex_()}"
           aria-label="${this.getVoiceSpeedLabel_()}"
           title="${this.i18n('voiceSpeedLabel')}"
           aria-haspopup="menu"
           @click="${this.onShowRateMenuClick_}">
           ${this.getFormattedSpeechRate_()}
-      </cr-button>
-    ` : ''}
-    <rate-menu id="rateMenu" .settingsPrefs="${this.settingsPrefs}"
-        @rate-change="${this.onRateChange_}">
-    </rate-menu>
-  ` : ''}
-  ${!this.isImmersiveEnabled_ ? html`
-    ${this.isReadAloudEnabled_ ? html`
-      <cr-icon-button class="toolbar-button" id="voice-selection" tabindex="-1"
-          aria-label="$i18n{voiceSelectionLabel}"
-          title="$i18n{voiceSelectionLabel}"
-          aria-haspopup="menu"
-          iron-icon="read-anything:voice-selection"
-          @click="${this.onVoiceSelectionMenuClick_}">
-      </cr-icon-button>
+    </cr-button>
 
-      <cr-icon-button class="toolbar-button" id="highlight" tabindex="-1"
-          iron-icon="read-anything:highlight-on"
-          title="${this.getHighlightButtonLabel_()}"
-          aria-label="${this.getHighlightButtonLabel_()}"
-          @click="${this.onHighlightClick_}">
-      </cr-icon-button>
-    ` : html`
-      <font-select id="font-select" tabindex="0"
-        .settingsPrefs="${this.settingsPrefs}"
-        .pageLanguage="${this.pageLanguage}"
-        .areFontsLoaded="${this.areFontsLoaded_}"
-        @font-change="${this.onFontChange_}">
-      </font-select>
-      <hr class="separator" aria-hidden="true">
-      <div id="size-announce" class="announce-block" aria-live="polite"></div>
-      <cr-icon-button id="font-size-decrease-old" tabindex="-1"
-          class="toolbar-button"
-          aria-label="$i18n{decreaseFontSizeLabel}"
-          title="$i18n{decreaseFontSizeLabel}"
-          iron-icon="read-anything:font-size-decrease-old"
-          @click="${this.onFontSizeDecreaseClick_}">
-      </cr-icon-button>
-      <cr-icon-button id="font-size-increase-old" tabindex="-1"
-          class="toolbar-button"
-          aria-label="$i18n{increaseFontSizeLabel}"
-          title="$i18n{increaseFontSizeLabel}"
-          iron-icon="read-anything:font-size-increase-old"
-          @click="${this.onFontSizeIncreaseClick_}">
-      </cr-icon-button>
-    `}
+    <cr-icon-button class="toolbar-button" id="voice-selection" tabindex="-1"
+        aria-label="$i18n{voiceSelectionLabel}"
+        title="$i18n{voiceSelectionLabel}"
+        aria-haspopup="menu"
+        iron-icon="read-anything:voice-selection"
+        @click="${this.onVoiceSelectionMenuClick_}">
+    </cr-icon-button>
+
+    <cr-icon-button class="toolbar-button" id="highlight" tabindex="-1"
+        iron-icon="read-anything:highlight-on"
+        title="${this.getHighlightButtonLabel_()}"
+        aria-label="${this.getHighlightButtonLabel_()}"
+        @click="${this.onHighlightClick_}">
+    </cr-icon-button>
 
     <hr class="separator" aria-hidden="true">
 
@@ -157,8 +127,8 @@ export function getHtml(this: ReadAnythingToolbarElement) {
     ${this.isImmersiveMode ? html`
       <cr-icon-button id="close" tabindex="-1"
           class="toolbar-button"
-          aria-label="$i18n{readingModeLanguageMenuClose}"
-          title="$i18n{readingModeLanguageMenuClose}"
+          aria-label="$i18n{readingModeClose}"
+          title="$i18n{readingModeClose}"
           iron-icon="cr:close"
           @click="${this.onCloseClick_}">
       </cr-icon-button>
@@ -188,7 +158,7 @@ export function getHtml(this: ReadAnythingToolbarElement) {
 
     <cr-lazy-render-lit id="moreOptionsMenu" .template='${() => html`
     <cr-action-menu id="more-options-menu-dialog"
-        @keydown="${this.onToolbarKeyDown_}"
+        @keydown="${this.onToolbarKeydown_}"
         role-description="$i18n{menu}">
       ${this.moreOptionsButtons_.map((item, index) => html`
       <cr-icon-button id="${item.id}" class="more-options-icon"
@@ -197,7 +167,7 @@ export function getHtml(this: ReadAnythingToolbarElement) {
           title="${item.ariaLabel}"
           aria-haspopup="menu"
           iron-icon="${item.icon}"
-          @click="${this.onTextStyleMenuButtonClickFromOverflow_}">
+          @click="${this.onTextStyleMenuButtonFromOverflowClick_}">
       </cr-icon-button>
       `)}
     </cr-action-menu>
@@ -205,7 +175,7 @@ export function getHtml(this: ReadAnythingToolbarElement) {
     </cr-lazy-render-lit>
   `}
   <cr-lazy-render-lit id="fontSizeMenu" .template='${() => html`
-  <cr-action-menu @keydown="${this.onFontSizeMenuKeyDown_}"
+  <cr-action-menu @keydown="${this.onFontSizeMenuKeydown_}"
       accessibility-label="$i18n{fontSizeTitle}"
       role-description="$i18n{menu}">
     <cr-icon-button class="font-size" role="menuitem"
@@ -232,6 +202,9 @@ export function getHtml(this: ReadAnythingToolbarElement) {
   </cr-action-menu>
   `}'>
   </cr-lazy-render-lit>
+  <rate-menu id="rateMenu" .settingsPrefs="${this.settingsPrefs}"
+    @rate-change="${this.onRateChange_}">
+  </rate-menu>
   <highlight-menu
     id="highlightMenu"
     class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
@@ -276,6 +249,8 @@ export function getHtml(this: ReadAnythingToolbarElement) {
       class="${this.isImmersiveEnabled_ ? 'settings-submenu' : ''}"
       .nonModal="${this.isImmersiveEnabled_}"
       .settingsPrefs="${this.settingsPrefs}"
+      .lineFocusStyle="${this.lineFocusStyle}"
+      .lineFocusMovement="${this.lineFocusMovement}"
       @close-all-menus="${this.onCloseAllMenus_}">
   </line-focus-menu>
   <voice-selection-menu id="voiceSelectionMenu"

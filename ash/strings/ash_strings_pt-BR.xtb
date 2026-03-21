@@ -9,7 +9,6 @@
 <translation id="101823271612280837">A gravação foi interrompida. Não é possível usar o Painel de jogo no modo tablet.</translation>
 <translation id="1024364763893396229">Salve seu dispositivo <ph name="NAME" /></translation>
 <translation id="1032891413405719768">A bateria da stylus está fraca</translation>
-<translation id="1036073649888683237">Para gerenciar as notificações, acesse as Configurações</translation>
 <translation id="1036348656032585052">Desativar</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> adicionado</translation>
 <translation id="1038106730571050514">Exibir sugestões</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Instalar aplicativo</translation>
 <translation id="2482878487686419369">Notificações</translation>
 <translation id="2484513351006226581">Pressione <ph name="KEYBOARD_SHORTCUT" /> para alterar o layout do teclado.</translation>
+<translation id="2485422356828889247">Desinstalar</translation>
 <translation id="2486214324139475545">Prévia do <ph name="DESK_NAME" />. Espaço de trabalho ativo.</translation>
 <translation id="2486405091093637109">A resolução do "<ph name="DISPLAY_NAME" />" mudou para <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Se você não confirmar, as configurações anteriores serão restauradas em <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Participar</translation>

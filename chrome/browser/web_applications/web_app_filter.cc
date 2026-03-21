@@ -5,182 +5,177 @@
 #include "chrome/browser/web_applications/web_app_filter.h"
 
 #include <utility>
+#include <variant>
 
 #include "base/check_is_test.h"
+#include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
+#include "chrome/browser/web_applications/web_app_management_type.h"
 
 namespace web_app {
 
 // static
 WebAppFilter WebAppFilter::OpensInBrowserTab() {
-  LeafFilter leaf;
-  leaf.opens_in_browser_tab = true;
-  return WebAppFilter(std::move(leaf));
+  return !OpensInDedicatedWindow();
 }
 
 // static
 WebAppFilter WebAppFilter::OpensInDedicatedWindow() {
-  LeafFilter leaf;
-  leaf.opens_in_dedicated_window = true;
-  return WebAppFilter(std::move(leaf));
+  return IsTrue(SimpleCondition::kOpensInDedicatedWindow);
+}
+
+// static
+WebAppFilter WebAppFilter::InstalledByUser() {
+  return IsTrue(SimpleCondition::kWasInstalledByUser);
+}
+
+// static
+WebAppFilter WebAppFilter::InstalledByDefaultManagement() {
+  return HasSource(WebAppManagement::kDefault);
 }
 
 // static
 WebAppFilter WebAppFilter::IsIsolatedApp() {
-  LeafFilter leaf;
-  leaf.isolated_app_filter = IsolatedWebAppFilter();
-  return WebAppFilter(std::move(leaf));
+  return IsTrue(SimpleCondition::kIsolatedApp);
 }
 
 // static
 WebAppFilter WebAppFilter::IsDevModeIsolatedApp() {
-  LeafFilter leaf;
-  leaf.isolated_app_filter = IsolatedWebAppFilter{.must_be_in_dev_mode = true};
-  return WebAppFilter(std::move(leaf));
+  return IsTrue(SimpleCondition::kIsolatedAppDevMode);
 }
 
 // static
 WebAppFilter WebAppFilter::IsIsolatedSubApp() {
-  LeafFilter leaf;
-  leaf.isolated_app_filter = IsolatedWebAppFilter{.is_sub_app = true};
-  return WebAppFilter(std::move(leaf));
+  return IsTrue(SimpleCondition::kIsolatedSubApp);
 }
 
 // static
 WebAppFilter WebAppFilter::PolicyInstalledIsolatedWebApp() {
-  LeafFilter leaf;
-  leaf.isolated_app_filter =
-      IsolatedWebAppFilter{.must_be_policy_installed = true};
-  return WebAppFilter(std::move(leaf));
+  return IsIsolatedApp() & HasSource(WebAppManagement::kIwaPolicy);
 }
 
 // static
 WebAppFilter WebAppFilter::UserInstalledIsolatedWebApp() {
-  LeafFilter leaf;
-  leaf.isolated_app_filter =
-      IsolatedWebAppFilter{.must_be_user_installed = true};
-  return WebAppFilter(std::move(leaf));
+  return IsIsolatedApp() & HasSource(WebAppManagement::kIwaUserInstalled);
 }
 
 // static
 WebAppFilter WebAppFilter::IsIsolatedWebAppWithOnlyUserManagement() {
-  LeafFilter leaf;
-  leaf.isolated_app_filter =
-      IsolatedWebAppFilter{.must_have_no_external_management = true};
-  return WebAppFilter(std::move(leaf));
+  return IsIsolatedApp() & !HasAnySource({WebAppManagement::kKiosk,
+                                          WebAppManagement::kIwaShimlessRma,
+                                          WebAppManagement::kIwaPolicy});
 }
 
 // static
 WebAppFilter WebAppFilter::IsCraftedApp() {
-  LeafFilter leaf;
-  leaf.is_crafted_app = true;
-  return WebAppFilter(std::move(leaf));
-}
-
-// static
-WebAppFilter WebAppFilter::IsCraftedAppAndOpensInDedicatedWindow() {
-  LeafFilter leaf;
-  leaf.is_crafted_app_and_opens_in_dedicated_window = true;
-  return WebAppFilter(std::move(leaf));
+  return !IsTrue(SimpleCondition::kIsDiy);
 }
 
 // static
 WebAppFilter WebAppFilter::IsSuggestedApp() {
-  LeafFilter leaf;
-  leaf.is_suggested_app = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE);
 }
 
 // static
 WebAppFilter WebAppFilter::DisplaysBadgeOnOs() {
-  LeafFilter leaf;
-  leaf.displays_badge_on_os = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
 }
 
 // static
 WebAppFilter WebAppFilter::SupportsOsNotifications() {
-  LeafFilter leaf;
-  leaf.supports_os_notifications = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
 }
 
 // static
 WebAppFilter WebAppFilter::InstalledInChrome() {
-  LeafFilter leaf;
-  leaf.installed_in_chrome = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIsAnyOf(
+      {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
+       proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION});
 }
 
 // static
 WebAppFilter WebAppFilter::InstalledInOperatingSystemForTesting() {
   CHECK_IS_TEST();
-  LeafFilter leaf;
-  leaf.installed_in_os = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::INSTALLED_WITH_OS_INTEGRATION);
 }
 
 // static
 WebAppFilter WebAppFilter::IsDiyWithOsShortcut() {
-  LeafFilter leaf;
-  leaf.is_diy_with_os_shortcut = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::INSTALLED_WITH_OS_INTEGRATION) &
+         IsTrue(SimpleCondition::kIsDiy);
 }
 
 // static
 WebAppFilter WebAppFilter::LaunchableFromInstallApi() {
-  LeafFilter leaf;
-  leaf.launchable_from_install_api = true;
-  return WebAppFilter(std::move(leaf));
+  return InstalledByUser() | OpensInDedicatedWindow();
 }
 
 // static
 WebAppFilter WebAppFilter::IsTrusted() {
-  LeafFilter leaf;
-  leaf.is_app_trusted = true;
-  return WebAppFilter(std::move(leaf));
-}
-
-// static
-WebAppFilter WebAppFilter::IsIsolatedWebAppIncludingUninstalling() {
-  LeafFilter leaf;
-  leaf.is_isolated_apps_including_uninstalling = true;
-  return WebAppFilter(std::move(leaf));
+  return IsTrue(SimpleCondition::kInstalledByTrustedSource);
 }
 
 // static
 WebAppFilter WebAppFilter::IsAppSuggestedForMigration() {
-  LeafFilter leaf;
-  leaf.is_app_suggested_from_migration = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::SUGGESTED_FROM_MIGRATION);
 }
 
 // static
 WebAppFilter WebAppFilter::IsAppSurfaceableToUser() {
-  LeafFilter leaf;
-  leaf.is_app_surfaceable_to_user = true;
-  return WebAppFilter(std::move(leaf));
+  return !InstallStateIs(proto::InstallState::SUGGESTED_FROM_MIGRATION);
 }
 
 // static
 WebAppFilter WebAppFilter::IsAppValidMigrationSource() {
-  LeafFilter leaf;
-  leaf.is_valid_migration_source = true;
-  return WebAppFilter(std::move(leaf));
+  return InstallStateIs(proto::InstallState::INSTALLED_WITH_OS_INTEGRATION) &
+         !HasSource(WebAppManagement::Type::kPolicy) & !IsIsolatedApp();
 }
 
 // static
 WebAppFilter WebAppFilter::IsAppEligibleForManifestUpdate() {
-  LeafFilter leaf;
-  leaf.is_app_eligible_for_manifest_update = true;
-  return WebAppFilter(std::move(leaf));
+  return IsInRegistrar();
 }
 
-WebAppFilter::LeafFilter::LeafFilter() = default;
-WebAppFilter::LeafFilter::~LeafFilter() = default;
-WebAppFilter::LeafFilter::LeafFilter(const LeafFilter&) = default;
-WebAppFilter::LeafFilter::LeafFilter(LeafFilter&&) noexcept = default;
-WebAppFilter::LeafFilter& WebAppFilter::LeafFilter::operator=(
-    LeafFilter&&) noexcept = default;
+// static
+WebAppFilter WebAppFilter::HasSource(WebAppManagement::Type source) {
+  return WebAppFilter(
+      ManagementRequirement{ManagementRequirement::Type::kHasAny, {source}});
+}
+
+// static
+WebAppFilter WebAppFilter::HasAnySource(WebAppManagementTypes sources) {
+  return WebAppFilter(
+      ManagementRequirement{ManagementRequirement::Type::kHasAny, sources});
+}
+
+// static
+WebAppFilter WebAppFilter::HasAllSources(WebAppManagementTypes sources) {
+  return WebAppFilter(
+      ManagementRequirement{ManagementRequirement::Type::kHasAll, sources});
+}
+
+// static
+WebAppFilter WebAppFilter::InstallStateIs(proto::InstallState state) {
+  return WebAppFilter(InstallStateSet{state});
+}
+
+// static
+WebAppFilter WebAppFilter::InstallStateIsAnyOf(InstallStateSet states) {
+  return WebAppFilter(states);
+}
+
+// static
+WebAppFilter WebAppFilter::IsTrue(SimpleCondition condition) {
+  return WebAppFilter(condition);
+}
+
+// static
+WebAppFilter WebAppFilter::IsInRegistrar() {
+  return WebAppFilter::InstallStateIsAnyOf(
+      {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
+       proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION,
+       proto::InstallState::SUGGESTED_FROM_ANOTHER_DEVICE,
+       proto::InstallState::SUGGESTED_FROM_MIGRATION});
+}
 
 WebAppFilter::WebAppFilter(LeafFilter leaf) : data_(std::move(leaf)) {}
 
@@ -221,6 +216,11 @@ WebAppFilter operator&(WebAppFilter lhs, WebAppFilter rhs) {
 WebAppFilter operator|(WebAppFilter lhs, WebAppFilter rhs) {
   return WebAppFilter(std::move(lhs), std::move(rhs),
                       WebAppFilter::BinaryOp::Op::kOr);
+}
+
+WebAppFilter operator!(WebAppFilter filter) {
+  return WebAppFilter(WebAppFilter::IsInRegistrar(), std::move(filter),
+                      WebAppFilter::BinaryOp::Op::kExclude);
 }
 
 }  // namespace web_app

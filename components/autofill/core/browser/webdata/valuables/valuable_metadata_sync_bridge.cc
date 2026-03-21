@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <ranges>
 #include <string_view>
 
 #include "base/check.h"
@@ -122,7 +123,6 @@ void ValuableMetadataSyncBridge::UploadInitialLocalData(
       change_processor()->Put(
           *storage_key,
           CreateEntityDataFromEntityMetadata(
-
               stored_metadata[storage_key], *pass_type,
               GetPossiblyTrimmedValuableMetadataSpecifics(storage_key.value())),
           metadata_change_list);
@@ -224,12 +224,22 @@ ValuableMetadataSyncBridge::GetAllData() {
        GetEntityTable()->GetSyncedMetadata()) {
     if (std::optional<sync_pb::AutofillValuableMetadataSpecifics::PassType>
             pass_type = GetPassTypeForEntityId(storage_key)) {
-      batch->Put(*storage_key,
-
-                 CreateEntityDataFromEntityMetadata(
-                     metadata, *pass_type,
-                     GetPossiblyTrimmedValuableMetadataSpecifics(
-                         storage_key.value())));
+      batch->Put(
+          *storage_key,
+          CreateEntityDataFromEntityMetadata(
+              metadata, *pass_type,
+              GetPossiblyTrimmedValuableMetadataSpecifics(*storage_key)));
+    }
+  }
+  if (base::FeatureList::IsEnabled(syncer::kSyncLoyaltyCardMetadata)) {
+    for (const auto& [storage_key, metadata] :
+         GetValuablesTable()->GetAllValuableMetadata()) {
+      batch->Put(
+          *storage_key,
+          CreateEntityDataFromValuableMetadata(
+              metadata,
+              sync_pb::AutofillValuableMetadataSpecifics::LOYALTY_CARD,
+              GetPossiblyTrimmedValuableMetadataSpecifics(*storage_key)));
     }
   }
   return batch;
@@ -239,8 +249,7 @@ std::unique_ptr<syncer::DataBatch> ValuableMetadataSyncBridge::GetDataForCommit(
     StorageKeyList storage_keys) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto batch = std::make_unique<syncer::MutableDataBatch>();
-  absl::flat_hash_set<std::string> keys_set(storage_keys.begin(),
-                                            storage_keys.end());
+  absl::flat_hash_set<std::string> keys_set(std::from_range, storage_keys);
   std::unique_ptr<syncer::DataBatch> all_data = GetAllData();
   while (all_data->HasNext()) {
     syncer::KeyAndData item = all_data->Next();
@@ -282,11 +291,18 @@ void ValuableMetadataSyncBridge::ApplyDisableSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> delete_metadata_change_list) {
   std::unique_ptr<sql::Transaction> transaction =
       web_data_backend_->GetDatabase()->AcquireTransaction();
-  EntityTable* table = GetEntityTable();
+  EntityTable* entity_table = GetEntityTable();
   // When sync is disabled, the metadata should be cleared.
   for (const auto& [storage_key, metadata] :
        GetEntityTable()->GetSyncedMetadata()) {
-    table->RemoveEntityMetadata(storage_key);
+    entity_table->RemoveEntityMetadata(storage_key);
+  }
+
+  ValuablesTable* valuables_table = GetValuablesTable();
+  // When sync is disabled, the valuables metadata should be cleared.
+  for (const auto& [storage_key, metadata] :
+       valuables_table->GetAllValuableMetadata()) {
+    valuables_table->RemoveValuableMetadata(storage_key);
   }
 
   ApplyMetadataChanges(std::move(delete_metadata_change_list));
@@ -336,6 +352,12 @@ ValuableMetadataSyncBridge::MergeRemoteChanges(
         switch (specifics.pass_type()) {
           case sync_pb::AutofillValuableMetadataSpecifics::VEHICLE_REGISTRATION:
           case sync_pb::AutofillValuableMetadataSpecifics::FLIGHT_RESERVATION:
+          case sync_pb::AutofillValuableMetadataSpecifics::PASSPORT:
+          case sync_pb::AutofillValuableMetadataSpecifics::DRIVER_LICENSE:
+          case sync_pb::AutofillValuableMetadataSpecifics::NATIONAL_ID_CARD:
+          case sync_pb::AutofillValuableMetadataSpecifics::REDRESS_NUMBER:
+          case sync_pb::AutofillValuableMetadataSpecifics::
+              KNOWN_TRAVELER_NUMBER:
           // Treat `PASS_TYPE_UNSPECIFIED` as `EntityMetadata` for backward
           // compatibility with entries created before the `pass_type` field was
           // introduced.
@@ -437,6 +459,40 @@ void ValuableMetadataSyncBridge::ServerEntityInstanceMetadataChanged(
   ApplyMetadataChanges(std::move(metadata_change_list));
 }
 
+void ValuableMetadataSyncBridge::ValuableMetadataChanged(
+    const ValuableMetadataChange& change) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(base::FeatureList::IsEnabled(syncer::kSyncAutofillValuableMetadata));
+  if (!base::FeatureList::IsEnabled(syncer::kSyncLoyaltyCardMetadata) ||
+      !change_processor()->IsTrackingMetadata()) {
+    return;
+  }
+
+  std::unique_ptr<syncer::MetadataChangeList> metadata_change_list =
+      CreateMetadataChangeList();
+
+  switch (change.type()) {
+    case ValuableMetadataChange::ADD:
+    case ValuableMetadataChange::UPDATE:
+      change_processor()->Put(
+          *change.key(),
+          CreateEntityDataFromValuableMetadata(
+              change.data_model(),
+              sync_pb::AutofillValuableMetadataSpecifics::LOYALTY_CARD,
+              GetPossiblyTrimmedValuableMetadataSpecifics(*change.key())),
+          metadata_change_list.get());
+      break;
+    case ValuableMetadataChange::REMOVE:
+      change_processor()->Delete(
+          *change.key(), syncer::DeletionOrigin::FromLocation(FROM_HERE),
+          metadata_change_list.get());
+      break;
+    case ValuableMetadataChange::HIDE_IN_AUTOFILL:
+      NOTREACHED();
+  }
+  ApplyMetadataChanges(std::move(metadata_change_list));
+}
+
 std::optional<syncer::ModelError>
 ValuableMetadataSyncBridge::ApplyMetadataChanges(
     std::unique_ptr<syncer::MetadataChangeList> metadata_change_list) {
@@ -509,6 +565,10 @@ ValuableMetadataSyncBridge::GetPassTypeForEntityId(
 const EntityTable* ValuableMetadataSyncBridge::GetEntityTable() const {
   return const_cast<const EntityTable*>(
       const_cast<ValuableMetadataSyncBridge*>(this)->GetEntityTable());
+}
+
+ValuablesTable* ValuableMetadataSyncBridge::GetValuablesTable() {
+  return ValuablesTable::FromWebDatabase(web_data_backend_->GetDatabase());
 }
 
 }  // namespace autofill

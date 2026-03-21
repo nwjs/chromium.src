@@ -8,6 +8,7 @@
 #import "base/functional/callback_helpers.h"
 #import "base/ios/block_types.h"
 #import "base/memory/weak_ptr.h"
+#import "base/metrics/histogram_functions.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -24,14 +25,16 @@
 #import "components/optimization_guide/proto/features/zero_state_suggestions.pb.h"
 #import "components/prefs/pref_service.h"
 #import "components/prefs/scoped_user_pref_update.h"
+#import "components/search_engines/util.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_snapshot_utils.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_context.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_ui_utils.h"
-#import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_utils.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/intelligence/zero_state_suggestions/model/zero_state_suggestions_service_impl.h"
 #import "ios/chrome/browser/location_bar/badge/model/badge_type.h"
@@ -57,40 +60,6 @@
 #import "url/gurl.h"
 
 namespace {
-
-// Gets the session dictionary for `cliend_id` from `profile`'s prefs, if the
-// session is not expired.
-std::optional<const base::DictValue*> GetSessionDictFromPrefs(
-    std::string client_id,
-    ProfileIOS* profile) {
-  const base::DictValue& sessions_map =
-      profile->GetPrefs()->GetDict(prefs::kBwgSessionMap);
-  if (sessions_map.empty()) {
-    return std::nullopt;
-  }
-
-  const base::DictValue* current_session_dict =
-      sessions_map.FindDict(client_id);
-  if (!current_session_dict) {
-    return std::nullopt;
-  }
-
-  std::optional<double> creation_timestamp =
-      current_session_dict->FindDouble(kLastInteractionTimestampDictKey);
-  if (!creation_timestamp) {
-    return std::nullopt;
-  }
-
-  // Return the session dict if it hasn't yet expired.
-  int64_t latest_valid_timestamp =
-      base::Time::Now().InMillisecondsSinceUnixEpoch() -
-      BWGSessionValidityDuration().InMilliseconds();
-  if (*creation_timestamp > latest_valid_timestamp) {
-    return current_session_dict;
-  }
-
-  return std::nullopt;
-}
 
 NSMutableArray<NSString*>* ZeroStateSuggestionsAsNSArray(
     std::vector<std::string> suggestions) {
@@ -158,39 +127,33 @@ bool BwgTabHelper::HasObserver(GeminiTabHelperObserver* observer) {
   return observers_.HasObserver(observer);
 }
 
-void BwgTabHelper::GeneratePageContext(
-    base::OnceCallback<void(PageContextWrapperCallbackResponse)> callback,
-    bool full_page_context) {
-  // Cancel any ongoing page context operation.
-  if (page_context_wrapper_) {
-    page_context_wrapper_ = nil;
-  }
-
-  // Create a new wrapper.
-  page_context_wrapper_ =
-      [[PageContextWrapper alloc] initWithWebState:web_state_
-                                completionCallback:std::move(callback)];
-
-  // Configure it to fetch full context.
-  [page_context_wrapper_ setShouldGetAnnotatedPageContent:full_page_context];
-  [page_context_wrapper_ setShouldGetSnapshot:full_page_context];
+void BwgTabHelper::SetupPageContextGeneration(
+    base::RepeatingCallback<void(PageContextWrapperCallbackResponse)>
+        callback) {
+  page_context_wrapper_response_ready_callback_ = std::move(callback);
 
   // If the page is still loading, wait for it to finish before extracting the
   // page context.
-  bool should_update_context_after_page_load =
-      full_page_context && IsGeminiImmediateOverlayEnabled() &&
-      web_state_->IsLoading();
-  if (should_update_context_after_page_load) {
+  if (web_state_->IsLoading()) {
     // TODO(crbug.com/466107255): Move waiting for page loading responsibility
     // to GeminiBrowserAgent.
-    base::OnceCallback<void()> pageContextPopulateCallback =
-        base::BindOnce(&BwgTabHelper::PopulatePageContextFields,
-                       weak_ptr_factory_.GetWeakPtr());
+    base::RepeatingCallback<void()> pageContextPopulateCallback =
+        base::BindRepeating(&BwgTabHelper::PopulatePageContextFields,
+                            weak_ptr_factory_.GetWeakPtr());
     SetPageLoadedCallback(std::move(pageContextPopulateCallback));
     return;
   }
 
   PopulatePageContextFields();
+}
+
+void BwgTabHelper::ForcePageContextGeneration() {
+  if (page_loaded_callback_) {
+    // Override the wait for PageLoaded.
+    // Run the callback but do not reset it, so it can run again when the page
+    // actually finishes loading (to get the full context).
+    page_loaded_callback_.Run();
+  }
 }
 
 void BwgTabHelper::ExecuteZeroStateSuggestions(
@@ -260,24 +223,20 @@ void BwgTabHelper::SetPreventContextualPanelEntryPoint(bool shouldPrevent) {
   prevent_contextual_panel_entry_point_ = shouldPrevent;
 }
 
-void BwgTabHelper::SetPageLoadedCallback(base::OnceClosure callback) {
+void BwgTabHelper::SetPageLoadedCallback(base::RepeatingClosure callback) {
   page_loaded_callback_ = std::move(callback);
-}
-
-NSString* BwgTabHelper::GetContextualCueLabel() {
-  return contextual_cue_label_;
-}
-
-void BwgTabHelper::SetContextualCueLabel(NSString* cue_label) {
-  contextual_cue_label_ = cue_label;
 }
 
 GeminiPageContext* BwgTabHelper::GetPartialPageContext() {
   GeminiPageContext* gemini_page_context = [[GeminiPageContext alloc] init];
-  // TODO(crbug.com/467341090): Remove the chain assignment after the migration.
+  if (!CanExtractPageContextForWebState(web_state_) &&
+      IsGeminiFloatyAllPagesEnabled()) {
+    gemini_page_context.geminiPageContextComputationState =
+        ios::provider::GeminiPageContextComputationState::kBlocked;
+    return gemini_page_context;
+  }
   gemini_page_context.geminiPageContextComputationState =
-      gemini_page_context.BWGPageContextComputationState =
-          ios::provider::BWGPageContextComputationState::kPending;
+      ios::provider::GeminiPageContextComputationState::kPending;
   gemini_page_context.favicon = current_favicon_;
 
   std::unique_ptr<optimization_guide::proto::PageContext> page_context =
@@ -327,14 +286,10 @@ void BwgTabHelper::DeactivateBWGSession() {
 bool BwgTabHelper::IsLastInteractionUrlDifferent() {
   std::optional<std::string> last_interaction_url;
 
-  if (IsGeminiCrossTabEnabled()) {
-    PrefService* pref_service =
-        ProfileIOS::FromBrowserState(web_state_->GetBrowserState())->GetPrefs();
-    last_interaction_url =
-        pref_service->GetString(prefs::kLastGeminiInteractionURL);
-  } else {
-    last_interaction_url = GetURLOnLastInteraction();
-  }
+  PrefService* pref_service =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState())->GetPrefs();
+  last_interaction_url =
+      pref_service->GetString(prefs::kLastGeminiInteractionURL);
 
   if (!last_interaction_url.has_value()) {
     return true;
@@ -353,7 +308,7 @@ void BwgTabHelper::CreateOrUpdateBwgSessionInStorage(std::string server_id) {
 }
 
 void BwgTabHelper::DeleteBwgSessionInStorage() {
-  CleanupSessionFromPrefs(GetClientId());
+  CleanupSessionFromPrefs();
 }
 
 void BwgTabHelper::PrepareBwgFreBackgrounding() {
@@ -371,7 +326,6 @@ std::string BwgTabHelper::GetClientId() {
 }
 
 std::optional<std::string> BwgTabHelper::GetServerId() {
-  if (IsGeminiCrossTabEnabled()) {
     PrefService* pref_service =
         ProfileIOS::FromBrowserState(web_state_->GetBrowserState())->GetPrefs();
     base::Time last_interaction_timestamp =
@@ -384,21 +338,6 @@ std::optional<std::string> BwgTabHelper::GetServerId() {
         return server_id;
       }
     }
-  } else {
-    std::optional<const base::DictValue*> session_dict =
-        GetSessionDictFromPrefs(
-            GetClientId(),
-            ProfileIOS::FromBrowserState(web_state_->GetBrowserState()));
-    if (!session_dict.has_value()) {
-      return std::nullopt;
-    }
-
-    const std::string* server_id =
-        session_dict.value()->FindString(kServerIDDictKey);
-    if (server_id) {
-      return *server_id;
-    }
-  }
   return std::nullopt;
 }
 
@@ -415,13 +354,32 @@ void BwgTabHelper::SetLocationBarBadgeCommandsHandler(
   location_bar_badge_commands_handler_ = handler;
 }
 
+bool BwgTabHelper::IsGeminiAvailableForWebState() {
+  if (!web_state_) {
+    return false;
+  }
+
+  if (IsGeminiCopresenceEnabled() || IsGeminiFloatyAllPagesEnabled()) {
+    const GURL& url = web_state_->GetVisibleURL();
+    if (!url.SchemeIsHTTPOrHTTPS() || google_util::IsGoogleSearchUrl(url) ||
+        google_util::IsGoogleHomePageUrl(url) || IsAimZeroStateURL(url)) {
+      return false;
+    }
+  }
+
+  return CanExtractPageContextForWebState(web_state_) ||
+         IsGeminiFloatyAllPagesEnabled();
+}
+
 #pragma mark - WebStateObserver
 
 void BwgTabHelper::WasShown(web::WebState* web_state) {
   if (is_bwg_session_active_in_background_) {
     if (!IsGeminiCopresenceEnabled()) {
       [bwg_commands_handler_
-          startGeminiFlowWithEntryPoint:gemini::EntryPoint::TabReopen];
+          startGeminiFlowWithStartupState:
+              [[GeminiStartupState alloc]
+                  initWithEntryPoint:gemini::EntryPoint::TabReopen]];
     }
     cached_snapshot_ = nil;
   }
@@ -488,9 +446,13 @@ void BwgTabHelper::DidStartNavigation(
 
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-  raw_ptr<BwgService> bwg_service = BwgServiceFactory::GetForProfile(profile);
-  const bool gemini_available =
-      bwg_service && bwg_service->IsBwgAvailableForWebState(web_state_);
+  BwgService* gemini_service = BwgServiceFactory::GetForProfile(profile);
+  const bool gemini_available = IsGeminiAvailableForWebState() &&
+                                gemini_service &&
+                                gemini_service->IsProfileEligibleForGemini();
+
+  base::UmaHistogramBoolean("IOS.Gemini.PageEligible", gemini_available);
+
   if (gemini_available &&
       profile->GetPrefs()->GetBoolean(prefs::kIOSBWGPageContentSetting)) {
     bool can_request_metadata =
@@ -567,7 +529,8 @@ void BwgTabHelper::PageLoaded(
     web::WebState* web_state,
     web::PageLoadCompletionStatus load_completion_status) {
   if (page_loaded_callback_) {
-    std::move(page_loaded_callback_).Run();
+    page_loaded_callback_.Run();
+    page_loaded_callback_.Reset();
   }
 }
 
@@ -605,9 +568,6 @@ void BwgTabHelper::FaviconUrlUpdated(
 void BwgTabHelper::WebStateDestroyed(web::WebState* web_state) {
   weak_ptr_factory_.InvalidateWeakPtrs();
   web_state_observation_.Reset();
-  if (!IsGeminiCrossTabEnabled()) {
-    CleanupSessionFromPrefs(GetClientId());
-  }
   web_state_ = nullptr;
   if (IsAskGeminiChipEnabled()) {
     optimization_guide_decider_ = nullptr;
@@ -618,9 +578,30 @@ void BwgTabHelper::WebStateDestroyed(web::WebState* web_state) {
 #pragma mark - Private
 
 void BwgTabHelper::PopulatePageContextFields() {
+  // Cancel any ongoing page context operation.
   if (page_context_wrapper_) {
-    [page_context_wrapper_ populatePageContextFieldsAsync];
+    page_context_wrapper_ = nil;
   }
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRefactoredExtractor(IsPageContextExtractorRefactoredEnabled())
+          .SetGraftCrossOriginFrameContent(IsGeminiRichAPCExtractionEnabled())
+          .SetUseRichExtraction(IsGeminiRichAPCExtractionEnabled())
+          .Build();
+
+  // Create a new wrapper.
+  page_context_wrapper_ = [[PageContextWrapper alloc]
+        initWithWebState:web_state_
+                  config:config
+      completionCallback:page_context_wrapper_response_ready_callback_];
+
+  // Configure it to fetch full context.
+  [page_context_wrapper_ setShouldGetAnnotatedPageContent:YES];
+  [page_context_wrapper_ setShouldGetSnapshot:YES];
+
+  // Start populating the page context fields.
+  [page_context_wrapper_ populatePageContextFieldsAsync];
 }
 
 void BwgTabHelper::ClearZeroStateSuggestions() {
@@ -644,7 +625,6 @@ void BwgTabHelper::CreateOrUpdateSessionInPrefs(std::string client_id,
     return;
   }
 
-  if (IsGeminiCrossTabEnabled()) {
     PrefService* pref_service =
         ProfileIOS::FromBrowserState(web_state_->GetBrowserState())->GetPrefs();
     pref_service->SetTime(prefs::kLastGeminiInteractionTimestamp,
@@ -652,57 +632,12 @@ void BwgTabHelper::CreateOrUpdateSessionInPrefs(std::string client_id,
     pref_service->SetString(prefs::kLastGeminiInteractionURL,
                             web_state_->GetVisibleURL().spec());
     pref_service->SetString(prefs::kGeminiConversationId, server_id);
-  } else {
-    base::DictValue session_info_dict;
-    session_info_dict.Set(kServerIDDictKey, server_id);
-    session_info_dict.Set(
-        kLastInteractionTimestampDictKey,
-        static_cast<double>(base::Time::Now().InMillisecondsSinceUnixEpoch()));
-    session_info_dict.Set(kURLOnLastInteractionDictKey,
-                          web_state_->GetVisibleURL().spec());
-
-    ProfileIOS* profile =
-        ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-    ScopedDictPrefUpdate update(profile->GetPrefs(), prefs::kBwgSessionMap);
-    update->Set(client_id, std::move(session_info_dict));
-  }
 }
 
-void BwgTabHelper::CleanupSessionFromPrefs(std::string session_id) {
-  if (IsGeminiCrossTabEnabled()) {
-    // TODO(crbug.com/436012307): Once this launches, remove `session_id` from
-    // method.
-    PrefService* pref_service =
-        ProfileIOS::FromBrowserState(web_state_->GetBrowserState())->GetPrefs();
-    pref_service->ClearPref(prefs::kGeminiConversationId);
-    return;
-  }
-
-  if (session_id.empty()) {
-    return;
-  }
-
-  ProfileIOS* profile =
-      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
-  ScopedDictPrefUpdate update(profile->GetPrefs(), prefs::kBwgSessionMap);
-  update->Remove(session_id);
-}
-
-std::optional<std::string> BwgTabHelper::GetURLOnLastInteraction() {
-  std::optional<const base::DictValue*> session_dict = GetSessionDictFromPrefs(
-      GetClientId(),
-      ProfileIOS::FromBrowserState(web_state_->GetBrowserState()));
-  if (!session_dict.has_value()) {
-    return std::nullopt;
-  }
-
-  const std::string* last_interaction_url =
-      session_dict.value()->FindString(kURLOnLastInteractionDictKey);
-  if (last_interaction_url) {
-    return *last_interaction_url;
-  }
-
-  return std::nullopt;
+void BwgTabHelper::CleanupSessionFromPrefs() {
+  PrefService* pref_service =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState())->GetPrefs();
+  pref_service->ClearPref(prefs::kGeminiConversationId);
 }
 
 void BwgTabHelper::UpdateWebStateSnapshotInStorage() {

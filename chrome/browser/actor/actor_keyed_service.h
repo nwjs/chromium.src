@@ -14,6 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/supports_user_data.h"
 #include "base/types/expected.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_task_delegate.h"
@@ -26,6 +27,7 @@
 #include "chrome/common/buildflags.h"
 #include "components/download/content/public/all_download_item_notifier.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 
@@ -47,6 +49,7 @@ class ToolRequest;
 // This class owns all ActorTasks for a given profile. ActorTasks are kept in
 // memory until the process is destroyed.
 class ActorKeyedService : public KeyedService,
+                          public base::SupportsUserData,
                           public ProfileObserver,
                           public download::AllDownloadItemNotifier::Observer {
  public:
@@ -66,6 +69,8 @@ class ActorKeyedService : public KeyedService,
       std::unique_ptr<ui::ActorUiStateManagerInterface> ausm);
 
   const std::map<TaskId, const ActorTask*> GetActiveTasks() const;
+
+  size_t GetActiveTasksCount() const;
 
   std::vector<TaskId> FindTaskIdsInActive(
       base::FunctionRef<bool(const ActorTask&)> predicate) const;
@@ -89,9 +94,11 @@ class ActorKeyedService : public KeyedService,
 
   // Executes the given ToolRequest actions using the execution engine for the
   // given task id.
+  // TODO(crbug.com/490381613): `result_code` and `index_of_failed_action` can
+  // be obtained from `action_results`.
   using PerformActionsCallback = base::OnceCallback<void(
       mojom::ActionResultCode /*result_code*/,
-      std::optional<size_t> /*index_of_failing_action*/,
+      std::optional<size_t> /*index_of_failed_action*/,
       std::vector<ActionResultWithLatencyInfo> /* action_results */)>;
   void PerformActions(TaskId task_id,
                       std::vector<std::unique_ptr<ToolRequest>>&& actions,
@@ -116,9 +123,9 @@ class ActorKeyedService : public KeyedService,
   // in the given `tab`.
   bool IsActiveOnTab(const tabs::TabInterface& tab) const;
 
-  // Returns the id of an ActorTask which has the given tab in its set. Returns
-  // a null TaskId if no task has `tab`. Note: a returned task may be paused.
-  TaskId GetTaskFromTab(const tabs::TabInterface& tab) const;
+  // Returns an ActorTask which has the given tab in its set. Returns null if no
+  // task has `tab`. Note: a returned task may be paused.
+  ActorTask* GetTaskFromTab(const tabs::TabInterface& tab) const;
 
   Profile* GetProfile();
 
@@ -128,6 +135,9 @@ class ActorKeyedService : public KeyedService,
   void RequestTabObservation(
       tabs::TabInterface& tab,
       TaskId task_id,
+      std::optional<page_content_annotations::ScreenshotOptions::
+                        ScreenshotCollectionOptions>
+          screenshot_collection_options,
       base::OnceCallback<void(TabObservationResult)> callback);
 
   // A TabObservationResult may return the successful side of the base::expected
@@ -180,9 +190,6 @@ class ActorKeyedService : public KeyedService,
       std::optional<size_t> index_of_failed_action,
       std::vector<ActionResultWithLatencyInfo> action_results);
 
-  // Stops all the active tasks.
-  void StopAllTasks(ActorTask::StoppedReason stop_reason);
-
   // The jounrnal should be last in destruction order since other things like
   // ActorTask might be using a SafeRef to this object.
   AggregatedJournal journal_;
@@ -198,10 +205,16 @@ class ActorKeyedService : public KeyedService,
 
   std::map<TaskId, std::unique_ptr<ActorTask>> active_tasks_;
 
+  // Tasks that are stopped are deleted asynchronously by being placed into this
+  // map and deleted from a posted task. We use this map so that Shutdown() can
+  // force synchronous deletion since ActorTask holds references to objects
+  // owned by other keyed services which need to be released.
+  std::map<TaskId, std::unique_ptr<ActorTask>> pending_delete_tasks_;
+
   TaskId::Generator next_task_id_;
 
   base::RepeatingCallbackList<void(TaskId, ActorTask::State)>
-      tab_state_change_callback_list_;
+      task_state_change_callback_list_;
 
   // Owns this.
   raw_ptr<Profile> profile_;

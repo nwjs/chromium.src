@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_UI_TABS_SAVED_TAB_GROUPS_SAVED_TAB_GROUP_UTILS_H_
 #define CHROME_BROWSER_UI_TABS_SAVED_TAB_GROUPS_SAVED_TAB_GROUP_UTILS_H_
 
-#include <unordered_set>
 #include <vector>
 
 #include "base/containers/span.h"
@@ -24,6 +23,7 @@
 #include "url/gurl.h"
 
 class Browser;
+class BrowserWindowInterface;
 class Profile;
 
 namespace content {
@@ -76,6 +76,14 @@ class SavedTabGroupUtils {
   static void ToggleGroupPinState(Browser* browser,
                                   const base::Uuid& saved_group_guid);
 
+  // Opens a saved tab group and optionally focuses it if the appropriate
+  // feature is enabled.
+  static std::optional<tab_groups::LocalTabGroupID> OpenSavedTabGroup(
+      BrowserWindowInterface* browser,
+      const base::Uuid& saved_group_guid,
+      OpeningSource opening_source,
+      TabGroupSyncService* tab_group_service = nullptr);
+
   // Helper method to show the deletion dialog, if its needed. It either
   // runs the callback if the dialog is not shown or it shows the dialog
   // and the callback is run asynchronously through the dialog.
@@ -122,11 +130,6 @@ class SavedTabGroupUtils {
   // Returns the list of WebContentses in the local group `group_id` in order.
   static std::vector<content::WebContents*> GetWebContentsesInGroup(
       tab_groups::TabGroupId group_id);
-
-  // Returns the set of urls currently stored in the saved tab group.
-  static std::unordered_set<std::string> GetURLsInSavedTabGroup(
-      Profile* profile,
-      const base::Uuid& saved_id);
 
   // Activates the first tab in the saved group. If a tab in the group is
   // already activated, then we focus the window the group belongs to instead.

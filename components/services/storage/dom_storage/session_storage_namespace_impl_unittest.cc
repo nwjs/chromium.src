@@ -14,11 +14,13 @@
 #include "base/task/thread_pool.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/with_feature_override.h"
 #include "base/trace_event/memory_allocator_dump_guid.h"
 #include "base/uuid.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
+#include "components/services/storage/dom_storage/db_status.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
 #include "components/services/storage/dom_storage/features.h"
 #include "components/services/storage/dom_storage/session_storage_data_map.h"
@@ -26,7 +28,6 @@
 #include "components/services/storage/dom_storage/test_support/dom_storage_database_testing.h"
 #include "components/services/storage/dom_storage/test_support/storage_area_test_util.h"
 #include "mojo/public/cpp/bindings/remote.h"
-#include "storage/common/database/db_status.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
@@ -65,7 +66,16 @@ class SessionStorageNamespaceImplTest
       : base::test::WithFeatureOverride(kDomStorageSqlite),
         test_namespace_id1_(base::Uuid::GenerateRandomV4().AsLowercaseString()),
         test_namespace_id2_(
-            base::Uuid::GenerateRandomV4().AsLowercaseString()) {}
+            base::Uuid::GenerateRandomV4().AsLowercaseString()) {
+    // Match the state of `kDomStorageSqliteInMemory` to the top level
+    // kDomStorageSqlite. That way in-memory databases will use the backend
+    // expected by the param state.
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeature(kDomStorageSqliteInMemory);
+    } else {
+      feature_list_.InitAndDisableFeature(kDomStorageSqliteInMemory);
+    }
+  }
   ~SessionStorageNamespaceImplTest() override = default;
 
   void SetUp() override {
@@ -148,6 +158,7 @@ class SessionStorageNamespaceImplTest
   }
 
  protected:
+  base::test::ScopedFeatureList feature_list_;
   base::test::TaskEnvironment task_environment_;
   const std::string test_namespace_id1_;
   const std::string test_namespace_id2_;
@@ -190,8 +201,8 @@ TEST_P(SessionStorageNamespaceImplTest, MetadataLoad) {
                            storage_area_1.BindNewPipeAndPassReceiver(),
                            namespace_entry1);
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(storage_area_1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data =
+      test::GetAllSync(storage_area_1.get());
   EXPECT_EQ(1ul, data.size());
   EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
@@ -227,8 +238,8 @@ TEST_P(SessionStorageNamespaceImplTest, MetadataLoadWithMapOperations) {
                 StdStringToUint8Vector("data2"), std::nullopt, "");
   commit_loop.Run();
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(storage_area_1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data =
+      test::GetAllSync(storage_area_1.get());
   EXPECT_EQ(2ul, data.size());
   EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
@@ -282,8 +293,8 @@ TEST_P(SessionStorageNamespaceImplTest, CloneBeforeBind) {
                 StdStringToUint8Vector("data2"), std::nullopt, "");
   commit_loop.Run();
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(storage_area_2.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data =
+      test::GetAllSync(storage_area_2.get());
   EXPECT_EQ(2ul, data.size());
   EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
@@ -348,15 +359,14 @@ TEST_P(SessionStorageNamespaceImplTest, CloneAfterBind) {
                 StdStringToUint8Vector("data2"), std::nullopt, "");
   commit_loop.Run();
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(storage_area_n2_o1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data =
+      test::GetAllSync(storage_area_n2_o1.get());
   EXPECT_EQ(1ul, data.size());
   EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key1"),
                                         StdStringToUint8Vector("data1"))));
 
-  data.clear();
-  EXPECT_TRUE(test::GetAllSync(storage_area_n2_o2.get(), &data));
+  data = test::GetAllSync(storage_area_n2_o2.get());
   EXPECT_EQ(1ul, data.size());
   EXPECT_TRUE(std::ranges::contains(
       data, blink::mojom::KeyValue::New(StdStringToUint8Vector("key2"),
@@ -399,8 +409,8 @@ TEST_P(SessionStorageNamespaceImplTest, RemoveStorageKeyData) {
   namespace_impl->RemoveStorageKeyData(test_storage_key1_, base::DoNothing());
   commit_loop.Run();
 
-  std::vector<blink::mojom::KeyValuePtr> data;
-  EXPECT_TRUE(test::GetAllSync(storage_area_1.get(), &data));
+  std::vector<blink::mojom::KeyValuePtr> data =
+      test::GetAllSync(storage_area_1.get());
   EXPECT_EQ(0ul, data.size());
 
   // Check that the observer was notified.

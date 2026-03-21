@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "content/browser/preloading/prefetch/prefetch_network_context.h"
-
 #include "base/memory/scoped_refptr.h"
 #include "base/test/scoped_feature_list.h"
+#include "content/browser/preloading/prefetch/prefetch_isolated_network_context.h"
 #include "content/browser/preloading/prefetch/prefetch_request.h"
 #include "content/browser/preloading/prefetch/prefetch_service.h"
 #include "content/browser/preloading/prefetch/prefetch_test_util_internal.h"
 #include "content/browser/preloading/prefetch/prefetch_type.h"
+#include "content/browser/preloading/prefetch/prefetch_url_loader_factory_utils.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/preloading_trigger_type.h"
 #include "content/public/browser/render_process_host.h"
@@ -90,8 +91,8 @@ TEST_F(PrefetchNetworkContextTest, CreateIsolatedURLLoaderFactory) {
       /*prefetch_document_manager=*/{},
       PreloadPipelineInfo::Create(
           /*planned_max_preloading_type=*/PreloadingType::kPrefetch));
-  auto prefetch_network_context = std::make_unique<PrefetchNetworkContext>(
-      /*use_isolated_network_context=*/true,
+  // For now we just need to create the context but don't use it.
+  std::ignore = std::make_unique<PrefetchIsolatedNetworkContext>(
       prefetch_service()->CreateIsolatedNetworkContextForTesting(
           /*is_proxy_required_when_cross_origin=*/false),
       *prefetch_request);
@@ -128,10 +129,10 @@ TEST_F(PrefetchNetworkContextTest,
       /*prefetch_document_manager=*/{},
       PreloadPipelineInfo::Create(
           /*planned_max_preloading_type=*/PreloadingType::kPrefetch));
-  auto prefetch_network_context = std::make_unique<PrefetchNetworkContext>(
-      /*use_isolated_network_context=*/false,
-      /*isolated_network_context=*/
-      mojo::Remote<network::mojom::NetworkContext>(), *prefetch_request);
+  CreatePrefetchURLLoaderFactory(prefetch_request->browser_context()
+                                     ->GetDefaultStoragePartition()
+                                     ->GetNetworkContext(),
+                                 *prefetch_request);
 }
 
 TEST_F(PrefetchNetworkContextTest,
@@ -162,10 +163,10 @@ TEST_F(PrefetchNetworkContextTest,
           /*javascript_enabled=*/{}, kReferringOrigin,
           /*no_vary_search_hint=*/{},
           /*priority=*/{});
-  auto prefetch_network_context = std::make_unique<PrefetchNetworkContext>(
-      /*use_isolated_network_context=*/false,
-      /*isolated_network_context=*/
-      mojo::Remote<network::mojom::NetworkContext>(), *prefetch_request);
+  CreatePrefetchURLLoaderFactory(prefetch_request->browser_context()
+                                     ->GetDefaultStoragePartition()
+                                     ->GetNetworkContext(),
+                                 *prefetch_request);
 }
 
 }  // namespace

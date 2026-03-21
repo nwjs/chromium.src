@@ -48,7 +48,7 @@ TextDecoder* TextDecoder::Create(const String& label,
   // The replacement encoding is not valid, but the Encoding API also
   // rejects aliases of the replacement encoding.
   if (!encoding.IsValid() ||
-      EqualIgnoringASCIICase(encoding.GetName(), "replacement")) {
+      EqualIgnoringAsciiCase(encoding.GetName(), "replacement")) {
     exception_state.ThrowRangeError(
         StrCat({"The encoding label provided ('", label, "') is invalid."}));
     return nullptr;
@@ -69,7 +69,7 @@ TextDecoder::TextDecoder(const TextEncoding& encoding,
 TextDecoder::~TextDecoder() = default;
 
 String TextDecoder::encoding() const {
-  String name = encoding_.GetName().GetString().DeprecatedLower();
+  String name = encoding_.GetName().GetString().LowerASCII();
   // Where possible, encoding aliases should be handled by changes to Chromium's
   // ICU or Blink's WTF.  The same codec is used, but WTF maintains a different
   // name/identity for these.

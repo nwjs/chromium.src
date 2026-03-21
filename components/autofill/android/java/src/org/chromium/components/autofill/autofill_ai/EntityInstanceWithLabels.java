@@ -18,23 +18,52 @@ import org.chromium.build.annotations.NullMarked;
 @NullMarked
 public class EntityInstanceWithLabels {
     // The entity ID.
-    public final String guid;
+    private final String mGuid;
+    // The type of the entity.
+    private final EntityType mType;
     // The label to be displayed in the UI surface, for example "Vehicle".
-    public final String entityInstanceLabel;
+    private final String mEntityInstanceLabel;
     // The sublabel to be displayed in the UI surface, for example "Fiat".
-    public final String entityInstanceSubLabel;
+    private final String mEntityInstanceSubLabel;
     // Whether the entity is a server or a local entity.
-    public final boolean storedInWallet;
+    private final boolean mStoredInWallet;
 
     @CalledByNative
     public EntityInstanceWithLabels(
             @JniType("std::string") String guid,
+            @JniType("autofill::EntityTypeAndroid") EntityType entityType,
             @JniType("std::u16string") String entityInstanceLabel,
             @JniType("std::u16string") String entityInstanceSubLabel,
             boolean storedInWallet) {
-        this.guid = guid;
-        this.entityInstanceLabel = entityInstanceLabel;
-        this.entityInstanceSubLabel = entityInstanceSubLabel;
-        this.storedInWallet = storedInWallet;
+        mGuid = guid;
+        mType = entityType;
+        mEntityInstanceLabel = entityInstanceLabel;
+        mEntityInstanceSubLabel = entityInstanceSubLabel;
+        mStoredInWallet = storedInWallet;
+    }
+
+    @CalledByNative
+    public @JniType("std::string") String getGuid() {
+        return mGuid;
+    }
+
+    @CalledByNative
+    public @JniType("std::u16string") String getEntityInstanceLabel() {
+        return mEntityInstanceLabel;
+    }
+
+    @CalledByNative
+    public @JniType("autofill::EntityTypeAndroid") EntityType getEntityType() {
+        return mType;
+    }
+
+    @CalledByNative
+    public @JniType("std::u16string") String getEntityInstanceSubLabel() {
+        return mEntityInstanceSubLabel;
+    }
+
+    @CalledByNative
+    public boolean isStoredInWallet() {
+        return mStoredInWallet;
     }
 }

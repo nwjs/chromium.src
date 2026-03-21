@@ -5,16 +5,15 @@
 #include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/call_to_action/call_to_action_lock.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 
-#if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/public/glic_keyed_service.h"
-#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#endif
 
 namespace tabs {
 
@@ -44,9 +43,9 @@ void GlicNudgeController::UpdateNudgeLabel(
     return;
   }
   // Empty nudge labels close the nudge, allow those to bypass the
-  // CanShowCallToAction check.
-  if (!nudge_label.empty() &&
-      !browser_window_interface_->CanShowCallToAction()) {
+  // CanAcquireLock check.
+  if (!nudge_label.empty() && !scoped_call_to_action_lock_ &&
+      !CallToActionLock::From(browser_window_interface_)->CanAcquireLock()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(std::move(callback),
@@ -94,20 +93,14 @@ void GlicNudgeController::OnNudgeActivity(GlicNudgeActivity activity) {
   }
   switch (activity) {
     case GlicNudgeActivity::kNudgeShown: {
-      // We should only have a GlicNudgeController if the ENABLE_GLIC buildflag
-      // is set. However, since we don't prevent it by having #if's across the
-      // various places the class is referenced (which would be noisy), it's
-      // possible to have this class built even when that buildflag isn't set,
-      // so we'll conditionally compile this next section.
-#if BUILDFLAG(ENABLE_GLIC)
-      auto* profile = browser_window_interface_->GetProfile();
-      auto* glic_service =
-          glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
-      glic_service->TryPreloadFre(glic::GlicPrewarmingFreSource::kNudge);
-#endif
+      // UpdateNudgeLabel can be called multiple times to update the text of an
+      // existing nudge. We run the logic below to ensure the new callback is
+      // invoked. The lock is only acquired if not already held.
       nudge_activity_callback_.Run(GlicNudgeActivity::kNudgeShown);
-      scoped_window_call_to_action_ptr =
-          browser_window_interface_->ShowCallToAction();
+      if (!scoped_call_to_action_lock_) {
+        scoped_call_to_action_lock_ =
+            CallToActionLock::From(browser_window_interface_)->AcquireLock();
+      }
       break;
     }
     case GlicNudgeActivity::kNudgeClicked:
@@ -118,12 +111,12 @@ void GlicNudgeController::OnNudgeActivity(GlicNudgeActivity activity) {
     case GlicNudgeActivity::kNudgeIgnoredOmniboxContextMenuInteraction:
       nudge_activity_callback_.Run(activity);
       nudge_activity_callback_.Reset();
-      scoped_window_call_to_action_ptr.reset();
+      scoped_call_to_action_lock_.reset();
 
       break;
     case GlicNudgeActivity::kNudgeNotShownWebContents:
     case GlicNudgeActivity::kNudgeNotShownWindowCallToActionUI:
-      scoped_window_call_to_action_ptr.reset();
+      scoped_call_to_action_lock_.reset();
       nudge_activity_callback_.Reset();
       break;
   }

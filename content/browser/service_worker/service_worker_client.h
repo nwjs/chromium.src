@@ -18,6 +18,7 @@
 #include "content/browser/renderer_host/back_forward_cache_metrics.h"
 #include "content/browser/service_worker/service_worker_registration.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/service_worker_client_info.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -313,6 +314,17 @@ class CONTENT_EXPORT ServiceWorkerClient final
       StoragePartitionImpl* storage_partition,
       const network::ResourceRequest& resource_request);
 
+  // Returns a URLLoaderRequestHandler if an embedder interceptor (e.g. Search
+  // Prefetch) can handle the request and returns its handler.
+  //
+  // NOTE: Some interceptors (specifically Search Prefetch) destructively
+  // remove the cached response from memory when queried. If you need to access
+  // the response afterwards, you must take the handler here rather than just
+  // checking if one exists.
+  std::optional<ContentBrowserClient::URLLoaderRequestHandler>
+  TakeInterceptingPreloadHandler(
+      const network::ResourceRequest& resource_request);
+
   // For service worker clients.
   // The type of `ongoing_navigation_frame_tree_node_id_` (if any) for metrics.
   std::string GetFrameTreeNodeTypeStringBeforeCommit() const;
@@ -401,6 +413,10 @@ class CONTENT_EXPORT ServiceWorkerClient final
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
 
   bool is_initiated_by_prefetch() const { return is_initiated_by_prefetch_; }
+
+  size_t factory_interceptor_count() const {
+    return factory_interceptor_count_;
+  }
 
   base::WeakPtr<ServiceWorkerClient> AsWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
@@ -628,6 +644,8 @@ class CONTENT_EXPORT ServiceWorkerClient final
   // Only set/used for clients for prefetch.
   scoped_refptr<network::SharedURLLoaderFactory>
       network_url_loader_factory_for_prefetch_;
+
+  size_t factory_interceptor_count_ = 0;
 
   // For all instances --------------------------------------------------------
 

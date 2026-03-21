@@ -10,7 +10,6 @@
 #include "base/functional/bind.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
-#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/enterprise/connectors/device_trust/common/metrics_utils.h"
 #include "chrome/browser/enterprise/connectors/device_trust/device_trust_features.h"
@@ -305,8 +304,7 @@ IN_PROC_BROWSER_TEST_F(DeviceTrustBrowserTest, SignalsContract) {
 
   const base::DictValue& signals_dict = future.Get();
 
-  const auto signals_contract_map =
-      device_signals::test::GetSignalsContract(IsDTCAntivirusSignalEnabled());
+  const auto signals_contract_map = device_signals::test::GetSignalsContract();
   ASSERT_FALSE(signals_contract_map.empty());
   for (const auto& signals_contract_entry : signals_contract_map) {
     // First is the signal name.
@@ -904,8 +902,7 @@ IN_PROC_BROWSER_TEST_F(DeviceTrustBrowserTestSignalsContractForUnmanagedDevices,
   const base::DictValue& signals_dict = future.Get();
 
   const auto signals_contract_map =
-      device_signals::test::GetSignalsContractForUnmanagedDevices(
-          IsDTCAntivirusSignalEnabled());
+      device_signals::test::GetSignalsContractForUnmanagedDevices();
   ASSERT_FALSE(signals_contract_map.empty());
   for (const auto& signals_contract_entry : signals_contract_map) {
     // First is the signal name.

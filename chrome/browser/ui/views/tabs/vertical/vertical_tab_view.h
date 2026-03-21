@@ -10,12 +10,14 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
-#include "chrome/browser/ui/tabs/tab_renderer_data.h"
+#include "chrome/browser/ui/tabs/tab_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/tabs/hover_card_anchor_target.h"
 #include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_context_menu_controller.h"
 #include "chrome/common/buildflags.h"
+#include "components/performance_manager/public/freezing/freezing.h"
 #include "components/tabs/public/tab_interface.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -35,11 +37,13 @@ namespace views {
 class Label;
 }
 
-#if BUILDFLAG(ENABLE_GLIC)
+namespace tabs {
+class VerticalTabStripStateController;
+}
+
 namespace glic {
 class TabUnderlineView;
 }
-#endif
 
 // The view class for the tab. It is responsible for painting the
 // tab background and displaying the favicon, title, alert indicators and close
@@ -61,13 +65,19 @@ class VerticalTabView : public views::View,
   ~VerticalTabView() override;
 
   void StepLoadingAnimation(const base::TimeDelta& elapsed_time);
+
+  void CreateFreezingVote();
+  void ReleaseFreezingVote();
+  bool HasFreezingVote() const { return freezing_vote_.has_value(); }
+
   void UpdateHovered(bool hovered);
+  bool IsHoverAnimationActive() const;
 
   std::optional<SkColor> GetBackgroundColor();
   SkPath GetPath() const;
 
   const TabCollectionNode* collection_node() const { return collection_node_; }
-  const TabStyle* tab_style() { return tab_style_; }
+  const TabStyle* tab_style() const { return tab_style_; }
   float radial_highlight_opacity() { return radial_highlight_opacity_; }
 
   TabCloseButton* close_button_for_testing() { return close_button_; }
@@ -76,8 +86,9 @@ class VerticalTabView : public views::View,
   // HoverCardAnchorTarget:
   bool IsActive() const override;
   bool IsValid() const override;
-  const TabRendererData& data() const override;
+  const tabs::TabData& data() const override;
   views::BubbleBorder::Arrow GetAnchorPosition() const override;
+  const views::View* GetAnchorView() const override;
 
  private:
   // views::View
@@ -98,6 +109,21 @@ class VerticalTabView : public views::View,
   void OnBlur() override;
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnThemeChanged() override;
+
+  // Tab Painting Helpers
+  void PaintTabBackgroundWithImages(
+      gfx::Canvas* canvas,
+      std::optional<int> active_tab_fill_id,
+      std::optional<int> inactive_tab_fill_id) const;
+  float GetCurrentActiveOpacity() const;
+  void PaintTabBackgroundFill(gfx::Canvas* canvas,
+                              TabStyle::TabSelectionState selection_state,
+                              bool hovered,
+                              std::optional<int> fill_id) const;
+  bool ShouldPaintTabBackgroundColor(
+      TabStyle::TabSelectionState selection_state,
+      bool has_custom_background,
+      bool hovered) const;
 
   struct TabChildConfig {
     raw_ptr<views::View> view;
@@ -138,12 +164,15 @@ class VerticalTabView : public views::View,
   void UpdateAccessibleName();
   void OnAXNameChanged(ax::mojom::StringAttribute attribute,
                        const std::optional<std::string>& name);
+  void OnCollapsedStateChanged(
+      tabs::VerticalTabStripStateController* controller);
   void OnDataChanged();
   void SetSelection(bool selected);
   void UpdateTabData(tabs::TabInterface* tab);
 
   void UpdateTitle();
   void UpdateBorder();
+  void UpdateThemeColors();
   void UpdateColors();
   void UpdateContrastRatioValues();
 
@@ -153,7 +182,6 @@ class VerticalTabView : public views::View,
   void UpdateHoverCard(HoverCardAnchorTarget* target,
                        int hover_card_update_type);
 
-  bool IsHoverAnimationActive() const;
   double GetHoverAnimationValue() const;
   float GetHoverOpacity() const;
 
@@ -175,21 +203,18 @@ class VerticalTabView : public views::View,
   const raw_ptr<AlertIndicatorButton> alert_indicator_;
   const raw_ptr<TabCloseButton> close_button_;
 
-#if BUILDFLAG(ENABLE_GLIC)
   raw_ptr<glic::TabUnderlineView> glic_tab_underline_view_ = nullptr;
-#endif
 
   base::CallbackListSubscription node_destroyed_subscription_;
   base::CallbackListSubscription data_changed_subscription_;
+  base::CallbackListSubscription collapsed_state_changed_subscription_;
   base::CallbackListSubscription paint_as_active_subscription_;
 
-  TabRendererData tab_data_;
+  tabs::TabData tab_data_;
   bool active_ = false;
   bool selected_ = false;
   bool hovered_ = false;
   bool split_ = false;
-  // |collapsed_| represents whether the VerticalTabView itself is collapsed,
-  // which is not the same as if the VerticalTabStripView is collapsed.
   bool collapsed_ = false;
   bool pinned_ = false;
   bool shift_pressed_on_mouse_down_ = false;
@@ -199,7 +224,12 @@ class VerticalTabView : public views::View,
   float hover_opacity_max_;
   float radial_highlight_opacity_;
 
+  std::optional<int> active_tab_fill_id_;
+  std::optional<int> inactive_tab_fill_id_;
+
   base::CallbackListSubscription ax_name_changed_subscription_;
+
+  std::optional<performance_manager::freezing::FreezingVote> freezing_vote_;
 
   base::WeakPtrFactory<VerticalTabView> weak_ptr_factory_{this};
 };

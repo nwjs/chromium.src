@@ -366,6 +366,7 @@ class EventRouter : public KeyedService,
   FRIEND_TEST_ALL_PREFIXES(EventRouterTest,
                            AddLazyListenerForUnloadedExtension);
   FRIEND_TEST_ALL_PREFIXES(EventRouterTest, MultipleEventRouterObserver);
+  FRIEND_TEST_ALL_PREFIXES(EventRouterTest, DispatchPendingEvent_NullContext);
   FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest, TestDispatch);
   FRIEND_TEST_ALL_PREFIXES(EventRouterDispatchTest, TestDispatchCallback);
   FRIEND_TEST_ALL_PREFIXES(EventRouterFilterTest,
@@ -678,7 +679,7 @@ struct Event {
   // will dispatch the event to unrelated profiles, not just incognito. Audit
   // and limit usages of this constructor and introduce "include incognito"
   // option to a constructor version for clients that need to dispatch events to
-  // related browser_contexts. See https://crbug.com/726022.
+  // related browser_contexts. See https://crbug.com/40522431.
   Event(events::HistogramValue histogram_value,
         std::string_view event_name,
         base::ListValue event_args);

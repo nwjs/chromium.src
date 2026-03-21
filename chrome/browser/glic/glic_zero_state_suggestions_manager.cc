@@ -11,13 +11,13 @@
 #include "base/functional/bind.h"
 #include "base/types/id_type.h"
 #include "build/build_config.h"
-#include "chrome/browser/contextual_cueing/caching_zero_state_suggestions_manager.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_features.h"
 #include "chrome/browser/contextual_cueing/contextual_cueing_service.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/suggestions/caching_zero_state_suggestions_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
@@ -90,8 +90,7 @@ GlicZeroStateSuggestionsManager::GlicZeroStateSuggestionsManager(
   if (contextual_cueing_service &&
       base::FeatureList::IsEnabled(kCacheZeroStateSuggestions)) {
     caching_zero_state_manager_ =
-        contextual_cueing::CreateCachingZeroStateSuggestionsManager(
-            contextual_cueing_service);
+        CreateCachingZeroStateSuggestionsManager(contextual_cueing_service);
   }
 }
 

@@ -21,13 +21,12 @@
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/projects/projects_panel_state_controller.h"
-#include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
@@ -54,7 +53,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "ui/base/accelerators/accelerator.h"
-#include "ui/base/interaction/typed_identifier.h"
+#include "ui/base/identifier/typed_identifier.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/pointer/touch_ui_controller.h"
@@ -126,6 +125,8 @@ namespace webapps {
 enum class InstallableWebAppCheckResult;
 struct WebAppBannerData;
 }  // namespace webapps
+
+class CustomFloatingCorner;
 
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView
@@ -253,16 +254,14 @@ class BrowserView : public BrowserWindow,
     return tab_overlay_view_.get();
   }
 
-  // Returns if this browser view will use immersive fullscreen mode, based
-  // on the state of the two relevant base::Features, as well as the type of
-  // browser this is a view for.
+  // Returns if this browser view will use immersive fullscreen mode, based on
+  // the type of browser this is a view for.
   bool UsesImmersiveFullscreenMode() const;
 
   // Returns if this browser view will use immersive fullscreen tabbed mode.
   // In tabbed mode the tab strip is contained within the window's titlebar. In
   // non-tabbed mode the tab strip is positioned below the titlebar.
-  // The return value is determined based on the state of
-  // `features::kImmersiveFullscreen` as well as the type of browser.
+  // The return value is determined by the type of browser.
   bool UsesImmersiveFullscreenTabbedMode() const;
 #endif
 
@@ -290,6 +289,10 @@ class BrowserView : public BrowserWindow,
   VerticalTabStripRegionView* vertical_tab_strip_region_view_for_testing()
       const {
     return vertical_tab_strip_region_view_.get();
+  }
+
+  ProjectsPanelView* projects_panel_container_for_testing() const {
+    return projects_panel_container_;
   }
 
   // Accessor for the TabStrip.
@@ -331,9 +334,7 @@ class BrowserView : public BrowserWindow,
     return weak_ptr_factory_.GetWeakPtr();
   }
 
-#if BUILDFLAG(ENABLE_GLIC)
   views::LabelButton* GetGlicButton();
-#endif  // BUILDFLAG(ENABLE_GLIC)
 
   // Accessor for the BrowserView's TabSearchBubbleHost instance.
   TabSearchBubbleHost* GetTabSearchBubbleHost();
@@ -458,10 +459,9 @@ class BrowserView : public BrowserWindow,
   base::CallbackListSubscription AddOnLinkOpeningFromGestureCallback(
       OnLinkOpeningFromGestureCallback callback);
 
-  // Updates the variable keeping track of the borderless mode visibility, which
-  // together with the `window_management_permission_granted_` controls whether
-  // the title bar is shown or not.
-  void UpdateBorderlessModeEnabled();
+  // Updates the state that determines if this app window should be in unframed
+  // display mode.
+  void UpdateUnframedModeEnabled();
 
   // Returns true when an app's effective display mode is
   // window-controls-overlay.
@@ -470,8 +470,8 @@ class BrowserView : public BrowserWindow,
   // Returns true when an app's effective display mode is tabbed.
   bool AppUsesTabbed() const;
 
-  // Returns true when an app's effective display mode is borderless.
-  bool AppUsesBorderlessMode() const;
+  // Returns true when an app's effective display mode is unframed.
+  bool AppUsesUnframedMode() const;
 
   // Returns whether any of the features enabling draggable regions is enabled.
   bool AreDraggableRegionsEnabled() const;
@@ -487,8 +487,8 @@ class BrowserView : public BrowserWindow,
   bool WidgetOwnedByAnchorContainsPoint(
       const gfx::Point& point_in_browser_view_coords);
 
-  bool borderless_mode_enabled_for_testing() const {
-    return borderless_mode_enabled_;
+  bool unframed_mode_enabled_for_testing() const {
+    return unframed_mode_enabled_;
   }
 
   bool window_management_permission_granted_for_testing() const {
@@ -604,7 +604,7 @@ class BrowserView : public BrowserWindow,
   bool IsToolbarVisible() const override;
   bool IsToolbarShowing() const override;
   bool IsLocationBarVisible() const override;
-  bool IsBorderlessModeEnabled() const override;
+  bool IsUnframedModeEnabled() const override;
   void ShowChromeLabs() override;
   BrowserView* AsBrowserView() override;
   SharingDialog* ShowSharingDialog(content::WebContents* contents,
@@ -826,10 +826,7 @@ class BrowserView : public BrowserWindow,
   // feature is enabled).
   std::vector<views::NativeViewHost*> GetNativeViewHostsForTopControlsSlide();
 
-  using BrowserWindow::CreateTabSearchBubble;
-  void CreateTabSearchBubble(
-      tab_search::mojom::TabSearchSection section,
-      tab_search::mojom::TabOrganizationFeature organization_feature) override;
+  void CreateTabSearchBubble() override;
   void CloseTabSearchBubble() override;
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -1137,13 +1134,13 @@ private:
   void UpdateWindowControlsOverlayToggleVisible();
 
   // Updates the variable keeping track of the Window Management permission,
-  // which together with borderless_mode_enabled_ controls whether the title bar
+  // which together with `unframed_mode_enabled_` controls whether the title bar
   // is shown or not.
   void UpdateWindowManagementPermission(content::PermissionResult result);
 
   // Sets the callback which is called when the status of the Window Management
   // permission changes.
-  void SetWindowManagementPermissionSubscriptionForBorderlessMode(
+  void SetWindowManagementPermissionSubscriptionForUnframedMode(
       content::WebContents* web_contents);
 
   WebAppFrameToolbarView* web_app_frame_toolbar();
@@ -1165,9 +1162,6 @@ private:
   // view is successfully painted onto the screen for the first time.
   // `frame_timing_details` contains the paint timing information of the frame.
   void OnFirstPresentation(const viz::FrameTimingDetails& frame_timing_details);
-
-  // Called when the initial WebUI components are ready.
-  void OnInitialWebUIReady();
 
   // TODO(crbug.com/461955649): Move ExclusiveAccessContextImpl out of
   // BrowserView and make it shared so BrowserWindowFeatures can own it
@@ -1330,8 +1324,8 @@ private:
   raw_ptr<VerticalTabStripRegionView> vertical_tab_strip_region_view_ = nullptr;
 
   // Outward-projecting corners of the vertical tab strip.
-  raw_ptr<views::View> vertical_tab_strip_top_corner_ = nullptr;
-  raw_ptr<views::View> vertical_tab_strip_bottom_corner_ = nullptr;
+  raw_ptr<CustomFloatingCorner> vertical_tab_strip_top_corner_ = nullptr;
+  raw_ptr<CustomFloatingCorner> vertical_tab_strip_bottom_corner_ = nullptr;
 
   // The view responsible for housing the contents of the projects panel.
   raw_ptr<ProjectsPanelView> projects_panel_container_ = nullptr;
@@ -1457,7 +1451,7 @@ private:
 
   bool window_controls_overlay_enabled_ = false;
   bool should_show_window_controls_overlay_toggle_ = false;
-  bool borderless_mode_enabled_ = false;
+  bool unframed_mode_enabled_ = false;
   bool window_management_permission_granted_ = false;
   std::optional<content::PermissionController::SubscriptionId>
       window_management_subscription_id_;
@@ -1469,6 +1463,9 @@ private:
   PrefChangeRegistrar registrar_;
 
   base::CallbackListSubscription vertical_tab_subscription_;
+
+  std::unique_ptr<tabs::VerticalTabStripStateController::ScopedEnableStateLock>
+      vertical_tabs_enable_state_lock_;
 
   base::CallbackListSubscription projects_panel_subscription_;
 

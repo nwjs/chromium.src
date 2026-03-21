@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/to_v8_traits.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_inspector_overlay_host.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_microtasks_scope.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/node.h"
@@ -951,7 +952,40 @@ protocol::Response InspectorOverlayAgent::setShowIsolatedElements(
 protocol::Response InspectorOverlayAgent::setShowInspectedElementAnchor(
     std::unique_ptr<protocol::Overlay::InspectedElementAnchorConfig>
         inspected_element_anchor_config) {
-  LOG(ERROR) << "Not implemented yet";
+  if (!persistent_tool_) {
+    persistent_tool_ =
+        MakeGarbageCollected<PersistentTool>(this, GetFrontend());
+  }
+
+  if (inspected_element_anchor_config) {
+    std::optional<int> node_id;
+    if (inspected_element_anchor_config->hasNodeId()) {
+      node_id = inspected_element_anchor_config->getNodeId(0);
+    }
+    std::optional<int> backend_node_id;
+    if (inspected_element_anchor_config->hasBackendNodeId()) {
+      backend_node_id = inspected_element_anchor_config->getBackendNodeId(0);
+    }
+
+    Node* node = nullptr;
+    protocol::Response response =
+        dom_agent_->AssertNode(node_id, backend_node_id, std::nullopt, node);
+    if (!response.IsSuccess()) {
+      return response;
+    }
+
+    auto anchor_config =
+        std::make_unique<InspectorGreenDevFloatyAnchorConfig>();
+    anchor_config->node_id = node->GetDomNodeId();
+    persistent_tool_->AddGreenDevFloatyAnchorConfig(node,
+                                                    std::move(anchor_config));
+  } else {
+    persistent_tool_->SetGreenDevFloatyAnchorConfigs(
+        GreenDevFloatyAnchorConfigs());
+  }
+
+  PickTheRightTool();
+
   return protocol::Response::Success();
 }
 
@@ -1368,7 +1402,7 @@ void InspectorOverlayAgent::LoadOverlayPageResource() {
   frame->SetView(MakeGarbageCollected<LocalFrameView>(*frame));
   frame->Init(/*opener=*/nullptr, DocumentToken(), /*policy_container=*/nullptr,
               StorageKey(), /*document_ukm_source_id=*/ukm::kInvalidSourceId,
-              /*creator_base_url=*/KURL());
+              /*creator_base_url=*/NullUrl());
   frame->View()->SetCanHaveScrollbars(false);
   frame->View()->SetBaseBackgroundColor(Color::kTransparent);
 
@@ -1385,9 +1419,7 @@ void InspectorOverlayAgent::LoadOverlayPageResource() {
   ScriptState* script_state = ToScriptStateForMainWorld(frame);
   DCHECK(script_state);
   ScriptState::Scope scope(script_state);
-  v8::MicrotasksScope microtasks_scope(
-      isolate, ToMicrotaskQueue(script_state),
-      v8::MicrotasksScope::kDoNotRunMicrotasks);
+  V8DoNotRunMicrotasksScope microtasks_scope(script_state);
   v8::Local<v8::Value> overlay_host_obj =
       ToV8Traits<InspectorOverlayHost>::ToV8(script_state, overlay_host_.Get());
   DCHECK(!overlay_host_obj.IsEmpty());

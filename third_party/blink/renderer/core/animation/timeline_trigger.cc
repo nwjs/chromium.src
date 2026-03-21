@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/animation/timeline_trigger.h"
 
+#include "cc/animation/animation_host.h"
 #include "cc/animation/animation_id_provider.h"
 #include "cc/animation/timeline_trigger.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_animation_trigger_behavior.h"
@@ -184,6 +185,12 @@ void TimelineTrigger::CreateCompositorTrigger() {
     return;
   }
   GetDocument()->AttachCompositorTimeline(cc_timeline);
+
+  std::optional<CcBoundaries> cc_boundaries = ComputeCcBoundaries(cc_timeline);
+  if (!cc_boundaries) {
+    return;
+  }
+
   cc::AnimationHost* host = cc_timeline->animation_host();
   CHECK(host);
 
@@ -191,21 +198,22 @@ void TimelineTrigger::CreateCompositorTrigger() {
       host->GetScopedRefTimelineById(cc_timeline->id());
 
   scoped_refptr<cc::TimelineTrigger> cc_trigger = cc::TimelineTrigger::Create(
-      cc::AnimationIdProvider::NextAnimationTriggerId(), scopedref_cc_timeline);
+      cc::AnimationIdProvider::NextAnimationTriggerId(), scopedref_cc_timeline,
+      *cc_boundaries);
   host->AddTrigger(cc_trigger);
 
   compositor_trigger_ =
       static_cast<scoped_refptr<cc::AnimationTrigger>>(cc_trigger);
 }
 
-void TimelineTrigger::DestroyCompositorTrigger() {
-  if (compositor_trigger_) {
-    cc::AnimationHost* host = compositor_trigger_->GetAnimationHost();
-    if (host) {
-      host->RemoveTrigger(compositor_trigger_);
-    }
-    compositor_trigger_ = nullptr;
-  }
+void TimelineTrigger::NotifyActivated() {
+  state_ = State::kPrimary;
+  PerformActivate();
+}
+
+void TimelineTrigger::NotifyDeactivated() {
+  state_ = State::kInverse;
+  PerformDeactivate();
 }
 
 }  // namespace blink

@@ -24,7 +24,6 @@ import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsIntent.CloseButtonPosition;
 import androidx.browser.customtabs.CustomTabsIntent.OpenInBrowserState;
 import androidx.browser.customtabs.ExperimentalCustomContentAction;
-import androidx.browser.customtabs.ExperimentalOpenInBrowser;
 import androidx.browser.trusted.FileHandlingData;
 import androidx.browser.trusted.LaunchHandlerClientMode;
 import androidx.browser.trusted.TrustedWebActivityDisplayMode;
@@ -35,6 +34,7 @@ import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ActivityType;
+import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.util.WindowFeatures;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.device.mojom.ScreenOrientationLockType;
@@ -70,7 +70,7 @@ public abstract class BrowserServicesIntentDataProvider {
         int READER_MODE = 3;
         int MINIMAL_UI_WEBAPP = 4;
         int OFFLINE_PAGE = 5;
-        int READ_LATER = 6;
+        // int READ_LATER = 6; // Unused.
         int AUTH_TAB = 7;
         int NETWORK_BOUND_TAB = 8;
         int POPUP = 9;
@@ -97,22 +97,6 @@ public abstract class BrowserServicesIntentDataProvider {
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ActivitySideSheetSlideInBehavior {}
-
-    // The type of Profile and UI that is used by the custom tab.
-    @IntDef({
-        CustomTabProfileType.REGULAR,
-        CustomTabProfileType.INCOGNITO,
-        CustomTabProfileType.EPHEMERAL
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface CustomTabProfileType {
-        // The normal user profile.
-        int REGULAR = 0;
-        // An off-the-record profile with incognito UI.
-        int INCOGNITO = 1;
-        // An off-the-record profile without references to incognito mode.
-        int EPHEMERAL = 2;
-    }
 
     /**
      * Represents apps that launch Incognito CCT. DO NOT reorder items in this interface, because
@@ -818,7 +802,6 @@ public abstract class BrowserServicesIntentDataProvider {
      *
      * @return {@link OpenInBrowserState} the desired settings for the Open in Browser button.
      */
-    @ExperimentalOpenInBrowser
     public @OpenInBrowserState int getOpenInBrowserButtonState() {
         return OPEN_IN_BROWSER_STATE_OFF;
     }

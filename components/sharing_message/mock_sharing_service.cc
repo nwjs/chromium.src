@@ -35,6 +35,10 @@ class FakeSharingDeviceRegistration : public SharingDeviceRegistration {
     return false;
   }
 
+  bool IsOneTimeTokenBackendNotificationSupported() const override {
+    return false;
+  }
+
   void SetEnabledFeaturesForTesting(
       std::set<sync_pb::SharingSpecificFields_EnabledFeatures> enabled_features)
       override {}
@@ -52,7 +56,6 @@ MockSharingService::MockSharingService()
                                               /*sync_preference=*/nullptr,
                                               /*handler_registry=*/nullptr),
           /*sync_service=*/nullptr,
-          /*favicon_service=*/nullptr,
           /*send_tab_model=*/nullptr,
           /*task_runner=*/nullptr) {}
 

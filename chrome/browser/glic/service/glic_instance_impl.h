@@ -32,7 +32,7 @@
 #include "chrome/browser/glic/service/glic_ui_types.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
-#include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
+#include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/tabs/public/tab_interface.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -145,6 +145,12 @@ class GlicInstanceImpl : public GlicInstance,
   // This method will either show an embedder or create an inactive embedder and
   // bind a tab to conversation.
   void Show(const ShowOptions& options) override;
+
+  // Called when a new tab is created from a source tab that is bound to this
+  // instance. This attempts to daisy chain the new tab to the same instance.
+  void MaybeDaisyChainToTab(tabs::TabInterface* source_tab,
+                            tabs::TabInterface* target_tab);
+
   void Close(EmbedderKey key, const CloseOptions& options = {});
   // Returns true when toggle shows the instance and false when it is closed.
   bool Toggle(ShowOptions&& options,
@@ -165,6 +171,7 @@ class GlicInstanceImpl : public GlicInstance,
   std::optional<std::string> conversation_id() const override;
   base::CallbackListSubscription RegisterStateChange(
       StateChangeCallback callback) override;
+  void BindTabForTesting(tabs::TabInterface* tab) override;
 
   // Host::InstanceDelegate:
   // TODO: Currently, both GlicInstanceImpl and GlicKeyedService implement
@@ -279,6 +286,7 @@ class GlicInstanceImpl : public GlicInstance,
   void RequestToShowAutofillSuggestionsDialog(
       actor::TaskId task_id,
       std::vector<autofill::ActorFormFillingRequest> requests,
+      base::WeakPtr<actor::AutofillSelectionDialogEventHandler> event_handler,
       AutofillSuggestionSelectedCallback callback) override;
 
  private:
@@ -347,8 +355,7 @@ class GlicInstanceImpl : public GlicInstance,
   // Updates the floating panel can attach state.
   void UpdateFloatingPanelCanAttach();
 
-  using StateChangeCallbackList =
-      base::RepeatingCallbackList<void(bool, mojom::CurrentView view)>;
+  using StateChangeCallbackList = base::RepeatingCallbackList<void(bool)>;
   StateChangeCallbackList state_change_callback_list_;
 
   base::ObserverList<PanelStateObserver> state_observers_;

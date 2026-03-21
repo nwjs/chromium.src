@@ -21,13 +21,11 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/memory/memory_pressure_monitor.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
-#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/pending_task.h"
 #include "base/power_monitor/power_monitor.h"
@@ -214,8 +212,6 @@
 
 #if defined(USE_GLIB)
 #include <glib-object.h>
-
-#include "base/synchronization/lock.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -273,18 +269,7 @@ static void GLibLogHandler(const gchar* log_domain,
   if (!message)
     message = "<no message>";
 
-  GLogLevelFlags always_fatal_flags;
-  GLogLevelFlags fatal_flags;
-  {
-    static base::NoDestructor<base::Lock> lock;
-    base::AutoLock auto_lock(*lock);
-    always_fatal_flags = g_log_set_always_fatal(G_LOG_LEVEL_MASK);
-    g_log_set_always_fatal(always_fatal_flags);
-    fatal_flags = g_log_set_fatal_mask(log_domain, G_LOG_LEVEL_MASK);
-    g_log_set_fatal_mask(log_domain, fatal_flags);
-  }
-
-  if ((always_fatal_flags | fatal_flags) & log_level) {
+  if (log_level & (G_LOG_FLAG_FATAL)) {
     LOG(DFATAL) << log_domain << ": " << message;
   } else if (log_level & (G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL)) {
     LOG(ERROR) << log_domain << ": " << message;
@@ -373,8 +358,8 @@ void SetFileUrlPathAliasForIpcFuzzer() {
 }
 #endif
 
-std::unique_ptr<base::MemoryPressureMonitor> CreateMemoryPressureMonitor(
-    const base::CommandLine& command_line) {
+std::unique_ptr<memory_pressure::MultiSourceMemoryPressureMonitor>
+CreateMemoryPressureMonitor(const base::CommandLine& command_line) {
   // Behavior of browser tests should not depend on things outside of their
   // control (like the amount of memory on the system running the tests).
   if (command_line.HasSwitch(switches::kBrowserTest))
@@ -383,7 +368,7 @@ std::unique_ptr<base::MemoryPressureMonitor> CreateMemoryPressureMonitor(
   std::unique_ptr<memory_pressure::MultiSourceMemoryPressureMonitor> monitor;
 
 #if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_FUCHSIA) || \
-    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   monitor =
       std::make_unique<memory_pressure::MultiSourceMemoryPressureMonitor>();
 #endif
@@ -391,6 +376,13 @@ std::unique_ptr<base::MemoryPressureMonitor> CreateMemoryPressureMonitor(
 
   if (monitor)
     monitor->MaybeStartPlatformVoter();
+
+#if BUILDFLAG(IS_ANDROID)
+  if (auto evaluator = UserLevelMemoryPressureSignalGenerator::MaybeCreate(
+          monitor->CreateVoter())) {
+    monitor->SetSystemEvaluator(std::move(evaluator));
+  }
+#endif
 
   return monitor;
 }
@@ -791,9 +783,6 @@ int BrowserMainLoop::PreCreateThreads() {
   }
 
   InitializeMemoryManagementComponent();
-#if BUILDFLAG(IS_ANDROID)
-  content::UserLevelMemoryPressureSignalGenerator::Initialize();
-#endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
   // Prior to any processing happening on the IO thread, we create the

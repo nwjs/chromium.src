@@ -39,14 +39,19 @@ public class ToolbarUtils {
                 ToolbarComponentId.BACK,
                 ToolbarComponentId.INCOGNITO_INDICATOR,
                 ToolbarComponentId.ADAPTIVE_BUTTON,
+                ToolbarComponentId.SIGNIN_BUTTON,
                 ToolbarComponentId.RELOAD,
                 ToolbarComponentId.FORWARD,
                 ToolbarComponentId.HOME,
+                ToolbarComponentId.EXTENSIONS_MENU_BUTTON,
+                ToolbarComponentId.EXTENSION_ACTION_LIST,
                 ToolbarComponentId.OMNIBOX_BOOKMARK,
+                ToolbarComponentId.OMNIBOX_CHIP_COLLAPSED,
                 ToolbarComponentId.OMNIBOX_ZOOM,
                 ToolbarComponentId.OMNIBOX_INSTALL,
                 ToolbarComponentId.OMNIBOX_MIC,
                 ToolbarComponentId.OMNIBOX_LENS,
+                ToolbarComponentId.OMNIBOX_CHIP_EXPANDED
             };
 
     public static final @ToolbarComponentId int[] APP_MENU_ICON_ROW_COMPONENTS =
@@ -56,12 +61,16 @@ public class ToolbarUtils {
                 ToolbarComponentId.OMNIBOX_BOOKMARK
             };
 
+    // LINT.IfChange(toolbar_tablet_components)
+
     @IntDef({
         ToolbarComponentId.HOME,
         ToolbarComponentId.BACK,
         ToolbarComponentId.FORWARD,
         ToolbarComponentId.RELOAD,
         ToolbarComponentId.LOCATION_BAR_MINIMUM,
+        ToolbarComponentId.OMNIBOX_CHIP_COLLAPSED,
+        ToolbarComponentId.OMNIBOX_CHIP_EXPANDED,
         ToolbarComponentId.OMNIBOX_BOOKMARK,
         ToolbarComponentId.OMNIBOX_ZOOM,
         ToolbarComponentId.OMNIBOX_INSTALL,
@@ -69,9 +78,12 @@ public class ToolbarUtils {
         ToolbarComponentId.OMNIBOX_LENS,
         ToolbarComponentId.ADAPTIVE_BUTTON,
         ToolbarComponentId.INCOGNITO_INDICATOR,
+        ToolbarComponentId.EXTENSIONS_MENU_BUTTON,
+        ToolbarComponentId.EXTENSION_ACTION_LIST,
         ToolbarComponentId.TAB_SWITCHER,
         ToolbarComponentId.MENU,
         ToolbarComponentId.PADDING,
+        ToolbarComponentId.SIGNIN_BUTTON,
         ToolbarComponentId.COUNT
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -81,18 +93,25 @@ public class ToolbarUtils {
         int FORWARD = 2;
         int RELOAD = 3;
         int LOCATION_BAR_MINIMUM = 4;
-        int OMNIBOX_BOOKMARK = 5;
-        int OMNIBOX_ZOOM = 6;
-        int OMNIBOX_INSTALL = 7;
-        int OMNIBOX_MIC = 8;
-        int OMNIBOX_LENS = 9;
-        int ADAPTIVE_BUTTON = 10;
-        int INCOGNITO_INDICATOR = 11;
-        int TAB_SWITCHER = 12;
-        int MENU = 13;
-        int PADDING = 14;
-        int COUNT = 15;
+        int OMNIBOX_CHIP_COLLAPSED = 5;
+        int OMNIBOX_CHIP_EXPANDED = 6;
+        int OMNIBOX_BOOKMARK = 7;
+        int OMNIBOX_ZOOM = 8;
+        int OMNIBOX_INSTALL = 9;
+        int OMNIBOX_MIC = 10;
+        int OMNIBOX_LENS = 11;
+        int ADAPTIVE_BUTTON = 12;
+        int INCOGNITO_INDICATOR = 13;
+        int EXTENSIONS_MENU_BUTTON = 14;
+        int EXTENSION_ACTION_LIST = 15;
+        int TAB_SWITCHER = 16;
+        int MENU = 17;
+        int PADDING = 18;
+        int SIGNIN_BUTTON = 19;
+        int COUNT = 20;
     }
+
+    // LINT.ThenChange(//chrome/browser/ui/android/toolbar/java/res/layout/toolbar_tablet.xml:toolbar_tablet_components|//chrome/browser/ui/android/omnibox/java/res/layout/url_action_container.xml:toolbar_tablet_components)
 
     /**
      * Sets values in the animator (interpolator, duration, etc) for fading in animations. Returns

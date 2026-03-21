@@ -28,12 +28,13 @@ font-types = "0.11"
 hex = "0.4"
 hmac-sha256 = "1.1.12"
 indexmap = "2.12.1"
+itertools = "0.11.0"
 lazy_static = "1"
 libc = "0.2"
 minijinja = "2.14.0"
 num-traits = "0.2"
 ordered-float = "5.1.0"
-png = "=0.18.0-rc"
+png = "0.18.1"
 proc-macro2 = "1"
 prost = "0.14.1"
 qr_code = "2"
@@ -133,18 +134,22 @@ version = "0.5.4"
 # codecs specifically added in `features`. Enabling new codec support requires a
 # package configuration through gnrt vendor and gnrt gen.
 default-features = false
-features = ["flac", "mp3", "pcm"]
+features = ["flac", "mp3", "pcm", "vorbis"]
+
+[dependencies.symphonia-adapter-libopus]
+version = "0.2"
+default-features = false
 
 [dependencies.syn]
 version = "2"
 features = ["full"]
 
 [dependencies.temporal_capi]
-version = "0.1.2"
+version = "0.2"
 features = ["zoneinfo64"]
 
 [dependencies.temporal_rs]
-version = "0.1.2"
+version = "0.2"
 default-features = false
 # This is necessary to enable a spec-compliance quirk
 features = ["float64_representable_durations"]

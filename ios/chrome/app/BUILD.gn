@@ -76,22 +76,88 @@ source_set("app") {
   frameworks = [ "Foundation.framework" ]
 }
 
-source_set("tasks_handling") {
+source_set("tasks_handling_header") {
   sources = [
     "task_orchestrator.h",
-    "task_orchestrator.mm",
     "task_request+testing.h",
     "task_request.h",
-    "task_request.mm",
+    "task_scheduling_outcome.h",
   ]
 
+  deps = [ ":app" ]
+
+  frameworks = [ "Foundation.framework" ]
+}
+
+source_set("tasks_handling") {
+  sources = [
+    "task_orchestrator.mm",
+    "task_request.mm",
+    "task_request_private.h",
+    "task_request_shortcut_item.h",
+    "task_request_shortcut_item.mm",
+    "task_request_url_context.h",
+    "task_request_url_context.mm",
+    "task_request_user_activity.h",
+    "task_request_user_activity.mm",
+  ]
+
+  public_deps = [ ":tasks_handling_header" ]
+
   deps = [
+    ":mode",
     "//base",
+    "//components/crash/core/common",
+    "//ios/chrome/app:unexpected_mode_toast_util",
+    "//ios/chrome/app/application_delegate:app_state",
+    "//ios/chrome/app/application_delegate:url_opener",
+    "//ios/chrome/app/application_delegate:url_opener_params",
+    "//ios/chrome/app/profile",
+    "//ios/chrome/app/startup:startup_basic",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/intents/model:constants",
+    "//ios/chrome/browser/intents/model:user_activity_browser_agent",
+    "//ios/chrome/browser/policy/model:policy_util",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/model/application_context",
+    "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/public/snackbar",
+    "//ios/chrome/browser/signin/model:system_identity_manager",
+    "//ios/chrome/browser/url_loading/model",
+    "//ios/chrome/browser/url_loading/model:url_loading_params_header",
+    "//ios/chrome/common/app_group",
+    "//ios/components/webui:url_constants",
+    "//net",
+    "//ui/base",
+    "//url",
   ]
 
   frameworks = [ "Foundation.framework" ]
+}
+
+source_set("unexpected_mode_toast_util") {
+  sources = [
+    "unexpected_mode_toast_util.h",
+    "unexpected_mode_toast_util.mm",
+  ]
+
+  deps = [
+    ":app",
+    "//base",
+    "//ios/chrome/app/application_delegate:tab_opening",
+    "//ios/chrome/app/strings",
+    "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
+    "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/url:constants",
+    "//ios/chrome/browser/shared/public/commands",
+    "//ios/chrome/browser/shared/public/snackbar",
+    "//ios/chrome/browser/url_loading/model",
+    "//ui/base",
+    "//url",
+  ]
 }
 
 source_set("app_trampoline") {
@@ -189,17 +255,39 @@ source_set("tests_hook") {
   deps = [ "//base" ]
 }
 
+source_set("tests_hook_helper") {
+  # This target is intentionally not test-only, as the main app depends on it.
+  sources = [
+    "tests_hook_helper.h",
+    "tests_hook_helper.mm",
+  ]
+  deps = [
+    "//base",
+    "//ios/chrome/browser/sessions/model:session_restoration_service",
+    "//ios/chrome/browser/sessions/model:session_restoration_service_factory",
+    "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/web_state_list",
+    "//ios/web/public",
+    "//ios/web/public/navigation",
+    "//ios/web/public/session/proto",
+  ]
+}
+
 source_set("tests_fake_hook") {
   # This target is intentionally not test-only, as the main app depends on it.
   sources = [ "tests_fake_hook.mm" ]
   deps = [
     ":tests_hook",
+    "//build:branding_buildflags",
     "//components/commerce/core:shopping_service",
     "//components/feature_engagement/public",
     "//components/signin/internal/identity_manager",
     "//ios/chrome/browser/feature_engagement/model",
     "//ios/chrome/browser/shared/public/snackbar:constants",
   ]
+  if (!is_chrome_branded) {
+    deps += [ ":tests_hook_helper" ]
+  }
 }
 
 source_set("perf_tests_hook") {
@@ -433,6 +521,7 @@ source_set("app_internal") {
     ":mode",
     ":safe_mode_app_state_agent",
     ":task_names",
+    ":tasks_handling",
     ":tests_hook",
     ":variations_app_state_agent",
     "//base",
@@ -485,7 +574,6 @@ source_set("app_internal") {
     "//ios/chrome/browser/authentication/ui_bundled",
     "//ios/chrome/browser/banner_promo/model",
     "//ios/chrome/browser/bookmarks/model",
-    "//ios/chrome/browser/browsing_data/model",
     "//ios/chrome/browser/commerce/model/push_notification",
     "//ios/chrome/browser/content_notification/model:util",
     "//ios/chrome/browser/content_settings/model",

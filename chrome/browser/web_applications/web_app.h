@@ -18,12 +18,15 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/time/time.h"
+#include "base/types/pass_key.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/web_applications/generated_icon_fix_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/model/app_installed_by.h"
 #include "chrome/browser/web_applications/model/display_override.h"
+#include "chrome/browser/web_applications/model/migration_source.h"
+#include "chrome/browser/web_applications/model/pending_migration_info.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom-forward.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -41,7 +44,6 @@
 #include "components/sync/model/string_ordinal.h"
 #include "components/sync/protocol/web_app_specifics.pb.h"
 #include "components/webapps/common/web_app_id.h"
-#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "url/gurl.h"
@@ -57,6 +59,7 @@ enum class WebappInstallSource;
 namespace web_app {
 class UrlPatternWithRegexMatcher;
 class WebAppScope;
+class WebAppSyncBridge;
 
 class InstalledByPassKey {
   friend std::unique_ptr<WebApp> ParseWebAppProto(
@@ -77,8 +80,12 @@ class WebApp {
   WebApp(const webapps::ManifestId& manifest_id,
          const GURL& start_url,
          const GURL& scope,
-         std::optional<webapps::AppId> parent_app_id = std::nullopt,
-         std::optional<webapps::ManifestId> parent_manifest_id = std::nullopt);
+         std::optional<webapps::AppId> parent_app_id = std::nullopt);
+
+  // Create a web app object from just the incoming sync data.
+  // Callers are responsible for sanitizing the inputs in the sync_proto,
+  // otherwise construction might CHECK-fail.
+  explicit WebApp(const sync_pb::WebAppSpecifics& sync_proto);
   ~WebApp();
 
   // Copyable and move-assignable to support Copy-on-Write with Commit.
@@ -288,10 +295,6 @@ class WebApp {
 
   const std::optional<webapps::AppId>& parent_app_id() const {
     return parent_app_id_;
-  }
-
-  const network::ParsedPermissionsPolicy& permissions_policy() const {
-    return permissions_policy_;
   }
 
   std::optional<webapps::WebappInstallSource> latest_install_source() const {
@@ -509,14 +512,10 @@ class WebApp {
   void SetFirstInstallTime(const base::Time& time);
   void SetManifestUpdateTime(const base::Time& time);
   void SetRunOnOsLoginMode(RunOnOsLoginMode mode);
-  void SetSyncProto(sync_pb::WebAppSpecifics sync_proto);
   void SetManifestUrl(const GURL& manifest_url);
-  void SetManifestId(const webapps::ManifestId& manifest_id);
   void SetWindowControlsOverlayEnabled(bool enabled);
   void SetLaunchHandler(std::optional<LaunchHandler> launch_handler);
   void SetParentAppId(const std::optional<webapps::AppId>& parent_app_id);
-  void SetPermissionsPolicy(
-      network::ParsedPermissionsPolicy permissions_policy);
   void SetLatestInstallSource(
       std::optional<webapps::WebappInstallSource> latest_install_source);
   void SetAppSizeInBytes(std::optional<int64_t> app_size_in_bytes);
@@ -574,24 +573,19 @@ class WebApp {
 
   void SetStoredTrustedIconSizes(IconPurpose purpose, SortedSizesPx sizes);
 
-  const std::vector<proto::WebAppMigrationSource>&
-  unvalidated_migration_sources() const {
+  const std::vector<MigrationSource>& unvalidated_migration_sources() const {
     return unvalidated_migration_sources_;
   }
-  const std::vector<proto::WebAppMigrationSource>& validated_migration_sources()
-      const {
+  const std::vector<MigrationSource>& validated_migration_sources() const {
     return validated_migration_sources_;
   }
-  const std::optional<proto::PendingMigrationInfo>& pending_migration_info()
-      const {
+  const std::optional<PendingMigrationInfo>& pending_migration_info() const {
     return pending_migration_info_;
   }
 
-  void SetUnvalidatedMigrationSources(
-      std::vector<proto::WebAppMigrationSource> sources);
-  void SetValidatedMigrationSources(
-      std::vector<proto::WebAppMigrationSource> sources);
-  void SetPendingMigrationInfo(std::optional<proto::PendingMigrationInfo> info);
+  void SetUnvalidatedMigrationSources(std::vector<MigrationSource> sources);
+  void SetValidatedMigrationSources(std::vector<MigrationSource> sources);
+  void SetPendingMigrationInfo(std::optional<PendingMigrationInfo> info);
 
   void SetInstalledBy(InstalledByPassKey,
                       std::deque<AppInstalledBy> installed_by);
@@ -599,8 +593,31 @@ class WebApp {
   // CHECK-fails if GURL in |AppInstalledBy| is invalid.
   void AddInstalledByInfo(AppInstalledBy installed_by_data);
 
+  // Functions that set fields directly on the `sync_proto_`.
+  // CHECK-fails if `migrated_from_manifest_id` is invalid.
+  void SetMigratedFromManifestIdInSyncProto(
+      const webapps::ManifestId& migrated_from_manifest_id);
+  void UpdateDefaultUserDisplayModeInSyncProto(
+      sync_pb::WebAppSpecifics::UserDisplayMode display_mode);
+  void UpdateCrOsUserDisplayModeInSyncProto(
+      sync_pb::WebAppSpecifics::UserDisplayMode display_mode);
+  void SetUserPageOrdinal(syncer::StringOrdinal page_ordinal);
+  void SetUserLaunchOrdinal(syncer::StringOrdinal launch_ordinal);
+
+  // Makes sure that the app being constructed from sync has valid data.
+  // This will not CHECK-fail if the resolved manifest id doesn't match this
+  // app, and instead output the WebApp.ApplySyncDataToApp.ManifestIdMatch
+  // metric.
+  // It will CHECK-fail if the incoming sync proto doesn't have the
+  // relative_manifest_id field set, as that is a true failure case, because the
+  // WebAppSyncBridge takes care of adding that to the sync proto.
+  void MergeDataFromSyncSystem(
+      const sync_pb::WebAppSpecifics& incoming_sync,
+      base::PassKey<WebAppSyncBridge> sync_bridge_pass_key);
+
   // For logging and debug purposes.
   bool operator==(const WebApp&) const;
+
   // Used by the WebAppTest suite to cover only platform agnostic fields to
   // avoid needing multiple platform specific expectation files per test.
   // Otherwise, the same as AsDebugValue().
@@ -615,13 +632,9 @@ class WebApp {
   friend std::unique_ptr<proto::WebApp> WebAppToProto(const WebApp& web_app);
   friend std::ostream& operator<<(std::ostream&, const WebApp&);
 
-  // TODO(http://crbug.com/384536509): Remove this after migrating parent_app_id
-  // in the database to parent_manifest_id.
-  WebApp(const webapps::AppId& app_id,
-         const webapps::ManifestId& manifest_id,
-         const GURL& start_url,
-         const GURL& scope,
-         std::optional<webapps::AppId> parent_app_id);
+  // This shouldn't be a public API. If the `manifest_id` needs to be set for a
+  // web app, use the constructors to do so.
+  void SetManifestId(const webapps::ManifestId& manifest_id);
 
   // LINT.IfChange(MemberVariables)
   webapps::AppId app_id_;
@@ -681,7 +694,6 @@ class WebApp {
   bool window_controls_overlay_enabled_ = false;
   std::optional<LaunchHandler> launch_handler_;
   std::optional<webapps::AppId> parent_app_id_;
-  network::ParsedPermissionsPolicy permissions_policy_;
   // The source of the latest install. WebAppRegistrar provides range
   // validation. Optional only to support legacy installations, since this used
   // to be tracked as a pref. It might also be null if the value read from the
@@ -735,9 +747,9 @@ class WebApp {
 
   std::deque<AppInstalledBy> installed_by_;
 
-  std::vector<proto::WebAppMigrationSource> unvalidated_migration_sources_;
-  std::vector<proto::WebAppMigrationSource> validated_migration_sources_;
-  std::optional<proto::PendingMigrationInfo> pending_migration_info_;
+  std::vector<MigrationSource> unvalidated_migration_sources_;
+  std::vector<MigrationSource> validated_migration_sources_;
+  std::optional<PendingMigrationInfo> pending_migration_info_;
   // LINT.ThenChange(//chrome/browser/web_applications/proto/web_app.proto)
 
   // New fields must be added to:
@@ -784,10 +796,6 @@ std::ostream& operator<<(std::ostream& out, const WebApp& app);
 std::ostream& operator<<(
     std::ostream& out,
     const WebApp::ExternalManagementConfig& management_config);
-
-std::vector<std::string> GetSerializedAllowedOrigins(
-    const network::ParsedPermissionsPolicyDeclaration
-        permissions_policy_declaration);
 
 }  // namespace web_app
 

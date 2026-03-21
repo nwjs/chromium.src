@@ -50,7 +50,7 @@ suite('ExtensionManagerUnitTest', function() {
   }
 
   function getExtensions(): chrome.developerPrivate.ExtensionInfo[] {
-    return manager.$['items-list'].extensions;
+    return manager.$.itemsList.extensions;
   }
 
   function getExtension(index: number): chrome.developerPrivate.ExtensionInfo {
@@ -217,13 +217,13 @@ suite('ExtensionManagerUnitTest', function() {
         {isMv2DeprecationNoticeDismissed: true});
     assertTrue(manager.isMv2DeprecationNoticeDismissed);
     await microtasksFinished();
-    assertTrue(manager.$['items-list'].isMv2DeprecationNoticeDismissed);
+    assertTrue(manager.$.itemsList.isMv2DeprecationNoticeDismissed);
 
     service.profileStateChangedTarget.callListeners(
         {isMv2DeprecationNoticeDismissed: false});
     assertFalse(manager.isMv2DeprecationNoticeDismissed);
     await microtasksFinished();
-    assertFalse(manager.$['items-list'].isMv2DeprecationNoticeDismissed);
+    assertFalse(manager.$.itemsList.isMv2DeprecationNoticeDismissed);
   });
 
   test('Uninstall', async () => {
@@ -279,7 +279,7 @@ suite('ExtensionManagerUnitTest', function() {
     await microtasksFinished();
     assertEquals(3, getExtensions().length);
 
-    const itemList = manager.$['items-list'];
+    const itemList = manager.$.itemsList;
 
     service.itemStateChangedTarget.callListeners({
       event_type: chrome.developerPrivate.EventType.UNINSTALLED,
@@ -330,6 +330,36 @@ suite('ExtensionManagerUnitTest', function() {
     // Tests that the fix for crbug.com/1416324 works by not having the focus be
     // on a deleted element.
     assertTrue(manager.$.toolbar.isSearchFocused());
+  });
+
+  test('UninstallRaceCondition', async () => {
+    assertEquals(0, getExtensions().length);
+
+    const extension = createExtensionInfo({
+      location: chrome.developerPrivate.Location.FROM_STORE,
+      name: 'Alpha',
+      id: 'a'.repeat(32),
+    });
+    simulateExtensionInstall(extension);
+    await microtasksFinished();
+    assertEquals(1, getExtensions().length);
+
+    // Simulate uninstall.
+    service.itemStateChangedTarget.callListeners({
+      event_type: chrome.developerPrivate.EventType.UNINSTALLED,
+      item_id: extension.id,
+    });
+    await microtasksFinished();
+    assertEquals(0, getExtensions().length);
+
+    // Simulate lagging UNLOADED event.
+    // This should NOT add the extension back.
+    service.itemStateChangedTarget.callListeners({
+      event_type: chrome.developerPrivate.EventType.UNLOADED,
+      extensionInfo: extension,
+    });
+    await microtasksFinished();
+    assertEquals(0, getExtensions().length);
   });
 
   function assertViewActive(tagName: string) {

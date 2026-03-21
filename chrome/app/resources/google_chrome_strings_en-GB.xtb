@@ -76,6 +76,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="1698376642261615901">Google Chrome is a web browser that runs web pages and applications with lightning speed. It's fast, stable and easy to use. Browse the web more safely with malware and phishing protection built into Google Chrome.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome will relaunch in an hour}other{Chrome will relaunch in # hours}}</translation>
 <translation id="1722488837206509557">This will allow you to select from available devices and display content on them.</translation>
+<translation id="177180974022074201">Try with Gemini in Chrome</translation>
 <translation id="1786003790898721085">Make sure that you are signed in to Chrome on your <ph name="TARGET_DEVICE_NAME" /> and then try sending again.</translation>
 <translation id="1786044937610313874">Shortcuts open in Chrome</translation>
 <translation id="178701303897325119">This extension is no longer supported. Chrome recommends that you remove it instead.</translation>
@@ -225,6 +226,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3226612997184048185">If you also save your bookmarks in your Google Account, you can track product prices in Chrome and get notified when the price drops</translation>
 <translation id="3242123554343253302">Add Chrome profile</translation>
 <translation id="3245429137663807393">If you also share Chrome usage reports, those reports include the URLs that you visit</translation>
+<translation id="3259748324892322072">Get the Chrome app</translation>
 <translation id="3286538390144397061">Restart Now</translation>
 <translation id="3292333338048274092">You'll then need to restart Chrome.</translation>
 <translation id="3324218984287646518">Ask Google Lens about this video</translation>
@@ -255,6 +257,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3622716124581627104">Identify things or places and copy or translate text. When you use Google Lens, a screenshot of the page is sent to Google. <ph name="LEARN_MORE" /></translation>
 <translation id="3622797965165704966">Now it's easier to use Chrome with your Google Account and on shared computers.</translation>
 <translation id="3635073343384702370">Chrome can check your passwords when you save them.</translation>
+<translation id="3636970668267555808">Get easy access to the features that you know, love and trust by setting Chrome as your default browser.</translation>
 <translation id="3667616615096815454">Unable to install, the application is unknown to the server.</translation>
 <translation id="3673813398384385993">Chrome found that '<ph name="EXTENSION_NAME" />' contains malware</translation>
 <translation id="3697952514309507634">Other Chrome profiles</translation>
@@ -282,7 +285,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3892148308691398805">Copy text</translation>
 <translation id="3893985792899396936">Chrome tip: Search with Lens</translation>
 <translation id="3906096710440765802">Sign in to Chrome to get your passwords, bookmarks and more on all your devices</translation>
-<translation id="3921132130819999051">Let Chrome browse for you</translation>
 <translation id="3941890832296813527">Install error: The installer filename is invalid or unsupported.</translation>
 <translation id="395904275706073188">Protected pages can't be read. Try a different page.</translation>
 <translation id="3968962723676998462">Enter your passphrase to use and save Chrome data in your account, <ph name="ACCOUNT_EMAIL" /></translation>
@@ -309,7 +311,6 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="4205939740494406371">Chrome can't check your passwords. Try again after 24 hours or <ph name="BEGIN_LINK" />check passwords in your Google Account<ph name="END_LINK" />.</translation>
 <translation id="4222932583846282852">Cancelling...</translation>
 <translation id="4224210481850767180">The installation has been cancelled.</translation>
-<translation id="4230631012078055975">Get more when you're signed in to Chrome</translation>
 <translation id="4242034826641750751">Chrome needs camera and microphone permissions for this site</translation>
 <translation id="424864128008805179">Sign out of Chrome?</translation>
 <translation id="4251615635259297716">Link my Chrome data to this account</translation>
@@ -498,7 +499,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Google Chrome Beta</translation>
 <translation id="6180522807229584611">This tab is using extra resources. To improve your performance, let Chrome make it inactive.</translation>
 <translation id="6182736845697986886">Installation failed because of an update server internal error.</translation>
-<translation id="6183773856988300112">Gemini in Chrome uses auto-browse to work in your tabs and complete tasks that you give it. <ph name="LINK_BEGIN" />Learn more<ph name="LINK_END" /></translation>
 <translation id="6187085551300363958">Chrome tip: Save passwords</translation>
 <translation id="6192058120268468905">Your account in Chrome</translation>
 <translation id="6220551899604141979"><ph name="PARTNER_NAME" /> has added an extension that may change the way that Chrome works.
@@ -510,6 +510,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6251759518630934363">Warns you about dangerous sites, even ones that Google didn't know about before, by analysing more data from sites than standard protection. You can choose to skip Chrome warnings.</translation>
 <translation id="6277547788421725101">Your parent has turned off 'Permissions for sites, apps and extensions' for Chrome.</translation>
 <translation id="627882678981830918">Customise and control Chrome. Set Chrome as your default.</translation>
+<translation id="6280042952415350607">Enhanced protection turns off JavaScript optimisation for sites that Chrome doesn't recognise</translation>
 <translation id="6288580400488258237">Set Google Chrome as your default browser and pin it to your taskbar</translation>
 <translation id="6291089322031436445">Chrome Dev Apps</translation>
 <translation id="6291549208091401781">Google Chrome is already installed for all users on your computer.</translation>
@@ -533,6 +534,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="6481963882741794338">Link Chrome and other Google services for personalisation and other purposes</translation>
 <translation id="648319183876919572">Enhanced Safe Browsing does more to protect you against dangerous websites and downloads</translation>
 <translation id="6489302989675808168">On • Chrome can't verify where this extension comes from</translation>
+<translation id="6491330562720922580">QR code to download Chrome browser on mobile devices</translation>
 <translation id="6493527311031785448">Google Chrome is trying to <ph name="AUTHENTICATION_PURPOSE" /></translation>
 <translation id="6497147134301593682">Chrome was automatically closed</translation>
 <translation id="6506909944137591434">Chrome needs camera permission to create a 3D map of your surroundings</translation>
@@ -611,7 +613,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7308322188646931570">Chrome needs storage access to download files</translation>
 <translation id="7339898014177206373">New window</translation>
 <translation id="7352651011704765696">Something went wrong</translation>
-<translation id="7379321689415048316">Chrome can autofill difficult fields that standard autofill might miss</translation>
 <translation id="7386878009611068389">To stay safer online with your parent's choices, switch to your Chrome profile where you're already signed in as <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="7398801000654795464">You were signed in to Chrome as <ph name="USER_EMAIL_ADDRESS" />. Please use the same account to sign in again.</translation>
 <translation id="7412494426921990001">Click the Chrome menu</translation>
@@ -695,6 +696,9 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8041795619940733262">Ask Google<ph name="LINE_BREAK" />about this tab</translation>
 <translation id="80471789339884597">Thanks for installing. You must restart all your browsers before using <ph name="BUNDLE_NAME" />.</translation>
 <translation id="8064015586118426197">Chrome OS Flex</translation>
+<translation id="8064965390968184078">1. Click <ph name="BUTTON_LABEL" /> below
+2. Click <ph name="BUTTON_2" /> in your Windows settings
+3. Click <ph name="BUTTON_3" /> in the Windows notification to pin Chrome to your taskbar for quick access</translation>
 <translation id="8077579734294125741">Other Chrome profiles</translation>
 <translation id="8086881907087796310">Installation failed because your computer does not meet the minimum hardware requirements.</translation>
 <translation id="8113883687556086139">Verify that it's you to use and save Chrome data in your account, <ph name="ACCOUNT_EMAIL" /></translation>
@@ -714,7 +718,6 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="8321888067342493336">Save as image</translation>
 <translation id="8336463659890584292">When a site asks to privately preload links on their page, Chrome uses Google servers. This hides your identity from the preloaded site, but Google learns what sites get preloaded.</translation>
 <translation id="8342675569599923794">This file is dangerous, so Chrome has blocked it.</translation>
-<translation id="8349094670477064572">You'll save and use passwords and more in your Google Account whenever you're signed in to Chrome. <ph name="LEARN_MORE" /></translation>
 <translation id="835927394551949760">Ask Google</translation>
 <translation id="8362914115861174987">Translate to</translation>
 <translation id="8366770919198174997">Reduces performance but makes Chrome more resistant to attacks</translation>
@@ -774,6 +777,7 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="8914504000324227558">Relaunch Chrome</translation>
 <translation id="8922193594870374009">To send a number from <ph name="ORIGIN" /> to your Android phone, sign in to Chrome on both devices.</translation>
 <translation id="8922998289262614701">Remove this app's data from Chrome</translation>
+<translation id="8925636929359899517">We use info to improve this service. See <ph name="BEGIN_LINK1" />Privacy Policy<ph name="END_LINK1" /> and <ph name="BEGIN_LINK2" />Terms of Service<ph name="END_LINK2" />.</translation>
 <translation id="8936233353620149764">Toggle Gemini in Chrome</translation>
 <translation id="8948460679427074738">This extension hasn't published privacy practices, such as how it collects and uses data. Chrome recommends that you remove it.</translation>
 <translation id="8958307504142971576">You now have more features available in Chrome</translation>

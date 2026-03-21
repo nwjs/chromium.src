@@ -7,12 +7,27 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 
 namespace accessibility_annotator {
 
 BASE_DECLARE_FEATURE(kContentAnnotator);
+BASE_DECLARE_FEATURE(kAccessibilityAnnotator);
 
 extern const base::FeatureParam<int> kContentAnnotatorMaxPendingUrls;
+extern const base::FeatureParam<std::string>
+    kContentAnnotatorClassifierTitleKeywordRules;
+extern const base::FeatureParam<std::string>
+    kContentAnnotatorClassifierUrlMatchRules;
+extern const base::FeatureParam<std::string>
+    kContentAnnotatorClassifierRelevanceValues;
+extern const base::FeatureParam<double> kContentAnnotatorSensitivityThreshold;
+extern const base::FeatureParam<std::string>
+    kContentAnnotatorSupportedLanguages;
+extern const base::FeatureParam<base::TimeDelta>
+    kContentAnnotatorAnnotationTimeout;
+extern const base::FeatureParam<bool> kContentAnnotatorEnableFullAnnotation;
+extern const base::FeatureParam<bool> kContentAnnotatorLanguageCheckEnabled;
 
 }  // namespace accessibility_annotator
 

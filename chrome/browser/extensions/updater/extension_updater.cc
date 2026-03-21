@@ -25,7 +25,6 @@
 #include "base/strings/string_split.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
-#include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/extension_management.h"
 #include "chrome/browser/extensions/external_install_manager.h"
 #include "chrome/browser/extensions/forced_extensions/install_stage_tracker_factory.h"
@@ -40,6 +39,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/blocklist_extension_prefs.h"
+#include "extensions/browser/crx_installer.h"
 #include "extensions/browser/delayed_install_manager.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_file_task_runner.h"
@@ -957,7 +957,7 @@ scoped_refptr<CrxInstaller> ExtensionUpdater::CreateUpdateInstaller(
     installer->set_install_source(pending_extension_info->install_source());
     installer->set_allow_silent_install(true);
     // If the extension came in disabled due to a permission increase, then
-    // don't grant it all the permissions. crbug.com/484214
+    // don't grant it all the permissions. crbug.com/40416721
     bool has_permissions_increase =
         ExtensionPrefs::Get(profile_)->HasDisableReason(
             id, disable_reason::DISABLE_PERMISSIONS_INCREASE);

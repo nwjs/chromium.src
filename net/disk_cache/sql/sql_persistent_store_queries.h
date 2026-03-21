@@ -114,11 +114,11 @@ inline constexpr const char kCreateEntry_InsertIntoResources[] =
         "hints,"
         "body_end,"       // 1
         "bytes_usage,"    // 2
-        "doomed,"
-        "check_sum,"      // 3
-        "cache_key_hash," // 4
-        "cache_key) "     // 5
-    "VALUES(?,0,?,?,0,?,?,?) "
+        "doomed,"         // 3
+        "check_sum,"      // 4
+        "cache_key_hash," // 5
+        "cache_key) "     // 6
+    "VALUES(?,0,?,?,?,?,?,?) "
     "RETURNING res_id";
 // clang-format on
 
@@ -175,6 +175,9 @@ inline constexpr const char kDeleteLiveEntriesBetween_SelectLiveResources[] =
 inline constexpr const char kDeleteResourceByResIds_DeleteFromResources[] =
     "DELETE FROM resources WHERE res_id=?";
 
+inline constexpr const char kDeleteLiveResourceByResIdReturnUsage[] =
+    "DELETE FROM resources WHERE res_id=? AND doomed=0 RETURNING bytes_usage";
+
 inline constexpr const char kUpdateEntryLastUsedByKey_UpdateResourceLastUsed[] =
     // clang-format off
     "UPDATE resources "
@@ -193,12 +196,12 @@ inline constexpr const char kInsertIntoResources[] =
         "hints,"          // 1
         "body_end,"       // 2
         "bytes_usage,"    // 3
-        "doomed,"
-        "check_sum,"      // 4
-        "cache_key_hash," // 5
-        "cache_key,"      // 6
-        "head) "          // 7
-    "VALUES(?,?,?,?,0,?,?,?,?) "
+        "doomed,"         // 4
+        "check_sum,"      // 5
+        "cache_key_hash," // 6
+        "cache_key,"      // 7
+        "head) "          // 8
+    "VALUES(?,?,?,?,?,?,?,?,?) "
     "RETURNING res_id";
 // clang-format on
 
@@ -521,6 +524,7 @@ enum class Query {
   kDeleteAllEntries_DeleteFromBlobs,
   kDeleteLiveEntriesBetween_SelectLiveResources,
   kDeleteResourceByResIds_DeleteFromResources,
+  kDeleteLiveResourceByResIdReturnUsage,
   kUpdateEntryLastUsedByKey_UpdateResourceLastUsed,
   kInsertIntoResources,
   kUpdateLastUsed,
@@ -584,6 +588,8 @@ inline base::cstring_view GetQuery(Query query) {
       return internal::kDeleteLiveEntriesBetween_SelectLiveResources;
     case Query::kDeleteResourceByResIds_DeleteFromResources:
       return internal::kDeleteResourceByResIds_DeleteFromResources;
+    case Query::kDeleteLiveResourceByResIdReturnUsage:
+      return internal::kDeleteLiveResourceByResIdReturnUsage;
     case Query::kUpdateEntryLastUsedByKey_UpdateResourceLastUsed:
       return internal::kUpdateEntryLastUsedByKey_UpdateResourceLastUsed;
     case Query::kInsertIntoResources:

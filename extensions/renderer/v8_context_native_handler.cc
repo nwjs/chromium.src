@@ -51,7 +51,7 @@ void V8ContextNativeHandler::GetAvailability(
   }
 
   v8::Local<v8::Object> ret = v8::Object::New(isolate);
-  v8::Maybe<bool> maybe = ret->SetPrototypeV2(context, v8::Null(isolate));
+  v8::Maybe<bool> maybe = ret->SetPrototype(context, v8::Null(isolate));
   CHECK(maybe.IsJust() && maybe.FromJust());
   ret->Set(context,
            v8::String::NewFromUtf8(isolate, "is_available",

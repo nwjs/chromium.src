@@ -5,6 +5,7 @@
 #ifndef BASE_MEMORY_COORDINATOR_MEMORY_CONSUMER_H_
 #define BASE_MEMORY_COORDINATOR_MEMORY_CONSUMER_H_
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -106,7 +107,7 @@ class BASE_EXPORT MemoryConsumer {
   // `memory_limit()`.
   void ReleaseMemory();
 
-  int memory_limit_ = 100;
+  int memory_limit_ = kDefaultMemoryLimit;
 
   SEQUENCE_CHECKER(sequence_checker_);
 };
@@ -135,9 +136,12 @@ class BASE_EXPORT MemoryConsumerRegistration
     kDisabled,
   };
 
+  // `traits` is only optional temporarily to assist with the migration of
+  // clients from MemoryPressureListener to MemoryCoordinator. It will be made
+  // mandatory in the future.
   MemoryConsumerRegistration(
-      std::string_view consumer_id,
-      MemoryConsumerTraits traits,
+      std::string_view consumer_name,
+      std::optional<MemoryConsumerTraits> traits,
       MemoryConsumer* consumer,
       CheckUnregister check_unregister = CheckUnregister::kEnabled,
       CheckRegistryExists check_registry_exists =
@@ -155,7 +159,7 @@ class BASE_EXPORT MemoryConsumerRegistration
  private:
   using PassKey = PassKey<MemoryConsumerRegistration>;
 
-  std::string consumer_id_;
+  std::string consumer_name_;
   raw_ptr<MemoryConsumer> consumer_;
 
   // Indicates if failure to unregister in time should cause a CHECK failure, or

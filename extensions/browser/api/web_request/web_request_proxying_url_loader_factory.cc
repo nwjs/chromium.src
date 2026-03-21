@@ -691,7 +691,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::
   // Forgetting to close the connection with the current URLLoader caused
   // bugs. The latter doesn't know anything about the redirect. Continuing
   // the load with it gives unexpected results. See
-  // https://crbug.com/882661#c72.
+  // https://crbug.com/41412957#c72.
   proxied_client_receiver_.reset();
   header_client_receiver_.reset();
   target_loader_.reset();
@@ -1571,7 +1571,7 @@ void WebRequestProxyingURLLoaderFactory::CreateLoaderAndStart(
     // dispatching |WebRequest.onAuthRequired| events.
     proxies_->AssociateProxyWithRequestId(
         this, content::GlobalRequestID(
-                  content::ToOriginatingProcessUnsafe(render_process_id_),
+                  content::ToOriginatingProcessIdUnsafe(render_process_id_),
                   request_id));
     network_request_id_to_web_request_id_.emplace(request_id, web_request_id);
   }
@@ -1676,7 +1676,7 @@ void WebRequestProxyingURLLoaderFactory::RemoveRequest(
   if (network_service_request_id) {
     proxies_->DisassociateProxyWithRequestId(
         this, content::GlobalRequestID(
-                  content::ToOriginatingProcessUnsafe(render_process_id_),
+                  content::ToOriginatingProcessIdUnsafe(render_process_id_),
                   network_service_request_id));
   }
 

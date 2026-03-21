@@ -15,7 +15,6 @@
 #include "net/base/address_list.h"
 #include "net/base/load_states.h"
 #include "net/socket/transport_connect_job.h"
-#include "net/socket/websocket_endpoint_lock_manager.h"
 
 namespace net {
 
@@ -26,7 +25,7 @@ class StreamSocket;
 // TransportConnectJob, specifically either the IPv4 or IPv6 addresses. Each
 // address is tried in turn, and parent_job->OnSubJobComplete() is called when
 // the first address succeeds or the last address fails.
-class TransportConnectSubJob : public WebSocketEndpointLockManager::Waiter {
+class TransportConnectSubJob {
  public:
   using SubJobType = TransportConnectJob::SubJobType;
 
@@ -37,7 +36,7 @@ class TransportConnectSubJob : public WebSocketEndpointLockManager::Waiter {
   TransportConnectSubJob(const TransportConnectSubJob&) = delete;
   TransportConnectSubJob& operator=(const TransportConnectSubJob&) = delete;
 
-  ~TransportConnectSubJob() override;
+  ~TransportConnectSubJob();
 
   // Start connecting.
   int Start();
@@ -52,14 +51,10 @@ class TransportConnectSubJob : public WebSocketEndpointLockManager::Waiter {
     return std::move(transport_socket_);
   }
 
-  // Implementation of WebSocketEndpointLockManager::EndpointWaiter.
-  void GotEndpointLock() override;
-
  private:
   enum State {
     STATE_NONE,
-    STATE_OBTAIN_LOCK,
-    STATE_OBTAIN_LOCK_COMPLETE,
+    STATE_TRANSPORT_CONNECT,
     STATE_TRANSPORT_CONNECT_COMPLETE,
     STATE_DONE,
   };
@@ -68,8 +63,7 @@ class TransportConnectSubJob : public WebSocketEndpointLockManager::Waiter {
 
   void OnIOComplete(int result);
   int DoLoop(int result);
-  int DoEndpointLock();
-  int DoEndpointLockComplete();
+  int DoTransportConnect();
   int DoTransportConnectComplete(int result);
 
   const raw_ptr<TransportConnectJob> parent_job_;

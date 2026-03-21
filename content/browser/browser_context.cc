@@ -132,9 +132,10 @@ StoragePartition* BrowserContext::GetStoragePartition(
   if (site_instance)
     DCHECK_EQ(this, site_instance->GetBrowserContext());
 
-  auto partition_config = site_instance
-                              ? site_instance->GetStoragePartitionConfig()
-                              : StoragePartitionConfig::CreateDefault(this);
+  auto partition_config =
+      site_instance
+          ? site_instance->GetSecurityPrincipal().GetStoragePartitionConfig()
+          : StoragePartitionConfig::CreateDefault(this);
   return GetStoragePartition(partition_config, can_create);
 }
 
@@ -242,8 +243,8 @@ void BrowserContext::UpdatePrefetchServiceDelegateAcceptLanguageHeader(
 }
 
 bool BrowserContext::IsPrefetchDuplicate(
-    GURL& url,
-    std::optional<net::HttpNoVarySearchData> no_vary_search_hint) {
+    const GURL& url,
+    const std::optional<net::HttpNoVarySearchData>& no_vary_search_hint) {
   PrefetchService* prefetch_service =
       BrowserContextImpl::From(this)->GetPrefetchService();
   // `CHECK` is used here because this method should not be called unless there
@@ -360,7 +361,7 @@ bool BrowserContext::ShutdownStarted() {
   return impl()->ShutdownStarted();
 }
 
-const std::string& BrowserContext::UniqueId() {
+const std::string& BrowserContext::UniqueId() const {
   return impl()->UniqueId();
 }
 

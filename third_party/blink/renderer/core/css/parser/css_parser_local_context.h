@@ -8,6 +8,8 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_name.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
+#include "third_party/blink/renderer/core/css_value_keywords.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -25,18 +27,17 @@ class CORE_EXPORT CSSParserLocalContext {
     return CSSParserLocalContext();
   }
 
-  // TODO(crbug.com/413385732): This constructor is used for substitution
-  // functions like var(), attr(), if(), @function, etc. This should be removed
-  // once we support property-dependent random inside them.
-  static CSSParserLocalContext CreateWithoutPropertyForSubstitutions() {
+  // Sometimes we just check if the value matches specified type or syntax, but
+  // we don't compute the value, for instance in attr() type(), hence we don't
+  // actually need property name there.
+  static CSSParserLocalContext CreateWithoutPropertyForSyntaxParsing() {
     return CSSParserLocalContext();
   }
 
-  // TODO(crbug.com/413385732): We used this constructor to create a local
-  // context for animations, i.e. in all css_parsing_utils::Consume* calls from
-  // files inside `third_party/blink/renderer/core/animation/`. Figure out if we
-  // actually need property context for random() in there.
-  static CSSParserLocalContext CreateWithoutPropertyForAnimations() {
+  // TODO(crbug.com/488111037): This constructor is used for random() function
+  // in ident(). Though we currently disallow random() inside ident()
+  // parse-time, we need some dummy CSSParserLocalContext for parsing.
+  static CSSParserLocalContext CreateWithoutPropertyForIdent() {
     return CSSParserLocalContext();
   }
 
@@ -53,15 +54,6 @@ class CORE_EXPORT CSSParserLocalContext {
     return CSSParserLocalContext();
   }
 
-  // TODO(crbug.com/475808971): Since @media don't have property context, we for
-  // now will use empty property name when caching random() values without user
-  // specified identifier. This behaviour is not defined in spec, there is an
-  // open issue addressing that:
-  // https://drafts.csswg.org/css-values-5/#issue-cd071f29
-  static CSSParserLocalContext CreateWithoutPropertyForMediaQueries() {
-    return CSSParserLocalContext();
-  }
-
   // This is used for view-transition pseudo selectors, like
   // ::view-transition-new(),
   // https://drafts.csswg.org/css-view-transitions/#selectordef-view-transition
@@ -72,11 +64,8 @@ class CORE_EXPORT CSSParserLocalContext {
     return CSSParserLocalContext();
   }
 
-  // TODO(crbug.com/413385732): This is used for parsing colors without element
-  // context in `blink/renderer/modules/canvas/canvas2d/canvas_style.cc`. We
-  // don't have property context there, so will use empty string as property
-  // name for property-dependent random() values. We might want to disallow
-  // random() at parse time for setting values on the canvas contexts.
+  // This constructor is used for canvas context. Since we don't have property
+  // context there, we don't allow random() values there.
   static CSSParserLocalContext CreateWithoutPropertyForCanvas() {
     return CSSParserLocalContext();
   }
@@ -89,23 +78,27 @@ class CORE_EXPORT CSSParserLocalContext {
     return CSSParserLocalContext();
   }
 
-  // TODO(crbug.com/413385732): Used to create a local context to parse input
-  // arguments against syntax for CSSPaintValue. Figure out if we actually need
-  // the property context for property dependent random() values there.
-  static CSSParserLocalContext CreateWithoutPropertyForPaintValue() {
-    return CSSParserLocalContext();
-  }
-
   // For standard CSS properties, need to pass CSSPropertyName with unresolved
   // property id.
-  explicit CSSParserLocalContext(CSSPropertyName property_name)
-      : unresolved_property_name_(property_name) {}
+  // `custom_function` parameter is used for values defined in CSS @function
+  // arguments, result values and local variables.
+  explicit CSSParserLocalContext(CSSPropertyName property_name,
+                                 CSSPropertyID current_shorthand,
+                                 const AtomicString& custom_function_name)
+      : current_shorthand_(current_shorthand),
+        unresolved_property_name_(property_name),
+        custom_function_name_(custom_function_name) {}
 
-  CSSParserLocalContext WithCurrentShorthand(
-      CSSPropertyID current_shorthand) const {
-    CSSParserLocalContext context = *this;
-    context.current_shorthand_ = current_shorthand;
-    return context;
+  void SetCurrentShorthand(CSSPropertyID current_shorthand) {
+    current_shorthand_ = current_shorthand;
+  }
+
+  void SetUnresolvedProperty(CSSPropertyName property_name) {
+    unresolved_property_name_ = property_name;
+  }
+
+  void SetCustomFunctionName(const AtomicString& custom_function_name) {
+    custom_function_name_ = custom_function_name;
   }
 
   void IncrementRandomValueCount() { ++random_value_count_; }
@@ -126,37 +119,67 @@ class CORE_EXPORT CSSParserLocalContext {
     return unresolved_property_name_;
   }
 
-  const AtomicString PropertyNameAndRandomCount() const {
-    StringBuilder str;
-    if (unresolved_property_name_.has_value() &&
-        unresolved_property_name_->Id() != CSSPropertyID::kInvalid) {
-      // Use string of form "PROPERTY {property_name} {property_value_index}"
-      // as name, this is later used for caching random values [0]. The prefix
-      // "PROPERTY" is needed since we need to make distinguish between custom
-      // property name and random value identifier, i.e. <dashed-ident> value in
-      // <random-value-sharing> [1]
-      // [0] https://drafts.csswg.org/css-values-5/#random-caching-key
-      // [1] https://drafts.csswg.org/css-values-5/#typedef-random-value-sharing
-      str.Append("PROPERTY ");
-      CSSPropertyName resolved_property_name =
-          unresolved_property_name_->IsCustomProperty()
-              ? *unresolved_property_name_
-              : CSSPropertyName(
-                    ResolveCSSPropertyID(unresolved_property_name_->Id()));
-      str.Append(resolved_property_name.ToAtomicString());
-      str.Append(" ");
-      str.AppendNumber(random_value_count_);
-    }
-    return str.ToAtomicString();
-  }
+  const AtomicString PropertyNameAndRandomCount() const;
 
   wtf_size_t RandomValueCount() const { return random_value_count_; }
 
+  // We currently use this class to get the context for resolving percentages.
+  // for instance `30%` in `color-mix(red 30%, white)` and in `translate(30%)`
+  // means different things, while in `color-mix()` it shows the progress, in
+  // `translate` percentages should be resolved against the reference box
+  // dimensions. This is currently used for `random()` function.
+  class FunctionLocalContext {
+    STACK_ALLOCATED();
+
+   public:
+    FunctionLocalContext(CSSValueID function_id,
+                         CSSParserLocalContext& local_context)
+        : local_context_(local_context) {
+      local_context_.functions_stack_.push_back(function_id);
+    }
+    ~FunctionLocalContext() {
+      DCHECK(!local_context_.functions_stack_.empty());
+      local_context_.functions_stack_.pop_back();
+    }
+
+   private:
+    CSSParserLocalContext& local_context_;
+  };
+
+  // Checks whether percentages for the current property context depend on
+  // used value and cannot be resolved before layout. We use this function to
+  // determine if percentages in `random()` functions should be simplified
+  // computed value time or should take the form of `random(fixed ...)`.
+  bool PercentagesDependOnUsedValue() const;
+
+  // All CSS properties that accept percentages should have
+  // `percentages_depend_on_used_value` flag set in css_properties.json5. As
+  // well as all CSS functions, like color-mix(), transform(), etc. that have
+  // percentages in their syntax should define function local context, see
+  // `CSSParserLocalContext::FunctionLocalContext` above.
+#if DCHECK_IS_ON()
+  void CheckPercentagesFlagSetOnProperty() const;
+#endif
+
  private:
+  bool InFunctionContext() const { return !functions_stack_.empty(); }
+
   CSSParserLocalContext() = default;
 
   CSSPropertyID current_shorthand_ = CSSPropertyID::kInvalid;
+  // The property name used as context for value resolution. This should ideally
+  // be a longhand property. However, shorthands with custom expansion logic
+  // (e.g., background-position) that avoid generic helpers like
+  // ConsumeShorthandGreedilyViaLonghands may leave this as a shorthand ID.
+  // This is currently acceptable for features like random() resolution.
   std::optional<CSSPropertyName> unresolved_property_name_;
+  HeapVector<CSSValueID> functions_stack_;
+
+  // TODO(crbug.com/489688671): We might have the same function name between
+  // different tree scopes, then we need to make CSSParserLocalContext aware
+  // of tree scope name.
+  AtomicString custom_function_name_ = g_null_atom;
+
   wtf_size_t random_value_count_ = 0;
 };
 

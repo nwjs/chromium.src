@@ -20,16 +20,15 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.JniOnceCallback;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -69,12 +68,9 @@ public class TabSwitcherGroupSuggestionServiceUnitTest {
     @Captor private ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
     @Captor private ArgumentCaptor<UserResponseMetadata> mUserResponseMetadataCaptor;
 
-    @Spy
     private final SettableMonotonicObservableSupplier<TabGroupModelFilter>
             mTabGroupModelFilterSupplier = ObservableSuppliers.createMonotonic();
-
     private final ArrayList<Tab> mTabs = new ArrayList<>();
-
     private TabSwitcherGroupSuggestionService mService;
 
     @Before
@@ -113,7 +109,7 @@ public class TabSwitcherGroupSuggestionServiceUnitTest {
         TabGroupModelFilter newFilter = mock();
 
         mTabGroupModelFilterSupplier.set(newFilter);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mTabGroupModelFilter).removeObserver(any());
         verify(mTabGroupModelFilter).removeTabGroupObserver(any());

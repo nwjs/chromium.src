@@ -86,7 +86,7 @@ MinimalFormFieldDataForFilling() {
   field.set_value(u"test-username");
   field.set_host_form_id(FormRendererId(1));
   field.set_renderer_id(FieldRendererId(2));
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   return {autofill::FormFieldData::FillData(std::move(field))};
 }
 
@@ -212,7 +212,7 @@ TEST_F(AutofillAgentTests,
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"number");
   field.set_value(u"number_value");
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   field.set_renderer_id(FieldRendererId(2));
   fill_data.push_back(autofill::FormFieldData::FillData(field));
   field.set_label(u"Name on Card");
@@ -220,7 +220,7 @@ TEST_F(AutofillAgentTests,
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"name");
   field.set_value(u"name_value");
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   field.set_renderer_id(FieldRendererId(3));
   fill_data.push_back(autofill::FormFieldData::FillData(field));
   field.set_label(u"Expiry Month");
@@ -228,7 +228,7 @@ TEST_F(AutofillAgentTests,
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"expiry_month");
   field.set_value(u"01");
-  field.set_is_autofilled(false);
+  field.set_is_autofilled_according_to_renderer(false);
   field.set_renderer_id(FieldRendererId(4));
   fill_data.push_back(autofill::FormFieldData::FillData(field));
   field.set_label(u"Unknown field");
@@ -236,7 +236,7 @@ TEST_F(AutofillAgentTests,
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"unknown");
   field.set_value(u"");
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   field.set_renderer_id(FieldRendererId(5));
   fill_data.push_back(autofill::FormFieldData::FillData(field));
 
@@ -267,7 +267,7 @@ TEST_F(AutofillAgentTests, FillSpecificFormField) {
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"number");
   field.set_value(u"number_value");
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   field.set_renderer_id(FieldRendererId(2));
 
   [autofill_agent_
@@ -361,7 +361,7 @@ TEST_F(AutofillAgentTests, DriverFillSpecificFormField) {
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"number");
   field.set_value(u"number_value");
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   field.set_renderer_id(FieldRendererId(2));
 
   AutofillDriverIOS* main_frame_driver =
@@ -398,7 +398,7 @@ TEST_F(AutofillAgentTests, DriverPreviewSpecificFormField) {
   field.set_name_attribute(field.name());
   field.set_id_attribute(u"number");
   field.set_value(u"number_value");
-  field.set_is_autofilled(true);
+  field.set_is_autofilled_according_to_renderer(true);
   field.set_renderer_id(FieldRendererId(2));
 
   AutofillDriverIOS* main_frame_driver =
@@ -482,12 +482,14 @@ TEST_F(AutofillAgentTests, showAutofillPopup_ShowVirtualCards) {
       {autofill::test::NextMonth(), "/", autofill::test::NextYear().substr(2)});
 
   // Initialize suggestion.
-  std::vector<std::string> minor_texts = {"Quicksilver ••1111"};
+  std::vector<std::u16string> minor_texts = {u"Quicksilver ••1111"};
   std::vector<autofill::Suggestion> autofillSuggestions = {
-      autofill::Suggestion("Virtual card", minor_texts, expiration_date_label,
+      autofill::Suggestion(u"Virtual card", minor_texts,
+                           base::UTF8ToUTF16(expiration_date_label),
                            autofill::Suggestion::Icon::kCardVisa,
                            autofill::SuggestionType::kVirtualCreditCardEntry),
-      autofill::Suggestion("Quicksilver ••1111", expiration_date_label,
+      autofill::Suggestion(u"Quicksilver ••1111",
+                           base::UTF8ToUTF16(expiration_date_label),
                            autofill::Suggestion::Icon::kCardVisa,
                            autofill::SuggestionType::kCreditCardEntry),
   };
@@ -570,7 +572,7 @@ TEST_F(AutofillAgentTests, showAutofillPopup_EmptyIconInCreditCardSuggestion) {
       .WillRepeatedly(testing::Return(FillingProduct::kCreditCard));
 
   std::vector<autofill::Suggestion> autofillSuggestions = {
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            autofill::SuggestionType::kCreditCardEntry)};
 
   // Completion handler to retrieve suggestions.
@@ -596,9 +598,10 @@ TEST_F(AutofillAgentTests, showAutofillPopup_PlusAddresses) {
   testing::NiceMock<autofill::MockAutofillSuggestionDelegate> mock_delegate;
 
   const std::string fillExistingSuggestionText = "existing";
-  std::vector<autofill::Suggestion> autofillSuggestions = {autofill::Suggestion(
-      fillExistingSuggestionText, "", autofill::Suggestion::Icon::kNoIcon,
-      autofill::SuggestionType::kFillExistingPlusAddress)};
+  std::vector<autofill::Suggestion> autofillSuggestions = {
+      autofill::Suggestion(base::UTF8ToUTF16(fillExistingSuggestionText), u"",
+                           autofill::Suggestion::Icon::kNoIcon,
+                           autofill::SuggestionType::kFillExistingPlusAddress)};
 
   // Completion handler to retrieve suggestions.
   auto completionHandler = ^(NSArray<FormSuggestion*>* suggestions,
@@ -656,7 +659,7 @@ TEST_F(AutofillAgentTests,
 
   // Initialize suggestion, initially without a custom icon.
   std::vector<autofill::Suggestion> autofillSuggestions = {
-      autofill::Suggestion("", "", suggestion_network_icon,
+      autofill::Suggestion(u"", u"", suggestion_network_icon,
                            autofill::SuggestionType::kCreditCardEntry)};
   ASSERT_TRUE(
       std::holds_alternative<gfx::Image>(autofillSuggestions[0].custom_icon));
@@ -693,13 +696,13 @@ TEST_F(AutofillAgentTests, onSuggestionsReady_ClearForm) {
   // Make the suggestions available to AutofillAgent.
   std::vector<autofill::Suggestion> autofillSuggestions;
   autofillSuggestions.push_back(
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            autofill::SuggestionType::kAddressEntry));
   autofillSuggestions.push_back(
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            autofill::SuggestionType::kAddressEntry));
   autofillSuggestions.push_back(
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            SuggestionType::kUndoOrClear));
   [autofill_agent_
        showAutofillPopup:autofillSuggestions
@@ -752,13 +755,13 @@ TEST_F(AutofillAgentTests, onSuggestionsReady_ClearFormWithGPay) {
   // Make the suggestions available to AutofillAgent.
   std::vector<autofill::Suggestion> autofillSuggestions;
   autofillSuggestions.push_back(
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            autofill::SuggestionType::kCreditCardEntry));
   autofillSuggestions.push_back(
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            autofill::SuggestionType::kCreditCardEntry));
   autofillSuggestions.push_back(
-      autofill::Suggestion("", "", autofill::Suggestion::Icon::kNoIcon,
+      autofill::Suggestion(u"", u"", autofill::Suggestion::Icon::kNoIcon,
                            SuggestionType::kUndoOrClear));
   [autofill_agent_
        showAutofillPopup:autofillSuggestions

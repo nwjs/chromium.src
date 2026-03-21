@@ -5,7 +5,6 @@
 #include "cc/layers/tile_display_layer_impl.h"
 
 #include <algorithm>
-#include <limits>
 #include <memory>
 #include <utility>
 #include <variant>
@@ -178,79 +177,62 @@ void TileDisplayLayerImpl::PushPropertiesTo(LayerImpl* layer) {
   NOTREACHED();
 }
 
-void TileDisplayLayerImpl::AppendQuadsSpecialization(
+void TileDisplayLayerImpl::ComputeCheckerboardedNeedsRecord(
+    AppendQuadsData* append_quads_data) {
+  // NOTE: Currently it is not necessary to compute
+  // append_quads_data->checkerboarded_needs_recorded on the Viz side, as it is
+  // consumed only on the client side. However, it will become necessary when we
+  // introduce frames driven entirely by Viz. At that point, we should dedupe
+  // the relevant code into TileBasedLayerImpl.
+  // See crbug.com/482862751.
+}
+
+bool TileDisplayLayerImpl::AppendQuadForTile(
+    TilingSetCoverageIterator<TileDisplayLayerTiling> iter,
     const AppendQuadsContext& context,
     viz::CompositorRenderPass* render_pass,
     AppendQuadsData* append_quads_data,
     viz::SharedQuadState* shared_quad_state,
     const Occlusion& scaled_occlusion,
-    const gfx::Vector2d& quad_offset,
-    float max_contents_scale) {
-  // TODO(crbug.com/40902346): Use CalculateScaledCullRect() to set
-  // append_quads_data->checkerboarded_needs_record as PictureLayerImpl does.
-
-  const float ideal_scale_key = GetIdealContentsScaleKey();
-  const gfx::Rect scaled_recorded_bounds =
-      gfx::ScaleToEnclosingRect(recorded_bounds_, max_contents_scale);
-
-  // Append quads for the tiles in this layer.
-  for (auto iter = Cover(shared_quad_state->visible_quad_layer_rect,
-                         max_contents_scale, ideal_scale_key);
-       iter; ++iter) {
-    const gfx::Rect geometry_rect = iter.geometry_rect();
-    gfx::Rect visible_geometry_rect;
-    if (ShouldSkipTile(geometry_rect, scaled_recorded_bounds, scaled_occlusion,
-                       visible_geometry_rect)) {
-      continue;
-    }
-
-    gfx::Rect offset_geometry_rect = geometry_rect;
-    offset_geometry_rect.Offset(quad_offset);
-    gfx::Rect offset_visible_geometry_rect = visible_geometry_rect;
-    offset_visible_geometry_rect.Offset(quad_offset);
-
-    bool needs_blending = !contents_opaque();
-
-    uint64_t visible_geometry_area = visible_geometry_rect.size().Area64();
-    append_quads_data->visible_layer_area += visible_geometry_area;
-
-    bool has_draw_quad = false;
-    if (*iter) {
-      if (auto resource = iter->resource()) {
-        const gfx::RectF texture_rect = iter.texture_rect();
-        auto* quad = render_pass->CreateAndAppendDrawQuad<viz::TileDrawQuad>();
-        quad->SetNew(shared_quad_state, offset_geometry_rect,
-                     offset_visible_geometry_rect, needs_blending,
-                     resource->resource_id, texture_rect, nearest_neighbor_,
-                     !layer_tree_impl()->settings().enable_edge_anti_aliasing);
-        has_draw_quad = true;
-      } else if (auto color = iter->solid_color()) {
-        has_draw_quad = true;
-        const float alpha = color->fA * shared_quad_state->opacity;
-        if (alpha >= std::numeric_limits<float>::epsilon()) {
-          auto* quad =
-              render_pass->CreateAndAppendDrawQuad<viz::SolidColorDrawQuad>();
-          quad->SetNew(
-              shared_quad_state, offset_geometry_rect,
-              offset_visible_geometry_rect, *color,
-              !layer_tree_impl()->settings().enable_edge_anti_aliasing);
-        }
-      } else if (iter->is_oom()) {
-        // Keep `has_draw_quad` false to end up checkerboarding below.
-      }
-    }
-    if (!has_draw_quad) {
-      // Checkerboard due to missing raster.
-      SkColor4f color = safe_opaque_background_color();
-      auto* quad =
-          render_pass->CreateAndAppendDrawQuad<viz::SolidColorDrawQuad>();
+    const gfx::Rect& offset_geometry_rect,
+    const gfx::Rect& offset_visible_geometry_rect,
+    const gfx::Rect& visible_geometry_rect,
+    bool needs_blending,
+    const std::optional<gfx::Rect>& scaled_cull_rect,
+    float max_contents_scale,
+    AppendQuadsCustomSharedData* custom_data) {
+  bool has_draw_quad = false;
+  if (*iter) {
+    if (auto resource = iter->resource()) {
+      const gfx::RectF texture_rect = iter.texture_rect();
+      auto* quad = render_pass->CreateAndAppendDrawQuad<viz::TileDrawQuad>();
       quad->SetNew(shared_quad_state, offset_geometry_rect,
-                   offset_visible_geometry_rect, color, false);
-      continue;
+                   offset_visible_geometry_rect, needs_blending,
+                   resource->resource_id, texture_rect, nearest_neighbor_,
+                   !layer_tree_impl()->settings().enable_edge_anti_aliasing);
+      has_draw_quad = true;
+    } else if (auto color = iter->solid_color()) {
+      has_draw_quad = true;
+      AppendSolidColorQuad(render_pass, shared_quad_state, offset_geometry_rect,
+                           offset_visible_geometry_rect, *color);
+    } else if (iter->is_oom()) {
+      // Keep `has_draw_quad` false to end up checkerboarding below.
     }
-
-    AddScaleToLastAppendQuadsScales(iter.CurrentTiling()->contents_scale_key());
   }
+  if (!has_draw_quad) {
+    // Checkerboard due to missing raster.
+    AppendCheckerboardQuad(render_pass, shared_quad_state, offset_geometry_rect,
+                           offset_visible_geometry_rect);
+
+    // NOTE: TileDisplayLayerImpl does not currently track missing tiles, as
+    // that info is used only to pass to `AppendQuadsData::num_missing_tiles` on
+    // the client side.  TODO(crbug.com/401566175): Determine if we need to
+    // track `num_missing_tiles` on the Viz side in the longer term.
+    return true;
+  }
+
+  AddScaleToLastAppendQuadsScales(iter.CurrentTiling()->contents_scale_key());
+  return true;
 }
 
 float TileDisplayLayerImpl::GetMaximumContentsScaleForUseInAppendQuads() const {
@@ -259,6 +241,10 @@ float TileDisplayLayerImpl::GetMaximumContentsScaleForUseInAppendQuads() const {
 
 bool TileDisplayLayerImpl::IsDirectlyCompositedImage() const {
   return is_directly_composited_image_;
+}
+
+gfx::Rect TileDisplayLayerImpl::RecordedBounds() const {
+  return recorded_bounds_;
 }
 
 void TileDisplayLayerImpl::GetContentsResourceId(

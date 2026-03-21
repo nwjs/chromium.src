@@ -29,12 +29,6 @@ class SwitchAccessTest : public AccessibilityFeatureBrowserTest {
   SwitchAccessTest(const SwitchAccessTest&) = delete;
   SwitchAccessTest& operator=(const SwitchAccessTest&) = delete;
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    scoped_feature_list_.InitWithFeatureStates(
-        {{::features::kAccessibilityManifestV3SwitchAccess, true}});
-    InProcessBrowserTest::SetUpCommandLine(command_line);
-  }
-
   void SetUpOnMainThread() override {
     switch_access_test_utils_ = std::make_unique<SwitchAccessTestUtils>(
         AccessibilityManager::Get()->profile());
@@ -93,7 +87,6 @@ class SwitchAccessTest : public AccessibilityFeatureBrowserTest {
  private:
   std::unique_ptr<SwitchAccessTestUtils> switch_access_test_utils_;
   std::unique_ptr<ui::test::EventGenerator> generator_;
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // TODO(crbug.com/431933537): Disabled on MSAN due to a renderer crash. The
@@ -104,7 +97,9 @@ class SwitchAccessTest : public AccessibilityFeatureBrowserTest {
 //
 // A separate bug (crbug.com/431933537) is filed to specifically track the
 // blink::CSSParserImpl::ParseStyleSheet issue.
-#if defined(MEMORY_SANITIZER)
+//
+// TODO(crbug.com/450997936): Flaky on ChromeOS.
+#if defined(MEMORY_SANITIZER) || BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_ConsumesKeyEvents DISABLED_ConsumesKeyEvents
 #else
 #define MAYBE_ConsumesKeyEvents ConsumesKeyEvents

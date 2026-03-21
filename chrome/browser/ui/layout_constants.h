@@ -70,7 +70,12 @@ enum class LayoutConstant {
 
   // The leading edge space in the omnibox from the LHS icons used in Chrome
   // with the chrome refresh flag.
-  kLocationBarLeadingDecorationEdgePadding,
+  // TODO(manukh): See comment in `LocationBarView::Layout()`. We have too
+  // many feature permutations that would affect this and other layout
+  // constants, so instead of spreading the permutation logic here and
+  // elsewhere, it's consolidated in `Layout()` and will be moved back
+  // here once we decide on a permutation.
+  // kLocationBarLeadingDecorationEdgePadding,
 
   // The trailing edge space in the omnibox from the RHS icons used in Chrome
   // with the chrome refresh flag.
@@ -91,6 +96,9 @@ enum class LayoutConstant {
 
   // The size of the trailing icons used inside the LocationBar.
   kLocationBarTrailingIconSize,
+
+  // The horizontal margin between location bar and other toolbar items.
+  kLocationBarMargin,
 
   // The corner radius of the MainBackgroundRegion when tool bar height side
   // panel is visible
@@ -151,6 +159,9 @@ enum class LayoutConstant {
   // The total height, including icons and insets, of buttons in the toolbar.
   kToolbarButtonHeight,
 
+  // The icon size for toolbar buttons.
+  kToolbarButtonIconSize,
+
   // The corner radius for a divider in the toolbar.
   kToolbarDividerCornerRadius,
 
@@ -168,9 +179,6 @@ enum class LayoutConstant {
 
   // Default margin of the toolbar icons set by the layout manager.
   kToolbarIconDefaultMargin,
-
-  // The horizontal space between most items in the toolbar.
-  kToolbarStandardSpacing,
 
   // corner radius on the top of the toolbar introduced in chrome refresh 2023
   kToolbarCornerRadius,
@@ -239,6 +247,8 @@ enum class LayoutConstant {
 
   // The size of page action icons in a web app title bar.
   kWebAppPageActionIconSize,
+
+  kLast = kWebAppPageActionIconSize
 };
 
 enum LayoutInset {
@@ -296,6 +306,16 @@ enum LayoutInset {
   // strip when it is collapsed.
   VERTICAL_TAB_STRIP_BOTTOM_BUTTON_COLLAPSED,
 };
+
+// Layout constants for the split tabs button status indicator.
+inline constexpr int kSplitTabsStatusIndicatorWidth = 14;
+inline constexpr int kSplitTabsStatusIndicatorHeight = 2;
+inline constexpr int kSplitTabsStatusIndicatorSpacing = 1;
+
+// Default icon size for toolbar buttons.
+inline constexpr int kDefaultIconSizeChromeRefresh = 20;
+// Default icon size for toolbar buttons in touch mode.
+inline constexpr int kDefaultTouchableIconSize = 24;
 
 int GetLayoutConstant(LayoutConstant constant);
 

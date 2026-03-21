@@ -23,7 +23,11 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Parse a type without nested data, i.e. anything but a struct or array
-fn parse_leaf_element(data: &mut ParserData, ty: &PackedLeafType) -> ParsingResult<MojomValue> {
+fn parse_leaf_element(
+    data: &mut ParserData,
+    ty: &PackedLeafType,
+    is_nullable: bool,
+) -> ParsingResult<MojomValue> {
     match ty {
         PackedLeafType::Bool => Ok(MojomValue::Bool(parse_u8(data)? == 1)),
         PackedLeafType::UInt8 => Ok(MojomValue::UInt8(parse_u8(data)?)),
@@ -45,6 +49,32 @@ fn parse_leaf_element(data: &mut ParserData, ty: &PackedLeafType) -> ParsingResu
                 Err(ParsingError::invalid_discriminant(data.bytes_parsed() - 4, value))
             }
         }
+        PackedLeafType::Handle => {
+            // On the wire, handles are represented as a 32-bit index into the
+            // message's attached handle array, which is part of `data`.
+            let idx_u32 = parse_u32(data)?;
+            let idx: usize = idx_u32.try_into().unwrap();
+
+            // This value indicates the handle is `None`.
+            if idx_u32 == 0xffffffff {
+                if is_nullable {
+                    return Ok(MojomValue::Nullable(None));
+                } else {
+                    return Err(ParsingError::invalid_handle_index(data.bytes_parsed() - 4, idx));
+                }
+            };
+
+            let handle = data
+                .take_handle(idx)
+                .ok_or_else(|| ParsingError::invalid_handle_index(data.bytes_parsed() - 4, idx))?;
+            let handle_val = MojomValue::Handle(handle);
+
+            if is_nullable {
+                return Ok(MojomValue::Nullable(Some(Box::new(handle_val))));
+            } else {
+                return Ok(handle_val);
+            }
+        }
     }
 }
 
@@ -63,23 +93,26 @@ fn skip_to_alignment(data: &mut ParserData, alignment: usize) -> ParsingResult<(
     }
 }
 
-/// Check if the parsed keys for a map have duplicates, and error out if so
-fn check_for_duplicate_keys(offset: usize, keys: &[MojomValue]) -> ParsingResult<()> {
+/// Check if the parsed keys for a map have duplicates, and error out if so.
+///
+/// This function promises not to mutate `keys` if it returns `Ok()`.
+/// FOR_RELEASE: Get itertools approved and use that instead.
+fn check_for_duplicate_keys(offset: usize, keys: &mut [MojomValue]) -> ParsingResult<()> {
     // Check by inserting the keys into a hashset.
     // insert returns false if the value was already present.
     // Note that inserting references still compares the underlying values.
     let mut unique_keys = std::collections::HashSet::new();
-    let mut dup = MojomValue::Bool(false);
-    let dup_exists = keys.iter().any(|item| {
+    let mut dup_idx = 0;
+    let dup_exists = keys.iter().enumerate().any(|(idx, item)| {
         if !unique_keys.insert(item) {
-            dup = item.clone();
+            dup_idx = idx;
             true
         } else {
             false
         }
     });
     if dup_exists {
-        Err(ParsingError::duplicate_map_key(offset, dup))
+        Err(ParsingError::duplicate_map_key(offset, std::mem::take(&mut keys[dup_idx])))
     } else {
         Ok(())
     }
@@ -357,7 +390,7 @@ fn parse_map(
     };
     let [keys, values] = parsed_fields.try_into().unwrap();
     match (keys, values) {
-        (MojomValue::Array(keys), MojomValue::Array(values)) => {
+        (MojomValue::Array(mut keys), MojomValue::Array(values)) => {
             if keys.len() != values.len() {
                 return Err(ParsingError::mismatched_map(
                     initial_bytes_parsed,
@@ -367,7 +400,7 @@ fn parse_map(
             }
             // Map bodies are 24 bytes, and the key array immediately follows them.
             let key_offset = initial_bytes_parsed + 24;
-            check_for_duplicate_keys(key_offset, &keys)?;
+            check_for_duplicate_keys(key_offset, &mut keys)?;
             let map_val = keys.into_iter().zip(values).collect();
             Ok(MojomValue::Map(map_val))
         }
@@ -398,8 +431,6 @@ fn parse_string(
     Ok(MojomValue::String(rust_string))
 }
 
-const DUMMY_MOJOMVALUE: MojomValue = MojomValue::Int8(0);
-
 /// Create a MojomValue::Nullable out of the given value, if appropriate.
 ///
 /// Our parser handles nullable primitives as follows: first, we read the tag
@@ -419,7 +450,7 @@ fn wrap_nullable_primitive(
     match ret_values[ordinal] {
         MojomValue::Bool(false) => MojomValue::Nullable(None),
         MojomValue::Bool(true) => MojomValue::Nullable(Some(Box::new(parsed_value))),
-        DUMMY_MOJOMVALUE => parsed_value,
+        MojomValue::Invalid => parsed_value,
         _ => panic!("We tried to overwrite an already-parsed value!"),
     }
 }
@@ -459,7 +490,8 @@ where
     // by index. We have to provide dummy values since rust won't allow
     // uninitialized memory.
     let mut ret_names: Vec<String> = vec![String::new(); num_elements_in_value];
-    let mut ret_values: Vec<MojomValue> = vec![DUMMY_MOJOMVALUE; num_elements_in_value];
+    let mut ret_values: Vec<MojomValue> =
+        (0..num_elements_in_value).map(|_| MojomValue::Invalid).collect();
 
     for (index, struct_ref_element) in fields.enumerate() {
         // Make sure we're at the right alignment for this field
@@ -514,10 +546,15 @@ where
                         nested_data_list.push(nested_info);
                     }
                     // Nested leaf data, just parse it
-                    MojomWireType::Leaf { leaf_type, .. } => {
-                        let parsed_value = parse_leaf_element(data, leaf_type)?;
-                        let parsed_value =
-                            wrap_nullable_primitive(&ret_values, ordinal, parsed_value);
+                    MojomWireType::Leaf { leaf_type, is_nullable } => {
+                        let mut parsed_value = parse_leaf_element(data, leaf_type, *is_nullable)?;
+
+                        // Handles have their own special nullability markers,
+                        // which are checked in `parse_leaf_element`.
+                        if leaf_type != &PackedLeafType::Handle {
+                            parsed_value =
+                                wrap_nullable_primitive(&ret_values, ordinal, parsed_value);
+                        }
                         ret_names[ordinal] = name.clone();
                         ret_values[ordinal] = parsed_value;
                     }
@@ -621,6 +658,10 @@ where
         ret_names[nested_data.ordinal] = nested_data.field_name;
         ret_values[nested_data.ordinal] = parsed_data;
     }
+
+    // All structured bodies end at an 8-byte alignment
+    skip_to_alignment(data, 8)?;
+
     Ok((ret_names, ret_values))
 }
 
@@ -630,12 +671,16 @@ where
 /// some mojom types, since e.g. booleans can't be parsed individually.
 pub fn parse_single_value_for_testing(
     data: &[u8],
+    handles: &mut [Option<UntypedHandle>],
     wire_type: &MojomWireType,
 ) -> ParsingResult<MojomValue> {
-    let mut data = ParserData::new(data);
+    let mut data = ParserData::new(data, handles);
     match wire_type {
         MojomWireType::Leaf { leaf_type, is_nullable: false } => {
-            parse_leaf_element(&mut data, leaf_type)
+            parse_leaf_element(&mut data, leaf_type, false)
+        }
+        MojomWireType::Leaf { leaf_type: PackedLeafType::Handle, is_nullable } => {
+            parse_leaf_element(&mut data, &PackedLeafType::Handle, *is_nullable)
         }
         MojomWireType::Pointer { nested_data_type, is_nullable: false } => match nested_data_type {
             PackedStructuredType::Struct {
@@ -671,9 +716,10 @@ pub fn parse_single_value_for_testing(
 /// unparsed bytes.
 pub fn parse_top_level_value<'a>(
     data_slice: &'a [u8],
+    handles: &'a mut [Option<UntypedHandle>],
     ty: &MojomWireType,
 ) -> ParsingResult<(&'a [u8], MojomValue)> {
-    let mut data = ParserData::new(data_slice);
+    let mut data = ParserData::new(data_slice, handles);
     match ty {
         MojomWireType::Pointer {
             nested_data_type:

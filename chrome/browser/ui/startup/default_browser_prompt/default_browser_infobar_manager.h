@@ -11,20 +11,18 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_observation.h"
+#include "chrome/browser/default_browser/default_browser_controller.h"
 #include "chrome/browser/ui/browser_tab_strip_tracker_delegate.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
+#include "chrome/browser/ui/startup/default_browser_prompt/default_browser_surface_manager.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/infobars/core/confirm_infobar_delegate.h"
 
 namespace content {
 class WebContents;
 }  // namespace content
-
-namespace default_browser {
-class DefaultBrowserController;
-}  // namespace default_browser
 
 namespace infobars {
 class InfoBar;
@@ -41,8 +39,8 @@ class TabStripModel;
 // Default Browser infobars across all tabs and browser windows. It also acts as
 // an observer for InfoBar delegates to record and act on user interaction with
 // the infobars.
-class DefaultBrowserInfoBarManager : public BrowserCollectionObserver,
-                                     public BrowserTabStripTrackerDelegate,
+class DefaultBrowserInfoBarManager : public BrowserTabStripTrackerDelegate,
+                                     public DefaultBrowserSurfaceManager,
                                      public TabStripModelObserver,
                                      public infobars::InfoBarManager::Observer,
                                      public ConfirmInfoBarDelegate::Observer {
@@ -54,8 +52,14 @@ class DefaultBrowserInfoBarManager : public BrowserCollectionObserver,
   DefaultBrowserInfoBarManager& operator=(const DefaultBrowserInfoBarManager&) =
       delete;
 
-  void ShowInfoBars(bool can_pin_to_taskbar);
-  void CloseAllInfoBars();
+  // DefaultBrowserSurfaceManager:
+  void Show(bool can_pin_to_taskbar) final;
+  default_browser::DefaultBrowserEntrypointType GetEntrypointType() const final;
+
+  // DefaultBrowserSurfaceManager:
+  void ShowForBrowser(BrowserWindowInterface* browser) final;
+  void CloseForBrowser(BrowserWindowInterface* browser) final;
+  void CloseAllPromptInstances() final;
 
  private:
   // Possible user interactions with the default browser info bar.
@@ -83,9 +87,6 @@ class DefaultBrowserInfoBarManager : public BrowserCollectionObserver,
   void CreateInfoBarForWebContents(content::WebContents* contents,
                                    Profile* profile);
 
-  // BrowserCollectionObserver:
-  void OnBrowserClosed(BrowserWindowInterface* browser) override;
-
   // BrowserTabStripTrackerDelegate
   bool ShouldTrackBrowser(BrowserWindowInterface* browser) override;
 
@@ -102,26 +103,12 @@ class DefaultBrowserInfoBarManager : public BrowserCollectionObserver,
   void OnAccept() override;
   void OnDismiss() override;
 
-  bool can_pin_to_taskbar_ = false;
-
   std::unique_ptr<BrowserTabStripTracker> browser_tab_strip_tracker_;
   std::map<content::WebContents*, raw_ptr<infobars::InfoBar, CtnExperimental>>
       infobars_;
 
   std::optional<DefaultBrowserPromptManager::CloseReason>
       user_initiated_info_bar_close_pending_;
-
-  // DefaultBrowserController is created when the this class is requested to
-  // show inforbars. Destruction is handled for all 3 possible cases:
-  //   1. User accepted: Controller is destroyed once the process of setting
-  //      Chrome as default completes.
-  //   2. User declined: Controller is destroyed immediately.
-  //   3. User ignored: Controller is destroyed immediately.
-  std::unique_ptr<default_browser::DefaultBrowserController>
-      default_browser_controller_;
-
-  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
-      browser_collection_observation_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_STARTUP_DEFAULT_BROWSER_PROMPT_DEFAULT_BROWSER_INFOBAR_MANAGER_H_

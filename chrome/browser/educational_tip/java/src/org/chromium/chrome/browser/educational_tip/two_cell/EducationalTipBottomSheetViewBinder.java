@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.educational_tip.two_cell;
 
 import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_DESCRIPTION;
 import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_LIST_ITEMS;
+import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_LIST_ITEMS_ON_CLICK;
 import static org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipBottomSheetProperties.BOTTOM_SHEET_TITLE;
 
 import android.view.View;
@@ -28,10 +29,12 @@ public class EducationalTipBottomSheetViewBinder {
             description.setText(model.get(BOTTOM_SHEET_DESCRIPTION));
         } else if (propertyKey == BOTTOM_SHEET_LIST_ITEMS) {
             EducationalTipBottomSheetListContainerView listContainerView =
-                    (EducationalTipBottomSheetListContainerView)
-                            view.findViewById(R.id.setup_list_bottom_sheet_container_view);
-            // TODO(crbug.com/479597724): Pass ranked modules to the bottom sheet list container.
-            listContainerView.renderSetUpList();
+                    view.findViewById(R.id.setup_list_bottom_sheet_container_view);
+            listContainerView.renderSetUpList(model.get(BOTTOM_SHEET_LIST_ITEMS));
+        } else if (propertyKey == BOTTOM_SHEET_LIST_ITEMS_ON_CLICK) {
+            EducationalTipBottomSheetListContainerView listContainerView =
+                    view.findViewById(R.id.setup_list_bottom_sheet_container_view);
+            listContainerView.setDismissBottomSheet(model.get(BOTTOM_SHEET_LIST_ITEMS_ON_CLICK));
         }
     }
 }

@@ -1140,6 +1140,22 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     return CreateAlwaysTriggerConfig(feature);
   }
 
+  if (kIPHGlicPromoAndroidFeature.name == feature->name) {
+    // A config that allows the GLIC promo IPH to be shown.
+    // * Only once in its lifetime.
+    // * Only as long as the user hasn't opened the glic feature on Android.
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(EQUAL, 0);
+    config.trigger =
+        EventConfig("glic_promo_android_iph_trigger", Comparator(LESS_THAN, 1),
+                    k10YearsInDays, k10YearsInDays);
+    config.used = EventConfig("glic_android_used", Comparator(EQUAL, 0),
+                              k10YearsInDays, k10YearsInDays);
+    return config;
+  }
+
   if (kIPHLowUserEngagementDetectorFeature.name == feature->name) {
     FeatureConfig config;
     config.valid = true;
@@ -2430,10 +2446,11 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     // Cooldowns from other default browser promos.
     config.event_configs.insert(EventConfig("default_browser_promo_shown",
                                             Comparator(EQUAL, 0), 14, 360));
-    config.event_configs.insert(EventConfig("default_browser_fre_shown",
+    config.event_configs.insert(EventConfig(events::kIOSDefaultBrowserFREShown,
                                             Comparator(EQUAL, 0), 21, 360));
-    config.event_configs.insert(EventConfig(
-        "default_browser_promos_group_trigger", Comparator(EQUAL, 0), 14, 360));
+    config.event_configs.insert(
+        EventConfig(events::kDefaultBrowserPromosGroupTrigger,
+                    Comparator(EQUAL, 0), 14, 360));
     config.event_configs.insert(
         EventConfig(feature_engagement::events::kChromeOpened,
                     Comparator(GREATER_THAN_OR_EQUAL, 7), 360, 360));
@@ -2929,12 +2946,18 @@ std::optional<FeatureConfig> GetClientSideFeatureConfig(
     config.availability = Comparator(ANY, 0);
     config.session_rate = Comparator(ANY, 0);
 
-    // This promo blocks the Gemini Image Remix IPH in the same session.
+    // This promo impacts/blocks the Gemini Image Remix IPH in the same session.
     config.session_rate_impact.type = SessionRateImpact::Type::EXPLICIT;
     config.session_rate_impact.affected_features.emplace();
     config.session_rate_impact.affected_features->push_back(
         kIPHiOSGeminiImageRemixFeature.name);
-    config.blocked_by.type = BlockedBy::Type::NONE;
+
+    // This promo is blocked by the Gemini Image Remix IPH being shown at the
+    // same time.
+    config.blocked_by.type = BlockedBy::Type::EXPLICIT;
+    config.blocked_by.affected_features.emplace();
+    config.blocked_by.affected_features->push_back(
+        kIPHiOSGeminiImageRemixFeature.name);
     config.blocking.type = Blocking::Type::NONE;
 
     // Feature should show as long as the AI Hub was never used.

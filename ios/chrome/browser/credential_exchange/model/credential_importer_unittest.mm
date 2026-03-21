@@ -143,7 +143,7 @@ TEST_F(CredentialImporterTest, ImportsValidPassword) {
   FakePasswordStoreObserver observer;
   GetAccountStore().AddObserver(&observer);
 
-  [importer_ startImportingCredentialsWithTrustedVaultKeys:nil];
+  [importer_ startImportingCredentialsWithTrustedVaultKeys:{}];
 
   ASSERT_TRUE(observer.WaitForLoginsChanged());
   GetAccountStore().RemoveObserver(&observer);
@@ -170,7 +170,7 @@ TEST_F(CredentialImporterTest, ImportsPasswordWithoutHttpsScheme) {
   FakePasswordStoreObserver observer;
   GetAccountStore().AddObserver(&observer);
 
-  [importer_ startImportingCredentialsWithTrustedVaultKeys:nil];
+  [importer_ startImportingCredentialsWithTrustedVaultKeys:{}];
 
   ASSERT_TRUE(observer.WaitForLoginsChanged());
   GetAccountStore().RemoveObserver(&observer);
@@ -203,7 +203,7 @@ TEST_F(CredentialImporterTest, DoesNotImportPasswordWithoutUrl) {
   FakePasswordStoreObserver observer;
   GetAccountStore().AddObserver(&observer);
 
-  [importer_ startImportingCredentialsWithTrustedVaultKeys:nil];
+  [importer_ startImportingCredentialsWithTrustedVaultKeys:{}];
 
   ASSERT_TRUE(observer.WaitForLoginsChanged());
   GetAccountStore().RemoveObserver(&observer);
@@ -218,6 +218,14 @@ TEST_F(CredentialImporterTest, DoesNotImportPasswordWithoutUrl) {
   EXPECT_EQ(forms[0].password_value, u"password");
   EXPECT_EQ(forms[0].GetNoteWithEmptyUniqueDisplayName(), u"note");
   EXPECT_EQ(forms[0].in_store, PasswordForm::Store::kAccountStore);
+}
+
+TEST_F(CredentialImporterTest, PropagatesImportError) {
+  [[importer_delegate_ expect] onImportError];
+
+  [importer_ onImportError];
+
+  [importer_delegate_ verify];
 }
 
 TEST_F(CredentialImporterTest, RecordsCredentialsReceivedMetrics) {

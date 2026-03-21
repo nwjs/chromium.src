@@ -111,6 +111,7 @@ class AutofillAiSuggestionGeneratorTest : public testing::Test {
             webdata_helper_.autofill_webdata_service(),
             /*history_service=*/nullptr,
             /*strike_database=*/nullptr,
+            /*accessibility_annotator_data_adapter=*/nullptr,
             /*variation_country_code=*/GeoIpCountryCode("US")));
     autofill_client_.SetUpPrefsAndIdentityForAutofillAi();
     generator_ = std::make_unique<AutofillAiSuggestionGenerator>();
@@ -197,6 +198,7 @@ class AutofillAiSuggestionGeneratorTest : public testing::Test {
   static std::vector<base::test::FeatureRef> GetDefaultEnabledFeatures() {
     return {features::kAutofillAiWithDataSchema,
             features::kAutofillAiServerModel,
+            features::kAutofillAiWalletPrivatePasses,
             features::kAutofillAiWalletFlightReservation};
   }
 
@@ -662,7 +664,7 @@ TEST_F(AutofillAiSuggestionGeneratorTest, GetFillingSuggestions_Undo) {
 
   EXPECT_THAT(CreateAutofillAiFillingSuggestions(field(0)),
               Not(Contains(HasType(SuggestionType::kUndoOrClear))));
-  field(0).set_is_autofilled(true);
+  field_data().set_is_autofilled_according_to_renderer(true);
   EXPECT_THAT(CreateAutofillAiFillingSuggestions(field(0)),
               Contains(HasType(SuggestionType::kUndoOrClear)));
 }
@@ -943,6 +945,7 @@ class AutofillAiSuggestionGeneratorSplitManageSuggestionTest
     auto features = GetDefaultEnabledFeatures();
     features.push_back(
         autofill::features::kSuggestionManageButtonSplitForEnhancedAutofill);
+    features.push_back(autofill::features::kYourSavedInfoSettingsPage);
     return features;
   }
 };

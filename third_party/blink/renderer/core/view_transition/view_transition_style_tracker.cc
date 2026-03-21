@@ -13,6 +13,7 @@
 #include "components/viz/common/view_transition_element_resource_id.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/resources/grit/blink_resources.h"
+#include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/property_handle.h"
 #include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
@@ -659,6 +660,20 @@ bool ViewTransitionStyleTracker::MatchForOnlyChild(
 void ViewTransitionStyleTracker::AddTransitionElementsFromCSS() {
   DCHECK(document_ && document_->View());
 
+  if (element_ && element_ != document_->documentElement()) {
+    // Scoped view transition apply auto-nesting. The nested group applies
+    // clipping unless overflow explicitly set to visible.
+    // TODO(https://github.com/w3c/csswg-drafts/issues/13445) we might consider
+    // having per axis values here. Revisit once we have a resolution for this
+    // issue.
+    if (const ComputedStyle* style = element_->GetComputedStyle()) {
+      if (style->OverflowX() != EOverflow::kVisible ||
+          style->OverflowY() != EOverflow::kVisible) {
+        apply_overflow_clip_ = true;
+      }
+    }
+  }
+
   // We need our paint layers, and z-order lists which is done during
   // compositing inputs update.
   DCHECK_GE(document_->Lifecycle().GetState(),
@@ -739,16 +754,6 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
   // (unless changed by something like z-index on the pseudo-elements).
   auto& root_object = root->GetLayoutObject();
   auto& root_style = root_object.StyleRef();
-  if (element_ && (root_object.GetNode() != *element_) &&
-      (root_style.ViewTransitionScope() == EViewTransitionScope::kAuto)) {
-    // Having "view-transition-scope: auto" on a descendant of the scoped
-    // element halts propagation of tag discovery into the descendant's subtree.
-    // If the scoped element itself has "view-transition-scope: auto", the tag
-    // discovery process proceeds normally.
-    // TODO(crbug.com/478214441): Handle "view-transition-scope: auto" on an
-    // element with "display: contents".
-    return;
-  }
 
   const auto& view_transition_name = root_style.ViewTransitionName();
   AtomicString current_name;
@@ -796,6 +801,13 @@ void ViewTransitionStyleTracker::AddTransitionElementsFromCSSRecursive(
   // children can have outer tree scope.
   PaintLayerPaintOrderIterator child_iterator(root, kAllChildren);
   while (auto* child = child_iterator.Next()) {
+    // View-transition-scope: auto is not confined to elements with directly
+    // corresponding paint layers. Scan the DOM elements for containment
+    // within the interval including checking elements with "display: contents".
+    if (HasContainmentBoundary(root, child)) {
+      continue;
+    }
+
     // Note that both 'contain' and 'nearest' contain descendant names, per
     // https://www.w3.org/TR/css-view-transitions-2/#nearest-containing-group-name
     AddTransitionElementsFromCSSRecursive(
@@ -896,6 +908,29 @@ bool ViewTransitionStyleTracker::FlattenAndVerifyElements(
     elements.push_back(element);
   }
   return true;
+}
+
+bool ViewTransitionStyleTracker::HasContainmentBoundary(
+    PaintLayer* root,
+    PaintLayer* child) const {
+  auto& root_object = root->GetLayoutObject();
+  auto& child_object = child->GetLayoutObject();
+  Node* node = child_object.GetNode();
+  if (!node) {
+    return false;
+  }
+  Node* root_node = root_object.GetNode();
+  while (node != root_node) {
+    if (Element* element = DynamicTo<Element>(node)) {
+      if (element != element_ &&
+          element->GetComputedStyle()->ViewTransitionScope() ==
+              EViewTransitionScope::kAll) {
+        return true;
+      }
+    }
+    node = FlatTreeTraversal::Parent(*node);
+  }
+  return false;
 }
 
 AtomicString ViewTransitionStyleTracker::ComputeContainingGroupName(
@@ -1601,6 +1636,10 @@ bool ViewTransitionStyleTracker::RunPostPrePaintStepsForElement(
 
   for (CSSPropertyID id : kPropertiesToCaptureOnGroupChildren) {
     capture_property(id, group_children_css_property_builder);
+  }
+  if (apply_overflow_clip_) {
+    group_children_css_property_builder.Insert(CSSPropertyID::kOverflow,
+                                               "clip");
   }
 
   auto css_properties = std::move(css_property_builder).Finish();

@@ -23,6 +23,7 @@ json_to_struct("regional_settings") {
   visibility = [
     "//components/regional_capabilities:*",
     "//components/search_engines:test_support",
+    "//components/search_engines:unit_tests",
   ]
 
   source = "resources/definitions/regional_settings.json"
@@ -32,6 +33,18 @@ json_to_struct("regional_settings") {
     ":prepopulated_engines",
     "//base",
   ]
+}
+
+if (is_mac) {
+  bundle_data("prepopulated_engines_bundle_data") {
+    sources = [ "resources/definitions/prepopulated_engines.json" ]
+    outputs = [ "{{bundle_resources_dir}}/third_party/search_engines_data/resources/definitions/{{source_file_part}}" ]
+  }
+}
+
+copy("prepopulated_engines_file") {
+  sources = [ "resources/definitions/prepopulated_engines.json" ]
+  outputs = [ "$root_out_dir/third_party/search_engines_data/resources/definitions/{{source_file_part}}" ]
 }
 
 if (enable_builtin_search_provider_assets) {

@@ -454,7 +454,6 @@ fast/dom/Element/hostname-host.html
 fast/dom/Element/onclick-case.html
 fast/dom/Element/setAttribute-case-insensitivity.html
 fast/dom/Element/setAttributeNode-case-insensitivity-xhtml.xhtml
-fast/dom/elementsFromPoint/elementsFromPoint-inline.html
 fast/dom/getElementsByClassName/015.html
 fast/dom/HTMLAnchorElement/set-href-attribute-hostname.html
 fast/dom/HTMLAreaElement/area-download.html
@@ -495,7 +494,6 @@ fast/dom/shadow/remove-stylesheet-from-shadow-crash.html
 fast/dom/shadow/shadow-root-text-child.html
 fast/dom/StyleSheet/detached-style-pi.xhtml
 fast/dom/TreeWalker/previousNodeLastChildReject.html
-fast/dom/TreeWalker/TreeWalker-currentNode.html
 fast/domurl/url-pathname.html
 fast/dom/Window/alert-undefined.html
 fast/dom/Window/window-remove-event-listener.html

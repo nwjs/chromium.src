@@ -30,15 +30,14 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
+#include "chrome/browser/ui/tabs/tab_data.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
-#include "chrome/browser/ui/tabs/tab_renderer_data.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_embedder.h"
-#include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_metrics.h"
 #include "chrome/browser/ui/webui/tab_strip/tab_strip_ui_util.h"
 #include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
@@ -361,11 +360,6 @@ void TabStripPageHandler::OnTabPinnedStateChanged(tabs::TabInterface* tab,
   page_->TabUpdated(GetTabData(tab->GetContents(), tab, index));
 }
 
-void TabStripPageHandler::OnTabBlockedStateChanged(tabs::TabInterface* tab,
-                                                   int index) {
-  page_->TabUpdated(GetTabData(tab->GetContents(), tab, index));
-}
-
 bool TabStripPageHandler::PreHandleGestureEvent(
     content::WebContents* source,
     const blink::WebGestureEvent& event) {
@@ -496,62 +490,61 @@ tab_strip::mojom::TabPtr TabStripPageHandler::GetTabData(
     const tabs::TabInterface* tab,
     int index) {
   DCHECK(index >= 0);
-  auto tab_data = tab_strip::mojom::Tab::New();
+  auto tab_mojom_data = tab_strip::mojom::Tab::New();
 
-  tab_data->active = browser_->tab_strip_model()->active_index() == index;
-  tab_data->id = extensions::ExtensionTabUtil::GetTabId(contents);
-  DCHECK(tab_data->id > 0);
-  tab_data->index = index;
+  tab_mojom_data->active = browser_->tab_strip_model()->active_index() == index;
+  tab_mojom_data->id = extensions::ExtensionTabUtil::GetTabId(contents);
+  DCHECK(tab_mojom_data->id > 0);
+  tab_mojom_data->index = index;
 
   const std::optional<tab_groups::TabGroupId> group_id =
       browser_->tab_strip_model()->GetTabGroupForTab(index);
   if (group_id.has_value()) {
-    tab_data->group_id = group_id.value().ToString();
+    tab_mojom_data->group_id = group_id.value().ToString();
   }
 
-  TabRendererData tab_renderer_data =
-      TabRendererData::FromTabInterface(const_cast<tabs::TabInterface*>(tab));
-  tab_data->pinned = tab_renderer_data.pinned;
-  tab_data->title = base::UTF16ToUTF8(tab_renderer_data.title);
-  tab_data->url = tab_renderer_data.visible_url;
+  tabs::TabData tab_data =
+      tabs::TabData::FromTabInterface(const_cast<tabs::TabInterface*>(tab));
+  tab_mojom_data->pinned = tab_data.pinned;
+  tab_mojom_data->title = base::UTF16ToUTF8(tab_data.title);
+  tab_mojom_data->url = tab_data.visible_url;
 
   const ui::ColorProvider& provider =
       web_ui_->GetWebContents()->GetColorProvider();
   const gfx::ImageSkia default_favicon =
       favicon::GetDefaultFaviconModel().Rasterize(&provider);
-  const gfx::ImageSkia raster_favicon =
-      tab_renderer_data.favicon.Rasterize(&provider);
+  const gfx::ImageSkia raster_favicon = tab_data.favicon.Rasterize(&provider);
 
-  if (!tab_renderer_data.favicon.IsEmpty()) {
+  if (!tab_data.favicon.IsEmpty()) {
     // Themified icons only apply to a few select chrome URLs.
-    if (tab_renderer_data.should_themify_favicon) {
-      tab_data->favicon_url = GURL(
+    if (tab_data.should_themify_favicon) {
+      tab_mojom_data->favicon_url = GURL(
           webui::EncodePNGAndMakeDataURI(ThemeFavicon(raster_favicon, false),
                                          web_ui_->GetDeviceScaleFactor()));
-      tab_data->active_favicon_url = GURL(webui::EncodePNGAndMakeDataURI(
+      tab_mojom_data->active_favicon_url = GURL(webui::EncodePNGAndMakeDataURI(
           ThemeFavicon(raster_favicon, true), web_ui_->GetDeviceScaleFactor()));
     } else {
-      tab_data->favicon_url = GURL(webui::EncodePNGAndMakeDataURI(
-          tab_renderer_data.favicon.Rasterize(&provider),
-          web_ui_->GetDeviceScaleFactor()));
+      tab_mojom_data->favicon_url = GURL(
+          webui::EncodePNGAndMakeDataURI(tab_data.favicon.Rasterize(&provider),
+                                         web_ui_->GetDeviceScaleFactor()));
     }
 
-    tab_data->is_default_favicon =
+    tab_mojom_data->is_default_favicon =
         raster_favicon.BackedBySameObjectAs(default_favicon);
   } else {
-    tab_data->is_default_favicon = true;
+    tab_mojom_data->is_default_favicon = true;
   }
-  tab_data->show_icon = tab_renderer_data.show_icon;
-  tab_data->network_state = tab_renderer_data.network_state;
-  tab_data->should_hide_throbber = tab_renderer_data.should_hide_throbber;
-  tab_data->blocked = tab_renderer_data.blocked;
-  tab_data->crashed = tab_renderer_data.is_crashed;
-  // TODO(johntlee): Add the rest of TabRendererData
+  tab_mojom_data->show_icon = tab_data.should_display_favicon;
+  tab_mojom_data->network_state = tab_data.network_state;
+  tab_mojom_data->should_hide_throbber = tab_data.should_hide_throbber;
+  tab_mojom_data->blocked = tab_data.blocked;
+  tab_mojom_data->crashed = tab_data.is_crashed;
+  // TODO(johntlee): Add the rest of tabs::TabData
 
-  tab_data->alert_states =
+  tab_mojom_data->alert_states =
       tabs::TabAlertController::From(tab)->GetAllActiveAlerts();
 
-  return tab_data;
+  return tab_mojom_data;
 }
 
 tab_strip::mojom::TabGroupVisualDataPtr TabStripPageHandler::GetTabGroupData(
@@ -731,7 +724,6 @@ void TabStripPageHandler::MoveTab(int32_t tab_id, int32_t to_index) {
 
 void TabStripPageHandler::CloseContainer() {
   // We only autoclose for tab selection.
-  RecordTabStripUICloseHistogram(TabStripUICloseAction::kTabSelected);
   DCHECK(embedder_);
   embedder_->CloseContainer();
 }
@@ -840,25 +832,6 @@ void TabStripPageHandler::SetThumbnailTracked(int32_t tab_id,
   }
 }
 
-void TabStripPageHandler::ReportTabActivationDuration(uint32_t duration_ms) {
-  UMA_HISTOGRAM_TIMES("WebUITabStrip.TabActivation",
-                      base::Milliseconds(duration_ms));
-  base::UmaHistogramEnumeration("TabStrip.Tab.WebUI.ActivationAction",
-                                TabActivationTypes::kTab);
-}
-
-void TabStripPageHandler::ReportTabDataReceivedDuration(uint32_t tab_count,
-                                                        uint32_t duration_ms) {
-  ReportTabDurationHistogram("TabDataReceived", tab_count,
-                             base::Milliseconds(duration_ms));
-}
-
-void TabStripPageHandler::ReportTabCreationDuration(uint32_t tab_count,
-                                                    uint32_t duration_ms) {
-  ReportTabDurationHistogram("TabCreation", tab_count,
-                             base::Milliseconds(duration_ms));
-}
-
 // Callback passed to |thumbnail_tracker_|. Called when a tab's thumbnail
 // changes, or when we start watching the tab.
 void TabStripPageHandler::HandleThumbnailUpdate(
@@ -880,31 +853,6 @@ void TabStripPageHandler::HandleTabCloseCancelled(content::WebContents* tab) {
   tab_before_unload_tracker_.Unobserve(tab);
   const SessionID::id_type tab_id = extensions::ExtensionTabUtil::GetTabId(tab);
   page_->TabCloseCancelled(tab_id);
-}
-
-// Reports a histogram using the format
-// WebUITabStrip.|histogram_fragment|.[tab count bucket].
-void TabStripPageHandler::ReportTabDurationHistogram(
-    const char* histogram_fragment,
-    int tab_count,
-    base::TimeDelta duration) {
-  if (tab_count <= 0) {
-    return;
-  }
-
-  // It isn't possible to report both a number of tabs and duration datapoint
-  // together in a histogram or to correlate two histograms together. As a
-  // result the histogram is manually bucketed.
-  const char* tab_count_bucket = "01_05";
-  if (6 <= tab_count && tab_count <= 20) {
-    tab_count_bucket = "06_20";
-  } else if (20 < tab_count) {
-    tab_count_bucket = "21_";
-  }
-
-  std::string histogram_name = base::JoinString(
-      {"WebUITabStrip", histogram_fragment, tab_count_bucket}, ".");
-  base::UmaHistogramTimes(histogram_name, duration);
 }
 
 gfx::ImageSkia TabStripPageHandler::ThemeFavicon(const gfx::ImageSkia& source,

@@ -6,6 +6,7 @@
 #define CONTENT_BROWSER_WEBID_TEST_MOCK_IDENTITY_REQUEST_DIALOG_CONTROLLER_H_
 
 #include "base/memory/scoped_refptr.h"
+#include "content/public/browser/webid/identity_credential_source.h"
 #include "content/public/browser/webid/identity_request_dialog_controller.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "url/origin.h"
@@ -32,6 +33,7 @@ class MockIdentityRequestDialogController
               (content::RelyingPartyData,
                const std::vector<IdentityProviderDataPtr>&,
                const std::vector<IdentityRequestAccountPtr>&,
+               const std::vector<IdentityRequestAccountPtr>&,
                blink::mojom::RpMode,
                AccountSelectionCallback,
                LoginToIdPCallback,
@@ -46,6 +48,7 @@ class MockIdentityRequestDialogController
                blink::mojom::RpContext rp_context,
                blink::mojom::RpMode rp_mode,
                const content::IdentityProviderMetadata&,
+               const std::vector<scoped_refptr<IdentityRequestAccount>>&,
                DismissCallback,
                LoginToIdPCallback),
               (override));
@@ -82,7 +85,10 @@ class MockIdentityRequestDialogController
               (const GURL&, blink::mojom::RpMode rp_mode, DismissCallback),
               (override));
   MOCK_METHOD(void, CloseModalDialog, (), (override));
-  MOCK_METHOD(void, OnFlowCompleted, (bool success), (override));
+  MOCK_METHOD(void,
+              OnFlowCompleted,
+              (content::webid::FederatedLoginResult),
+              (override));
   MOCK_METHOD(void, NotifyAutofillSourceReadyForTesting, (), (override));
 
   // Request the IdP Registration permission.

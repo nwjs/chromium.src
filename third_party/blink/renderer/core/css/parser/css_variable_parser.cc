@@ -58,7 +58,8 @@ const CSSValue* CSSVariableParser::ParseDeclarationIncludingCSSWide(
   stream.EnsureLookAhead();
   bool important_ignored;
   if (const CSSValue* css_wide = CSSPropertyParser::ConsumeCSSWideKeyword(
-          stream, /*allow_important_annotation=*/true, important_ignored)) {
+          stream, context, /*allow_important_annotation=*/true,
+          important_ignored)) {
     return css_wide;
   }
   CSSVariableData* variable_data = ConsumeUnparsedDeclaration(
@@ -121,12 +122,7 @@ static bool ConsumeVariableReference(CSSParserTokenStream& stream,
     }
   } else if (stream.Peek().GetType() == kFunctionToken &&
              RuntimeEnabledFeatures::CSSIdentFunctionEnabled()) {
-    // Since we don't create calc() expression nodes at this time we don't need
-    // to store property info for random().
-    CSSParserLocalContext local_context =
-        CSSParserLocalContext::CreateWithoutPropertyForSubstitutions();
-    if (!css_parsing_utils::ConsumeIdentFunction(stream, context,
-                                                 local_context)) {
+    if (!css_parsing_utils::ConsumeIdentFunction(stream, context)) {
       // It's a bit wasteful to create a CSSCustomIdentValue just to discard it,
       // but with the new "argument grammar" parsing approach described in
       // Issue 11500 we will eventually end up accepting any
@@ -755,7 +751,7 @@ CSSUnparsedDeclarationValue* CSSVariableParser::ParseUniversalSyntaxValue(
 
   bool important;
   if (CSSPropertyParser::ConsumeCSSWideKeyword(
-          stream, /*allow_important_annotation=*/false, important)) {
+          stream, context, /*allow_important_annotation=*/false, important)) {
     return nullptr;
   }
 

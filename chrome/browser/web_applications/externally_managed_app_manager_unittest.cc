@@ -38,7 +38,6 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
-#include "chrome/common/chrome_features.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/webapps/browser/install_result_code.h"
 #include "components/webapps/browser/web_contents/web_app_url_loader.h"
@@ -146,7 +145,7 @@ class ExternallyManagedAppManagerTest : public WebAppTest {
 
 // Test that destroying ExternallyManagedAppManager during a synchronize call
 // that installs an app doesn't crash. Regression test for
-// https://crbug.com/962808
+// https://crbug.com/41458655
 TEST_F(ExternallyManagedAppManagerTest, DestroyDuringInstallInSynchronize) {
   std::vector<ExternalInstallOptions> install_options_list;
   install_options_list.emplace_back(GURL("https://foo.example"),
@@ -167,7 +166,7 @@ TEST_F(ExternallyManagedAppManagerTest, DestroyDuringInstallInSynchronize) {
 
 // Test that destroying ExternallyManagedAppManager during a synchronize call
 // that uninstalls an app doesn't crash. Regression test for
-// https://crbug.com/962808
+// https://crbug.com/41458655
 TEST_F(ExternallyManagedAppManagerTest, DestroyDuringUninstallInSynchronize) {
   // Install an app that will be uninstalled next.
   {
@@ -963,8 +962,12 @@ TEST_F(ExternallyAppManagerTest, PolicyAppOverridesUserInstalledApp) {
 
     ASSERT_TRUE(user_app_id.has_value());
     ASSERT_EQ(user_app_id.value(), app_id);
-    ASSERT_TRUE(app_registrar().WasInstalledByUser(app_id));
-    ASSERT_FALSE(app_registrar().HasExternalApp(app_id));
+    ASSERT_TRUE(
+        app_registrar().AppMatches(app_id, WebAppFilter::InstalledByUser()));
+    ASSERT_TRUE(app_registrar()
+                    .GetAppById(app_id)
+                    ->management_to_external_config_map()
+                    .empty());
     ASSERT_EQ("Test user app", app_registrar().GetAppShortName(app_id));
   }
   {

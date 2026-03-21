@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/box_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/gap/gap_geometry.h"
+#include "third_party/blink/renderer/core/layout/gap/gap_utils.h"
 #include "third_party/blink/renderer/core/layout/layout_algorithm.h"
 
 namespace blink {
@@ -131,6 +132,14 @@ class CORE_EXPORT ColumnLayoutAlgorithm
   void AddMainGap(LayoutUnit block_offset,
                   SpannerMainGapType gap_type = SpannerMainGapType::kNone);
 
+  // Add a cross gap at the given inline offset of the current column.
+  void AddCrossGap(LayoutUnit column_inline_start_offset);
+
+  // Add an entry for the current row to `columns_per_row_` to store the number
+  // of columns this row contains. Spanners are counted as rows and marked with
+  // `kNotFound`.
+  void AddNumberOfColumnsForCurrentRow(wtf_size_t cols_in_row);
+
   // Populates `range_of_cross_gaps_before_current_main_gap_` with
   // `CrossGapRanges` for each group of `CrossGap`s before each `MainGap`.
   // For each `MainGap` we say that the `CrossGaps` associated with it are any
@@ -138,6 +147,11 @@ class CORE_EXPORT ColumnLayoutAlgorithm
   // needed by Paint to calculate the intersection points of row gaps and column
   // gaps.
   void CommitRangeOfCrossGapsBeforeCurrentMainGap();
+
+  // Updates the gap segment states for cross gaps based on the number of
+  // columns in each segment row. This is used to determine which cross gaps
+  // are blocked, empty on one side, or have columns on both sides.
+  void UpdateCrossGapSegmentStates();
 
   // Attempt to position the list-item marker (if any) beside the child
   // fragment. This requires the fragment to have a baseline. If it doesn't,
@@ -210,6 +224,18 @@ class CORE_EXPORT ColumnLayoutAlgorithm
     DCHECK_EQ(Style().ColumnWrap(), EColumnWrap::kAuto);
     return !Style().HasAutoColumnHeight();
   }
+
+  // Return true if overflowing columns are created in the inline direction.
+  // This is always the case if there's no column wrapping and no nested
+  // fragmentation.
+  //
+  // Return false if overflowing columns are created inside a new line / row.
+  // This happens when column wrapping is enabled, and also generally for nested
+  // fragmentation, except if the block-size of the column is non-auto and known
+  // to be less than or equal to the available space in the outer fragmentainer.
+  // This is specified via `column_known_to_fit_in_outer_fragmentainer`.
+  bool ColumnsOverflowInInlineDirection(
+      bool column_known_to_fit_in_outer_fragmentainer) const;
 
   ConstraintSpace CreateConstraintSpaceForBalancing(
       const LogicalSize& column_size) const;
@@ -296,19 +322,28 @@ class CORE_EXPORT ColumnLayoutAlgorithm
   // One entry for each column gap.
   Vector<CrossGap> cross_gaps_;
 
-  // Index of the first column gap that gets terminated by any subsequent main
-  // gap (row gap or spanner).
-  std::optional<wtf_size_t> first_trailing_column_gap_idx_;
-
   // Offset to the first column (in the first row), from the start border edge
   // of the resulting multicol fragment. Will only be set if needed, i.e. for
   // gap decorations.
   std::optional<LogicalOffset> first_column_offset_;
 
+  // Tracks the maximum number of columns in any row.
+  wtf_size_t max_columns_in_row_ = 0;
+
   // This will be set during (outer) block fragmentation once we've processed
   // the first piece of content of the multicol container. It is used to check
   // if we're at a valid class A  breakpoint (between block-level siblings).
   bool has_processed_first_child_ = false;
+
+  // This is the number of columns in each row, where the index in the vector
+  // indicates the index of the row of columns. Keep in mind, that this used
+  // used for gap decorations, which treats the area behind a spanner as a
+  // segment. Therefore, this vector also includes spanners as "rows" but marked
+  // as having `kNotFound` columns.
+  // TODO(crbug.com/440123087): Since the number of optionals for gap
+  // decorations has grown, explore encapsulating the logic in an `Accumulator`
+  // class similar to `Flex` and `Grid`.
+  std::optional<Vector<wtf_size_t>> columns_per_row_;
 };
 
 }  // namespace blink

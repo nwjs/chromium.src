@@ -234,6 +234,12 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kTransientKeepAlivePolicyMaxCount);
 // USER_BLOCKING.
 BASE_DECLARE_FEATURE(kExtensionServiceWorkerVoter);
 
+#if BUILDFLAG(IS_WIN)
+BASE_DECLARE_FEATURE(kBrowserProcessAboveNormalPriority);
+#endif
+
+BASE_DECLARE_FEATURE(kDisableTabDiscarding);
+
 }  // namespace performance_manager::features
 
 #endif  // COMPONENTS_PERFORMANCE_MANAGER_PUBLIC_FEATURES_H_

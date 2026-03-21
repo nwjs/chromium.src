@@ -12,8 +12,13 @@ NSString* const kQuickDeleteBrowsingDataButtonIdentifier =
 
 NSString* const kQuickDeleteFooterIdentifier = @"QuickDeleteFooterIdentifier";
 
+// TODO(crbug.com/487269108): Delete the constant below once the feature flag
+// `kPasswordRemovalFromDeleteBrowsingData` is enabled.
 NSString* const kQuickDeleteBrowsingDataConfirmButtonIdentifier =
     @"QuickDeleteBrowsingDataConfirmButtonIdentifier";
+
+NSString* const kQuickDeleteBrowsingDataDoneButtonIdentifier =
+    @"QuickDeleteBrowsingDataDoneButtonIdentifier";
 
 NSString* const kQuickDeleteBrowsingDataHistoryIdentifier =
     @"QuickDeleteBrowsingDataHistoryIdentifier";
@@ -33,3 +38,12 @@ NSString* const kQuickDeleteBrowsingDataFooterIdentifier =
 
 NSString* const kQuickDeleteManageOtherDataCellIdentifier =
     @"QuickDeleteManageOtherDataCellIdentifier";
+
+NSString* const kQuickDeleteOtherDataPasswordsAndPasskeysIdentifier =
+    @"QuickDeleteOtherDataPasswordsAndPasskeysIdentifier";
+NSString* const kQuickDeleteOtherDataSearchHistoryIdentifier =
+    @"QuickDeleteOtherDataSearchHistoryIdentifier";
+NSString* const kQuickDeleteOtherDataMyActivityIdentifier =
+    @"QuickDeleteOtherDataMyActivityIdentifier";
+NSString* const kQuickDeleteOtherDataFooterIdentifier =
+    @"QuickDeleteOtherDataFooterIdentifier";

@@ -14,6 +14,7 @@ import static org.chromium.autofill.mojom.FocusedFieldType.FILLABLE_NON_SEARCH_F
 import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
 import static org.chromium.base.test.util.CriteriaHelper.pollInstrumentationThread;
 import static org.chromium.base.test.util.CriteriaHelper.pollUiThread;
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryTestHelper.accessoryStartedHiding;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryTestHelper.accessoryStartedShowing;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryTestHelper.accessoryViewFullyHidden;
@@ -37,6 +38,7 @@ import androidx.test.espresso.UiController;
 import androidx.test.espresso.ViewAction;
 import androidx.test.espresso.ViewInteraction;
 import androidx.test.espresso.matcher.BoundedMatcher;
+import androidx.test.espresso.util.HumanReadables;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.hamcrest.Description;
@@ -150,7 +152,9 @@ public class ManualFillingTestHelper {
                     mWebContentsRef.set(activity.getActivityTab().getWebContents());
                     // The TestInputMethodManagerWrapper intercepts showSoftInput so that a keyboard
                     // is never brought up.
-                    final ImeAdapter imeAdapter = ImeAdapter.fromWebContents(mWebContentsRef.get());
+                    WebContents webContents = mWebContentsRef.get();
+                    final ImeAdapter imeAdapter =
+                            assertNonNull(ImeAdapter.fromWebContents(webContents));
                     mInputMethodManagerWrapper = TestInputMethodManagerWrapper.create(imeAdapter);
                     imeAdapter.setInputMethodManagerWrapper(mInputMethodManagerWrapper);
                 });
@@ -293,6 +297,12 @@ public class ManualFillingTestHelper {
                     },
                     "Waited for suggestions that never appeared.");
         }
+        waitForManualFillingIconsToBeLoaded();
+    }
+
+    private void waitForManualFillingIconsToBeLoaded() {
+        pollUiThread(
+                () -> Criteria.checkThat(getKeyboardAccessoryBar().hasTabs(), Matchers.is(true)));
     }
 
     public DropdownPopupWindowInterface waitForAutofillPopup(String filterInput) {
@@ -307,7 +317,8 @@ public class ManualFillingTestHelper {
                 });
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ImeAdapter.fromWebContents(webContents).setComposingTextForTest(filterInput, 4);
+                    assertNonNull(ImeAdapter.fromWebContents(webContents))
+                            .setComposingTextForTest(filterInput, 4);
                 });
         pollUiThread(
                 () -> {
@@ -487,6 +498,8 @@ public class ManualFillingTestHelper {
                         (KeyboardAccessoryButtonGroupView) view;
                 if (tabIndex >= buttonGroupView.getButtons().size()) {
                     throw new PerformException.Builder()
+                            .withActionDescription(getDescription())
+                            .withViewDescription(HumanReadables.describe(view))
                             .withCause(new Throwable("No button at index " + tabIndex))
                             .build();
                 }
@@ -530,6 +543,8 @@ public class ManualFillingTestHelper {
                     }
                 }
                 throw new PerformException.Builder()
+                        .withActionDescription(getDescription())
+                        .withViewDescription(HumanReadables.describe(view))
                         .withCause(
                                 new Throwable("No button with description: " + descriptionToMatch))
                         .build();
@@ -559,6 +574,8 @@ public class ManualFillingTestHelper {
                 int itemCount = recyclerView.getAdapter().getItemCount();
                 if (itemCount <= 0) {
                     throw new PerformException.Builder()
+                            .withActionDescription(getDescription())
+                            .withViewDescription(HumanReadables.describe(view))
                             .withCause(new Throwable("RecyclerView has no items."))
                             .build();
                 }

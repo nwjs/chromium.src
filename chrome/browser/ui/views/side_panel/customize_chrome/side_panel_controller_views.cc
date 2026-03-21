@@ -13,11 +13,11 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
@@ -94,9 +94,7 @@ void SidePanelControllerViews::OnEntryWillHide(
   // without explicitly closing the it. In those cases the view of the SidePanel
   // still exists, therefore we do not count those events. Also closing the
   // browser with an opened SidePanel does not trigger this call.
-  // TODO(crbug.com/454215211): Follow up this check with more robust solution.
-  if (reason == SidePanelEntryHideReason::kSidePanelClosed &&
-      !entry->CachedView()) {
+  if (reason == SidePanelEntryHideReason::kSidePanelClosed) {
     Profile* const profile =
         Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
     profile->GetPrefs()->SetBoolean(prefs::kNtpCustomizeChromeExplicitlyClosed,

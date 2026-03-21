@@ -51,6 +51,17 @@ export class PasscodeInputElement extends CrLitElement {
   private static readonly PASSCODE_INPUT_SIZE = 40;
   private static readonly PASSCODE_BOX_SPACING = 8;
 
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+    if (changedProperties.has('length') || changedProperties.has('value')) {
+      const newBoxes = Array(this.length).fill('');
+      for (let i = 0; i < this.length; i++) {
+        newBoxes[i] = i < this.value.length ? this.value[i] : '';
+      }
+      this.charDisplayBoxes = newBoxes;
+    }
+  }
+
   override firstUpdated(changedProperties: PropertyValues<this>) {
     super.firstUpdated(changedProperties);
     const boxWithMarginWidth = PasscodeInputElement.PASSCODE_INPUT_SIZE +
@@ -61,17 +72,6 @@ export class PasscodeInputElement extends CrLitElement {
       PasscodeInputElement.PASSCODE_BOX_SPACING + 'px';
     const inputEl = this.$.inputElement;
     inputEl.style.width = (elementBaseWidth + /* input border */ 2) + 'px';
-  }
-
-  override willUpdate(changedProperties: PropertyValues<this>) {
-    super.willUpdate(changedProperties);
-    if (changedProperties.has('length') || changedProperties.has('value')) {
-      const newBoxes = Array(this.length).fill('');
-      for (let i = 0; i < this.length; i++) {
-        newBoxes[i] = i < this.value.length ? this.value[i] : '';
-      }
-      this.charDisplayBoxes = newBoxes;
-    }
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -119,7 +119,7 @@ export class PasscodeInputElement extends CrLitElement {
     this.endIndex = endIndex === undefined ? -1 : endIndex;
   }
 
-  protected renderSelection() {
+  private renderSelection() {
     if (!this.focused) {
       return;
     }
@@ -167,17 +167,29 @@ export class PasscodeInputElement extends CrLitElement {
     });
   }
 
-  protected handleOnFocus() {
+  protected onSelectionClick() {
+    this.renderSelection();
+  }
+
+  protected onSelectionKeyup() {
+    this.renderSelection();
+  }
+
+  protected onSelectionSelect() {
+    this.renderSelection();
+  }
+
+  protected onFocus() {
     this.focused = true;
   }
 
-  protected handleOnBlur() {
+  protected onBlur() {
     this.focused = false;
     this.removeCursor();
     this.makeActive(-1);
   }
 
-  protected async handleOnInput() {
+  protected async onInput() {
     this.value = this.$.inputElement.value.toUpperCase();
     await this.updateComplete;
     this.renderSelection();

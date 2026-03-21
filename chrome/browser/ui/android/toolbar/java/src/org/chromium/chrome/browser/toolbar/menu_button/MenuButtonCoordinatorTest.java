@@ -22,10 +22,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.LooperMode;
 
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.tabmodel.IncognitoStateProvider;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
@@ -41,11 +42,9 @@ import java.lang.ref.WeakReference;
 
 /** Unit tests for ToolbarAppMenuManager. */
 @RunWith(BaseRobolectricTestRunner.class)
-@LooperMode(LooperMode.Mode.LEGACY)
 public class MenuButtonCoordinatorTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    @Mock private BrowserStateBrowserControlsVisibilityDelegate mControlsVisibilityDelegate;
     @Mock private Activity mActivity;
     @Mock private MenuButtonCoordinator.SetFocusFunction mFocusFunction;
     @Mock private AppMenuCoordinator mAppMenuCoordinator;
@@ -62,12 +61,16 @@ public class MenuButtonCoordinatorTest {
     @Mock private KeyboardVisibilityDelegate mKeyboardDelegate;
     @Mock private MenuButtonCoordinator.VisibilityDelegate mVisibilityDelegate;
 
+    private BrowserStateBrowserControlsVisibilityDelegate mControlsVisibilityDelegate;
     private MenuUiState mMenuUiState;
     private OneshotSupplierImpl<AppMenuCoordinator> mAppMenuSupplier;
     private MenuButtonCoordinator mMenuButtonCoordinator;
 
     @Before
     public void setUp() {
+        mControlsVisibilityDelegate =
+                new BrowserStateBrowserControlsVisibilityDelegate(
+                        ObservableSuppliers.alwaysFalse());
         doReturn(mAppMenuHandler).when(mAppMenuCoordinator).getAppMenuHandler();
         doReturn(mAppMenuButtonHelper).when(mAppMenuHandler).createAppMenuButtonHelper();
         doReturn(mAppMenuPropertiesDelegate)
@@ -90,6 +93,7 @@ public class MenuButtonCoordinatorTest {
     @Test
     public void testEnterKeyPress() {
         mAppMenuSupplier.set(mAppMenuCoordinator);
+        RobolectricUtil.runAllBackgroundAndUi();
 
         mMenuButtonCoordinator.onEnterKeyPress();
         verify(mAppMenuButtonHelper).onEnterKeyPress(mImageButton);
@@ -102,6 +106,7 @@ public class MenuButtonCoordinatorTest {
     @Test
     public void testSetHighlight() {
         mAppMenuSupplier.set(mAppMenuCoordinator);
+        RobolectricUtil.runAllBackgroundAndUi();
 
         mMenuButtonCoordinator.highlightMenuItemOnShow(R.id.close_all_tabs_menu_id);
         verify(mAppMenuButtonHelper).highlightMenuItemOnShow(R.id.close_all_tabs_menu_id);

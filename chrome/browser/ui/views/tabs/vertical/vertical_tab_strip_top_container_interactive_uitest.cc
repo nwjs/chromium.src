@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/test/metrics/user_action_tester.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -36,6 +37,12 @@ class VerticalTabStripTopContainerInteractiveUiTest
     return SendAccelerator(kBrowserViewElementId,
                            ui::Accelerator(ui::VKEY_A, kModifiers));
   }
+
+  auto SetPinned(const char* pref, bool pinned) {
+    return Do([this, pref, pinned]() {
+      browser()->profile()->GetPrefs()->SetBoolean(pref, pinned);
+    });
+  }
 };
 
 // This test checks that we can click the tab search button starting from the
@@ -45,7 +52,9 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
   RunTestSequence(
       // Verify Vertical Tabs is showing.
       WaitForShow(kVerticalTabStripTopContainerElementId),
-      EnsurePresent(kTabSearchButtonElementId),
+      // Ensure the tab search button is showing.
+      SetPinned(prefs::kTabSearchPinnedToTabstrip, true),
+      WaitForShow(kTabSearchButtonElementId),
       // Send Press to Vertical Tabs Tab Search Button.
       SendTabSearchAccelerator(), WaitForShow(kTabSearchBubbleElementId),
       // Display Horizontal Tabs.
@@ -70,7 +79,9 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
       // Display Vertical Tabs
       EnterVerticalTabsMode(),
       WaitForShow(kVerticalTabStripTopContainerElementId),
-      EnsurePresent(kTabSearchButtonElementId),
+      // Ensure the tab search button is showing.
+      SetPinned(prefs::kTabSearchPinnedToTabstrip, true),
+      WaitForShow(kTabSearchButtonElementId),
       // Send Press to Vertical Tabs Tab Search Button
       SendTabSearchAccelerator(), WaitForShow(kTabSearchBubbleElementId));
 }
@@ -96,6 +107,50 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
             return vertical_tab_strip_state_controller()->IsCollapsed();
           },
           true));
+}
+
+// Checks that clicking the collapse button logs the correct metrics.
+IN_PROC_BROWSER_TEST_F(VerticalTabStripTopContainerInteractiveUiTest,
+                       VerifyCollapseButtonMetrics) {
+  base::UserActionTester user_action_tester;
+  RunTestSequence(
+      CheckResult(
+          [this]() {
+            return vertical_tab_strip_state_controller()->IsCollapsed();
+          },
+          false),
+      Do([&]() {
+        EXPECT_EQ(0, user_action_tester.GetActionCount(
+                         "VerticalTabs_TabStrip_ButtonToggleCollapsed"));
+        EXPECT_EQ(0, user_action_tester.GetActionCount(
+                         "VerticalTabs_TabStrip_ButtonToggleUncollapsed"));
+      }),
+      WaitForShow(kVerticalTabStripTopContainerElementId),
+      EnsurePresent(kVerticalTabStripCollapseButtonElementId),
+      PressButton(kVerticalTabStripCollapseButtonElementId),
+      CheckResult(
+          [this]() {
+            return vertical_tab_strip_state_controller()->IsCollapsed();
+          },
+          true),
+      Do([&]() {
+        EXPECT_EQ(1, user_action_tester.GetActionCount(
+                         "VerticalTabs_TabStrip_ButtonToggleCollapsed"));
+        EXPECT_EQ(0, user_action_tester.GetActionCount(
+                         "VerticalTabs_TabStrip_ButtonToggleUncollapsed"));
+      }),
+      PressButton(kVerticalTabStripCollapseButtonElementId),
+      CheckResult(
+          [this]() {
+            return vertical_tab_strip_state_controller()->IsCollapsed();
+          },
+          false),
+      Do([&]() {
+        EXPECT_EQ(1, user_action_tester.GetActionCount(
+                         "VerticalTabs_TabStrip_ButtonToggleCollapsed"));
+        EXPECT_EQ(1, user_action_tester.GetActionCount(
+                         "VerticalTabs_TabStrip_ButtonToggleUncollapsed"));
+      }));
 }
 
 }  // namespace

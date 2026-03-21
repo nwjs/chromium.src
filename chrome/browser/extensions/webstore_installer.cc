@@ -32,7 +32,6 @@
 #include "chrome/browser/download/download_crx_util.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/download/download_stats.h"
-#include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/install_tracker_factory.h"
 #include "chrome/browser/extensions/install_verifier_factory.h"
 #include "chrome/browser/extensions/shared_module_service.h"
@@ -51,6 +50,7 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/crx_installer.h"
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/install/crx_install_error.h"
@@ -97,7 +97,7 @@ const char kDefaultInstallSource[] = "ondemand";
 const char kAppLauncherInstallSource[] = "applauncher";
 
 // TODO(rockot): Share this duplicated constant with the extension updater.
-// See http://crbug.com/371398.
+// See http://crbug.com/40364679.
 const char kAuthUserQueryKey[] = "authuser";
 
 constexpr base::TimeDelta kTimeRemainingThreshold = base::Seconds(1);
@@ -153,7 +153,7 @@ void MaybeAppendAuthUserParameter(const std::string& authuser, GURL* url) {
       authuser.c_str());
 
   // TODO(rockot): Share this duplicated code with the extension updater.
-  // See http://crbug.com/371398.
+  // See http://crbug.com/40364679.
   std::string new_query_string = old_query + authuser_param;
   GURL::Replacements replacements;
   replacements.SetQueryStr(new_query_string);
@@ -505,8 +505,8 @@ void WebstoreInstaller::DownloadCrx(const extensions::ExtensionId& extension_id,
       base::BindOnce(&WebstoreInstaller::StartDownload, this, extension_id));
 }
 
-// http://crbug.com/165634
-// http://crbug.com/126013
+// http://crbug.com/40957413
+// http://crbug.com/40798038
 // The current working theory is that one of the many pointers dereferenced in
 // here is occasionally deleted before all of its referrers are nullified,
 // probably in a callback race. After this comment is released, the crash
@@ -553,11 +553,6 @@ void WebstoreInstaller::StartDownload(
   // The download url for the given extension is contained in |download_url_|.
   // We will navigate the current tab to this url to start the download. The
   // download system will then pass the crx to the CrxInstaller.
-  int render_process_host_id = web_contents_->GetPrimaryMainFrame()
-                                   ->GetRenderViewHost()
-                                   ->GetProcess()
-                                   ->GetDeprecatedID();
-
   content::RenderFrameHost* render_frame_host =
       web_contents_->GetPrimaryMainFrame();
   net::NetworkTrafficAnnotationTag traffic_annotation =
@@ -590,11 +585,10 @@ void WebstoreInstaller::StartDownload(
             }
           }
         })");
-  std::unique_ptr<DownloadUrlParameters> params(new DownloadUrlParameters(
-      download_url_, render_process_host_id, render_frame_host->GetRoutingID(),
-      traffic_annotation));
+  std::unique_ptr<DownloadUrlParameters> params =
+      render_frame_host->CreateDownloadUrlParameters(download_url_,
+                                                     traffic_annotation);
   params->set_file_path(file);
-  params->set_initiator(render_frame_host->GetLastCommittedOrigin());
   if (controller.GetVisibleEntry()) {
     content::Referrer referrer = content::Referrer::SanitizeForRequest(
         download_url_,

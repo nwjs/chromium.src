@@ -28,7 +28,6 @@ source_set("coordinator") {
     "//components/image_fetcher/core",
     "//components/image_fetcher/ios",
     "//components/password_manager/core/browser",
-    "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/ios",
     "//components/password_manager/ios:features",
     "//components/prefs",
@@ -36,6 +35,7 @@ source_set("coordinator") {
     "//components/signin/public/identity_manager",
     "//components/sync/service",
     "//components/webauthn/ios",
+    "//components/webauthn/ios:utils",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/autofill/model",
     "//ios/chrome/browser/autofill/model/bottom_sheet",
@@ -79,10 +79,12 @@ source_set("unit_tests") {
   sources = [
     "credential_suggestion_bottom_sheet_mediator_unittest.mm",
     "passkey_creation_bottom_sheet_mediator_unittest.mm",
+    "passkey_suggestion_bottom_sheet_mediator_unittest.mm",
   ]
   deps = [
     ":coordinator",
     "//components/autofill/ios/browser",
+    "//components/autofill/ios/common",
     "//components/autofill/ios/form_util",
     "//components/password_manager/core/browser:test_support",
     "//components/password_manager/core/browser/features:password_features",

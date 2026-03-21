@@ -181,11 +181,27 @@ class CONTENT_EXPORT ClipboardHostImpl
       const ClipboardPasteData& data,
       std::optional<std::u16string> replacement_data);
 
+  // Does the same thing as the previous functions but for custom formats.
+  // The raw binary `data` is written to the clipboard using the specified
+  // `format`.
+  //
+  // This method can be called asynchronously.
+  virtual void OnCopyCustomFormatAllowedResult(
+      const std::u16string& format,
+      mojo_base::BigBuffer data,
+      const ui::ClipboardFormatType& data_type,
+      const ClipboardPasteData& paste_data,
+      std::optional<std::u16string> replacement_data);
+
   using CopyAllowedCallback = base::OnceCallback<void()>;
+
+  void OnReadAvailableTypes(ui::ClipboardBuffer clipboard_buffer,
+                            ReadAvailableTypesCallback callback,
+                            std::vector<std::u16string> types);
 
   void OnReadPng(ui::ClipboardBuffer clipboard_buffer,
                  ReadPngCallback callback,
-                 std::vector<uint8_t> data);
+                 const std::vector<uint8_t>& data);
 
   void OnReadPngWithText(ui::ClipboardBuffer clipboard_buffer,
                          ReadPngCallback callback,
@@ -220,13 +236,21 @@ class CONTENT_EXPORT ClipboardHostImpl
                                     ReadDataTransferCustomDataCallback callback,
                                     std::u16string data);
 
+  void OnGetSourceClipboardEndpoint(const ui::ClipboardFormatType& data_type,
+                                    ClipboardPasteData clipboard_paste_data,
+                                    IsClipboardPasteAllowedCallback callback,
+                                    std::optional<size_t> data_size,
+                                    ui::ClipboardSequenceNumberToken seqno,
+                                    content::ClipboardEndpoint data_dst,
+                                    content::ClipboardEndpoint source);
+
   void OnReadUnsanitizedCustomFormat(
       ReadUnsanitizedCustomFormatCallback callback,
       std::string data);
 
   void OnExtractCustomPlatformNames(
       const std::string& format_name,
-      std::unique_ptr<ui::DataTransferEndpoint> data_endpoint,
+      std::optional<ui::DataTransferEndpoint> data_endpoint,
       ReadUnsanitizedCustomFormatCallback callback,
       std::map<std::string, std::string> custom_format_names);
 
@@ -234,7 +258,7 @@ class CONTENT_EXPORT ClipboardHostImpl
                                      std::vector<std::u16string> types);
 
   void ExtractText(ui::ClipboardBuffer clipboard_buffer,
-                   std::unique_ptr<ui::DataTransferEndpoint> data_dst,
+                   std::optional<ui::DataTransferEndpoint> data_dst,
                    base::OnceCallback<void(std::u16string)> callback);
 
   // Resets `clipboard_writer_` to write its data to the clipboard, and
@@ -242,7 +266,7 @@ class CONTENT_EXPORT ClipboardHostImpl
   void ResetClipboardWriter();
 
   // Creates a `ui::DataTransferEndpoint` representing the last committed URL.
-  std::unique_ptr<ui::DataTransferEndpoint> CreateDataEndpoint();
+  std::optional<ui::DataTransferEndpoint> CreateDataEndpoint();
 
   // Creates a `content::ClipboardEndpoint` representing the last committed URL.
   ClipboardEndpoint CreateClipboardEndpoint();

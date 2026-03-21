@@ -275,9 +275,8 @@ BOOL IsAllSelected(NSUInteger selected_unread_count,
   self.tableView.dragDelegate = self.dragDropHandler;
   self.tableView.dragInteractionEnabled = true;
   self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
-  NSArray<UITrait>* traits = TraitCollectionSetForTraits(
-      @[ UITraitPreferredContentSizeCategory.class ]);
-  [self registerForTraitChanges:traits
+
+  [self registerForTraitChanges:@[ UITraitPreferredContentSizeCategory.class ]
                      withAction:@selector(verifyTableIsEmpty)];
 }
 
@@ -328,8 +327,7 @@ BOOL IsAllSelected(NSUInteger selected_unread_count,
 
   [actions addObject:deleteAction];
 
-  if (send_tab_to_self::
-          IsSendTabIOSPushNotificationsEnabledWithTabReminders()) {
+  if (send_tab_to_self::AreIOSTabRemindersEnabled()) {
     UIContextualAction* remindAction =
         [self createRemindActionForIndexPath:indexPath];
 

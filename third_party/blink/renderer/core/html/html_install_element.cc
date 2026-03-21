@@ -11,7 +11,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
-#include "third_party/blink/renderer/core/html/html_permission_element.h"
+#include "third_party/blink/renderer/core/html/html_capability_element_base.h"
 #include "third_party/blink/renderer/core/html/html_permission_icon_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -24,11 +24,14 @@
 namespace blink {
 
 HTMLInstallElement::HTMLInstallElement(Document& document)
-    : HTMLPermissionElement(document, html_names::kInstallTag),
+    : HTMLCapabilityElementBase(document, html_names::kInstallTag),
       service_(document.GetExecutionContext()) {
   CHECK(RuntimeEnabledFeatures::InstallElementEnabled(
       document.GetExecutionContext()));
-  setType(AtomicString("install"));
+  type_ = AtomicString("install");
+  auto descriptor = mojom::blink::PermissionDescriptor::New();
+  descriptor->name = mojom::blink::PermissionName::WEB_APP_INSTALLATION;
+  permission_descriptors_.push_back(std::move(descriptor));
   UseCounter::CountWebDXFeature(document, WebDXFeature::kDRAFT_InstallElement);
 }
 
@@ -42,7 +45,7 @@ const String& HTMLInstallElement::ManifestId() const {
 
 void HTMLInstallElement::Trace(Visitor* visitor) const {
   visitor->Trace(service_);
-  HTMLPermissionElement::Trace(visitor);
+  HTMLCapabilityElementBase::Trace(visitor);
 }
 
 void HTMLInstallElement::UpdateAppearance() {
@@ -53,9 +56,10 @@ void HTMLInstallElement::UpdateAppearance() {
 
   // If no attributes provided, check if current document is already installed.
   if (InstallUrl().empty() && ManifestId().empty()) {
-    WebInstallService()->IsInstalled(
-        /*options=*/nullptr, BindOnce(&HTMLInstallElement::OnIsInstalledResult,
-                                      WrapWeakPersistent(this)));
+    // TODO(crbug.com/485281836): For now, always return false while we discuss
+    // the appropriate long-term mitigation for width-based side channel
+    // attacks. ("Launch" is slightly wider than "Install").
+    OnIsInstalledResult(false);
     return;
   }
 
@@ -71,9 +75,10 @@ void HTMLInstallElement::UpdateAppearance() {
   }
 
   // Query installation status to update button text ("Install" vs "Launch").
-  WebInstallService()->IsInstalled(
-      std::move(options), BindOnce(&HTMLInstallElement::OnIsInstalledResult,
-                                   WrapWeakPersistent(this)));
+  // TODO(crbug.com/485281836): For now, always return false while we discuss
+  // the appropriate long-term mitigation for width-based side channel attacks.
+  // ("Launch" is slightly wider than "Install").
+  OnIsInstalledResult(false);
 }
 
 mojom::blink::EmbeddedPermissionRequestDescriptorPtr
@@ -135,13 +140,13 @@ bool HTMLInstallElement::IsURLAttribute(const Attribute& attr) const {
 
 void HTMLInstallElement::DefaultEventHandler(Event& event) {
   // We'll handle activation here, and punt everything else through
-  // `HTMLPermissionElement`.
+  // `HTMLCapabilityElementBase`.
   if (event.type() == event_type_names::kDOMActivate) {
     HandleActivation(event, blink::BindOnce(&HTMLInstallElement::OnActivated,
                                             WrapWeakPersistent(this)));
     return;
   }
-  HTMLPermissionElement::DefaultEventHandler(event);
+  HTMLCapabilityElementBase::DefaultEventHandler(event);
 }
 
 HeapMojoRemote<mojom::blink::WebInstallService>&
@@ -184,10 +189,11 @@ void HTMLInstallElement::OnActivated() {
 
   mojom::blink::InstallOptionsPtr options = GetCheckedInstallOptions();
   if (!options) {
-    // TODO(crbug.com/462493894): Decide how to surface kDataError. For now,
-    // fire promptdismiss for all error cases.
     // TODO(crbug.com/481519343): Add long-term solution for error handling (a
     // separate error attribute linked to the install result, etc.).
+    // Disable the element to prevent future activations and inform the
+    // developer.
+    HandleInstallDataError();
     DispatchEvent(
         *Event::CreateCancelableBubble(event_type_names::kPromptdismiss));
     return;
@@ -225,11 +231,16 @@ void HTMLInstallElement::OnInstallResult(
     const KURL& manifest_id) {
   switch (result) {
     case mojom::blink::WebInstallServiceResult::kAbortError:
-    // TODO(crbug.com/462493894): Decide how to surface kDataError. For now,
-    // fire promptdismiss for all error cases.
-    // TODO(crbug.com/481519343): Add long-term solution for error handling (a
-    // separate error attribute linked to the install result, etc.).
+      DispatchEvent(
+          *Event::CreateCancelableBubble(event_type_names::kPromptdismiss));
+      break;
     case mojom::blink::WebInstallServiceResult::kDataError:
+      // TODO(crbug.com/481519343): Revisit how to best surface this for
+      // <install> as a long-term solution (a separate error attribute linked to
+      // the install result, etc.).
+      // Disable the element to prevent future activations and inform the
+      // developer.
+      HandleInstallDataError();
       DispatchEvent(
           *Event::CreateCancelableBubble(event_type_names::kPromptdismiss));
       break;

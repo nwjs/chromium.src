@@ -71,9 +71,9 @@ namespace ash {
 namespace {
 
 // Ensures that there is no id collision within the subtree of StatusAreaWidget.
-constexpr uint32_t kCustomIconsBaseId = 10000;
+constexpr uint64_t kCustomIconsBaseId = 10000;
 
-uint32_t GetCustomIconId(const TrayIconConfiguration& configuration) {
+uint64_t GetCustomIconId(const TrayIconConfiguration& configuration) {
   return configuration.id + kCustomIconsBaseId;
 }
 
@@ -695,7 +695,6 @@ bool StatusAreaWidget::AddTrayIcon(const TrayIconConfiguration& configuration,
       configuration.image ? ui::ImageModel::FromImageSkia(*configuration.image)
                           : ui::ImageModel();
 
-  // TODO(b:463430271): Add a new catalog name for custom icons.
   auto icon = std::make_unique<ImagedTrayIcon>(
       shelf_, std::move(image_model), tooltip_text,
       TrayBackgroundViewCatalogName::kChromeCustom);
@@ -706,7 +705,6 @@ bool StatusAreaWidget::AddTrayIcon(const TrayIconConfiguration& configuration,
 
   custom_tray_buttons_ids_.insert(icon_id);
 
-  // TODO(b:463430271): Support correct order for `custom_tray_buttons_`.
   auto* icon_ptr = AddTrayButton(std::move(icon));
   icon_ptr->Initialize();
 

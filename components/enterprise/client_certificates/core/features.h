@@ -22,13 +22,13 @@ BASE_DECLARE_FEATURE(kEnableClientCertificateProvisioningOnAndroid);
 // Return true if client certificate provisioning on Android is enabled.
 bool IsClientCertificateProvisioningOnAndroidEnabled();
 
+// Controls whether client certificate provisioning on iOS is enabled.
+BASE_DECLARE_FEATURE(kEnableClientCertificateProvisioningOnIOS);
+
+// Return true if client certificate provisioning on iOS is enabled.
+bool IsClientCertificateProvisioningOnIOSEnabled();
+
 #if BUILDFLAG(IS_WIN)
-// Controls whether Windows software keys are enabled or not.
-BASE_DECLARE_FEATURE(kWindowsSoftwareKeysEnabled);
-
-// Return true if Windows software keys are enabled.
-bool AreWindowsSoftwareKeysEnabled();
-
 // Controls whether Windows TPM keys are blocked from
 // being used if they are not compatible with TLS 1.3.
 BASE_DECLARE_FEATURE(kWindowsTpmTls13Check);

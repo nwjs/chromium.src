@@ -80,8 +80,10 @@ import org.chromium.url.GURL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -95,6 +97,11 @@ public class WebContentsImpl
                 RenderFrameHostDelegate,
                 WindowEventObserver {
     private static final String TAG = "WebContentsImpl";
+
+    // Map from native web contents pointer to WebContentsImpl to allow scaling of unlimited web
+    // contents objects.
+    // ScopedGlobalRef tables are finite.
+    private static final Map<Long, WebContentsImpl> sWebContentsMap = new HashMap<>();
 
     private static final String PARCEL_VERSION_KEY = "version";
     private static final String PARCEL_WEBCONTENTS_KEY = "webcontents";
@@ -211,6 +218,8 @@ public class WebContentsImpl
         assert nativeWebContentsAndroid != 0;
         mNativeWebContentsAndroid = nativeWebContentsAndroid;
         mNavigationController = navigationController;
+        var oldValue = sWebContentsMap.put(mNativeWebContentsAndroid, this);
+        assert oldValue == null;
     }
 
     @CalledByNative
@@ -218,6 +227,11 @@ public class WebContentsImpl
     public static WebContentsImpl create(
             long nativeWebContentsAndroid, NavigationController navigationController) {
         return new WebContentsImpl(nativeWebContentsAndroid, navigationController);
+    }
+
+    @CalledByNative
+    public static @Nullable WebContentsImpl getJavaObject(long nativeWebContents) {
+        return sWebContentsMap.get(nativeWebContents);
     }
 
     @Override
@@ -288,11 +302,17 @@ public class WebContentsImpl
     @VisibleForTesting
     void clearNativePtr() {
         mNativeDestroyThrowable = new RuntimeException("clearNativePtr");
+        long nativeWebContentsAndroid = mNativeWebContentsAndroid;
+        assert nativeWebContentsAndroid != 0;
         mNativeWebContentsAndroid = 0;
-        if (mObserverProxy != null) {
-            mObserverProxy.webContentsDestroyed();
-            mObserverProxy = null;
+        clearJavaWebContentsObservers();
+        UserDataHost userDataHost = getUserDataHost();
+        if (userDataHost != null) {
+            userDataHost.destroy();
+            mInternalsHolder.set(null);
         }
+        var removedValue = sWebContentsMap.remove(nativeWebContentsAndroid);
+        assert removedValue != null;
     }
 
     // =================== RenderFrameHostDelegate overrides ===================
@@ -380,6 +400,13 @@ public class WebContentsImpl
 
         if (mNativeWebContentsAndroid != 0) {
             WebContentsImplJni.get().destroyWebContents(mNativeWebContentsAndroid);
+
+            if (mNativeWebContentsAndroid != 0) {
+                // Normally the native object would have been destroyed by clearNativePtr() being
+                // called from destroyWebContents(). However, if JNI is mocked it will not have been
+                // invoked so invoke it explicitly here.
+                clearNativePtr();
+            }
         }
     }
 
@@ -1293,6 +1320,10 @@ public class WebContentsImpl
     public @Nullable WebContents getDocumentPictureInPictureOpener() {
         return WebContentsImplJni.get()
                 .getDocumentPictureInPictureOpener(mNativeWebContentsAndroid);
+    }
+
+    /*package*/ @Nullable WebContentsObserverProxy getWebContentsObserverProxy() {
+        return mObserverProxy;
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)

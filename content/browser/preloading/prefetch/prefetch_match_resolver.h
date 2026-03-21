@@ -31,7 +31,7 @@ class PrefetchService;
 // purpose.
 //
 // This is a value per (prefetch matching, `PrefetchContainer`) representing the
-// result of `PrefetchScheduler::CollectMatchCandidate()`. This is typically
+// result of `PrefetchService::CollectMatchCandidate()`. This is typically
 // used as follows:
 //
 // - To record trace events for `CollectPotentialMatchPrefetchContainers()`
@@ -180,8 +180,7 @@ class CONTENT_EXPORT PrefetchMatchResolver final
   void OnDeterminedHead(const PrefetchContainer& prefetch_container) override;
   void OnPrefetchCompletedOrFailed(
       const PrefetchContainer& prefetch_container,
-      const network::URLLoaderCompletionStatus& completion_status,
-      const std::optional<int>& response_code) override;
+      const network::URLLoaderCompletionStatus& completion_status) override;
 
   // Finds prefetch that matches to a navigation and is servable.
   //
@@ -229,6 +228,7 @@ class CONTENT_EXPORT PrefetchMatchResolver final
       PrefetchServiceWorkerState expected_service_worker_state,
       bool is_nav_prerender,
       base::WeakPtr<PrerenderHost> prerender_host,
+      scoped_refptr<PreloadPipelineInfoImpl> preload_pipeline_info,
       base::WeakPtr<PrefetchServingPageMetricsContainer>
           serving_page_metrics_container,
       Callback callback,
@@ -241,6 +241,7 @@ class CONTENT_EXPORT PrefetchMatchResolver final
       PrefetchServiceWorkerState expected_service_worker_state,
       bool is_nav_prerender,
       base::WeakPtr<PrerenderHost> prerender_host,
+      scoped_refptr<PreloadPipelineInfoImpl> preload_pipeline_info,
       Callback callback,
       perfetto::Flow flow);
 
@@ -330,6 +331,12 @@ class CONTENT_EXPORT PrefetchMatchResolver final
   // initial navigation. Otherwise, `nullptr`. Also this is nullptr if
   // `PreloadServingMetricsCapsule::IsFeatureEnabled()` is false.
   base::WeakPtr<PrerenderHost> prerender_host_for_metrics_;
+
+  // `PreloadPipelineInfo` of prerender if the navigation is prerender.
+  //
+  // Non-null iff the navigation is prerender.
+  const scoped_refptr<PreloadPipelineInfoImpl> preload_pipeline_info_;
+
   std::unique_ptr<PrefetchMatchMetrics> prefetch_match_metrics_;
 
   // Potentially matching candidates.
@@ -365,7 +372,7 @@ concept MatchCandidate =
       t.key();
       t.request();
       t.GetURL();
-      t.GetServableState();
+      t.GetMatchResolverAction();
       t.GetNoVarySearchHint();
       t.IsNoVarySearchHeaderMatch(url);
       t.ShouldWaitForNoVarySearchHeader(url);
@@ -528,7 +535,8 @@ CollectMatchCandidatesGeneric(
     PrefetchPotentialCandidateCollectResult collect_result =
         PrefetchPotentialCandidateCollectResult::kUninitialized;
 
-    PrefetchServableState servable_state = candidate->GetServableState();
+    PrefetchServableState servable_state =
+        candidate->GetMatchResolverAction().ToServableState();
     const bool is_available = IsCandidateAvailable(
         *candidate, servable_state, is_nav_prerender, &collect_result);
     DVLOG(1) << "Serving " << *candidate

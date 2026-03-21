@@ -29,6 +29,7 @@
 <translation id="126567311906253476"><ph name="USER_EMAIL" /> मार्फत Google का Gmail वा YouTube लगायतका सेवाहरूमा साइन इन गर्दा तपाईं उही खातामार्फत Chromium मा स्वतः साइन इन गर्न सक्नुहुन्छ</translation>
 <translation id="1290883685122687410">सेटअप गर्ने क्रममा निम्न त्रुटि भयो: <ph name="METAINSTALLER_EXIT_CODE" />। <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">Chromium मा आफ्नो नयाँ प्रोफाइल सेटअप गर्नुहोस्</translation>
+<translation id="132092532143527429">Chromium मा उपलब्ध Gemini प्रयोग गरी हेर्नुहोस्</translation>
 <translation id="1324107359134968521">Chromium सँग ब्लुटुथ डिभाइसहरू खोज्नका निम्ति 
  ब्लुटुथको एक्सेस हुनु पर्छ। <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">भाषा पहिचान गर्नुहोस्</translation>
@@ -166,7 +167,6 @@
 <translation id="2738871930057338499">इन्टरनेटमा कनेक्ट गर्न सकिएन। HTTP ४०३ निषेधित। कृपया आफ्नो प्रोक्सी कन्फिगुरेसन जाँच्नुहोस्।</translation>
 <translation id="2753623023919742414">खोज्न क्लिक गर्नुहोस्</translation>
 <translation id="2768103863314748511">Chromium लाई आफ्नो डिफल्ट PDF भ्युअर बनाउनुहोस्</translation>
-<translation id="277828055419948999">Chromium ले डिफल्ट अटोफिलले छुटाउन सक्ने कठिन फिल्डहरू अटोफिल गर्न सक्छ</translation>
 <translation id="2785438272836277133">यो एक्स्टेन्सनमा मालवेयर छ र उक्त एक्स्टेन्सन असुरक्षित छ। यो एक्स्टेन्सनले अबदेखि तपाईंले खोल्ने साइटहरूमा रहेका तपाईंको व्यक्तिगत जानकारीलगायतका तपाईंको डेटा हेर्न र प्रयोग गर्न नसकोस् भन्नाका लागि यसलाई Chromium बाट हटाउनुहोस्।</translation>
 <translation id="2799223571221894425">पुन: सुरुवात गर्नुहोस्</translation>
 <translation id="2803971713792056305">तपाईंको Chromium</translation>
@@ -240,7 +240,9 @@
 <translation id="3509308970982693815">कृपया सबै Chromium सन्झ्यालहरू बन्द गर्नुहोस् र पुन: प्रयास गर्नुहोस्।</translation>
 <translation id="3522404737534491619">आफ्नो विन्डो सेयर गर्न सिस्टम सेटिङमा गई Chromium लाई स्क्रिन रेकर्ड गर्ने अनुमति दिनुहोस्</translation>
 <translation id="3530103706039034513"><ph name="EXISTING_USER" /> ले पहिलेदेखि नै साइन इन गर्नुभएको छ।  छुट्टै ब्राउजर प्रयोग गर्न <ph name="USER_EMAIL_ADDRESS" /> मार्फत आफ्नै प्रोफाइल प्रयोग गरी Chromium मा साइन इन गर्नुहोस्।</translation>
+<translation id="3531741627422851418">मोबाइल डिभाइसमा Chromium ब्राउजर डाउनलोड गर्न प्रयोग गरिने QR कोड</translation>
 <translation id="3561853857681580870">आफ्नो स्क्रिन सेयर गर्न सिस्टम सेटिङमा गई Chromium लाई स्क्रिन रेकर्ड गर्ने अनुमति दिनुहोस्।</translation>
+<translation id="3588112919289558122">उन्नत सुरक्षाले Chromium ले नचिन्ने साइटहरूमा JavaScript अप्टिमाइजेसन अफ गर्छ</translation>
 <translation id="3597003331831379823">खास विशेषाधिकारहरू प्रयोग गरी सेटअप रन गर्न सकिएन। <ph name="METAINSTALLER_ERROR" /></translation>
 <translation id="3600428265489994557">Chromium मा साइन इन गर्नुहोस्</translation>
 <translation id="3639635944603682591">यस डिभाइसबाट यो व्यक्तिको ब्राउजिङ डेटा मेटाइने छ। उक्त डेटा पुनः प्राप्त गर्न <ph name="USER_EMAIL" /> का रूपमा Chromium मा साइन इन गर्नुहोस्।</translation>
@@ -477,6 +479,7 @@
 <translation id="6327105987658262776">कुनै पनि अपडेट उपलब्ध छैन।</translation>
 <translation id="6333502561965082103">Chromium मा अर्को कारबाही जारी छ। कृपया पछि फेरि प्रयास गर्नुहोस्।</translation>
 <translation id="6334986366598267305">अब तपाइँको Google खातासँग र साझा गरिएका कम्प्युटरहरूसँग Chromium प्रयोग गर्न सजिलो छ।</translation>
+<translation id="6347002662287820329">Chromium लाई आफ्नो डिफल्ट ब्राउजरका रूपमा सेट गर्नुहोस् अनि आफूलाई थाहा भएका, मन पर्ने र विश्वास लाग्ने सुविधाहरू सजिलैसँग एक्सेस गर्नुहोस्।</translation>
 <translation id="6347933965114150440">Chromium को सर्टकट</translation>
 <translation id="6366160072964553914">यो फाइल सामान्यतया डाउनलोड नगरिने र खतरनाक हुन सक्ने भएकाले Chromium ले यो फाइल डाउनलोड गर्ने कार्य ब्लक गरेको छ</translation>
 <translation id="6373523479360886564">के तपाइँ पक्का हुनुहुन्छ कि तपाइँ Chromium विस्थापित गर्न चाहनुहुन्छ?</translation>
@@ -586,6 +589,8 @@ Chromium ले तपाइँका सेटिङहरू पुनर्�
 <translation id="7384121030444253939">यो एक्स्टेन्सन अब प्रयोग गर्न मिल्दैन। बरु Chromium ले तपाईंलाई यो एक्स्टेन्सन हटाउन सिफारिस गर्छ।</translation>
 <translation id="7413153308467572558">आफूले छाडेकै ठाउँबाट जारी राख्नुहोस्: हरेक पटक रिस्टार्ट गर्दा Chromium ले तपाईंका ट्याबहरू रिस्टोर गर्छ। यसलाई अफ गर्न निम्नमा जानुहोस्:</translation>
 <translation id="7427879960656355200">पासवर्डहरू Chromium मा इम्पोर्ट गर्नुहोस्</translation>
+<translation id="744815265653811511">१. तल रहेको <ph name="BUTTON_LABEL" /> मा क्लिक गर्नुहोस्! Windows का सेटिङमा रहेको <ph name="BUTTON_2" /> मा क्लिक गर्नुहोस्
+३. Chromium तुरुन्तै एक्सेस गर्न सकियोस् भन्नाका लागि यसलाई आफ्नो टास्कबारमा पिन गर्न Windows को नोटिफिकेसनमा भएको <ph name="BUTTON_3" /> मा क्लिक गर्नुहोस्</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> - Chromium Dev</translation>
 <translation id="7450541714075000668">टेक्स्ट कपी गरियो</translation>
 <translation id="7451052299415159299">Chromium लाई यो साइटका लागि तपाईंको क्यामेरामाथि पहुँच राख्ने अनुमति चाहिन्छ</translation>
@@ -593,7 +598,6 @@ Chromium ले तपाइँका सेटिङहरू पुनर्�
 <translation id="7461356015007898716">तपाईंको कम्प्युटरमा Windows १० वा सोभन्दा नयाँ संस्करण छ भने मात्र तपाईं भविष्यमा Chromium का अपडेट प्राप्त गर्नुहुन्छ। यो कम्प्युटरमा Windows ७ प्रयोग भइरहेको छ।</translation>
 <translation id="7467949745582939695">Chromium बन्द गरेर फेरि खोल्ने हो?</translation>
 <translation id="7483335560992089831">हाल चलिरहेको समान क्रोमियम संस्करण स्थापना गर्न सकिंदैन। कृपया क्रोमियमलाई बन्द गरि पुन: प्रयास गर्नुहोस्।</translation>
-<translation id="7517403744065880907">तपाईंले Chromium मा साइन इन गरेका बेला तपाईं आफ्नो Google खातामा पासवर्डलगायतका कुराहरू सेभ गर्न र उक्त खातामा सेभ गरिएका पासवर्डलगायतका कुराहरू प्रयोग गर्न सक्नुहुन्छ। <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">साइटहरूले अपेक्षित रूपमा काम गर्ने छन्। तपाईंले Chromium का सबै विन्डो बन्द गर्नुभयो भने तपाईंलाई अधिकांश साइटहरूबाट साइन आउट गरिने छ तर तपाईं Chromium मा साइन इन अवस्थामा हुनुहुन्छ भने तपाईंलाई तपाईंको Google खाताबाट भने साइन आउट गरिने छैन।</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium १ मिनेटमा पुनः सुरु हुने छ}other{Chromium # मिनेटमा पुनः सुरु हुने छ}}</translation>
 <translation id="7565444033145385702">तपाईंको जानकारीको सुरक्षार्थ Chromium लाई तपाईंले हालसालै नखोलेका साइटहरूलाई दिइएका अनुमति रद्द गर्न दिनुहोस्।</translation>
@@ -602,7 +606,9 @@ Chromium ले तपाइँका सेटिङहरू पुनर्�
 <translation id="761356813943268536">Chromium ले तपइँको क्यामेरा र माइक्रोफोन प्रयोग गर्दैछ।</translation>
 <translation id="7617377681829253106">Chromium भर्खरै झन राम्रो भयो</translation>
 <translation id="7622753900276619808">अब Chromium मा तपाईंका निम्ति थप सुविधाहरू उपलब्ध भएका छन्</translation>
+<translation id="7624307931717240213">हामी यो सेवाको गुणस्तर सुधार गर्ने प्रयोजनका लागि जानकारी प्रयोग गर्छौँ। गोपनीयता नीति र सेवाका सर्तहरू हेर्नुहोस्।</translation>
 <translation id="7649070708921625228">मद्दत</translation>
+<translation id="7650134251917003571">Chromium एप इन्स्टल गर्नुहोस्</translation>
 <translation id="7656340475565475526">Chromium लाई तपाईंको तर्फबाट ब्राउज गर्न दिनुहोस्</translation>
 <translation id="7658239707568436148">रद्द गर्नुहोस्</translation>
 <translation id="7686590090926151193">Chromium तपाईंको डिफल्ट ब्राउजर होइन</translation>
@@ -736,7 +742,6 @@ Chromium ले तपाइँका सेटिङहरू पुनर्�
 <translation id="9183331186620388872">Chromium सम्बन्धी सुझाव: लेन्स प्रयोग गरी खोज्नुहोस्</translation>
 <translation id="9185526690718004400">&amp;Chromium अपडेट गर्न पुनः सुरु गर्नुहोस्</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
-<translation id="9206863043651638213">Chromium मा साइन इन गरी थप सुविधाहरू पाउनुहोस्</translation>
 <translation id="924957577793602335">Chromium आफूले चाहे जस्तो बनाउनुहोस्</translation>
 <translation id="93478295209880648">Chromium अब उप्रान्त Windows XP वा Windows Vista मा समर्थित नभएका कारण यसले सही ढङ्गले काम नगर्न सक्छ</translation>
 <translation id="945522503751344254">पृष्ठपोषण पठाउनुहोस्</translation>

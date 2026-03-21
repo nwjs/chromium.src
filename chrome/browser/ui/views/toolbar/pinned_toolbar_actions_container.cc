@@ -22,15 +22,15 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/toolbar/toolbar_pref_names.h"
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container_layout.h"
-#include "chrome/common/chrome_features.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_divider.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "ui/actions/action_id.h"
@@ -153,13 +153,10 @@ PinnedToolbarActionsContainer::PinnedToolbarActionsContainer(
       base::Milliseconds(200));
 
   // Create the toolbar divider.
-  std::unique_ptr<views::View> toolbar_divider =
-      std::make_unique<views::View>();
+  std::unique_ptr<ToolbarDivider> toolbar_divider =
+      std::make_unique<ToolbarDivider>();
   toolbar_divider->SetProperty(views::kElementIdentifierKey,
                                kPinnedToolbarActionsContainerDividerElementId);
-  toolbar_divider->SetPreferredSize(
-      gfx::Size(GetLayoutConstant(LayoutConstant::kToolbarDividerWidth),
-                GetLayoutConstant(LayoutConstant::kToolbarDividerHeight)));
   // The divider only exists if there are pinned buttons, which have padding on
   // the right. Remove that amount of padding to compensate.
   toolbar_divider->SetProperty(
@@ -295,15 +292,6 @@ void PinnedToolbarActionsContainer::UpdateAllIcons() {
        popped_out_buttons_) {
     popped_out_button->UpdateIcon();
   }
-}
-
-void PinnedToolbarActionsContainer::OnThemeChanged() {
-  const SkColor toolbar_divider_color =
-      GetColorProvider()->GetColor(kColorToolbarExtensionSeparatorEnabled);
-  toolbar_divider_->SetBackground(views::CreateRoundedRectBackground(
-      toolbar_divider_color,
-      GetLayoutConstant(LayoutConstant::kToolbarDividerCornerRadius)));
-  ToolbarIconContainerView::OnThemeChanged();
 }
 
 void PinnedToolbarActionsContainer::AddedToWidget() {

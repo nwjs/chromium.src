@@ -6,12 +6,14 @@
 
 #include <algorithm>
 #include <optional>
+#include <ranges>
 #include <string_view>
 
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/notreached.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_sync_util.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
@@ -89,6 +91,9 @@ bool ShouldUploadEntityChange(const EntityInstanceChange& change) {
       return !IsMaskedStorageSupported(
           change.data_model().type(),
           EntityInstance::RecordType::kServerWallet);
+    case EntityInstance::RecordType::kAccessibilityAnnotator:
+      // Accessibility annotator entities are not uploaded as AUTOFILL_VALUABLE.
+      return false;
   }
   NOTREACHED();
 }
@@ -112,6 +117,23 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecificsAndLoadMetadata(
   }
 
   return std::nullopt;
+}
+
+bool IsPassTypeEnabled(EntityTypeName entity_name) {
+  switch (entity_name) {
+    case EntityTypeName::kVehicle:
+      return IsSyncWalletVehicleRegistrationsEnabled();
+    case EntityTypeName::kFlightReservation:
+      return IsSyncWalletFlightReservationsEnabled();
+    case EntityTypeName::kPassport:
+    case EntityTypeName::kDriversLicense:
+    case EntityTypeName::kNationalIdCard:
+    case EntityTypeName::kKnownTravelerNumber:
+    case EntityTypeName::kRedressNumber:
+      return IsSyncWalletPrivatePassesEnabled();
+    case EntityTypeName::kOrder:
+      return false;
+  }
 }
 
 }  // namespace
@@ -269,6 +291,11 @@ ValuableSyncBridge::ApplyIncrementalSyncChanges(
           }
           case sync_pb::AutofillValuableSpecifics::kVehicleRegistration:
           case sync_pb::AutofillValuableSpecifics::kFlightReservation:
+          case sync_pb::AutofillValuableSpecifics::kPassport:
+          case sync_pb::AutofillValuableSpecifics::kDriverLicense:
+          case sync_pb::AutofillValuableSpecifics::kNationalIdCard:
+          case sync_pb::AutofillValuableSpecifics::kRedressNumber:
+          case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber:
             if (std::optional<EntityInstance> entity =
                     CreateEntityInstanceFromSpecificsAndLoadMetadata(
                         specifics, *GetEntityTable())) {
@@ -277,13 +304,6 @@ ValuableSyncBridge::ApplyIncrementalSyncChanges(
                     ValuableDatabaseOperationResult::kDatabaseError;
               }
             }
-            break;
-          case sync_pb::AutofillValuableSpecifics::kPassport:
-          case sync_pb::AutofillValuableSpecifics::kDriverLicense:
-          case sync_pb::AutofillValuableSpecifics::kNationalIdCard:
-          case sync_pb::AutofillValuableSpecifics::kRedressNumber:
-          case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber:
-            // TODO(crbug.com/481650251): Implement
             break;
           case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
             break;
@@ -328,26 +348,13 @@ std::unique_ptr<syncer::MutableDataBatch> ValuableSyncBridge::GetData() {
                        card, GetPossiblyTrimmedValuableSpecifics(id)));
   }
 
-  const bool is_sync_flight_reservations_enabled =
-      IsSyncWalletFlightReservationsEnabled();
-  const bool is_sync_vehicle_registrations_enabled =
-      IsSyncWalletVehicleRegistrationsEnabled();
-
   for (const EntityInstance& instance : GetEntityTable()->GetEntityInstances(
            EntityInstance::RecordType::kServerWallet)) {
-    if (instance.type().name() == EntityTypeName::kFlightReservation &&
-        is_sync_flight_reservations_enabled) {
+    if (IsPassTypeEnabled(instance.type().name())) {
       const std::string& id = instance.guid().value();
       batch->Put(id, CreateEntityDataFromEntityInstance(
                          instance, GetPossiblyTrimmedValuableSpecifics(id)));
     }
-    if (instance.type().name() == EntityTypeName::kVehicle &&
-        is_sync_vehicle_registrations_enabled) {
-      const std::string& id = instance.guid().value();
-      batch->Put(id, CreateEntityDataFromEntityInstance(
-                         instance, GetPossiblyTrimmedValuableSpecifics(id)));
-    }
-    // TODO(crbug.com/481650251): Implement support for private passes.
   }
 
   return batch;
@@ -365,8 +372,7 @@ std::unique_ptr<syncer::DataBatch> ValuableSyncBridge::GetDataForCommit(
     StorageKeyList storage_keys) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto batch = std::make_unique<syncer::MutableDataBatch>();
-  absl::flat_hash_set<std::string> keys_set(storage_keys.begin(),
-                                            storage_keys.end());
+  absl::flat_hash_set<std::string> keys_set(std::from_range, storage_keys);
   std::unique_ptr<syncer::DataBatch> all_data = GetData();
   while (all_data->HasNext()) {
     syncer::KeyAndData item = all_data->Next();
@@ -406,8 +412,7 @@ bool ValuableSyncBridge::IsEntityDataValid(
     case sync_pb::AutofillValuableSpecifics::kNationalIdCard:
     case sync_pb::AutofillValuableSpecifics::kRedressNumber:
     case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber:
-      // TODO(crbug.com/481650251): Implement
-      return false;
+      return IsSyncWalletPrivatePassesEnabled();
     case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
       // Ignore new entry types that the client doesn't know about.
       return false;
@@ -528,21 +533,8 @@ ValuableDatabaseOperationResult ValuableSyncBridge::SetEntities(
   bool success = entity_table->DeleteEntityInstances(
       EntityInstance::RecordType::kServerWallet);
 
-  const bool is_sync_wallet_flight_reservations_enabled =
-      IsSyncWalletFlightReservationsEnabled();
-  const bool is_sync_wallet_vehicle_registrations_enabled =
-      IsSyncWalletVehicleRegistrationsEnabled();
-
   for (const EntityInstance& entity : entities) {
-    if (entity.type().name() == EntityTypeName::kVehicle &&
-        is_sync_wallet_vehicle_registrations_enabled) {
-      success &= entity_table->AddOrUpdateEntityInstance(entity);
-    }
-    if (entity.type().name() == EntityTypeName::kFlightReservation &&
-        is_sync_wallet_flight_reservations_enabled) {
-      success &= entity_table->AddOrUpdateEntityInstance(entity);
-    }
-    // TODO(crbug.com/481650251): Implement support for private passes.
+    success &= entity_table->AddOrUpdateEntityInstance(entity);
   }
 
   return success ? ValuableDatabaseOperationResult::kDataChanged
@@ -571,18 +563,16 @@ std::optional<syncer::ModelError> ValuableSyncBridge::SetSyncData(
           }
           case sync_pb::AutofillValuableSpecifics::kFlightReservation:
           case sync_pb::AutofillValuableSpecifics::kVehicleRegistration:
-            if (std::optional<EntityInstance> entity =
-                    CreateEntityInstanceFromSpecificsAndLoadMetadata(
-                        autofill_valuable, *GetEntityTable())) {
-              entities.push_back(std::move(*entity));
-            }
-            break;
           case sync_pb::AutofillValuableSpecifics::kPassport:
           case sync_pb::AutofillValuableSpecifics::kDriverLicense:
           case sync_pb::AutofillValuableSpecifics::kNationalIdCard:
           case sync_pb::AutofillValuableSpecifics::kRedressNumber:
           case sync_pb::AutofillValuableSpecifics::kKnownTravelerNumber:
-            // TODO(crbug.com/481650251): Implement
+            if (std::optional<EntityInstance> entity =
+                    CreateEntityInstanceFromSpecificsAndLoadMetadata(
+                        autofill_valuable, *GetEntityTable())) {
+              entities.push_back(std::move(*entity));
+            }
             break;
           case sync_pb::AutofillValuableSpecifics::VALUABLE_DATA_NOT_SET:
             // Ignore new entry types that the client doesn't know about.
@@ -649,7 +639,11 @@ void ValuableSyncBridge::EntityInstanceChanged(
     return;
   }
 
-  CHECK(change_processor()->IsTrackingMetadata());
+  if (!change_processor()->IsTrackingMetadata()) {
+    // TODO(crbug.com/486845921): Don't drop the commit. Consider queuing it and
+    // uploading it once sync is available.
+    return;
+  }
 
   std::unique_ptr<syncer::MetadataChangeList> metadata_change_list =
       CreateMetadataChangeList();

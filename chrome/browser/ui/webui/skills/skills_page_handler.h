@@ -57,7 +57,8 @@ class SkillsPageHandler : public skills::mojom::PageHandler,
 
   // skills::SkillsService::Observer:
   void OnSkillUpdated(std::string_view skill_id,
-                      SkillsService::UpdateSource update_source) override;
+                      SkillsService::UpdateSource update_source,
+                      bool is_position_changed) override;
   void OnDiscoverySkillsUpdated(
       const SkillsService::SkillsMap* skills_map) override;
   void OnSkillsServiceShuttingDown() override;
@@ -65,6 +66,10 @@ class SkillsPageHandler : public skills::mojom::PageHandler,
   bool Is1PDownloadTimerRunning() const {
     return first_party_download_timer_.IsRunning();
   }
+
+  void RecordSkillsManagementAction(
+      skills::mojom::SkillsManagementPage page,
+      skills::mojom::SkillsManagementAction action) override;
 
  private:
   // Triggered if a first party skills download was requested but didn't

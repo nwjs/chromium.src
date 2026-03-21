@@ -35,7 +35,6 @@ import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.os.Handler;
 import android.os.Looper;
 import android.view.ActionMode;
 import android.view.LayoutInflater;
@@ -65,8 +64,6 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.LooperMode;
-import org.robolectric.annotation.LooperMode.Mode;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
@@ -74,12 +71,12 @@ import org.chromium.base.FeatureOverrides;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
-import org.chromium.base.task.TaskTraits;
-import org.chromium.base.task.test.ShadowPostTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
@@ -90,6 +87,7 @@ import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.Minimi
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar.CustomTabLocationBar;
 import org.chromium.chrome.browser.dom_distiller.ReaderModeManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.omnibox.status.PageInfoIphController;
@@ -130,8 +128,7 @@ import java.util.function.BooleanSupplier;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(
         manifest = Config.NONE,
-        shadows = {ShadowLooper.class, ShadowPostTask.class})
-@LooperMode(Mode.PAUSED)
+        shadows = {ShadowLooper.class})
 @DisableFeatures(ChromeFeatureList.CCT_TOOLBAR_REFACTOR)
 public class CustomTabToolbarUnitTest {
     private static final GURL TEST_URL = JUnitTestGURLs.INITIAL_URL;
@@ -145,7 +142,6 @@ public class CustomTabToolbarUnitTest {
     @Mock LocationBarModel mLocationBarModel;
     @Mock ActionMode.Callback mActionModeCallback;
     @Mock CustomTabToolbarAnimationDelegate mAnimationDelegate;
-    @Mock BrowserStateBrowserControlsVisibilityDelegate mControlsVisibleDelegate;
     @Mock ToolbarDataProvider mToolbarDataProvider;
     @Mock ToolbarTabController mTabController;
     @Mock MenuButtonCoordinator mMenuButtonCoordinator;
@@ -165,6 +161,7 @@ public class CustomTabToolbarUnitTest {
     @Mock private IncognitoStateProvider mIncognitoStateProvider;
     @Captor ArgumentCaptor<AppMenuObserver> mAppMenuObserverCaptor;
 
+    private BrowserStateBrowserControlsVisibilityDelegate mControlsVisibleDelegate;
     private Activity mActivity;
     private CustomTabToolbar mToolbar;
     private CustomTabLocationBar mLocationBar;
@@ -176,10 +173,6 @@ public class CustomTabToolbarUnitTest {
 
     @Before
     public void setup() {
-        ShadowPostTask.setTestImpl(
-                (@TaskTraits int taskTraits, Runnable task, long delay) -> {
-                    new Handler(Looper.getMainLooper()).postDelayed(task, delay);
-                });
         Mockito.doReturn(R.string.accessibility_security_btn_secure)
                 .when(mLocationBarModel)
                 .getSecurityIconContentDescriptionResourceId();
@@ -191,9 +184,13 @@ public class CustomTabToolbarUnitTest {
         when(mTab.getWindowAndroid()).thenReturn(mWindowAndroid);
         when(mWindowAndroid.getActivity()).thenReturn(new WeakReference<>(mActivity));
         setUpForUrl(TEST_URL);
+
+        mControlsVisibleDelegate =
+                new BrowserStateBrowserControlsVisibilityDelegate(
+                        ObservableSuppliers.alwaysFalse());
+
         MinimizedFeatureUtils.setDeviceEligibleForMinimizedCustomTabForTesting(true);
-        when(mIntentDataProvider.getCustomTabMode())
-                .thenReturn(BrowserServicesIntentDataProvider.CustomTabProfileType.REGULAR);
+        when(mIntentDataProvider.getCustomTabMode()).thenReturn(CustomTabProfileType.REGULAR);
         when(mIntentDataProvider.getCloseButtonPosition())
                 .thenReturn(CLOSE_BUTTON_POSITION_DEFAULT);
         when(mIntentDataProvider.isCloseButtonEnabled()).thenReturn(true);
@@ -228,7 +225,7 @@ public class CustomTabToolbarUnitTest {
                 null,
                 null,
                 null,
-                /* homeButtonDisplay= */ null,
+                /* homeButtonCoordinator= */ null,
                 mThemeColorProvider,
                 mIncognitoStateProvider,
                 /* incognitoWindowCountSupplier= */ null);
@@ -381,7 +378,7 @@ public class CustomTabToolbarUnitTest {
     @Test
     public void testAboutBlankUrlIsShown() {
         setUpForAboutBlank();
-        ShadowLooper.idleMainLooper();
+        RobolectricUtil.runAllBackgroundAndUi();
         mLocationBar.onUrlChanged(false);
         assertEquals("The url bar should be visible.", View.VISIBLE, mUrlBar.getVisibility());
         assertEquals(
@@ -394,7 +391,7 @@ public class CustomTabToolbarUnitTest {
     public void testTitleIsHiddenForAboutBlank() {
         setUpForAboutBlank();
         mLocationBar.setShowTitle(true);
-        ShadowLooper.idleMainLooper();
+        RobolectricUtil.runAllBackgroundAndUi();
         mLocationBar.onUrlChanged(false);
         assertEquals("The title should be gone.", View.GONE, mTitleBar.getVisibility());
     }
@@ -403,7 +400,7 @@ public class CustomTabToolbarUnitTest {
     public void testCannotHideUrlForAboutBlank() {
         setUpForAboutBlank();
         mLocationBar.setUrlBarHidden(true);
-        ShadowLooper.idleMainLooper();
+        RobolectricUtil.runAllBackgroundAndUi();
         mLocationBar.onUrlChanged(false);
         assertEquals("The url bar should be visible.", View.VISIBLE, mUrlBar.getVisibility());
         assertEquals(
@@ -758,11 +755,20 @@ public class CustomTabToolbarUnitTest {
     private void verifyBrowserControlVisibleForRequiredDuration() {
         // Verify browser control is visible for required duration (3000ms).
         ShadowLooper looper = Shadows.shadowOf(Looper.getMainLooper());
-        verify(mControlsVisibleDelegate).showControlsPersistent();
+        assertEquals(
+                "Browser controls should be shown.",
+                BrowserControlsState.SHOWN,
+                mControlsVisibleDelegate.get().intValue());
         looper.idleFor(2999, TimeUnit.MILLISECONDS);
-        verify(mControlsVisibleDelegate, never()).releasePersistentShowingToken(anyInt());
+        assertEquals(
+                "Browser controls should still be shown.",
+                BrowserControlsState.SHOWN,
+                mControlsVisibleDelegate.get().intValue());
         looper.idleFor(1, TimeUnit.MILLISECONDS);
-        verify(mControlsVisibleDelegate).releasePersistentShowingToken(anyInt());
+        assertEquals(
+                "Browser controls should be released.",
+                BrowserControlsState.BOTH,
+                mControlsVisibleDelegate.get().intValue());
     }
 
     private void fakeTextureCapture() {

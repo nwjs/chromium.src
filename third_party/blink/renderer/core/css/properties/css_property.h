@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/compiler_specific.h"
+#include "base/notreached.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_name.h"
 #include "third_party/blink/renderer/core/css/css_value.h"
@@ -125,6 +126,13 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
     return false;
   }
 
+  bool PercentagesDependOnUsedValue() const {
+    return flags_ & kPercentagesDependOnUsedValue;
+  }
+  bool PercentagesDoNotDependOnUsedValue() const {
+    return flags_ & kPercentagesDoNotDependOnUsedValue;
+  }
+
   virtual const CSSValue* CSSValueFromComputedStyleInternal(
       const ComputedStyle&,
       const LayoutObject*,
@@ -181,9 +189,12 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
       return To<CSSProperty>(GetPropertyInternal(visited_id));
     }
   }
+  static CSSPropertyID UnvisitedID(unsigned id) {
+    return static_cast<CSSPropertyID>(
+        UNSAFE_BUFFERS(kPropertyUnvisitedIDs[id]));
+  }
   const CSSProperty* GetUnvisitedProperty() const {
-    CSSPropertyID unvisited_id = static_cast<CSSPropertyID>(UNSAFE_BUFFERS(
-        kPropertyUnvisitedIDs[static_cast<unsigned>(property_id_)]));
+    CSSPropertyID unvisited_id = UnvisitedID(property_id_);
     if (unvisited_id == CSSPropertyID::kInvalid) {
       return nullptr;
     } else {
@@ -279,6 +290,12 @@ class CORE_EXPORT CSSProperty : public CSSUnresolvedProperty {
     kValidForVisited = 1ull << 36,
     // See valid_for_permission_icon in css_properties.json5
     kValidForPermissionIcon = 1ull << 37,
+    // When percentages_depend_on_used_value is explicitly set to true.
+    // See percentages_depend_on_used_value in css_properties.json5
+    kPercentagesDependOnUsedValue = 1ull << 38,
+    // When percentages_depend_on_used_value is explicitly set to false.
+    // See percentages_depend_on_used_value in css_properties.json5
+    kPercentagesDoNotDependOnUsedValue = 1ull << 39,
   };
 
   constexpr CSSProperty(CSSPropertyID property_id,

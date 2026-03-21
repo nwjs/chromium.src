@@ -50,6 +50,7 @@ template("define_override_androidx_targets") {
   }
 
   android_library("core_overrides_java") {
+    chromium_code = false
     resources_package = "androidx.core"
     visibility = [
       ":*",
@@ -78,6 +79,7 @@ template("define_override_androidx_targets") {
   }
 
   android_library("androidx_recyclerview_recyclerview_overrides_java") {
+    chromium_code = false
     resources_package = "androidx.recyclerview"
     sources = [
       "local_modifications/recyclerview/java/org/chromium/ui/recyclerview/widget/ItemTouchHelper2.java",

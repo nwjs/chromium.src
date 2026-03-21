@@ -296,7 +296,7 @@ class BottomControlsMediator
 
     @Override
     public int getType() {
-        return LayerType.TABSTRIP_TOOLBAR_BELOW_READALOUD;
+        return LayerType.TABSTRIP_TOOLBAR;
     }
 
     @Override
@@ -332,6 +332,7 @@ class BottomControlsMediator
 
     void simulateEdgeToEdgeChangeForTesting(
             int bottomInset, boolean isDrawingToEdge, boolean isPageOptedIntoEdgeToEdge) {
+        mModel.set(BottomControlsProperties.ANDROID_VIEW_HEIGHT, bottomInset);
         onEdgeToEdgeChanged(bottomInset, isDrawingToEdge, isPageOptedIntoEdgeToEdge);
     }
 }

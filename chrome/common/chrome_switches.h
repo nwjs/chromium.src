@@ -52,7 +52,6 @@ extern const char kAppRunOnOsLoginMode[];
 extern const char kAppShim[];
 extern const char kAppsGalleryDownloadURL[];
 extern const char kAppsGalleryUpdateURL[];
-extern const char kAppsGalleryURL[];
 extern const char kAuthServerAllowlist[];
 extern const char kAutoOpenDevToolsForTabs[];
 extern const char kAutoSelectDesktopCaptureSource[];
@@ -287,6 +286,7 @@ extern const char kSourceShortcut[];
 extern const char kStartupForegroundLaunch[];
 extern const char kUninstall[];
 extern const char kUninstallAppId[];
+extern const char kIsolated[];
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) && !defined(OFFICIAL_BUILD)
@@ -299,9 +299,9 @@ extern const char kEnableNewAppMenuIcon[];
 extern const char kGuest[];
 #endif
 
-#if BUILDFLAG(ENABLE_GLIC)
 extern const char kGlicGuestURL[];
 extern const char kGlicAlwaysOpenFre[];
+extern const char kGlicAlwaysSkipFre[];
 extern const char kGlicFreURL[];
 extern const char kGlicShortcutsLearnMoreURL[];
 extern const char kGlicOpenOnStartup[];
@@ -315,9 +315,9 @@ extern const char kGlicAlwaysShowWebActuationToggle[];
 extern const char kGlicResetMultiInstanceEnabledByTier[];
 extern const char kGlicForceG1StatusForMultiInstance[];
 extern const char kGlicGuestUrlPresetAutopush[];
+extern const char kGlicGuestUrlPresetStaging[];
 extern const char kGlicGuestUrlPresetPreprod[];
 extern const char kGlicGuestUrlPresetProd[];
-#endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 extern const char kListApps[];

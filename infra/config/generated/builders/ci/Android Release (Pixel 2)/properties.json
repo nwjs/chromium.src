@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Android Release (Pixel 2)",
-              "project": "chromium-m146"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -43,12 +43,16 @@
         {
           "bucket": "ci",
           "builder": "Android Release (Pixel 2)",
-          "project": "chromium-m146"
+          "project": "chromium"
         }
       ],
       "mirroring_builder_group_and_names": [
         {
           "builder": "android-arm64-rel",
+          "group": "tryserver.chromium.android"
+        },
+        {
+          "builder": "gpu-try-android-pixel-2-64",
           "group": "tryserver.chromium.android"
         }
       ],
@@ -75,10 +79,10 @@
   },
   "builder_group": "chromium.gpu",
   "gardener_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ],
   "recipe": "chromium",
   "sheriff_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ]
 }

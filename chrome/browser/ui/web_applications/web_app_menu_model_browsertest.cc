@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/web_applications/web_app_browsertest_base.h"
+#include "chrome/browser/web_applications/model/pending_migration_info.h"
 #include "chrome/browser/web_applications/test/prevent_close_test_base.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
@@ -24,6 +25,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/image/image_unittest_util.h"
@@ -136,6 +138,68 @@ IN_PROC_BROWSER_TEST_F(WebAppMenuModelBrowserTest, HasPendingUpdate) {
     update_info.set_name("Updated app name");
     update_info.set_was_ignored(true);
     update->UpdateApp(app_id)->SetPendingUpdateInfo(std::move(update_info));
+  }
+
+  {
+    WebAppMenuModel app_menu_model(nullptr, browser);
+    app_menu_model.Init();
+
+    // Verify that "Review update" button is visible in the menu.
+    ui::MenuModel* model = &app_menu_model;
+    size_t index = 0;
+    const bool found = ui::MenuModel::GetModelAndIndexForCommandId(
+        IDC_WEB_APP_UPGRADE_DIALOG, &model, &index);
+    EXPECT_TRUE(found);
+    EXPECT_TRUE(app_menu_model.IsCommandIdEnabled(IDC_WEB_APP_UPGRADE_DIALOG));
+    EXPECT_TRUE(model->IsEnabledAt(index));
+    EXPECT_TRUE(app_menu_model.IsCommandIdVisible(IDC_WEB_APP_UPGRADE_DIALOG));
+    EXPECT_TRUE(model->IsVisibleAt(index));
+    ui::ImageModel update_icon = model->GetIconAt(index);
+    ASSERT_TRUE(update_icon.IsImage());
+    EXPECT_EQ(update_icon.Size().width(), update_icon.Size().height());
+    EXPECT_EQ(update_icon.Size().width(),
+              ui::SimpleMenuModel::kDefaultIconSize);
+    EXPECT_TRUE(gfx::test::AreImagesClose(
+        update_icon.GetImage(),
+        gfx::Image(provider().icon_manager().GetFaviconImageSkia(app_id)),
+        /*max_deviation=*/1));
+  }
+
+  UninstallWebApp(app_id);
+}
+
+class WebAppMenuModelMigrationBrowserTest : public WebAppBrowserTestBase {
+ public:
+  WebAppMenuModelMigrationBrowserTest()
+      : WebAppBrowserTestBase({blink::features::kWebAppMigrationApi}, {}) {}
+  ~WebAppMenuModelMigrationBrowserTest() override = default;
+};
+
+IN_PROC_BROWSER_TEST_F(WebAppMenuModelMigrationBrowserTest,
+                       HasPendingMigration) {
+  const GURL app_url = GetInstallableAppURL();
+  const webapps::AppId app_id = InstallPWA(app_url);
+  Browser* const browser = LaunchWebAppBrowser(app_id);
+
+  {
+    WebAppMenuModel app_menu_model(nullptr, browser);
+    app_menu_model.Init();
+
+    // Verify that "Review update" button is not visible in the menu.
+    ui::MenuModel* model = &app_menu_model;
+    size_t index = 0;
+    const bool found = ui::MenuModel::GetModelAndIndexForCommandId(
+        IDC_WEB_APP_UPGRADE_DIALOG, &model, &index);
+    EXPECT_FALSE(found);
+  }
+
+  {
+    web_app::ScopedRegistryUpdate update =
+        provider().sync_bridge_unsafe().BeginUpdate();
+    web_app::PendingMigrationInfo migration_info(
+        webapps::ManifestId(GURL("https://migrated-app.com/")),
+        web_app::MigrationBehavior::kSuggest);
+    update->UpdateApp(app_id)->SetPendingMigrationInfo(std::move(migration_info));
   }
 
   {

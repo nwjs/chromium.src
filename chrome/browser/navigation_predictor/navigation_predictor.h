@@ -15,13 +15,13 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/tick_clock.h"
 #include "base/time/time.h"
+#include "base/types/strong_alias.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_metrics_document_data.h"
 #include "chrome/browser/navigation_predictor/preloading_model_keyed_service.h"
 #include "chrome/browser/page_load_metrics/observers/page_anchors_metrics_observer.h"
 #include "content/public/browser/document_service.h"
 #include "content/public/browser/visibility.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/mojom/loader/navigation_predictor.mojom.h"
 #include "url/origin.h"
@@ -29,6 +29,10 @@
 namespace content {
 class RenderFrameHost;
 }  // namespace content
+
+namespace ukm {
+class UkmRecorder;
+}  // namespace ukm
 
 // This class gathers metrics of anchor elements from both renderer process
 // and browser process. Then it uses these metrics to make predictions on what

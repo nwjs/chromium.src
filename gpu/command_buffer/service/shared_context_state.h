@@ -52,7 +52,6 @@ class GLSurface;
 }  // namespace gl
 
 namespace viz {
-class MetalContextProvider;
 class VulkanContextProvider;
 }  // namespace viz
 
@@ -68,6 +67,7 @@ class GpuDriverBugWorkarounds;
 class GpuProcessShmCount;
 class ServiceTransferCache;
 class GraphiteSharedContext;
+struct GpuFeatureInfo;
 
 namespace gles2 {
 class FeatureInfo;
@@ -110,7 +110,6 @@ class GPU_GLES2_EXPORT SharedContextState
       ContextLostCallback context_lost_callback,
       GrContextType gr_context_type,
       viz::VulkanContextProvider* vulkan_context_provider = nullptr,
-      viz::MetalContextProvider* metal_context_provider = nullptr,
       DawnContextProvider* dawn_context_provider = nullptr,
       scoped_refptr<gpu::MemoryTracker::Observer> peak_memory_monitor = nullptr,
       bool direct_rendering_display_compositor_enabled = false,
@@ -135,7 +134,6 @@ class GPU_GLES2_EXPORT SharedContextState
     return gr_context_type_ == GrContextType::kVulkan;
   }
   bool IsGraphiteDawn() const;
-  bool IsGraphiteMetal() const;
   bool IsGraphiteDawnMetal() const;
   bool IsGraphiteDawnD3D() const;
   bool IsGraphiteDawnD3D11() const;
@@ -143,7 +141,9 @@ class GPU_GLES2_EXPORT SharedContextState
   bool IsGraphiteDawnVulkanSwiftShader() const;
 
   bool InitializeGL(const GpuPreferences& gpu_preferences,
-                    scoped_refptr<gles2::FeatureInfo> feature_info);
+                    const GpuDriverBugWorkarounds& gpu_driver_bug_workarounds,
+                    const GpuFeatureInfo& gpu_feature_info);
+
   bool IsGLInitialized() const { return !!feature_info_; }
 
   void FlushAndSubmit(bool sync_to_cpu);
@@ -182,9 +182,6 @@ class GPU_GLES2_EXPORT SharedContextState
   gl::GLDisplay* display();  // non const since it calls GLSurface::GetGLDisplay
   viz::VulkanContextProvider* vk_context_provider() const {
     return vk_context_provider_;
-  }
-  viz::MetalContextProvider* metal_context_provider() const {
-    return metal_context_provider_;
   }
   DawnContextProvider* dawn_context_provider() const {
     return dawn_context_provider_;
@@ -300,12 +297,16 @@ class GPU_GLES2_EXPORT SharedContextState
  private:
   friend class base::RefCounted<SharedContextState>;
   friend class raster::RasterDecoderTestBase;
+  FRIEND_TEST_ALL_PREFIXES(SharedContextStateTest, InitFailsIfLostContext);
   FRIEND_TEST_ALL_PREFIXES(SharedContextStateTest,
                            GLOptionsProviderSetsCustomOptions);
   FRIEND_TEST_ALL_PREFIXES(SharedContextStateTest,
                            VulkanOptionsProviderSetsCustomOptions);
 
   ~SharedContextState() override;
+
+  bool InitializeGLWithFeatureInfo(
+      scoped_refptr<gles2::FeatureInfo> feature_info);
 
   bool InitializeGanesh(
       const GpuPreferences& gpu_preferences,
@@ -352,7 +353,6 @@ class GPU_GLES2_EXPORT SharedContextState
   scoped_refptr<MemoryTracker> memory_tracker_;
   gpu::MemoryTypeTracker memory_type_tracker_;
   const raw_ptr<viz::VulkanContextProvider> vk_context_provider_ = nullptr;
-  const raw_ptr<viz::MetalContextProvider> metal_context_provider_ = nullptr;
   const raw_ptr<DawnContextProvider> dawn_context_provider_ = nullptr;
   raw_ptr<const GrContextOptionsProvider> gr_context_options_provider_ =
       nullptr;

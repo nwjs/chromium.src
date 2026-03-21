@@ -42,8 +42,8 @@ class ComposeboxQueryControllerBridge
   void NotifySessionAbandoned(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> AddFile(
       JNIEnv* env,
-      std::string& file_name,
-      std::string& file_type,
+      const std::string& file_name,
+      const std::string& file_type,
       const jni_zero::JavaRef<jobject>& file_data);
   base::android::ScopedJavaLocalRef<jobject> AddTabContext(
       JNIEnv* env,
@@ -58,6 +58,7 @@ class ComposeboxQueryControllerBridge
                              GURL url,
                              const base::android::JavaRef<jobject>& j_callback);
   void RemoveAttachment(JNIEnv* env, const std::string& token);
+  bool IsFuseboxEligible(JNIEnv* env);
   bool IsPdfUploadEligible(JNIEnv* env);
   bool IsCreateImagesEligible(JNIEnv* env);
   void SetActiveTool(JNIEnv* env, omnibox::ToolMode tool_mode);
@@ -70,9 +71,9 @@ class ComposeboxQueryControllerBridge
   void OnFileUploadStatusChanged(
       const base::UnguessableToken& file_token,
       lens::MimeType mime_type,
-      contextual_search::FileUploadStatus file_upload_status,
-      const std::optional<contextual_search::FileUploadErrorType>& error_type)
-      override;
+      contextual_search::ContextUploadStatus file_upload_status,
+      const std::optional<contextual_search::ContextUploadErrorType>&
+          error_type) override;
 
   size_t GetAttachmentCount() const;
 

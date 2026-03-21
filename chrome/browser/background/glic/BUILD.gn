@@ -22,7 +22,7 @@ source_set("glic") {
     "//ui/base",
     "//ui/base/accelerators/global_accelerator_listener",
   ]
-  if (!is_android) {
+  if (is_win) {
     public_deps += [ "//chrome/browser/startup" ]
   }
 }
@@ -41,6 +41,12 @@ source_set("impl") {
     sources += [
       "glic_status_icon_win.cc",
       "glic_status_icon_win.h",
+    ]
+  }
+  if (is_chromeos) {
+    sources += [
+      "glic_status_icon_chromeos.cc",
+      "glic_status_icon_chromeos.h",
     ]
   }
 
@@ -67,13 +73,16 @@ source_set("impl") {
 
   if (!is_android) {
     deps += [
-      "//chrome/browser/startup",
       "//chrome/browser/ui:browser_list",
       "//components/keep_alive_registry",
     ]
   }
   if (is_chromeos) {
     deps += [ "//ash" ]
+  }
+
+  if (is_win) {
+    deps += [ "//chrome/browser/startup" ]
   }
 }
 
@@ -128,7 +137,6 @@ if (!is_android) {
       "//chrome/browser/glic:impl",
       "//chrome/browser/glic/fre",
       "//chrome/browser/glic/test_support",
-      "//chrome/browser/startup",
       "//chrome/browser/status_icons",
       "//chrome/browser/ui/views/frame/",
       "//chrome/browser/ui/views/glic",
@@ -144,6 +152,10 @@ if (!is_android) {
 
     if (is_chromeos) {
       deps += [ "//ash" ]
+    }
+
+    if (is_win) {
+      deps += [ "//chrome/browser/startup" ]
     }
   }
 }

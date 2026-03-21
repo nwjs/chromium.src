@@ -6,8 +6,11 @@
 #define REMOTING_PROTOCOL_SESSION_PLUGIN_H_
 
 #include <memory>
+#include <optional>
 
-#include "third_party/libjingle_xmpp/xmllite/xmlelement.h"
+namespace remoting {
+struct Attachment;
+}  // namespace remoting
 
 namespace remoting::protocol {
 
@@ -21,13 +24,13 @@ class SessionPlugin {
   SessionPlugin() = default;
   virtual ~SessionPlugin() = default;
 
-  // Returns an XmlElement if the SessionPlugin requires to attach some data
-  // into the outgoing message.
-  virtual std::unique_ptr<jingle_xmpp::XmlElement> GetNextMessage() = 0;
+  // Returns an Attachment if the SessionPlugin has something to attach to the
+  // outgoing message.
+  // TODO: crbug.com/359620500 - Use a specific attachment type for plugins.
+  virtual std::optional<Attachment> GetNextMessage() = 0;
 
-  // Handles messages in |attachments|.
-  virtual void OnIncomingMessage(
-      const jingle_xmpp::XmlElement& attachments) = 0;
+  // Handles messages in |attachment|.
+  virtual void OnIncomingMessage(const Attachment& attachment) = 0;
 };
 
 }  // namespace remoting::protocol

@@ -27,6 +27,7 @@
 <translation id="126567311906253476">Когда вы будете использовать аккаунт <ph name="USER_EMAIL" /> для входа в сервисы Google, такие как Gmail или YouTube, вы сможете автоматически входить с ним в Chromium</translation>
 <translation id="1290883685122687410">Ошибка настройки: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">Создайте профиль Chromium</translation>
+<translation id="132092532143527429">Попробовать с Gemini в Chromium</translation>
 <translation id="1324107359134968521">Чтобы найти устройства, предоставьте браузеру Chromium доступ к Bluetooth. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Определить язык</translation>
 <translation id="1330742950061766891">Используйте рекомендуемые настройки браузера Chromium</translation>
@@ -163,7 +164,6 @@
 <translation id="2738871930057338499">Не удалось подключиться к интернету. Ошибка HTTP 403: доступ запрещен. Проверьте настройки прокси-сервера.</translation>
 <translation id="2753623023919742414">Нажмите на объект для поиска</translation>
 <translation id="2768103863314748511">Используйте Chromium по умолчанию для просмотра PDF-файлов.</translation>
-<translation id="277828055419948999">Chromium может автоматически заполнять сложные поля, которые не всегда распознаются стандартной функцией автозаполнения.</translation>
 <translation id="2785438272836277133">Это расширение содержит вредоносное ПО и может быть опасным. Удалите его из Chromium, чтобы оно больше не могло читать и менять ваши данные с сайтов (включая личную информацию), которые вы посещаете.</translation>
 <translation id="2799223571221894425">Перезапустить</translation>
 <translation id="2803971713792056305">Ваш Chromium</translation>
@@ -237,7 +237,9 @@
 <translation id="3509308970982693815">Закройте все окна Chromium и повторите попытку снова.</translation>
 <translation id="3522404737534491619">Чтобы запустить демонстрацию окна, в системных настройках разрешите Chromium записывать видео с экрана.</translation>
 <translation id="3530103706039034513">Активный профиль пользователя: <ph name="EXISTING_USER" />.  Чтобы данные о вашей работе в браузере хранились отдельно, войдите в собственный профиль Chromium (<ph name="USER_EMAIL_ADDRESS" />).</translation>
+<translation id="3531741627422851418">QR-код для скачивания браузера Chromium на мобильное устройство</translation>
 <translation id="3561853857681580870">Чтобы запустить демонстрацию экрана, в системных настройках разрешите Chromium записывать с него видео.</translation>
+<translation id="3588112919289558122">Улучшенная защита отключает оптимизацию JavaScript для сайтов, которые Chromium не распознаёт</translation>
 <translation id="3597003331831379823">Не удалось запустить настройку с повышенными привилегиями. <ph name="METAINSTALLER_ERROR" /></translation>
 <translation id="3600428265489994557">Войдите в Chromium</translation>
 <translation id="3639635944603682591">Данные о работе этого пользователя в браузере будут удалены с устройства. Чтобы восстановить их, войдите в Chromium как <ph name="USER_EMAIL" />.</translation>
@@ -474,6 +476,7 @@
 <translation id="6327105987658262776">Нет обновлений.</translation>
 <translation id="6333502561965082103">Chromium выполняет другую операцию. Повторите попытку позже.</translation>
 <translation id="6334986366598267305">Теперь с Chromium ещё удобнее работать в аккаунте Google, в том числе на общих компьютерах.</translation>
+<translation id="6347002662287820329">Чтобы пользоваться привычными и проверенными функциями, сделайте Chromium браузером по умолчанию.</translation>
 <translation id="6347933965114150440">Ярлык Chromium</translation>
 <translation id="6366160072964553914">Chromium заблокировал скачивание, поскольку этот файл скачивают редко и он может быть опасен</translation>
 <translation id="6373523479360886564">Вы действительно хотите удалить Chromium?</translation>
@@ -581,6 +584,9 @@
 <translation id="7384121030444253939">Это расширение больше не поддерживается. Рекомендуем удалить его из Chromium.</translation>
 <translation id="7413153308467572558">Продолжайте с того места, где остановились. Chromium восстанавливает вкладки после каждого перезапуска. Чтобы отключить эту функцию, откройте</translation>
 <translation id="7427879960656355200">Импорт паролей в Chromium</translation>
+<translation id="744815265653811511">1. Нажмите "<ph name="BUTTON_LABEL" />" ниже.
+2. Выберите "<ph name="BUTTON_2" />" в настройках Windows.
+3. Чтобы закрепить Chromium на панели задач для быстрого доступа, нажмите "<ph name="BUTTON_3" />" в уведомлении Windows.</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium для разработчиков</translation>
 <translation id="7450541714075000668">Текст скопирован.</translation>
 <translation id="7451052299415159299">Для этого сайта Chromium запрашивает доступ к камере.</translation>
@@ -588,7 +594,6 @@
 <translation id="7461356015007898716">На вашем компьютере используется Windows 7. Чтобы получать обновления Chromium, установите на устройство Windows 10 или более поздней версии.</translation>
 <translation id="7467949745582939695">Перезапустить Chromium?</translation>
 <translation id="7483335560992089831">Невозможно установить ту же версию Chromium, которая уже присутствует в системе. Закройте Chromium и повторите попытку.</translation>
-<translation id="7517403744065880907">Вы сможете сохранять пароли и другие данные в аккаунте Google и использовать их, когда вошли в Chromium. <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">Вероятно, сайты будут работать правильно. Когда вы закроете все окна браузера Chromium, вы выйдете из аккаунта на большинстве этих сайтов, но останетесь в аккаунте Google, если раньше вошли в Chromium.</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium перезапустится через 1 минуту}one{Chromium перезапустится через # минуту}few{Chromium перезапустится через # минуты}many{Chromium перезапустится через # минут}other{Chromium перезапустится через # минуты}}</translation>
 <translation id="7565444033145385702">Чтобы защитить свои данные, разрешите Chromium отзывать разрешения у сайтов, которые вы давно не посещали.</translation>
@@ -597,7 +602,9 @@
 <translation id="761356813943268536">Chromium использует камеру и микрофон.</translation>
 <translation id="7617377681829253106">Chromium становится все лучше</translation>
 <translation id="7622753900276619808">Теперь вам доступно больше функций в Chromium.</translation>
+<translation id="7624307931717240213">Мы используем данные, чтобы улучшать сервис. Прочитайте Политику конфиденциальности и Условия использования.</translation>
 <translation id="7649070708921625228">Справка</translation>
+<translation id="7650134251917003571">Скачать приложение Chromium</translation>
 <translation id="7656340475565475526">Разрешить Chromium искать информацию в интернете</translation>
 <translation id="7658239707568436148">Отмена</translation>
 <translation id="7686590090926151193">Chromium не является браузером по умолчанию.</translation>
@@ -731,7 +738,6 @@
 <translation id="9183331186620388872">Совет по работе с Chromium: используйте Объектив для поиска информации</translation>
 <translation id="9185526690718004400">Перезапустить для обновления &amp;Chromium</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
-<translation id="9206863043651638213">Получите больше, войдя в Chromium</translation>
 <translation id="924957577793602335">Настройте Chromium для себя</translation>
 <translation id="93478295209880648">В работе Chromium могут возникать сбои, так как браузер больше не поддерживает Windows XP и Windows Vista.</translation>
 <translation id="945522503751344254">Отправить отзыв</translation>

@@ -10,7 +10,15 @@
 
 namespace blink {
 
+class BoxQuadOptions;
+class ConvertCoordinateOptions;
 class CSSPseudoElementsCacheData;
+class DOMPoint;
+class DOMPointInit;
+class DOMQuad;
+class DOMQuadInit;
+class DOMRectReadOnly;
+class V8UnionCSSPseudoElementOrDocumentOrElementOrText;
 class V8UnionCSSPseudoElementOrElement;
 
 // Implementation of CSSPseudoElement IDL interface.
@@ -54,8 +62,33 @@ class CSSPseudoElement final : public ScriptWrappable {
   // the sub-pseudo-element referenced in its argument, if such a
   // sub-pseudo-element could exist and would be valid, and null otherwise.
   CSSPseudoElement* pseudo(const AtomicString& type);
+  // PseudoId-based overload: avoids string parsing, for internal use.
+  CSSPseudoElement* pseudo(PseudoId pseudo_id);
+
+  // Returns the CSSPseudoElement proxy chain for the given PseudoElement,
+  // creating it if necessary. Handles nested pseudos (e.g. ::after::marker)
+  // by walking the parentElement() chain from innermost to outermost.
+  static CSSPseudoElement* From(PseudoElement* pseudo_element);
+
+  // GeometryUtils methods
+  // https://drafts.csswg.org/cssom-view/#the-geometryutils-interface
+  HeapVector<Member<DOMQuad>> getBoxQuads(const BoxQuadOptions* options) const;
+  DOMQuad* convertQuadFromNode(
+      DOMQuadInit* quad,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options) const;
+  DOMQuad* convertRectFromNode(
+      DOMRectReadOnly* rect,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options) const;
+  DOMPoint* convertPointFromNode(
+      DOMPointInit* point,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options) const;
 
   PseudoId GetPseudoId() const { return pseudo_id_; }
+
+  LayoutObject* GetLayoutObject() const;
 
   void Trace(Visitor* v) const final;
 

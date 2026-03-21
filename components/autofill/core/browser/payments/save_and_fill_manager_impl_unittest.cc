@@ -236,7 +236,8 @@ UserProvidedCardSaveAndFillDetails CreateUserProvidedCardDetails(
     std::u16string cardholder_name,
     std::u16string expiration_date_month,
     std::u16string expiration_date_year,
-    std::optional<std::u16string> security_code) {
+    std::optional<std::u16string> security_code,
+    std::optional<std::u16string> nickname = std::nullopt) {
   UserProvidedCardSaveAndFillDetails user_provided_card_details;
   user_provided_card_details.card_number = std::move(card_number);
   user_provided_card_details.cardholder_name = std::move(cardholder_name);
@@ -245,6 +246,9 @@ UserProvidedCardSaveAndFillDetails CreateUserProvidedCardDetails(
   user_provided_card_details.expiration_date_year =
       std::move(expiration_date_year);
   user_provided_card_details.security_code = std::move(security_code);
+#if BUILDFLAG(IS_IOS)
+  user_provided_card_details.nickname = nickname;
+#endif
   return user_provided_card_details;
 }
 
@@ -264,7 +268,8 @@ TEST_F(SaveAndFillManagerImplTest,
 
   EXPECT_TRUE(autofill_client()
                   .GetFormDataImporter()
-                  ->fetched_payments_data_context()
+                  ->GetPaymentsFormDataImporter()
+                  .fetched_payments_data_context()
                   .card_submitted_through_save_and_fill);
 }
 
@@ -616,7 +621,8 @@ TEST_F(SaveAndFillManagerImplTest, OnUserDidDecideOnUploadSave_Accepted) {
                                        /*cardholder_name=*/u"Jane Smith",
                                        /*expiration_date_month=*/u"06",
                                        /*expiration_date_year=*/u"2035",
-                                       /*security_code=*/u"456")));
+                                       /*security_code=*/u"456",
+                                       /*nickname=*/u"My Card")));
 
   EXPECT_CALL(payments_autofill_client(), LoadRiskData)
       .WillOnce(RunOnceCallback<0>("some risk data"));
@@ -635,6 +641,11 @@ TEST_F(SaveAndFillManagerImplTest, OnUserDidDecideOnUploadSave_Accepted) {
   EXPECT_EQ(u"06", card_to_fill.GetRawInfo(CREDIT_CARD_EXP_MONTH));
   EXPECT_EQ(u"2035", card_to_fill.GetRawInfo(CREDIT_CARD_EXP_4_DIGIT_YEAR));
   EXPECT_EQ(u"456", card_to_fill.cvc());
+#if BUILDFLAG(IS_IOS)
+  EXPECT_EQ(u"My Card", card_to_fill.nickname());
+#else
+  EXPECT_EQ(card_to_fill.nickname(), std::u16string());
+#endif
 
   // Make sure that all strikes are cleared upon user acceptance.
   EXPECT_EQ(0, save_and_fill_strike_database.GetStrikes());
@@ -1192,6 +1203,85 @@ TEST_F(SaveAndFillManagerImplTest, UploadSaveOfferedForSupportedBinCard) {
       fill_card_callback.Get());
 
   EXPECT_TRUE(payments_data_manager().GetLocalCreditCards().empty());
+}
+
+TEST_F(SaveAndFillManagerImplTest, LogPaymentsRequestResult_Success) {
+  base::HistogramTester histogram_tester;
+  save_and_fill_manager().SetCreditCardUploadEnabledOverrideForTesting(true);
+
+  SetUpGetDetailsForCreateCardResponse(
+      PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
+      /*create_valid_legal_message=*/true);
+  save_and_fill_manager().OnDidAcceptCreditCardSaveAndFillSuggestion(
+      base::DoNothing());
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.SaveAndFill.GetDetailsForCreateCard.Result", /*sample=*/0,
+      /*expected_bucket_count=*/1);
+
+  SetUpUploadSaveAndFillDialogDecision(
+      CardSaveAndFillDialogUserDecision::kAccepted,
+      CreateUserProvidedCardDetails(
+          /*card_number=*/u"1111222233334444",
+          /*cardholder_name=*/u"Jane Smith",
+          /*expiration_date_month=*/u"06",
+          /*expiration_date_year=*/u"2035",
+          /*security_code=*/u"456"));
+
+  EXPECT_CALL(payments_autofill_client(), LoadRiskData)
+      .WillOnce(RunOnceCallback<0>("some risk data"));
+
+  SetUpCreateCardResponse(PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
+                          "112233445566L");
+
+  save_and_fill_manager().OnDidAcceptCreditCardSaveAndFillSuggestion(
+      base::DoNothing());
+
+  histogram_tester.ExpectUniqueSample("Autofill.SaveAndFill.CreateCard.Result",
+                                      /*sample=*/0,
+                                      /*expected_bucket_count=*/1);
+}
+
+TEST_F(SaveAndFillManagerImplTest, LogPaymentsRequestResult_Failure) {
+  base::HistogramTester histogram_tester;
+  save_and_fill_manager().SetCreditCardUploadEnabledOverrideForTesting(true);
+
+  SetUpGetDetailsForCreateCardResponse(
+      PaymentsAutofillClient::PaymentsRpcResult::kPermanentFailure,
+      /*create_valid_legal_message=*/true);
+  save_and_fill_manager().OnDidAcceptCreditCardSaveAndFillSuggestion(
+      base::DoNothing());
+
+  // Verifies that SaveAndFillPaymentsRequestResult::kFailure is logged.
+  histogram_tester.ExpectBucketCount(
+      "Autofill.SaveAndFill.GetDetailsForCreateCard.Result",
+      /*sample=*/1, /*expected_count=*/1);
+
+  // Preflight must succeed first to reach the CreateCard call.
+  SetUpGetDetailsForCreateCardResponse(
+      PaymentsAutofillClient::PaymentsRpcResult::kSuccess,
+      /*create_valid_legal_message=*/true);
+
+  SetUpUploadSaveAndFillDialogDecision(
+      CardSaveAndFillDialogUserDecision::kAccepted,
+      CreateUserProvidedCardDetails(
+          /*card_number=*/u"1111222233334444",
+          /*cardholder_name=*/u"Jane Smith",
+          /*expiration_date_month=*/u"06",
+          /*expiration_date_year=*/u"2035",
+          /*security_code=*/u"456"));
+
+  EXPECT_CALL(payments_autofill_client(), LoadRiskData)
+      .WillOnce(RunOnceCallback<0>("some risk data"));
+
+  SetUpCreateCardResponse(
+      PaymentsAutofillClient::PaymentsRpcResult::kPermanentFailure, "");
+
+  save_and_fill_manager().OnDidAcceptCreditCardSaveAndFillSuggestion(
+      base::DoNothing());
+
+  histogram_tester.ExpectBucketCount("Autofill.SaveAndFill.CreateCard.Result",
+                                     /*sample=*/1, /*expected_count=*/1);
 }
 
 }  // namespace autofill::payments

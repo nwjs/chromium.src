@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Записування зупинено. Не можна використовувати ігрову панель у режимі планшета.</translation>
 <translation id="1024364763893396229">Збережіть пристрій "<ph name="NAME" />"</translation>
 <translation id="1032891413405719768">Низький заряд акумулятора стилуса</translation>
-<translation id="1036073649888683237">Щоб керувати сповіщеннями, перейдіть у налаштування</translation>
 <translation id="1036348656032585052">Вимкнути</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> додано</translation>
 <translation id="1038106730571050514">Показувати пропозиції</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Установити додаток</translation>
 <translation id="2482878487686419369">Сповіщення</translation>
 <translation id="2484513351006226581">Натисніть комбінацію клавіш <ph name="KEYBOARD_SHORTCUT" />, щоб змінити розкладку клавіатури.</translation>
+<translation id="2485422356828889247">Видалити</translation>
 <translation id="2486214324139475545">Попередній огляд робочого столу "<ph name="DESK_NAME" />". Він активний.</translation>
 <translation id="2486405091093637109">Роздільну здатність дисплея "<ph name="DISPLAY_NAME" />" змінено на <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Гц). Якщо не підтвердити цю зміну, попередні налаштування відновляться через <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Приєднатися</translation>

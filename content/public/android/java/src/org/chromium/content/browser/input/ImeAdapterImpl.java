@@ -30,6 +30,7 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CorrectionInfo;
 import android.view.inputmethod.DeleteGesture;
@@ -65,6 +66,7 @@ import org.chromium.blink_public.web.WebInputEventModifier;
 import org.chromium.blink_public.web.WebTextInputMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.content.R;
 import org.chromium.content.browser.GestureListenerManagerImpl;
 import org.chromium.content.browser.RenderCoordinatesImpl;
 import org.chromium.content.browser.WindowEventObserver;
@@ -92,6 +94,7 @@ import org.chromium.ui.base.ime.TextInputType;
 import org.chromium.ui.mojom.ImeTextSpanType;
 import org.chromium.ui.mojom.VirtualKeyboardPolicy;
 import org.chromium.ui.mojom.VirtualKeyboardVisibilityRequest;
+import org.chromium.ui.widget.Toast;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
@@ -255,17 +258,15 @@ public class ImeAdapterImpl
 
     /**
      * Get {@link ImeAdapter} object used for the give WebContents. {@link #create()} should precede
-     * any calls to this.
+     * any calls to this. Returns null if the web contents are not initialized or if UserDataHost
+     * can't be found.
      *
      * @param webContents {@link WebContents} object.
      * @return {@link ImeAdapter} object.
      */
-    public static ImeAdapterImpl fromWebContents(WebContents webContents) {
-        ImeAdapterImpl ret =
-                webContents.getOrSetUserData(
-                        ImeAdapterImpl.class, UserDataFactoryLazyHolder.INSTANCE);
-        assert ret != null;
-        return ret;
+    public static @Nullable ImeAdapterImpl fromWebContents(WebContents webContents) {
+        return webContents.getOrSetUserData(
+                ImeAdapterImpl.class, UserDataFactoryLazyHolder.INSTANCE);
     }
 
     /** Returns an instance of the default {@link InputMethodManagerWrapper} */
@@ -567,12 +568,10 @@ public class ImeAdapterImpl
         mInputConnectionFactory = factory;
     }
 
-    @VisibleForTesting
     void setAutocorrectManagerForTesting(AutocorrectManager autocorrectManager) {
         mAutocorrectManager = autocorrectManager;
     }
 
-    @VisibleForTesting
     @Nullable AutocorrectManager getAutocorrectManagerForTesting() {
         return mAutocorrectManager;
     }
@@ -1578,16 +1577,43 @@ public class ImeAdapterImpl
                 immediateRequest, monitorRequest, getContainerView());
     }
 
+    @CalledByNative
+    void onCommitContentResult(boolean success) {
+        if (!success) {
+            try {
+                // If the rich content commit fails, display the failure message.
+                Toast.makeText(
+                                getContainerView().getContext(),
+                                R.string.rich_content_commit_failure_message,
+                                Toast.LENGTH_SHORT)
+                        .show();
+            } catch (WindowManager.BadTokenException e) {
+                Log.w(
+                        TAG,
+                        "Failed to display message toast to notify the rich content commit"
+                                + " failure.");
+            }
+        }
+    }
+
     /**
      * Sends rich content into the current focused text field
      *
-     * @param inputContentInfo information about the rich content to be inserted
+     * @param bytes binary data of therich content to be inserted
+     * @param extension the file extension of the rich content to be inserted
      * @return whether the insertion is successful.
      */
-    boolean commitContent(String dataUrl) {
+    boolean commitContent(byte[] bytes, String extension) {
         onImeEvent();
-        if (!isValid()) return false;
-        return ImeAdapterImplJni.get().insertMediaFromURL(mNativeImeAdapterAndroid, dataUrl);
+        if (isValid()
+                && ImeAdapterImplJni.get()
+                        .insertMediaFromBytes(mNativeImeAdapterAndroid, bytes, extension)) {
+            return true;
+
+        } else {
+            onCommitContentResult(false);
+            return false;
+        }
     }
 
     /** Lazily creates/returns a StylusWritingImeCallback object. */
@@ -2004,7 +2030,7 @@ public class ImeAdapterImpl
                 String text,
                 int newCursorPosition);
 
-        boolean insertMediaFromURL(long nativeImeAdapterAndroid, String url);
+        boolean insertMediaFromBytes(long nativeImeAdapterAndroid, byte[] bytes, String extension);
 
         void finishComposingText(long nativeImeAdapterAndroid);
 

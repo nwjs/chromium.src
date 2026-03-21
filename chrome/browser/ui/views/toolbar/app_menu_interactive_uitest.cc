@@ -17,7 +17,6 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_model_observer.h"
-#include "components/commerce/core/commerce_feature_list.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -79,11 +78,7 @@ class AppMenuDragAndDropInteractiveTest : public InteractiveBrowserTest {
   using DragObserver =
       views::test::PollingViewObserver<bool, views::MenuItemView>;
 
-  AppMenuDragAndDropInteractiveTest() {
-    // Disabled to hide the comparison tables submenu.
-    scoped_feature_list_.InitAndDisableFeature(
-        commerce::kProductSpecifications);
-  }
+  AppMenuDragAndDropInteractiveTest() = default;
 
   ~AppMenuDragAndDropInteractiveTest() override = default;
   AppMenuDragAndDropInteractiveTest(const AppMenuDragAndDropInteractiveTest&) =
@@ -302,10 +297,7 @@ IN_PROC_BROWSER_TEST_F(AppMenuInteractiveTest, DoNotCrashOnBrowserClose) {
   RunTestSequence(
       // Open the App menu.
       PressButton(kToolbarAppMenuButtonElementId),
-      // Close all browsers, ensure the browser process does not crash.
-      Do([]() {
-        ui_test_utils::BrowserDestroyedObserver observer;
-        chrome::CloseAllBrowsers();
-        observer.Wait();
-      }));
+      // Close the browser, ensure the browser process does not crash.
+      Do([this]() { browser()->GetWindow()->Close(); }),
+      WaitForHide(kBrowserViewElementId));
 }

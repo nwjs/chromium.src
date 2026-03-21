@@ -37,6 +37,9 @@ namespace actor {
 actor_login::Credential MakeTestCredential(const std::u16string& username,
                                            const GURL& url,
                                            bool immediately_available_to_login);
+actor_login::Credential MakeTestCredentialFederated(
+    const std::u16string& username,
+    const GURL& url);
 
 class MockActorLoginService : public actor_login::ActorLoginService {
  public:
@@ -93,6 +96,7 @@ class ActorToolsTest : public PlatformBrowserTest {
   tabs::TabInterface* active_tab();
   content::RenderFrameHost* main_frame();
   ExecutionEngine& execution_engine();
+  ActorKeyedService& actor_keyed_service() const;
   ActorTask& actor_task() const;
 
   void GetPageApc();

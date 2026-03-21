@@ -110,6 +110,7 @@ inline constexpr char kLinkedAppIcons[] = "app.linked_icons";
 inline constexpr char kManifestVersion[] = "manifest_version";
 inline constexpr char kInMainWorld[] = "in_main_world";
 inline constexpr char kMatches[] = "matches";
+inline constexpr char kMessageSerialization[] = "message_serialization";
 inline constexpr char kMIMETypes[] = "mime_types";
 inline constexpr char kMimeTypesHandler[] = "mime_types_handler";
 inline constexpr char kMinimumChromeVersion[] = "minimum_chrome_version";
@@ -195,6 +196,9 @@ inline constexpr char kActionCommandEvent[] = "_execute_action";
 inline constexpr char kBrowserActionCommandEvent[] = "_execute_browser_action";
 inline constexpr char kLaunchContainerPanelDeprecated[] = "panel";
 inline constexpr char kLaunchContainerTab[] = "tab";
+inline constexpr char kMessageSerializationStructuredClone[] =
+    "structured_clone";
+inline constexpr char kMessageSerializationJson[] = "json";
 inline constexpr char kPageActionCommandEvent[] = "_execute_page_action";
 
 }  // namespace manifest_values
@@ -484,6 +488,9 @@ inline constexpr char kInvalidManifestVersionMissingKey[] =
 inline constexpr char kInvalidManifestVersionUnsupported[] =
     "Invalid value for 'manifest_version'. Must be an integer *. "
     "See developer.chrome.com/*/manifestVersion for details.";
+inline constexpr char kInvalidMessageSerialization[] =
+    "Invalid value for 'message_serialization'. Must be 'json' or "
+    "'structured_clone'.";
 inline constexpr char kInvalidMatch[] =
     "Invalid value for 'content_scripts[*].matches[*]': *";
 inline constexpr char kInvalidInMainWorld[] =
@@ -730,6 +737,8 @@ inline constexpr char16_t
         "persistent background page.";
 inline constexpr char kUnrecognizedManifestKey[] =
     "Unrecognized manifest key '*'.";
+inline constexpr char kVersionFormatting[] =
+    "The extension version is parsed as '%s'.";
 inline constexpr char16_t kWebRequestConflictsWithLazyBackground[] =
     u"The 'webRequest' API cannot be used with event pages.";
 #if BUILDFLAG(IS_CHROMEOS)

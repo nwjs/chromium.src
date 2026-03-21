@@ -21,6 +21,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
@@ -630,20 +631,27 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       (aim_eligible || ntp_composebox::IsNtpComposeboxEnabled(profile)));
 
   if (ntp_realbox::IsNtpRealboxNextEnabled(profile)) {
-    switch (ntp_realbox::kSteadyPlaceholder.Get()) {
-      case ntp_realbox::PlaceholderText::ASK_OR_TYPE:
-        source->AddString("searchBoxPlaceholder",
-                          l10n_util::GetStringFUTF16(
-                              IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT, u"Google"));
-        break;
-      case ntp_realbox::PlaceholderText::ASK:
-        source->AddLocalizedString(
-            "searchBoxPlaceholder",
-            IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_ASK_GOOGLE);
-        break;
-      default:
-        NOTREACHED();
+    if (ntp_realbox::kCyclingPlaceholders.Get()) {
+      source->AddLocalizedString(
+          "searchBoxPlaceholder",
+          IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_ASK_GOOGLE);
+    } else {
+      switch (ntp_realbox::kSteadyPlaceholder.Get()) {
+        case ntp_realbox::PlaceholderText::ASK_OR_TYPE:
+          source->AddString("searchBoxPlaceholder",
+                            l10n_util::GetStringFUTF16(
+                                IDS_WEBUI_OMNIBOX_PLACEHOLDER_TEXT, u"Google"));
+          break;
+        case ntp_realbox::PlaceholderText::ASK:
+          source->AddLocalizedString(
+              "searchBoxPlaceholder",
+              IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_ASK_GOOGLE);
+          break;
+        default:
+          NOTREACHED();
+      }
     }
+
   } else {
     source->AddLocalizedString("searchBoxPlaceholder",
                                IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MD);
@@ -1312,17 +1320,16 @@ void NewTabPageUI::OnColorProviderChanged() {
 
 void NewTabPageUI::OnCustomBackgroundImageUpdated() {
   base::DictValue update;
-  url::RawCanonOutputT<char> encoded_url;
   auto custom_background_url =
       (ntp_custom_background_service_
            ? ntp_custom_background_service_->GetCustomBackground()
            : std::optional<CustomBackground>())
           .value_or(CustomBackground())
           .custom_background_url;
-  url::EncodeURIComponent(custom_background_url.spec(), &encoded_url);
+  url::UriComponentEncoder encoded_url(custom_background_url.spec());
   update.Set(
       "backgroundImageUrl",
-      encoded_url.length() > 0
+      encoded_url.view().length() > 0
           ? base::StrCat(
                 {"chrome-untrusted://new-tab-page/custom_background_image?url=",
                  encoded_url.view()})

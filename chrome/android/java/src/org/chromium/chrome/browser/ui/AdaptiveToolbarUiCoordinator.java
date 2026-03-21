@@ -6,11 +6,14 @@ package org.chromium.chrome.browser.ui;
 
 import static org.chromium.build.NullUtil.assertNonNull;
 
+import android.app.Activity;
 import android.content.Context;
 
 import androidx.appcompat.content.res.AppCompatResources;
 
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
@@ -52,10 +55,12 @@ import org.chromium.chrome.browser.toolbar.adaptive.TranslateToolbarButtonContro
 import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.signin.SigninFeatureMap;
+import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
@@ -69,8 +74,11 @@ import java.util.function.Supplier;
 @NullMarked
 public class AdaptiveToolbarUiCoordinator {
     private final Context mContext;
+    // TODO(crbug.com/475144764): Use Context instead of Activity once sign-in launcher is
+    // refactored.
+    private final Activity mActivity;
     private final ActivityTabProvider mActivityTabProvider;
-    private final Supplier<ModalDialogManager> mModalDialogManagerSupplier;
+    private final NonNullObservableSupplier<ModalDialogManager> mModalDialogManagerSupplier;
 
     private List<ButtonDataProvider> mButtonDataProviders;
     private CurrentTabPriceTrackingStateSupplier mCurrentTabPriceTrackingStateSupplier;
@@ -86,15 +94,16 @@ public class AdaptiveToolbarUiCoordinator {
     /**
      * Constructor.
      *
-     * @param context {@link Context} object.
+     * @param activity {@link Activity} object.
      * @param activityTabProvider {@link ActivityTabProvider} instance.
      * @param modalDialogManagerSupplier Provides access to the modal dialog manager.
      */
     public AdaptiveToolbarUiCoordinator(
-            Context context,
+            Activity activity,
             ActivityTabProvider activityTabProvider,
-            Supplier<ModalDialogManager> modalDialogManagerSupplier) {
-        mContext = context;
+            NonNullObservableSupplier<ModalDialogManager> modalDialogManagerSupplier) {
+        mContext = activity;
+        mActivity = activity;
         mActivityTabProvider = activityTabProvider;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mButtonDataProviders = List.of();
@@ -120,6 +129,8 @@ public class AdaptiveToolbarUiCoordinator {
             MonotonicObservableSupplier<ShareDelegate> shareDelegateSupplier,
             Runnable onShareRunnable,
             WindowAndroid windowAndroid,
+            ActivityResultTracker activityResultTracker,
+            DeviceLockActivityLauncher deviceLockActivityLauncher,
             Supplier<@Nullable Tracker> trackerSupplier,
             Supplier<ScrimManager> scrimSupplier,
             Supplier<@Nullable ReaderModeIphController> readerModeIphControllerSupplier) {
@@ -235,7 +246,15 @@ public class AdaptiveToolbarUiCoordinator {
             mButtonDataProviders = List.of(adaptiveToolbarButtonController);
         } else {
             IdentityDiscController identityDiscController =
-                    new IdentityDiscController(mContext, profileSupplier);
+                    new IdentityDiscController(
+                            mActivity,
+                            windowAndroid,
+                            activityResultTracker,
+                            deviceLockActivityLauncher,
+                            profileSupplier,
+                            bottomSheetController,
+                            mModalDialogManagerSupplier.get(),
+                            snackbarManagerSupplier.get());
             mButtonDataProviders = List.of(identityDiscController, adaptiveToolbarButtonController);
         }
     }
@@ -256,7 +275,7 @@ public class AdaptiveToolbarUiCoordinator {
      * @param trackerSupplier Supplies {@link Tracker} object.
      */
     public void addVoiceSearchAdaptiveButton(
-            Supplier<VoiceRecognitionHandler> voiceRecognitionHandler,
+            Supplier<@Nullable VoiceRecognitionHandler> voiceRecognitionHandler,
             Supplier<@Nullable Tracker> trackerSupplier) {
         var voiceSearchDelegate =
                 new VoiceToolbarButtonController.VoiceSearchDelegate() {
@@ -271,7 +290,9 @@ public class AdaptiveToolbarUiCoordinator {
                         if (voiceRecognitionHandler.get() == null) return;
                         voiceRecognitionHandler
                                 .get()
-                                .startVoiceRecognition(VoiceInteractionSource.TOOLBAR);
+                                .startVoiceRecognition(
+                                        VoiceInteractionSource.TOOLBAR,
+                                        CallbackUtils.emptyRunnable());
                     }
                 };
         mVoiceToolbarButtonController =

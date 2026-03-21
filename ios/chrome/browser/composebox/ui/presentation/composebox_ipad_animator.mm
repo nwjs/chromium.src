@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/composebox/ui/presentation/composebox_ipad_animator.h"
 
 #import "base/time/time.h"
+#import "ios/chrome/browser/composebox/ui/composebox_ui_constants.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 
@@ -41,6 +42,14 @@ base::TimeDelta kAnimationDuration = base::Seconds(0.3);
     CGRect finalFrame =
         [transitionContext finalFrameForViewController:toViewController];
     CGRect initialFrame = omniboxFrame;
+    if (self.shouldUseLargeLayout) {
+      initialFrame = CGRectMake(
+          omniboxFrame.origin.x - kComposeboxOmniboxLayoutGuideHorizontalMargin,
+          omniboxFrame.origin.y,
+          omniboxFrame.size.width + kInputPlateMargin * 2,
+          omniboxFrame.size.height);
+    }
+
     toViewController.view.frame = initialFrame;
 
     [UIView animateWithDuration:[self transitionDuration:transitionContext]
@@ -57,16 +66,9 @@ base::TimeDelta kAnimationDuration = base::Seconds(0.3);
         }];
 
   } else {
-    LayoutGuideCenter* layoutGuideCenter = self.layoutGuideCenter;
-    UIView* topOmnibox =
-        [layoutGuideCenter referencedViewUnderName:kTopOmniboxGuide];
-    CGRect omniboxFrame = [topOmnibox convertRect:topOmnibox.bounds
-                                           toView:containerView];
-
     [UIView animateWithDuration:[self transitionDuration:transitionContext]
         animations:^{
           fromViewController.view.alpha = 0;
-          fromViewController.view.frame = omniboxFrame;
         }
         completion:^(BOOL finished) {
           [fromViewController.view removeFromSuperview];

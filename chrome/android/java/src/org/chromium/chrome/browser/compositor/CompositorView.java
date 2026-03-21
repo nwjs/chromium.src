@@ -4,6 +4,9 @@
 
 package org.chromium.chrome.browser.compositor;
 
+import static androidx.core.view.WindowInsetsCompat.Type.displayCutout;
+import static androidx.core.view.WindowInsetsCompat.Type.systemBars;
+
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
@@ -18,6 +21,8 @@ import android.view.View;
 import android.view.Window;
 import android.widget.FrameLayout;
 import android.window.InputTransferToken;
+
+import androidx.core.graphics.Insets;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
@@ -61,6 +66,7 @@ public class CompositorView extends FrameLayout
                 WindowAndroid.SelectionHandlesObserver {
     // Cache objects that should not be created every frame
     private final Rect mCacheAppRect = new Rect();
+    private @Nullable Insets mCachedWindowInsets;
 
     private CompositorSurfaceManager mCompositorSurfaceManager;
     private boolean mOverlayVideoEnabled;
@@ -98,6 +104,7 @@ public class CompositorView extends FrameLayout
     private boolean mHaveSwappedFramesSinceSurfaceCreated;
 
     private @Nullable Integer mSurfaceId;
+    private boolean mHasActiveTouchInterceptors;
 
     // On P and above, toggling the screen off gets us in a state where the Surface is destroyed but
     // it is never recreated when it is turned on again. This is the only workaround that seems to
@@ -186,6 +193,16 @@ public class CompositorView extends FrameLayout
         mRootView = view;
     }
 
+    private @Nullable Insets getLastRawSystemWindowInsets() {
+        if (mWindowAndroid == null) return null;
+        if (mWindowAndroid.getInsetObserver() == null) return null;
+        if (mWindowAndroid.getInsetObserver().getLastRawWindowInsets() == null) return null;
+        return mWindowAndroid
+                .getInsetObserver()
+                .getLastRawWindowInsets()
+                .getInsets(systemBars() + displayCutout());
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (mRootView != null) {
@@ -200,6 +217,18 @@ public class CompositorView extends FrameLayout
             int windowTop = mCacheAppRect.top;
             boolean topChanged = windowTop != mPreviousWindowTop;
             mPreviousWindowTop = windowTop;
+
+            // Check whether the system bars or display cutout have changed. This will indicate
+            // certain changes (e.g. leaving fullscreen) that are not caught on certain devices due
+            // to the underlying implementation of View#getWindowVisibleDisplayFrame() on certain
+            // devices / Android versions.
+            @Nullable Insets latestSystemInsets = getLastRawSystemWindowInsets();
+            boolean systemInsetsChanged =
+                    mCachedWindowInsets == null || !mCachedWindowInsets.equals(latestSystemInsets);
+            mCachedWindowInsets = latestSystemInsets;
+            if (ChromeFeatureList.sCompositorViewRemeasureFix.isEnabled()) {
+                topChanged |= systemInsetsChanged;
+            }
 
             Activity activity = mWindowAndroid != null ? mWindowAndroid.getActivity().get() : null;
             boolean isMultiWindow = MultiWindowUtils.getInstance().isInMultiWindowMode(activity);
@@ -386,8 +415,19 @@ public class CompositorView extends FrameLayout
         createCompositorSurfaceManager();
     }
 
+    @SuppressWarnings("NewApi")
+    public void setHasActiveTouchInterceptors(boolean hasActiveTouchInterceptors) {
+        mHasActiveTouchInterceptors = hasActiveTouchInterceptors;
+        if (InputUtils.isTransferInputToVizSupported() && mSurfaceId != null) {
+            InputTransferHandler handler = SurfaceInputTransferHandlerMap.getMap().get(mSurfaceId);
+            assert handler != null;
+            handler.setHasActiveTouchInterceptors(hasActiveTouchInterceptors);
+        }
+    }
+
     /**
      * Enables/disables immersive VR overlay mode, a variant of overlay video mode.
+     *
      * @param enabled Whether to enter or leave overlay immersive vr mode.
      */
     public void setOverlayVrMode(boolean enabled) {
@@ -510,7 +550,8 @@ public class CompositorView extends FrameLayout
                 && surfaceId != null
                 && browserInputToken != null) {
             InputTransferHandler handler =
-                    new InputTransferHandler(browserInputToken, mWindowAndroid);
+                    new InputTransferHandler(
+                            browserInputToken, mWindowAndroid, mHasActiveTouchInterceptors);
 
             assert mSurfaceId == null;
             mSurfaceId = surfaceId;
@@ -591,10 +632,11 @@ public class CompositorView extends FrameLayout
 
     /**
      * Notifies geometrychange event to JS.
+     *
      * @param webContents Active WebContent for which this event needs to be fired.
      * @param x When the keyboard is shown, it has the left position of the app's rect, else, 0.
      * @param y When the keyboard is shown, it has the top position of the app's rect, else, 0.
-     * @param width  When the keyboard is shown, it has the width of the view, else, 0.
+     * @param width When the keyboard is shown, it has the width of the view, else, 0.
      * @param height When the keyboard is shown, it has the height of the keyboard, else, 0.
      */
     void notifyVirtualKeyboardOverlayRect(

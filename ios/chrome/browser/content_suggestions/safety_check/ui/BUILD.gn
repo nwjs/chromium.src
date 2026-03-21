@@ -5,17 +5,14 @@
 source_set("ui") {
   sources = [
     "safety_check_audience.h",
-    "safety_check_consumer_source.h",
-    "safety_check_magic_stack_consumer.h",
-    "safety_check_state.h",
-    "safety_check_state.mm",
+    "safety_check_config.h",
+    "safety_check_config.mm",
     "safety_check_view.h",
     "safety_check_view.mm",
   ]
   public_deps = [
     "//base",
-    "//ios/chrome/browser/content_suggestions/magic_stack/ui:public",
-    "//ios/chrome/browser/ntp/ui_bundled:theme",
+    "//ios/chrome/browser/content_suggestions/ui/cells:icon_detail_view",
   ]
   deps = [
     ":item_types",
@@ -26,7 +23,7 @@ source_set("ui") {
     "//ios/chrome/browser/content_suggestions/safety_check/model:utils",
     "//ios/chrome/browser/content_suggestions/safety_check/public:constants",
     "//ios/chrome/browser/content_suggestions/ui/cells",
-    "//ios/chrome/browser/content_suggestions/ui/cells:icon_detail_view",
+    "//ios/chrome/browser/ntp/ui_bundled:theme",
     "//ios/chrome/browser/safety_check/model:constants",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/symbols",
@@ -54,6 +51,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/content_suggestions/safety_check/public:constants",
     "//ios/chrome/browser/content_suggestions/ui/cells:icon_detail_view",
     "//ios/chrome/browser/safety_check/model:constants",
+    "//ios/chrome/test/app:test_support",
     "//testing/gtest",
   ]
   frameworks = [ "Foundation.framework" ]

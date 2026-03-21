@@ -38,6 +38,11 @@ declare namespace chrome {
     let endNodeId: number;
     let endOffset: number;
 
+    // If the selection from the main content is considered "valid." It's
+    // possible to receive bad selection data from the accessibility tree in
+    // the renderer. If this happens, the selection should be ignored.
+    let hasValidSelection: boolean;
+
     // The current style theme values.
     let fontName: string;
     let fontSize: number;
@@ -54,8 +59,11 @@ declare namespace chrome {
     let speechRate: number;
     let highlightGranularity: number;
 
-    // Current line focus value.
-    let lineFocus: number;
+    // The last line focus value used when it was on.
+    let lastNonDisabledLineFocus: number;
+    // Whether line focus is currently on. i.e. it is in a mode other than off.
+    // The feature flag check is separate under isLineFocusEnabled.
+    let isLineFocusOn: boolean;
 
     // Enum values for various visual theme changes.
     let standardLineSpacing: number;
@@ -70,11 +78,10 @@ declare namespace chrome {
     let yellowTheme: number;
     let blueTheme: number;
     let highContrastTheme: number;
-    let lowContrastTheme: number;
-    let sepiaLightTheme: number;
-    let sepiaDarkTheme: number;
+    let lowContrastLightTheme: number;
+    let lowContrastDarkTheme: number;
     let undefinedPresentationState: number;
-    let hiddenPresentationState: number;
+    let inHiddenPresentationState: number;
     let inSidePanelPresentationState: number;
     let inImmersiveOverlayPresentationState: number;
     let autoHighlighting: number;
@@ -107,9 +114,6 @@ declare namespace chrome {
 
     // Whether Read Anything is pinned to the toolbar.
     let isReadAnythingPinned: boolean;
-
-    // Whether the Read Aloud feature flag is enabled.
-    let isReadAloudEnabled: boolean;
 
     // Whether the TS text segmentation feature flag is enabled.
     let isTsTextSegmentationEnabled: boolean;

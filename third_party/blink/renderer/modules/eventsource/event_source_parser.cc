@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/modules/eventsource/event_source.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/ascii_ctype.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_to_number.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -31,7 +32,7 @@ void EventSourceParser::AddBytes(base::span<const char> bytes) {
     // break separately.
     if (is_recognizing_bom_ && line_.size() + (i - start) == std::size(kBOM)) {
       Vector<char> line = line_;
-      line.AppendSpan(bytes.subspan(start, i - start));
+      line.append_range(bytes.subspan(start, i - start));
       DCHECK_EQ(line.size(), std::size(kBOM));
       is_recognizing_bom_ = false;
       if (base::as_byte_span(line) == base::span(kBOM)) {
@@ -48,7 +49,7 @@ void EventSourceParser::AddBytes(base::span<const char> bytes) {
     }
     is_recognizing_crlf_ = false;
     if (bytes[i] == '\r' || bytes[i] == '\n') {
-      line_.AppendSpan(bytes.subspan(start, i - start));
+      line_.append_range(bytes.subspan(start, i - start));
       ParseLine();
       line_.clear();
       start = i + 1;
@@ -58,7 +59,7 @@ void EventSourceParser::AddBytes(base::span<const char> bytes) {
   }
   if (is_stopped_)
     return;
-  line_.AppendSpan(bytes.subspan(start));
+  line_.append_range(bytes.subspan(start));
 }
 
 void EventSourceParser::ParseLine() {
@@ -94,7 +95,7 @@ void EventSourceParser::ParseLine() {
     return;
   }
   if (field_name == "data") {
-    data_.AppendSpan(field_value);
+    data_.append_range(field_value);
     data_.push_back('\n');
     return;
   }
@@ -110,10 +111,11 @@ void EventSourceParser::ParseLine() {
     if (field_value.empty()) {
       client_->OnReconnectionTimeSet(EventSource::kDefaultReconnectDelay);
     } else if (has_only_digits) {
-      bool ok;
-      auto reconnection_time = FromUTF8(field_value).ToUInt64Strict(&ok);
-      if (ok)
-        client_->OnReconnectionTimeSet(reconnection_time);
+      auto reconnection_time =
+          StringToUint64(FromUTF8(field_value), NumberParsingOptions::Strict());
+      if (reconnection_time) {
+        client_->OnReconnectionTimeSet(*reconnection_time);
+      }
     }
     return;
   }

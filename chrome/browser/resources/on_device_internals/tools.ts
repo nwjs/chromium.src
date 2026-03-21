@@ -19,8 +19,7 @@ import type {FilePath} from '//resources/mojo/mojo/public/mojom/base/file_path.m
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
 import {BrowserProxy} from './browser_proxy.js';
-import type {AudioData, Capabilities, InputPiece, ResponseChunk, ResponseSummary} from './on_device_model.mojom-webui.js';
-import {LoadModelResult, OnDeviceModelRemote, PerformanceClass, SessionRemote, StreamingResponderCallbackRouter, Token} from './on_device_model.mojom-webui.js';
+import {type AudioData, type Capabilities, type InputPiece, InputSource, LoadModelResult, OnDeviceModelRemote, PerformanceClass, type ResponseChunk, type ResponseSummary, SessionRemote, StreamingResponderCallbackRouter, Token} from './on_device_model.mojom-webui.js';
 import {ModelPerformanceHint} from './on_device_model_service.mojom-webui.js';
 import {getCss} from './tools.css.js';
 import {getHtml} from './tools.html.js';
@@ -329,13 +328,18 @@ class OnDeviceInternalsToolsElement extends CrLitElement {
         {
           maxTokens: 0,
           input: {pieces: textToInputPieces(this.contextText_)},
+          inputSource: InputSource.kUserInput,
         },
         null);
     this.contextLength_ += this.contextText_.split(/(\s+)/).length;
     this.contextText_ = '';
   }
 
-  protected startNewSession_() {
+  protected onStartNewSessionClick_() {
+    this.startNewSession_();
+  }
+
+  private startNewSession_() {
     if (this.model_ === null) {
       return;
     }
@@ -446,6 +450,7 @@ class OnDeviceInternalsToolsElement extends CrLitElement {
         {
           maxTokens: 0,
           input: {pieces: pieces},
+          inputSource: InputSource.kUserInput,
         },
         null);
     clonedSession.generate(
@@ -524,23 +529,24 @@ class OnDeviceInternalsToolsElement extends CrLitElement {
     this.contextExpanded_ = e.detail.value;
   }
 
-  protected onContextTextChanged_(e: CustomEvent<{value: string}>) {
+  protected onContextTextValueChanged_(e: CustomEvent<{value: string}>) {
     this.contextText_ = e.detail.value;
   }
 
-  protected onTextChanged_(e: CustomEvent<{value: string}>) {
+  protected onTextValueChanged_(e: CustomEvent<{value: string}>) {
     this.text_ = e.detail.value;
   }
 
-  protected onTopKChanged_(e: CustomEvent<{value: number}>) {
+  protected onTopKValueChanged_(e: CustomEvent<{value: number}>) {
     this.topK_ = e.detail.value;
   }
 
-  protected onTemperatureChanged_(e: CustomEvent<{value: number}>) {
+  protected onTemperatureValueChanged_(e: CustomEvent<{value: number}>) {
     this.temperature_ = e.detail.value;
   }
 
-  protected onUsePlatformModelChanged_(e: CustomEvent<{value: boolean}>) {
+  protected onUsePlatformModelCheckedChanged_(
+      e: CustomEvent<{value: boolean}>) {
     this.usePlatformModel_ = e.detail.value;
   }
 }

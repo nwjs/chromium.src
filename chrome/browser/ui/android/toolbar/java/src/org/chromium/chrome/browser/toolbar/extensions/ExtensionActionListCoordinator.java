@@ -6,9 +6,10 @@ package org.chromium.chrome.browser.toolbar.extensions;
 
 import android.content.Context;
 import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.recyclerview.widget.ItemTouchHelper;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.lifetime.Destroyable;
@@ -25,6 +26,8 @@ import org.chromium.chrome.browser.ui.extensions.R;
 import org.chromium.components.browser_ui.widget.dragreorder.DragReorderableRecyclerViewAdapter;
 import org.chromium.components.browser_ui.widget.dragreorder.DragTouchHandler.DragListener;
 import org.chromium.components.browser_ui.widget.dragreorder.DragTouchHandler.DraggabilityProvider;
+import org.chromium.components.embedder_support.contextmenu.ContextMenuPopulatorFactory;
+import org.chromium.content_public.browser.selection.SelectionDropdownMenuDelegate;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.listmenu.ListMenuButton;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -36,12 +39,19 @@ import org.chromium.ui.modelutil.PropertyModel;
  */
 @NullMarked
 public class ExtensionActionListCoordinator implements Destroyable {
+    /** Provider for extension action button views. */
+    public interface ActionAnchorViewProvider {
+        @Nullable View getButtonViewForId(String actionId);
+    }
+
     private final Context mContext;
     private final ExtensionActionListRecyclerView mContainer;
     private final ModelList mModels;
     private final ExtensionActionListMediator mMediator;
     private final DragReorderableRecyclerViewAdapter mAdapter;
     @Nullable private final LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
+
+    private boolean mIsDragging;
 
     public ExtensionActionListCoordinator(
             Context context,
@@ -50,7 +60,10 @@ public class ExtensionActionListCoordinator implements Destroyable {
             ChromeAndroidTask task,
             Profile profile,
             NullableObservableSupplier<Tab> currentTabSupplier,
-            ExtensionsToolbarBridge extensionsToolbarBridge) {
+            ExtensionsToolbarBridge extensionsToolbarBridge,
+            ViewGroup rootView,
+            @Nullable ContextMenuPopulatorFactory contextMenuPopulatorFactory,
+            @Nullable SelectionDropdownMenuDelegate selectionDropdownMenuDelegate) {
         mContext = context;
         mContainer = container;
 
@@ -63,8 +76,10 @@ public class ExtensionActionListCoordinator implements Destroyable {
                         task,
                         profile,
                         currentTabSupplier,
-                        container,
-                        extensionsToolbarBridge);
+                        this::getButtonViewForId,
+                        extensionsToolbarBridge,
+                        contextMenuPopulatorFactory,
+                        selectionDropdownMenuDelegate);
 
         ExtensionsToolbarDragTouchHandler dragTouchHandler =
                 new ExtensionsToolbarDragTouchHandler(context, mModels);
@@ -97,20 +112,18 @@ public class ExtensionActionListCoordinator implements Destroyable {
         dragTouchHandler.addDragListener(
                 new DragListener() {
                     @Override
+                    public void onDragStateChange(boolean drag) {
+                        mIsDragging = drag;
+                    }
+
+                    @Override
                     public void onSwap(int targetIndex) {
                         mMediator.onActionsSwapped(targetIndex);
                     }
                 });
 
-        mContainer.setLayoutManager(
-                new LinearLayoutManager(
-                        context, LinearLayoutManager.HORIZONTAL, /* reverseLayout= */ false) {
-                    @Override
-                    public boolean canScrollHorizontally() {
-                        return false;
-                    }
-                });
         mContainer.setAdapter(mAdapter);
+        mContainer.setTransitionRoot(rootView);
 
         mAdapter.enableDrag();
     }
@@ -124,19 +137,44 @@ public class ExtensionActionListCoordinator implements Destroyable {
 
     /** Performs a click on the button for the given action. */
     public void click(String actionId) {
+        View view = getButtonViewForId(actionId);
+        if (view != null) {
+            view.performClick();
+        }
+    }
+
+    @Nullable
+    private View getButtonViewForId(String actionId) {
         for (int i = 0; i < mModels.size(); i++) {
-            if (mModels.get(i).model.get(ExtensionActionButtonProperties.ID).equals(actionId)) {
+            PropertyModel model = mModels.get(i).model;
+            if (actionId.equals(model.get(ExtensionActionButtonProperties.ID))) {
                 RecyclerView.ViewHolder holder = mContainer.findViewHolderForAdapterPosition(i);
                 if (holder == null) {
-                    // TODO(crbug.com/478113313): Pop out action in so that the view exists for
-                    // non-pinned actions.
-                    return;
+                    // TODO(crbug.com/478113313): If the action is unpinned, pop it out to show
+                    // action popup.
+                    return null;
                 }
-
-                holder.itemView.performClick();
-                return;
+                return holder.itemView;
             }
         }
+        return null;
+    }
+
+    /**
+     * Updates the list of displayed actions to fit within the provided width constraint.
+     *
+     * @param availableWidth The maximum width available for the action list in pixels.
+     * @return The actual width of the action list after fitting the items.
+     */
+    public int fitActionsWithinWidth(int availableWidth) {
+        if (mIsDragging) {
+            // This method gets called when icons are being dragged, but we don't want width update
+            // to happen then.
+            return mContainer.getWidth();
+        }
+
+        mMediator.fitActionsWithinWidth(availableWidth);
+        return mContainer.getWidth();
     }
 
     private void bindDragProperties(

@@ -145,9 +145,14 @@ class Connection {
   Status status_;
 
   // The registered observers of the connection.
-  base::ObserverList<ConnectionObserver>::Unchecked observers_;
+  // TODO(crbug.com/484371187): Investigate if reentrancy can be removed.
+  base::ObserverList<
+      ConnectionObserver,
+      /*check_empty=*/false,
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>
+      observers_;
 
-  base::ObserverList<NearbyConnectionObserver>::Unchecked
+  base::ObserverList<NearbyConnectionObserver>
       nearby_connection_state_observers_;
 
   // A temporary buffer storing bytes received before a received message can be

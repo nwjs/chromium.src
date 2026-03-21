@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/core/css/css_page_rule.h"
 #include "third_party/blink/renderer/core/css/css_position_try_rule.h"
 #include "third_party/blink/renderer/core/css/css_property_rule.h"
+#include "third_party/blink/renderer/core/css/css_result_rule.h"
 #include "third_party/blink/renderer/core/css/css_route_rule.h"
 #include "third_party/blink/renderer/core/css/css_scope_rule.h"
 #include "third_party/blink/renderer/core/css/css_starting_style_rule.h"
@@ -65,6 +66,7 @@
 #include "third_party/blink/renderer/core/css/parser/css_parser_token_stream.h"
 #include "third_party/blink/renderer/core/css/parser/css_supports_parser.h"
 #include "third_party/blink/renderer/core/css/parser/css_tokenizer.h"
+#include "third_party/blink/renderer/core/css/parser/navigation_parser.h"
 #include "third_party/blink/renderer/core/css/style_rule_counter_style.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_feature_values.h"
 #include "third_party/blink/renderer/core/css/style_rule_font_palette_values.h"
@@ -192,6 +194,9 @@ void StyleRuleBase::Trace(Visitor* visitor) const {
     case kMixin:
       To<StyleRuleMixin>(this)->TraceAfterDispatch(visitor);
       return;
+    case kResult:
+      To<StyleRuleResult>(this)->TraceAfterDispatch(visitor);
+      return;
     case kApplyMixin:
       To<StyleRuleApplyMixin>(this)->TraceAfterDispatch(visitor);
       return;
@@ -293,6 +298,9 @@ void StyleRuleBase::FinalizeGarbageCollectedObject() {
       return;
     case kMixin:
       To<StyleRuleMixin>(this)->~StyleRuleMixin();
+      return;
+    case kResult:
+      To<StyleRuleResult>(this)->~StyleRuleResult();
       return;
     case kApplyMixin:
       To<StyleRuleApplyMixin>(this)->~StyleRuleApplyMixin();
@@ -428,6 +436,10 @@ CSSRule* StyleRuleBase::CreateCSSOMWrapper(wtf_size_t position_hint,
     case kMixin:
       rule = MakeGarbageCollected<CSSMixinRule>(To<StyleRuleMixin>(self),
                                                 parent_sheet);
+      break;
+    case kResult:
+      rule = MakeGarbageCollected<CSSResultRule>(To<StyleRuleResult>(self),
+                                                 parent_sheet);
       break;
     case kApplyMixin:
       rule = MakeGarbageCollected<CSSApplyMixinRule>(
@@ -669,6 +681,9 @@ StyleRuleBase* StyleRuleBase::Clone(
     }
     case kMixin:
       return CloneGroupRule(To<StyleRuleMixin>(this), new_parent,
+                            mixin_parameter_bindings);
+    case kResult:
+      return CloneGroupRule(To<StyleRuleResult>(this), new_parent,
                             mixin_parameter_bindings);
     case kApplyMixin: {
       auto* apply_rule = To<StyleRuleApplyMixin>(this);
@@ -1001,6 +1016,7 @@ StyleRuleSupports::StyleRuleSupports(const StyleRuleSupports& other,
 
 void StyleRuleSupports::SetConditionText(
     const ExecutionContext* execution_context,
+    StyleSheetContents* parent_sheet_contents,
     String value) {
   CSSParserTokenStream stream(value);
   auto* context = MakeGarbageCollected<CSSParserContext>(*execution_context);
@@ -1010,6 +1026,9 @@ void StyleRuleSupports::SetConditionText(
       CSSSupportsParser::ConsumeSupportsCondition(stream, parser);
   condition_text_ = value;
   condition_is_supported_ = result == CSSSupportsParser::Result::kSupported;
+  if (parent_sheet_contents) {
+    parent_sheet_contents->NotifyRuleChanged(this);
+  }
 }
 
 StyleRuleContainer::StyleRuleContainer(ContainerQuery& container_query,
@@ -1065,6 +1084,23 @@ void StyleRuleNavigation::TraceAfterDispatch(Visitor* v) const {
   StyleRuleCondition::TraceAfterDispatch(v);
 }
 
+void StyleRuleNavigation::SetConditionText(
+    const ExecutionContext* execution_context,
+    StyleSheetContents* parent_sheet_contents,
+    String value) {
+  CSSParserTokenStream stream(value);
+  auto* context = MakeGarbageCollected<CSSParserContext>(*execution_context);
+  NavigationQuery* query =
+      NavigationParser::ParseQuery(stream, *context->GetDocument());
+
+  if (query) {
+    navigation_query_ = query;
+    if (parent_sheet_contents) {
+      parent_sheet_contents->NotifyRuleChanged(this);
+    }
+  }
+}
+
 StyleRuleStartingStyle::StyleRuleStartingStyle(
     HeapVector<Member<StyleRuleBase>> rules)
     : StyleRuleGroup(kStartingStyle, std::move(rules)) {}
@@ -1107,6 +1143,17 @@ void StyleRuleMixin::TraceAfterDispatch(blink::Visitor* visitor) const {
   visitor->Trace(parameters_);
 }
 
+StyleRuleResult::StyleRuleResult(HeapVector<Member<StyleRuleBase>> child_rules)
+    : StyleRuleGroup(kResult, child_rules) {}
+
+StyleRuleResult::StyleRuleResult(const StyleRuleResult& other,
+                                 HeapVector<Member<StyleRuleBase>> child_rules)
+    : StyleRuleGroup(kResult, child_rules) {}
+
+void StyleRuleResult::TraceAfterDispatch(blink::Visitor* visitor) const {
+  StyleRuleGroup::TraceAfterDispatch(visitor);
+}
+
 void StyleRuleApplyMixin::TraceAfterDispatch(blink::Visitor* visitor) const {
   StyleRuleBase::TraceAfterDispatch(visitor);
   visitor->Trace(fake_parent_rule_for_declarations_);
@@ -1123,16 +1170,18 @@ StyleRuleCustomMedia::StyleRuleCustomMedia(AtomicString name,
                                            MediaQuerySet* media_query_set)
     : StyleRuleBase(kCustomMedia),
       name_(std::move(name)),
-      value_(media_query_set) {}
+      media_query_value_(media_query_set) {
+  CHECK(media_query_set);
+}
 
 StyleRuleCustomMedia::StyleRuleCustomMedia(AtomicString name, bool value)
-    : StyleRuleBase(kCustomMedia), name_(std::move(name)), value_(value) {}
+    : StyleRuleBase(kCustomMedia),
+      name_(std::move(name)),
+      boolean_value_(value) {}
 
 void StyleRuleCustomMedia::TraceAfterDispatch(blink::Visitor* visitor) const {
   StyleRuleBase::TraceAfterDispatch(visitor);
-  if (IsMediaQueryValue()) {
-    visitor->Trace(std::get<Member<const MediaQuerySet>>(value_));
-  }
+  visitor->Trace(media_query_value_);
 }
 
 unsigned MixinParameterBindings::ComputeHash() const {
@@ -1140,6 +1189,10 @@ unsigned MixinParameterBindings::ComputeHash() const {
   for (const auto& [key, value] : bindings_) {
     hash = HashInts(hash, HashInts(key.Impl()->GetHash(),
                                    value.value ? value.value->Hash() : 5678));
+  }
+  for (const auto& [key, value] : base_locals_) {
+    hash =
+        HashInts(hash, HashInts(key.Impl()->GetHash() ^ 4321, value->Hash()));
   }
   return hash;
 }
@@ -1149,7 +1202,15 @@ bool MixinParameterBindings::operator==(
   if (bindings_ != other.bindings_) {
     return false;
   }
+  if (base_locals_ != other.base_locals_) {
+    return false;
+  }
   return base::ValuesEquivalent(parent_mixin_, other.parent_mixin_);
+}
+
+void MixinParameterBindings::CQDependentValue::Trace(Visitor* visitor) const {
+  visitor->Trace(data);
+  visitor->Trace(container_query);
 }
 
 }  // namespace blink

@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/check_is_test.h"
+#include "base/debug/stack_trace.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/no_destructor.h"
@@ -24,7 +25,6 @@
 #include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
@@ -177,8 +177,8 @@ IsolatedWebAppTrustChecker::IsOperationAllowed(
     const web_package::SignedWebBundleId& web_bundle_id,
     bool dev_mode,
     const IwaOperation& operation) {
-  RETURN_IF_ERROR(CheckAgainstBlocklist(web_bundle_id));
   if (dev_mode) {
+    RETURN_IF_ERROR(CheckAgainstBlocklist(web_bundle_id));
     return EnsureDevModeEnabled(profile);
   }
 
@@ -190,11 +190,13 @@ IsolatedWebAppTrustChecker::IsOperationAllowed(
       absl::Overload{
           [&](const IwaInstallOperation& op)
               -> base::expected<void, std::string> {
+            RETURN_IF_ERROR(CheckAgainstBlocklist(web_bundle_id));
             return IsTrustedForManagementType(
                 profile, web_bundle_id,
                 ConvertInstallSurfaceToWebAppSource(op.source));
           },
           [&](const IwaUpdateOperation&) -> base::expected<void, std::string> {
+            RETURN_IF_ERROR(CheckAgainstBlocklist(web_bundle_id));
             ASSIGN_OR_RETURN(WebAppManagement::Type type,
                              GetHighestPrioritySource(profile, web_bundle_id));
             return IsTrustedForManagementType(profile, web_bundle_id, type);

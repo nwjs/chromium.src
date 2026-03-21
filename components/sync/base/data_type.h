@@ -194,7 +194,13 @@ enum DataType {
   // A gemini thread.
   GEMINI_THREAD,
 
-  LAST_USER_DATA_TYPE = GEMINI_THREAD,
+  // A theme object specifically for iOS devices.
+  THEMES_IOS,
+
+  // An accessibility annotation.
+  ACCESSIBILITY_ANNOTATION,
+
+  LAST_USER_DATA_TYPE = ACCESSIBILITY_ANNOTATION,
 
   // ---- Control Types ----
   // An object representing a set of Nigori keys.
@@ -301,7 +307,9 @@ enum class DataTypeForHistograms {
   kAutofillValuableMetadata = 75,
   kSkill = 76,
   kGeminiThread = 77,
-  kMaxValue = kGeminiThread,
+  kThemesIos = 78,
+  kAccessibilityAnnotation = 79,
+  kMaxValue = kAccessibilityAnnotation,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/sync/enums.xml:SyncDataTypes)
 
@@ -429,7 +437,7 @@ constexpr DataTypeSet SharedTypes() {
 // any pending account data or abort, depending on the platform.
 constexpr DataTypeSet TypesRequiringUnsyncedDataCheckOnSignout() {
   static_assert(
-      61 == GetNumDataTypes(),
+      63 == GetNumDataTypes(),
       "Add new types to `TypesRequiringUnsyncedDataCheckOnSignout()` if there "
       "should be a warning when the user signs out and the types have unsynced "
       "data. The warning offers the user to either proceed with sign-out "

@@ -13,6 +13,7 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
 #include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager_test_api.h"
@@ -194,6 +195,15 @@ class MockBrowserAutofillManager : public TestBrowserAutofillManager {
                const FieldGlobalId& field_id,
                const FillingPayload& filling_payload,
                AutofillTriggerSource trigger_source),
+              (override));
+  MOCK_METHOD(void,
+              FillOrPreviewFields,
+              (mojom::ActionPersistence action_persistence,
+               const FormData& form,
+               const FieldGlobalId& field_id,
+               const FillingPayload& filling_payload,
+               AutofillTriggerSource trigger_source,
+               const base::flat_set<FieldGlobalId>& blocked_fields),
               (override));
   MOCK_METHOD(void,
               FillOrPreviewField,
@@ -1227,7 +1237,7 @@ TEST_F(TouchToFillDelegateAndroidImplCreditCardUnitTest,
   // Simulate that the form was autofilled by other means
   FormStructure submitted_form(form_);
   for (const std::unique_ptr<AutofillField>& field : submitted_form) {
-    field->set_is_autofilled(true);
+    field->AddFieldModifier(FieldModifier::kAutofill);
   }
 
   touch_to_fill_delegate_->LogMetricsAfterSubmission(submitted_form);

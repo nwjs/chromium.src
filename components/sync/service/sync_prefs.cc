@@ -129,16 +129,13 @@ SyncPrefs::SyncPrefs(PrefService* pref_service)
                           base::Unretained(this)));
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-  if (base::FeatureList::IsEnabled(switches::kOfferMigrationToDiceUsers) ||
-      base::FeatureList::IsEnabled(switches::kRollbackDiceMigration)) {
-    // The explicit browser signin pref is used for determining whether some
-    // data types are selected by default. Therefore, upon a change, the
-    // selected types may change.
-    pref_change_registrar_.Add(
-        ::prefs::kExplicitBrowserSignin,
-        base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
-                            base::Unretained(this)));
-  }
+  // The explicit browser signin pref is used for determining whether some data
+  // types are selected by default. Therefore, upon a change, the selected types
+  //  may change.
+  pref_change_registrar_.Add(
+      ::prefs::kExplicitBrowserSignin,
+      base::BindRepeating(&SyncPrefs::OnSelectedTypesPrefChanged,
+                          base::Unretained(this)));
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 }
 
@@ -727,8 +724,11 @@ bool SyncPrefs::IsTypeSupportedInTransportMode(UserSelectableType type) {
     case UserSelectableType::kExtensions:
       return switches::IsExtensionsExplicitBrowserSigninEnabled();
     case UserSelectableType::kThemes:
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_ANDROID)
       return false;
+#elif BUILDFLAG(IS_IOS)
+      // Allow 'Themes' toggle on iOS if the feature is enabled.
+      return base::FeatureList::IsEnabled(syncer::kSyncThemesIos);
 #else
       return base::FeatureList::IsEnabled(
           syncer::kSeparateLocalAndAccountThemes);
@@ -856,7 +856,7 @@ bool SyncPrefs::MaybeMigratePrefsForSyncToSigninPart1(
 
       // Bookmarks and reading list remain enabled only if the user previously
       // explicitly opted in, which is represented in the regular account-keyed
-      // prefs. However, the default value for new sign-ins changes with
+      // prefs. However, the default value for new sign-ins may change with
       // `kReplaceSyncPromosWithSignInPromos`, so it is important to grab a
       // snapshot now during migration.
       for (UserSelectableType type :
@@ -1135,9 +1135,13 @@ bool SyncPrefs::IsTypeSelectedByDefaultInTransportMode(
       return false;
     case UserSelectableType::kBookmarks:
     case UserSelectableType::kReadingList:
-      // Before kReplaceSyncPromosWithSignInPromos, Bookmarks and Reading List
-      // require a specific explicit sign in (relevant for desktop only).
-      return base::FeatureList::IsEnabled(kReplaceSyncPromosWithSignInPromos) ||
+      // Bookmarks and reading list require a specific explicit sign in if
+      // `kExplicitSigninForBookmarks` is enabled (relevant for desktop only).
+      // If it is not, but `kReplaceSyncPromosWithSignInPromos` is, then
+      // bookmarks and reading list are on by default.
+      return (base::FeatureList::IsEnabled(
+                  kReplaceSyncPromosWithSignInPromos) &&
+              !syncer::kExplicitSigninForBookmarks.Get()) ||
              SigninPrefs(*pref_service_)
                  .GetBookmarksExplicitBrowserSignin(gaia_id) ||
              base::FeatureList::IsEnabled(

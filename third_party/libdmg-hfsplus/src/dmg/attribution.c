@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <zlib.h> // For crc32_combine.
 #include "abstractfile.h"
@@ -30,16 +31,16 @@ typedef struct AttributionPreservingSentinelData {
 enum ShouldKeepRaw sentinelShouldKeepRaw(AbstractAttribution* attribution, const void* data, size_t len, const void* nextData, size_t nextLen) {
   AttributionPreservingSentinelData* attributionData = (AttributionPreservingSentinelData*)attribution->data;
   const SizedBuf* sentinelBuf = attributionData->sentinelBuf;
-  if (NULL != memmem((const char*)data, len, sentinelBuf->data, sentinelBuf->len)) {
+  if (NULL != memmem((const uint8_t*)data, len, sentinelBuf->data, sentinelBuf->len)) {
     return KeepCurrentRaw;
   }
 
   // If we didn't find it in the data, check if it spans data + nextData
   if (nextLen > 0) {
-    char* combinedData = malloc(len + nextLen);
+    uint8_t* combinedData = malloc(len + nextLen);
     memcpy(combinedData, data, len);
     memcpy(combinedData + len, nextData, nextLen);
-    if (NULL != memmem((const char*)combinedData, len + nextLen, sentinelBuf->data, sentinelBuf->len)) {
+    if (NULL != memmem((const uint8_t*)combinedData, len + nextLen, sentinelBuf->data, sentinelBuf->len)) {
       return KeepCurrentAndNextRaw;
     }
   }
@@ -197,7 +198,7 @@ uint32_t calculateMasterChecksum(ResourceKey* resources);
 
 int updateAttribution(AbstractFile* abstractIn, AbstractFile* abstractOut, const char* anchor, const char* data, size_t dataLen) {
   SizedBuf* sentinelBuf = AllocBufCopyString(anchor);
-  SizedBuf* dataBuf = AllocBufCopyBytes(data, dataLen);
+  SizedBuf* dataBuf = AllocBufCopyBytes((const uint8_t*)data, dataLen);
   int ret = updateAttributionFromBufs(abstractIn, abstractOut, sentinelBuf, dataBuf);
   free(dataBuf);
   free(sentinelBuf);

@@ -22,6 +22,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/font_list.h"
 
+class GURL;
+
 namespace javascript_dialogs {
 
 namespace {
@@ -84,6 +86,7 @@ std::u16string AppModalDialogManager::GetTitle(
 
   // Otherwise, return the formatted URL.
   return GetSiteFrameTitle(
+      web_contents->GetPrimaryMainFrame()->GetLastCommittedURL(),
       web_contents->GetPrimaryMainFrame()->GetLastCommittedOrigin(),
       alerting_frame_origin);
 #endif
@@ -91,9 +94,11 @@ std::u16string AppModalDialogManager::GetTitle(
 
 // static
 std::u16string AppModalDialogManager::GetSiteFrameTitle(
+    const GURL& main_frame_url,
     const url::Origin& main_frame_origin,
     const url::Origin& alerting_frame_origin) {
-  return util::DialogTitle(main_frame_origin, alerting_frame_origin);
+  return util::DialogTitle(main_frame_url, main_frame_origin,
+                           alerting_frame_origin);
 }
 
 void AppModalDialogManager::RunJavaScriptDialog(

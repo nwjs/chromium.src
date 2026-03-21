@@ -1436,7 +1436,7 @@ void WebLocalFrameImpl::RemoveSpellingMarkers() {
 void WebLocalFrameImpl::RemoveSpellingMarkersUnderWords(
     const std::vector<WebString>& words) {
   Vector<String> converted_words;
-  converted_words.AppendSpan(base::span(words));
+  converted_words.append_range(words);
   GetFrame()->RemoveSpellingMarkersUnderWords(converted_words);
 }
 
@@ -1594,7 +1594,7 @@ void WebLocalFrameImpl::SelectRange(
   if (selection_menu_behavior == SelectionMenuBehavior::kShow) {
     ContextMenuAllowedScope scope;
     GetFrame()->GetEventHandler().ShowNonLocatedContextMenu(
-        nullptr, kMenuSourceAdjustSelection);
+        nullptr, ui::mojom::blink::MenuSourceType::kAdjustSelection);
   }
 }
 
@@ -2120,11 +2120,13 @@ WebLocalFrame* WebLocalFrame::CreateMainFrame(
     WebFrame* opener,
     const WebString& name,
     network::mojom::blink::WebSandboxFlags sandbox_flags,
-    const WebURL& creator_base_url) {
+    const WebURL& creator_base_url,
+    std::unique_ptr<base::UnguessableToken> sandbox_origin_token) {
   return WebLocalFrameImpl::CreateMainFrame(
       web_view, client, interface_registry, std::move(interface_broker),
       frame_token, opener, name, sandbox_flags, document_token,
-      std::move(policy_container), creator_base_url);
+      std::move(policy_container), creator_base_url,
+      std::move(sandbox_origin_token));
 }
 
 WebLocalFrame* WebLocalFrame::CreateProvisional(
@@ -2153,7 +2155,8 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateMainFrame(
     network::mojom::blink::WebSandboxFlags sandbox_flags,
     const DocumentToken& document_token,
     std::unique_ptr<WebPolicyContainer> policy_container,
-    const WebURL& creator_base_url) {
+    const WebURL& creator_base_url,
+    std::unique_ptr<base::UnguessableToken> sandbox_origin_token) {
   auto* frame = MakeGarbageCollected<WebLocalFrameImpl>(
       base::PassKey<WebLocalFrameImpl>(),
       mojom::blink::TreeScopeType::kDocument, client, interface_registry,
@@ -2171,8 +2174,8 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateMainFrame(
       page, nullptr, nullptr, nullptr, FrameInsertType::kInsertInConstructor,
       name, opener ? &ToCoreFrame(*opener)->window_agent_factory() : nullptr,
       opener, document_token, std::move(interface_broker),
-      std::move(policy_container), storage_key, creator_base_url,
-      sandbox_flags);
+      std::move(policy_container), storage_key, creator_base_url, sandbox_flags,
+      std::move(sandbox_origin_token));
   return frame;
 }
 
@@ -2228,7 +2231,10 @@ WebLocalFrameImpl* WebLocalFrameImpl::CreateProvisional(
       previous_web_frame->Opener(), DocumentToken(),
       std::move(interface_broker),
       /*policy_container=*/nullptr, StorageKey(),
-      /*creator_base_url=*/KURL(), sandbox_flags);
+      /*creator_base_url=*/NullUrl(), sandbox_flags,
+      /*sandbox_origin_token=*/
+      std::make_unique<base::UnguessableToken>(
+          base::UnguessableToken::Create()));
 
   LocalFrame* new_frame = web_frame->GetFrame();
 
@@ -2349,13 +2355,15 @@ void WebLocalFrameImpl::InitializeCoreFrame(
     std::unique_ptr<blink::WebPolicyContainer> policy_container,
     const StorageKey& storage_key,
     const KURL& creator_base_url,
-    network::mojom::blink::WebSandboxFlags sandbox_flags) {
+    network::mojom::blink::WebSandboxFlags sandbox_flags,
+    std::unique_ptr<base::UnguessableToken> sandbox_origin_token) {
   InitializeCoreFrameInternal(
       page, owner, parent, previous_sibling, insert_type, name,
       window_agent_factory, opener, document_token, std::move(interface_broker),
       PolicyContainer::CreateFromWebPolicyContainer(
           std::move(policy_container)),
-      storage_key, ukm::kInvalidSourceId, creator_base_url, sandbox_flags);
+      storage_key, ukm::kInvalidSourceId, creator_base_url, sandbox_flags,
+      std::move(sandbox_origin_token));
 }
 
 void WebLocalFrameImpl::InitializeCoreFrameInternal(
@@ -2373,7 +2381,8 @@ void WebLocalFrameImpl::InitializeCoreFrameInternal(
     const StorageKey& storage_key,
     ukm::SourceId document_ukm_source_id,
     const KURL& creator_base_url,
-    network::mojom::blink::WebSandboxFlags sandbox_flags) {
+    network::mojom::blink::WebSandboxFlags sandbox_flags,
+    std::unique_ptr<base::UnguessableToken> sandbox_origin_token) {
   Frame* parent_frame = parent ? ToCoreFrame(*parent) : nullptr;
   Frame* previous_sibling_frame =
       previous_sibling ? ToCoreFrame(*previous_sibling) : nullptr;
@@ -2410,7 +2419,8 @@ void WebLocalFrameImpl::InitializeCoreFrameInternal(
   // We must call init() after frame_ is assigned because it is referenced
   // during init().
   frame_->Init(opener_frame, document_token, std::move(policy_container),
-               storage_key, document_ukm_source_id, creator_base_url);
+               storage_key, document_ukm_source_id, creator_base_url,
+               std::move(sandbox_origin_token));
 
   if (!owner) {
     // This trace event is needed to detect the main frame of the
@@ -2469,7 +2479,8 @@ LocalFrame* WebLocalFrameImpl::CreateChildFrame(
        &name, document_ukm_source_id](
           WebLocalFrame* new_child_frame, const DocumentToken& document_token,
           CrossVariantMojoRemote<mojom::BrowserInterfaceBrokerInterfaceBase>
-              interface_broker) {
+              interface_broker,
+          std::unique_ptr<base::UnguessableToken> sandbox_origin_token) {
         // The initial empty document's credentialless bit is the union of:
         // - its parent's credentialless bit.
         // - its frame's credentialless attribute.
@@ -2489,7 +2500,9 @@ LocalFrame* WebLocalFrameImpl::CreateChildFrame(
                 &GetFrame()->window_agent_factory(), nullptr, document_token,
                 std::move(interface_broker), std::move(policy_container),
                 GetFrame()->DomWindow()->GetStorageKey(),
-                document_ukm_source_id, creator_base_url);
+                document_ukm_source_id, creator_base_url,
+                network::mojom::blink::WebSandboxFlags::kNone,
+                std::move(sandbox_origin_token));
       };
   owner_properties.nwFakeTop = owner_element->FastHasAttribute(html_names::kNwfaketopAttr);
   owner_properties.nwuseragent = owner_element->nwuseragent();
@@ -2694,6 +2707,15 @@ WebAutofillClient* WebLocalFrameImpl::AutofillClient() {
   return autofill_client_;
 }
 
+void WebLocalFrameImpl::SetRecordReplayClient(
+    WebRecordReplayClient* record_replay_client) {
+  record_replay_client_ = record_replay_client;
+}
+
+WebRecordReplayClient* WebLocalFrameImpl::RecordReplayClient() {
+  return record_replay_client_;
+}
+
 void WebLocalFrameImpl::SetContentCaptureClient(
     WebContentCaptureClient* content_capture_client) {
   content_capture_client_ = content_capture_client;
@@ -2809,7 +2831,7 @@ void WebLocalFrameImpl::CommitNavigation(
     if (navigation_params->is_synchronous_commit_for_bug_778318 &&
         // Explicitly check for about:blank or about:srcdoc to prevent things
         // like about:mumble propagating the base url.
-        (url.IsAboutBlankURL() || url.IsAboutSrcdocURL())) {
+        (url.IsAboutBlankUrl() || url.IsAboutSrcdocUrl())) {
       navigation_params->fallback_base_url =
           GetFrame()->GetDocument()->BaseURL();
     }

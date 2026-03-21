@@ -56,13 +56,19 @@ class MockDedicatedWorker
             render_frame_host_id, blink::StorageKey::CreateFirstParty(origin),
             net::IsolationInfo::CreateTransient(/*nonce=*/std::nullopt),
             network::mojom::ClientSecurityState::New(),
-            coep_reporter->GetWeakPtr()),
+            PolicyContainerPolicies(), coep_reporter->GetWeakPtr(),
+            /*network_restrictions_id=*/std::nullopt),
         factory_.BindNewPipeAndPassReceiver());
+
+    auto fetch_client_settings_object =
+        blink::mojom::FetchClientSettingsObject::New();
+    fetch_client_settings_object->policy_container_policies =
+        blink::mojom::PolicyContainerPolicies::New();
 
     factory_->CreateWorkerHostAndStartScriptLoad(
         blink::DedicatedWorkerToken(),
         /*script_url=*/GURL(), network::mojom::CredentialsMode::kSameOrigin,
-        blink::mojom::FetchClientSettingsObject::New(),
+        std::move(fetch_client_settings_object),
         mojo::PendingRemote<blink::mojom::BlobURLToken>(),
         receiver_.BindNewPipeAndPassRemote(),
         net::StorageAccessApiStatus::kNone);

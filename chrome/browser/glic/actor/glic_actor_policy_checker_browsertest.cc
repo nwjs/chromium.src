@@ -69,12 +69,6 @@ namespace glic {
 
 namespace {
 
-std::string EncodeURI(const std::string& component) {
-  url::RawCanonOutputT<char> encoded;
-  url::EncodeURIComponent(component, &encoded);
-  return std::string(encoded.view());
-}
-
 struct TestAccount {
   std::string_view email;
   std::string_view host_domain;
@@ -88,9 +82,6 @@ constexpr TestAccount kEnterpriseAccount = {"foo@testenterprise.com",
 class GlicActorPolicyCheckerBrowserTestBase : public NonInteractiveGlicTest {
  public:
   GlicActorPolicyCheckerBrowserTestBase() {
-#if !BUILDFLAG(ENABLE_GLIC)
-    GTEST_SKIP() << "The policy checker is only tested with GLIC enabled.";
-#endif  // BUILDFLAG(ENABLE_GLIC)
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /* enabled_features = */
         {{features::kGlicActor,
@@ -603,7 +594,12 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
 
   ActResultFuture result;
   task->Act(ToRequestList(click), result.GetCallback());
-  ExpectErrorResult(result, actor::mojom::ActionResultCode::kUrlBlocked);
+  const auto expected_result =
+      base::FeatureList::IsEnabled(
+          actor::kGlicGranularBlockingActionResultCodes)
+          ? actor::mojom::ActionResultCode::kActionsBlockedByEnterprisePolicy
+          : actor::mojom::ActionResultCode::kUrlBlocked;
+  ExpectErrorResult(result, expected_result);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
@@ -647,8 +643,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
   const GURL cross_origin_url =
       embedded_https_test_server().GetURL("bar.com", "/actor/blank.html");
   const GURL link_page_url = embedded_https_test_server().GetURL(
-      "foo.com", base::StrCat({"/actor/link_full_page.html?href=",
-                               EncodeURI(cross_origin_url.spec())}));
+      "foo.com",
+      base::StrCat({"/actor/link_full_page.html?href=",
+                    url::EncodeUriComponent(cross_origin_url.spec())}));
 
   ASSERT_TRUE(content::NavigateToURL(web_contents(), link_page_url));
 
@@ -664,8 +661,12 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
 
   ActResultFuture result;
   task->Act(ToRequestList(click), result.GetCallback());
-  ExpectErrorResult(
-      result, actor::mojom::ActionResultCode::kTriggeredNavigationBlocked);
+  const auto expected_result =
+      base::FeatureList::IsEnabled(
+          actor::kGlicGranularBlockingActionResultCodes)
+          ? actor::mojom::ActionResultCode::kActionsBlockedByEnterprisePolicy
+          : actor::mojom::ActionResultCode::kTriggeredNavigationBlocked;
+  ExpectErrorResult(result, expected_result);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
@@ -683,8 +684,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
   const GURL cross_origin_url = embedded_https_test_server().GetURL(
       "blocked.example.com", "/actor/blank.html");
   const GURL link_page_url = embedded_https_test_server().GetURL(
-      "foo.com", base::StrCat({"/actor/link_full_page.html?href=",
-                               EncodeURI(cross_origin_url.spec())}));
+      "foo.com",
+      base::StrCat({"/actor/link_full_page.html?href=",
+                    url::EncodeUriComponent(cross_origin_url.spec())}));
 
   ASSERT_TRUE(content::NavigateToURL(web_contents(), link_page_url));
 

@@ -50,7 +50,7 @@ const size_t kFlacMetadataBlockStreaminfoSize = 34;
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
 // Try to parse dvcC or dvvC box if exists, return `video_info` and an optional
 // `dv_info` based on the configuration.
-std::tuple<CodecProfileLevel, std::optional<CodecProfileLevel>> MaybeParseDOVI(
+std::tuple<CodecProfileLevel, std::optional<DolbyVisionInfo>> MaybeParseDOVI(
     BoxReader* reader,
     CodecProfileLevel video_info) {
   std::optional<DOVIDecoderConfigurationRecord> dovi_config;
@@ -77,19 +77,24 @@ std::tuple<CodecProfileLevel, std::optional<CodecProfileLevel>> MaybeParseDOVI(
     return {video_info, std::nullopt};
   }
 
-  constexpr int kHDR10CompatibilityId = 1;
-  constexpr int kSDRCompatibilityId = 2;
-  constexpr int kHLGCompatibilityId = 4;
-  CodecProfileLevel dv_info = {VideoCodec::kDolbyVision,
-                               dovi_config->codec_profile,
-                               dovi_config->dv_level};
-  if (dovi_config->dv_bl_signal_compatibility_id == kHDR10CompatibilityId ||
-      dovi_config->dv_bl_signal_compatibility_id == kSDRCompatibilityId ||
-      dovi_config->dv_bl_signal_compatibility_id == kHLGCompatibilityId) {
+  CodecProfileLevel dv_codec_info = {VideoCodec::kDolbyVision,
+                                     dovi_config->codec_profile,
+                                     dovi_config->dv_level};
+  DolbyVisionInfo dv_info;
+  dv_info.codec_info = dv_codec_info;
+  dv_info.color_space = mp4::ParseDolbyVisionColorSpace(
+      dovi_config->codec_profile, dovi_config->dv_bl_signal_compatibility_id);
+
+  if (dovi_config->dv_bl_signal_compatibility_id ==
+          mp4::kDolbyVisionCompatibilityIdHDR10 ||
+      dovi_config->dv_bl_signal_compatibility_id ==
+          mp4::kDolbyVisionCompatibilityIdSDR ||
+      dovi_config->dv_bl_signal_compatibility_id ==
+          mp4::kDolbyVisionCompatibilityIdHLG) {
     return {video_info, dv_info};
   }
   // If the buffer is not backward compatible, always treat it as Dolby Vision.
-  return {dv_info, std::nullopt};
+  return {dv_info.codec_info, dv_info};
 }
 #endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
 
@@ -1326,16 +1331,23 @@ bool VideoSampleEntry::Parse(BoxReader* reader) {
       break;
     }
 #if BUILDFLAG(ENABLE_AV1_DECODER)
-    case FOURCC_AV01: {
+    case FOURCC_AV01:
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+    case FOURCC_DAV1:
+#endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
+    {
       DVLOG(2) << __func__ << " reading AV1CodecConfigurationRecord (av1C)";
       AV1CodecConfigurationRecord av1_config;
       RCHECK(reader->ReadChild(&av1_config));
       video_info.codec = VideoCodec::kAV1;
       video_info.profile = av1_config.profile;
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+      std::tie(video_info, dv_info) = MaybeParseDOVI(reader, video_info);
+#endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
       frame_bitstream_converter = nullptr;
       break;
     }
-#endif
+#endif  // BUILDFLAG(ENABLE_AV1_DECODER)
     default:
       // Unknown/unsupported format
       MEDIA_LOG(ERROR, reader->media_log())
@@ -1400,8 +1412,11 @@ bool VideoSampleEntry::IsFormatValid() const {
       return true;
 #if BUILDFLAG(ENABLE_AV1_DECODER)
     case FOURCC_AV01:
+#if BUILDFLAG(USE_PROPRIETARY_CODECS)
+    case FOURCC_DAV1:
+#endif  // BUILDFLAG(USE_PROPRIETARY_CODECS)
       return true;
-#endif
+#endif  // BUILDFLAG(ENABLE_AV1_DECODER)
     default:
       return false;
   }

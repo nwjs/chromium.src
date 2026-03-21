@@ -824,6 +824,12 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
     tab_to_insert = std::make_unique<tabs::TabModel>(
         std::move(params->contents_to_insert),
         params->browser->GetBrowserForMigrationOnly()->tab_strip_model());
+    if (params->source_contents &&
+        ((params->tabstrip_add_types & AddTabTypes::ADD_INHERIT_OPENER) ||
+         params->user_gesture)) {
+      tab_to_insert->set_opener(
+          tabs::TabInterface::MaybeGetFromContents(params->source_contents));
+    }
   }
 
   // If no target WebContents was specified (and we didn't seek and find a
@@ -835,6 +841,12 @@ base::WeakPtr<content::NavigationHandle> Navigate(NavigateParams* params) {
       tab_to_insert = std::make_unique<tabs::TabModel>(
           CreateTargetContents(*params, params->url),
           params->browser->GetBrowserForMigrationOnly()->tab_strip_model());
+      if (params->source_contents &&
+          ((params->tabstrip_add_types & AddTabTypes::ADD_INHERIT_OPENER) ||
+           params->user_gesture)) {
+        tab_to_insert->set_opener(
+            tabs::TabInterface::MaybeGetFromContents(params->source_contents));
+      }
       contents_to_navigate_or_insert = tab_to_insert->GetContents();
 
       apps::SetAppIdForWebContents(params->browser->GetProfile(),

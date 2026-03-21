@@ -208,7 +208,7 @@ ScriptInjection::InjectionResult ScriptInjection::Inject(
 
   // This can happen if the extension specified a script to
   // be run in multiple rules, and the script has already run.
-  // See crbug.com/631247.
+  // See crbug.com/41265796.
   if (!should_inject_js && !should_inject_or_remove_css) {
     return InjectionResult::kFinished;
   }
@@ -303,9 +303,9 @@ void ScriptInjection::InjectJs(std::set<std::string>* executing_scripts,
       blink_world_id =
           IsolatedWorldManager::GetInstance().GetOrCreateIsolatedWorldForHost(
               *injection_host_, execution_world, world_id);
-      if (injection_host_->id().type == mojom::HostID::HostType::kExtensions &&
-          log_activity_) {
-        DOMActivityLogger::AttachToWorld(blink_world_id, host_string_id);
+      if (injection_host_->id().type == mojom::HostID::HostType::kExtensions) {
+        DOMActivityLogger::AttachToWorldIfEnabled(blink_world_id,
+                                                  host_string_id);
       }
 
       break;

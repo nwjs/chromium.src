@@ -177,6 +177,8 @@ std::string GetRequestTypeName(
       return "CreditCardForm";
     case safe_browsing::ClientSideDetectionType::IMAGE_EMBEDDING_MATCH:
       return "ImageEmbeddingMatch";
+    case safe_browsing::ClientSideDetectionType::USER_REPORT:
+      return "UserReport";
   }
 }
 
@@ -207,6 +209,8 @@ safe_browsing::mojom::ClientSideDetectionType GetClientSideDetectionMojomType(
           kImageEmbeddingMatch;
     case safe_browsing::ClientSideDetectionType::
         CLIENT_SIDE_DETECTION_TYPE_UNSPECIFIED:
+    case safe_browsing::ClientSideDetectionType::USER_REPORT:
+      return safe_browsing::mojom::ClientSideDetectionType::kUserReport;
     default:
       NOTREACHED();
   }
@@ -534,10 +538,13 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
     }
 
     // If we get a suspcious verdict from RTLookupResponse, we should get a
-    // second opinion on CSD side, so we skip the allowlist. We also check the
-    // command line flag if the allowlist should be skipped.
+    // second opinion on CSD side, so we skip the allowlist. If we get an
+    // explicit request to send a report from the user, we skip the allowlist.
+    // We also check the command line flag if the allowlist should be skipped.
     if (phishing_detection_request_type_ ==
             safe_browsing::ClientSideDetectionType::FORCE_REQUEST ||
+        phishing_detection_request_type_ ==
+            safe_browsing::ClientSideDetectionType::USER_REPORT ||
         ShouldSkipCSDAllowlist()) {
       OnAllowlistCheckDone(url, phishing_reason,
                            /*match_allowlist=*/false);
@@ -663,8 +670,11 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
     }
 
     // We want to limit the number of requests, but if we're dumping features
-    // for debugging, allow us to exceed the report limit.
+    // for debugging or processing an explicit request for a report from a user,
+    // allow us to exceed the report limit.
     if (!HasDebugFeatureDirectory() && csd_service_ &&
+        phishing_detection_request_type_ !=
+            ClientSideDetectionType::USER_REPORT &&
         csd_service_->AtPhishingReportLimit()) {
       base::UmaHistogramExactLinear("SBClientPhishing.RequestTypeAtReportLimit",
                                     phishing_detection_request_type_,
@@ -773,6 +783,10 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest {
 };
 
 // static
+const int ClientSideDetectionHost::kMaxHighResScreenshotWidth = 4096;
+const int ClientSideDetectionHost::kMaxHighResScreenshotHeight = 2160;
+
+// static
 std::unique_ptr<ClientSideDetectionHost> ClientSideDetectionHost::Create(
     content::WebContents* tab,
     std::unique_ptr<Delegate> delegate,
@@ -871,6 +885,15 @@ void ClientSideDetectionHost::RegisterAutofillManager() {
           kObservePreexistingManagers);
 }
 
+void ClientSideDetectionHost::ReportUnsafeSite(SkBitmap screenshot) {
+  if (!screenshot.drawsNothing() &&
+      screenshot.width() <= kMaxHighResScreenshotWidth &&
+      screenshot.height() <= kMaxHighResScreenshotHeight) {
+    screenshot_ = screenshot;
+  }
+  MaybeStartPreClassification(ClientSideDetectionType::USER_REPORT);
+}
+
 void ClientSideDetectionHost::MaybeStartPreClassification(
     ClientSideDetectionType request_type) {
   if (base::FeatureList::IsEnabled(kClientSideDetectionKillswitch)) {
@@ -932,8 +955,40 @@ void ClientSideDetectionHost::PrimaryPageChanged(content::Page& page) {
   // ping back but only cancel the showing of the interstitial.
   weak_factory_.InvalidateWeakPtrs();
 
+  if (base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
+    if (did_first_visually_non_empty_paint_ ^ on_first_contentful_paint_) {
+      auto value = did_first_visually_non_empty_paint_
+                       ? CSDObserverCalled::kDidFirstVisuallyNonEmptyPaint
+                       : CSDObserverCalled::kOnFirstContentfulPaint;
+      base::UmaHistogramEnumeration(
+          "SBClientPhishing.SingleObserverCalledOnNewPage", value);
+    }
+    did_first_visually_non_empty_paint_ = false;
+    on_first_contentful_paint_ = false;
+    trigger_model_request_sent_as_force_request_ = false;
+    return;
+  }
+
   trigger_model_request_sent_as_force_request_ = false;
   MaybeStartPreClassification(ClientSideDetectionType::TRIGGER_MODELS);
+}
+
+void ClientSideDetectionHost::DidFirstVisuallyNonEmptyPaint() {
+  if (base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
+    did_first_visually_non_empty_paint_ = true;
+    if (on_first_contentful_paint_) {
+      MaybeStartPreClassification(ClientSideDetectionType::TRIGGER_MODELS);
+    }
+  }
+}
+
+void ClientSideDetectionHost::OnFirstContentfulPaintInPrimaryMainFrame() {
+  if (base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
+    on_first_contentful_paint_ = true;
+    if (did_first_visually_non_empty_paint_) {
+      MaybeStartPreClassification(ClientSideDetectionType::TRIGGER_MODELS);
+    }
+  }
 }
 
 void ClientSideDetectionHost::OnPromptAdded() {
@@ -1106,6 +1161,21 @@ void ClientSideDetectionHost::OnCreditCardFormVisitCount(
   }
 
   MaybeStartPreClassification(ClientSideDetectionType::CREDIT_CARD_FORM);
+}
+
+void ClientSideDetectionHost::MaybeFillScreenshotData(
+    ClientPhishingRequest* request) {
+  if (request->client_side_detection_type() !=
+      ClientSideDetectionType::USER_REPORT) {
+    return;
+  }
+
+  if (screenshot_) {
+    visual_utils::EncodeScreenshot(
+        *screenshot_,
+        request->mutable_visual_features()->mutable_high_res_screenshot());
+  }
+  screenshot_ = std::nullopt;
 }
 
 void ClientSideDetectionHost::KeyboardLockRequested() {
@@ -1547,9 +1617,11 @@ void ClientSideDetectionHost::MaybeSendClientPhishingRequest(
   visual_utils::CanExtractVisualFeaturesResult
       can_extract_visual_features_result = DetermineVisualFeaturesExtraction();
 
+  // Clear the blurred image from the visual features if we should not extract
+  // visual features.
   if (can_extract_visual_features_result !=
       visual_utils::CanExtractVisualFeaturesResult::kCanExtractVisualFeatures) {
-    verdict->clear_visual_features();
+    verdict->mutable_visual_features()->clear_image();
   } else {
     base::UmaHistogramBoolean("SBClientPhishing.HasVisualFeaturesImage2",
                               verdict->has_visual_features() &&
@@ -2163,6 +2235,15 @@ void ClientSideDetectionHost::AddMiscellaneousMetadataToClientPhishingRequest(
           ? "ConditionalImageResize.Enabled"
           : "ConditionalImageResize.Control");
 
+  if (base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
+    verdict->mutable_population()->add_finch_active_groups(
+        "ClientSideDetectionNewObservers.Enabled." +
+        base::NumberToString(kCsdClassificationDelay.Get()));
+  } else {
+    verdict->mutable_population()->add_finch_active_groups(
+        "ClientSideDetectionNewObservers.Control");
+  }
+
   raw_ptr<VerdictCacheManager> cache_manager = delegate_->GetCacheManager();
   if (cache_manager) {
     ChromeUserPopulation::PageLoadToken token =
@@ -2185,6 +2266,8 @@ void ClientSideDetectionHost::AddMiscellaneousMetadataToClientPhishingRequest(
           ExtractClipboardData(last_copied_text_);
     }
   }
+
+  MaybeFillScreenshotData(verdict);
 
   if (IsEnhancedProtectionEnabled(*delegate_->GetPrefs())) {
     delegate_->AddReferrerChain(verdict, current_url_,

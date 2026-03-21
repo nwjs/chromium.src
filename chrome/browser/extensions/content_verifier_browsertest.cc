@@ -27,7 +27,6 @@
 #include "chrome/browser/extensions/chrome_content_verifier_delegate.h"
 #include "chrome/browser/extensions/content_verifier_test_utils.h"
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
-#include "chrome/browser/extensions/crx_installer.h"
 #include "chrome/browser/extensions/devtools_util.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
@@ -46,6 +45,7 @@
 #include "extensions/browser/content_verifier/content_verify_job.h"
 #include "extensions/browser/content_verifier/test_utils.h"
 #include "extensions/browser/crx_file_info.h"
+#include "extensions/browser/crx_installer.h"
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
@@ -515,8 +515,13 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTestWithForcedHashes,
   job_observer.ExpectJobResult(extension->id(), background_script_relative_path,
                                TestContentVerifyJobObserver::Result::FAILURE);
 
+  // Set up an observer to wait for the extension to be disabled.
+  TestExtensionRegistryObserver disable_observer(
+      ExtensionRegistry::Get(profile()), extension->id());
+
   EnableExtension(extension->id());
   EXPECT_TRUE(job_observer.WaitForExpectedJobs());
+  EXPECT_TRUE(disable_observer.WaitForExtensionUnloaded());
 
   // The extension should be disabled...
   ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
@@ -676,8 +681,13 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest, TestServiceWorker_AcrossSession) {
   job_observer.ExpectJobResult(extension->id(), background_script_relative_path,
                                TestContentVerifyJobObserver::Result::FAILURE);
 
+  // Set up an observer to wait for the extension to be disabled.
+  TestExtensionRegistryObserver disable_observer(
+      ExtensionRegistry::Get(profile()), extension->id());
+
   EnableExtension(extension->id());
   EXPECT_TRUE(job_observer.WaitForExpectedJobs());
+  EXPECT_TRUE(disable_observer.WaitForExtensionUnloaded());
 
   // The extension should be disabled...
   EXPECT_FALSE(registry->enabled_extensions().Contains(extension->id()));
@@ -1017,8 +1027,9 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(extension);
   EXPECT_EQ(extension->id(), extension_id);
 
-  ContentHashReader::InitStatus hashes_status = observer.WaitForOnHashesReady();
-  EXPECT_EQ(ContentHashReader::InitStatus::SUCCESS, hashes_status);
+  std::optional<ContentHashReaderInitStatus> hashes_status =
+      observer.WaitForOnHashesReady();
+  EXPECT_EQ(std::nullopt, hashes_status);
 }
 
 // Verifies that CRX with malformed verified contents injected into the header
@@ -1060,15 +1071,16 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
   ASSERT_TRUE(extension);
   EXPECT_EQ(extension->id(), extension_id);
 
-  ContentHashReader::InitStatus hashes_status = observer.WaitForOnHashesReady();
-  EXPECT_EQ(ContentHashReader::InitStatus::HASHES_MISSING, hashes_status);
+  std::optional<ContentHashReaderInitStatus> hashes_status =
+      observer.WaitForOnHashesReady();
+  EXPECT_EQ(ContentHashReaderInitStatus::HASHES_MISSING, hashes_status);
 }
 
 // Tests that tampering with a large resource fails content verification as
 // expected. The size of the resource is such that it would trigger
 // FileLoaderObserver::OnSeekComplete in extension_protocols.cc.
 //
-// Regression test for: http://crbug.com/965043.
+// Regression test for: http://crbug.com/41459929.
 IN_PROC_BROWSER_TEST_F(ContentVerifierTest, TamperLargeSizedResource) {
   // This test extension is copied from the webstore that has actual
   // signatures.
@@ -1094,7 +1106,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest, TamperLargeSizedResource) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // Tests that a resource reading failure due to FileURLLoader cancellation
 // does not incorrectly result in content verificaton failure.
-// Regression test for: http://crbug.com/977805.
+// Regression test for: http://crbug.com/41467403.
 // TODO(crbug.com/413122584): Port to desktop Android. The cross platform
 // navigation utilities we have don't support new tab + no wait.
 IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
@@ -1145,7 +1157,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
 // Tests that navigating to an extension resource with '/' at end does not
 // disable the extension.
 //
-// Regression test for: https://crbug.com/929578.
+// Regression test for: https://crbug.com/40093979.
 IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
                        RemainsEnabledOnNavigateToPathEndingWithSlash) {
   const Extension* extension = InstallExtensionFromWebstore(
@@ -1166,7 +1178,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
 // Tests that navigating to an extension resource with '.' at end does not
 // disable the extension.
 //
-// Regression test for https://crbug.com/696208.
+// Regression test for https://crbug.com/40086896.
 IN_PROC_BROWSER_TEST_F(ContentVerifierTest,
                        RemainsEnabledOnNavigateToPathEndingWithDot) {
   const Extension* extension = InstallExtensionFromWebstore(

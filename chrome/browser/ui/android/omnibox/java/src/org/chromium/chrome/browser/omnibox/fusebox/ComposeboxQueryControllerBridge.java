@@ -9,6 +9,7 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -22,6 +23,7 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.url.GURL;
 
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 /**
  * Bridge for native Composebox query controller functionality, allowing for management of a
@@ -30,6 +32,9 @@ import java.nio.ByteBuffer;
 @SuppressWarnings("unused")
 @NullMarked
 public class ComposeboxQueryControllerBridge {
+    /** Instance to be used for testing - null value permitted to signify no controller. */
+    @SuppressWarnings("NullableOptional")
+    private static @Nullable Optional<ComposeboxQueryControllerBridge> sInstanceForTesting;
 
     /** Observer for file upload status changes. */
     interface FileUploadObserver {
@@ -49,6 +54,8 @@ public class ComposeboxQueryControllerBridge {
 
     /** Create a new ComposeboxQueryControllerBridge using the given profile. */
     public static @Nullable ComposeboxQueryControllerBridge createForProfile(Profile profile) {
+        if (sInstanceForTesting != null) return sInstanceForTesting.orElse(null);
+
         ComposeboxQueryControllerBridge javaInstance = new ComposeboxQueryControllerBridge();
         long nativeInstance = ComposeboxQueryControllerBridgeJni.get().init(profile, javaInstance);
         if (nativeInstance == 0L) return null;
@@ -119,11 +126,11 @@ public class ComposeboxQueryControllerBridge {
                 .addTabContextFromCache(mNativeInstance, tabId);
     }
 
-    void getAimUrl(GURL url, Callback<GURL> callback) {
+    public void getAimUrl(GURL url, Callback<GURL> callback) {
         ComposeboxQueryControllerBridgeJni.get().getAimUrl(mNativeInstance, url, callback);
     }
 
-    void getImageGenerationUrl(GURL url, Callback<GURL> callback) {
+    public void getImageGenerationUrl(GURL url, Callback<GURL> callback) {
         ComposeboxQueryControllerBridgeJni.get()
                 .getImageGenerationUrl(mNativeInstance, url, callback);
     }
@@ -131,6 +138,11 @@ public class ComposeboxQueryControllerBridge {
     /** Remove the given file from the current session. */
     void removeAttachment(String token) {
         ComposeboxQueryControllerBridgeJni.get().removeAttachment(mNativeInstance, token);
+    }
+
+    /** Returns whether client is Fusebox eligible. */
+    boolean isFuseboxEligible() {
+        return ComposeboxQueryControllerBridgeJni.get().isFuseboxEligible(mNativeInstance);
     }
 
     /** Returns whether the user is eligible for PDF uploads. */
@@ -165,6 +177,15 @@ public class ComposeboxQueryControllerBridge {
      */
     MonotonicObservableSupplier<InputState> getInputStateSupplier() {
         return mInputStateSupplier;
+    }
+
+    public static void setInstanceForTesting(@Nullable ComposeboxQueryControllerBridge instance) {
+        sInstanceForTesting = Optional.ofNullable(instance);
+        ResettersForTesting.register(ComposeboxQueryControllerBridge::resetInstanceForTesting);
+    }
+
+    public static void resetInstanceForTesting() {
+        sInstanceForTesting = null;
     }
 
     @CalledByNative
@@ -215,6 +236,8 @@ public class ComposeboxQueryControllerBridge {
 
         void removeAttachment(
                 long nativeComposeboxQueryControllerBridge, @JniType("std::string") String token);
+
+        boolean isFuseboxEligible(long nativeComposeboxQueryControllerBridge);
 
         boolean isPdfUploadEligible(long nativeComposeboxQueryControllerBridge);
 

@@ -9,6 +9,7 @@
 #include "content/browser/url_info.h"
 #include "content/browser/web_exposed_isolation_info.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_exposed_isolation_level.h"
 #include "url/gurl.h"
@@ -34,6 +35,11 @@ struct UrlInfo;
 // site URLs can be finer grained (e.g., origins) or coarser grained (e.g.,
 // file://). See |site_url()| for more considerations.
 //
+// SecurityPrincipal is the interface that's exposed to features that need
+// to access security principals outside of //content, providing access to a
+// subset of SiteInfo properties. SiteInfo is the sole implementation of that
+// interface, for use inside //content.
+//
 // In the future, we may add more information to SiteInfo for cases where the
 // site URL is not sufficient to identify which process a document belongs in.
 // For example, origin isolation (https://crbug.com/1067389) will introduce a
@@ -42,7 +48,7 @@ struct UrlInfo;
 // values to have the same site URL. It is important that any extra members of
 // SiteInfo do not cause two documents that can script each other to end up in
 // different SiteInfos and thus different processes.
-class CONTENT_EXPORT SiteInfo {
+class CONTENT_EXPORT SiteInfo : public SecurityPrincipal {
  public:
   // Helper to create a SiteInfo that will be used for an error page.  This is
   // used only when error page isolation is enabled.  Note that when site
@@ -179,6 +185,7 @@ class CONTENT_EXPORT SiteInfo {
   // Initializes |storage_partition_config_| with a value appropriate for
   // |browser_context|.
   explicit SiteInfo(BrowserContext* browser_context);
+
   // The SiteInfo constructor should take in all values needed for comparing two
   // SiteInfos, to help ensure all creation sites are updated accordingly when
   // new values are added. The private function MakeSecurityPrincipalKey()
@@ -199,7 +206,12 @@ class CONTENT_EXPORT SiteInfo {
            const std::string& browser_context_id);
   SiteInfo() = delete;
   SiteInfo(const SiteInfo& rhs);
-  ~SiteInfo();
+
+  // SecurityPrincipal overrides.
+  ~SiteInfo() override;
+  bool IsSandboxed() const override;
+  bool IsGuest() const override;
+  const StoragePartitionConfig& GetStoragePartitionConfig() const override;
 
   // This function returns a new SiteInfo which is equivalent to the original,
   // except that its AgentClusterKey is made site-keyed if it had been created
@@ -293,10 +305,6 @@ class CONTENT_EXPORT SiteInfo {
     return agent_cluster_key_.oac_status();
   }
 
-  // The following accessor is for the `is_sandboxed` flag, which is true when
-  // this SiteInfo is for an origin-restricted-sandboxed iframe.
-  bool is_sandboxed() const { return is_sandboxed_; }
-
   // Returns either kInvalidUniqueSandboxId or the unique sandbox id provided
   // when this SiteInfo was created. The latter case only occurs when
   // `is_sandboxed` is true, and kIsolateSandboxedIframes was specified with
@@ -324,7 +332,6 @@ class CONTENT_EXPORT SiteInfo {
     return web_exposed_isolation_level_;
   }
 
-  bool is_guest() const { return is_guest_; }
   bool is_error_page() const;
   bool is_jit_disabled() const { return is_jit_disabled_; }
   bool are_v8_optimizations_disabled() const {
@@ -398,13 +405,6 @@ class CONTENT_EXPORT SiteInfo {
   // the current site), in which case we should ensure there is only one
   // RenderProcessHost per site for the entire browser context.
   bool ShouldUseProcessPerSite(BrowserContext* browser_context) const;
-
-  // Get the StoragePartitionConfig, which describes the StoragePartition this
-  // SiteInfo is associated with.  For example, this will correspond to a
-  // non-default StoragePartition for <webview> guests.
-  const StoragePartitionConfig& storage_partition_config() const {
-    return storage_partition_config_;
-  }
 
   // Write a representation of this object into a trace.
   void WriteIntoTrace(perfetto::TracedValue context) const;

@@ -8,7 +8,7 @@
 #import <UIKit/UIKit.h>
 
 @class IconDetailView;
-@class IconDetailViewConfiguration;
+@class IconDetailViewConfig;
 
 // A protocol for handling `IconDetailView` taps. `-didTapIconDetailView:view`
 // will be called when an `IconDetailView` is tapped.
@@ -18,10 +18,6 @@
 - (void)didTapIconDetailView:(IconDetailView*)view;
 
 @end
-
-/// TODO(crbug.com/478823701): Consider making the `IconDetailView` conform to
-/// `NewTabPageColorUpdating` and updating the implementation to make this an
-/// inherited class similar to the `StandaloneModuleView`.
 
 // A view to display an icon, title, description, and (optional) chevron. This
 // view can be configured with different layout types to suit various display
@@ -35,8 +31,8 @@
 @property(nonatomic, copy) NSString* identifier;
 
 // Initializes this view with a `configuration`.
-- (instancetype)initWithConfiguration:
-    (IconDetailViewConfiguration*)configuration NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithConfig:(IconDetailViewConfig*)config
+    NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithCoder:(NSCoder*)coder NS_UNAVAILABLE;

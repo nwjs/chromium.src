@@ -99,14 +99,14 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
 
   async function createEntriesList(
       eligibleUser: boolean = true,
-      autofillAiIgnoresWhetherAddressFillingIsEnabled: boolean = false,
+      autofillAddOtherDatatypesPrefIsEnabled: boolean = false,
       autofillAiAvailableByDefault: boolean = false,
       canEnableOrDisableAutofillAi: boolean =
           false): Promise<SettingsAutofillAiEntriesListElement> {
     loadTimeData.overrideValues({
       userEligibleForAutofillAi: eligibleUser,
-      AutofillAiIgnoresWhetherAddressFillingIsEnabled:
-          autofillAiIgnoresWhetherAddressFillingIsEnabled,
+      AutofillAddOtherDatatypesPrefIsEnabled:
+          autofillAddOtherDatatypesPrefIsEnabled,
       autofillAiAvailableByDefault: autofillAiAvailableByDefault,
       canEnableOrDisableAutofillAi: canEnableOrDisableAutofillAi,
     });
@@ -152,7 +152,7 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
       async function() {
         const entriesList = await createEntriesList(
             /*eligibleUser=*/ false,
-            /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ false,
+            /*autofillAddOtherDatatypesPrefIsEnabled=*/ false,
             /*autofillAiAvailableByDefault=*/ true,
             /*canEnableOrDisableAutofillAi=*/ true);
 
@@ -177,7 +177,7 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
   test('CannotUseAutofillAiDisablesTheFeature', async function() {
     const entriesList = await createEntriesList(
         /*eligibleUser=*/ false,
-        /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ false,
+        /*autofillAddOtherDatatypesPrefIsEnabled=*/ false,
         /*autofillAiAvailableByDefault=*/ true,
         /*canEnableOrDisableAutofillAi=*/ false);
     updateOptInStatus(false, entriesList);
@@ -211,7 +211,7 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
       async function() {
         const entriesList = await createEntriesList(
             /*eligibleUser=*/ false,
-            /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ false,
+            /*autofillAddOtherDatatypesPrefIsEnabled=*/ false,
             /*autofillAiAvailableByDefault=*/ true,
             /*canEnableOrDisableAutofillAi=*/ true);
         await flushTasks();
@@ -235,7 +235,7 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
       async function() {
         const entriesList = await createEntriesList(
             /*userEligible=*/ true,
-            /*autofillAiIgnoresWhetherAddressFillingIsEnabled=*/ true);
+            /*autofillAddOtherDatatypesPrefIsEnabled=*/ true);
         updateOptInStatus(true, entriesList);
         await flushTasks();
 
@@ -282,6 +282,62 @@ suite('AutofillAiEntriesListUiReflectsEligibilityStatus', function() {
 
     assertTrue(addButton.disabled);
   });
+
+  test('DisableAddButtotWhenAddressAutofillDisabled', async function() {
+    loadTimeData.overrideValues({
+      enableYourSavedInfoPolicyAndExtentionToggleIndicators: true,
+    });
+    const entriesList = await createEntriesList();
+    entriesList.allowEditingPref = {
+      key: '',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    };
+    updateOptInStatus(true, entriesList);
+    entriesList.setPrefValue('autofill.profile_enabled', true);
+    await flushTasks();
+
+    const addButton = entriesList.shadowRoot!.querySelector<CrButtonElement>(
+        '#addEntityInstance');
+    assertTrue(!!addButton);
+    assertFalse(addButton.disabled);
+
+    entriesList.setPrefValue('autofill.profile_enabled', false);
+    await flushTasks();
+
+    assertTrue(addButton.disabled);
+  });
+
+  test(
+      'AddressAutofillForcedTrueValueShouldNotOverrideAllowEditingPrefValue',
+      async function() {
+        loadTimeData.overrideValues({
+          enableYourSavedInfoPolicyAndExtentionToggleIndicators: true,
+        });
+        const entriesList = await createEntriesList();
+        entriesList.allowEditingPref = {
+          key: '',
+          type: chrome.settingsPrivate.PrefType.BOOLEAN,
+          value: false,  // Editing is disabled
+        };
+        updateOptInStatus(true, entriesList);
+        entriesList.setPrefValue('autofill.profile_enabled', true);
+        await flushTasks();
+
+        const addButton =
+            entriesList.shadowRoot!.querySelector<CrButtonElement>(
+                '#addEntityInstance');
+        assertTrue(!!addButton);
+        assertTrue(addButton.disabled);
+
+        entriesList.set('prefs.autofill.profile_enabled', {
+          enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+          value: true,
+        });
+        await flushTasks();
+
+        assertTrue(addButton.disabled);
+      });
 });
 
 suite('AutofillAiEntriesListUiTest', function() {

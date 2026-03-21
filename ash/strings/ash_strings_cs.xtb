@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Nahrávání bylo zastaveno. Herní panel nelze používat v režimu tabletu.</translation>
 <translation id="1024364763893396229">Uložení zařízení <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Baterie dotykového pera je slabá</translation>
-<translation id="1036073649888683237">Oznámení můžete spravovat v sekci Nastavení</translation>
 <translation id="1036348656032585052">Vypnout</translation>
 <translation id="1037492556044956303">Bylo přidáno zařízení <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Zobrazit návrhy</translation>
@@ -427,6 +426,7 @@ Je připojen tento počet zařízení: <ph name="DEVICECOUNT" />.</translation>
 <translation id="2478076885740497414">Instalovat aplikaci</translation>
 <translation id="2482878487686419369">Oznámení</translation>
 <translation id="2484513351006226581">Rozložení klávesnice změníte stisknutím kláves <ph name="KEYBOARD_SHORTCUT" /></translation>
+<translation id="2485422356828889247">Odinstalovat</translation>
 <translation id="2486214324139475545">Náhled plochy <ph name="DESK_NAME" />. Aktivní plocha.</translation>
 <translation id="2486405091093637109">Rozlišení „<ph name="DISPLAY_NAME" />“ bylo změněno na <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Pokud nové rozlišení nepotvrdíte, za <ph name="TIMEOUT_SECONDS" /> se obnoví předchozí nastavení.</translation>
 <translation id="2487915095798731898">Připojit se</translation>

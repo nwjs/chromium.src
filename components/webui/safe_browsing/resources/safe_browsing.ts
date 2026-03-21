@@ -3,6 +3,11 @@
  * found in the LICENSE file. */
 
 import 'chrome://resources/cr_elements/cr_tab_box/cr_tab_box.js';
+// <if expr="is_ios">
+// TODO(crbug.com/41173939): Remove this once injected by web. -->
+import 'chrome://resources/js/ios/web_ui.js';
+
+// </if>
 
 import {assert} from 'chrome://resources/js/assert.js';
 import {addWebUiListener, sendWithPromise} from 'chrome://resources/js/cr.js';
@@ -33,6 +38,8 @@ interface DeepScanResult {
   response_time: string;
   response_status: string;
 }
+
+const deepScanData: Map<string, DeepScanResult> = new Map();
 
 /**
  * Asks the C++ SafeBrowsingUIHandler to get the lists of Safe Browsing
@@ -230,6 +237,10 @@ function initialize() {
       'deep-scan-request-update', function(result: DeepScanResult) {
         addDeepScan(result);
       });
+
+  const deepScanExportButton = $('deep-scan-export-btn');
+  assert(deepScanExportButton);
+  deepScanExportButton.addEventListener('click', exportDeepScanData);
 
   // <if expr="is_android">
   sendWithPromise('getReferringAppInfo', []).then((info: string) => {
@@ -544,6 +555,30 @@ function addDeepScan(result: DeepScanResult) {
       addResultToTable('deep-scan-list', result.token, resultFormatted, 1);
     }
   }
+
+  deepScanData.set(result.token, result);
+}
+
+// Exports the data currently displayed in the Deep Scan tab as a JSON file.
+function exportDeepScanData(): void {
+  const exportData = Array.from(deepScanData.values()).map(entry => {
+    return {
+      'request_time': new Date(entry.request_time).toLocaleString(),
+      'request': JSON.parse(entry.request),
+      'response_time': new Date(entry.response_time).toLocaleString(),
+      'response': JSON.parse(entry.response),
+    };
+  });
+
+  const deepScanJson =
+      JSON.stringify(exportData, /* replacer= */ null, /* space= */ 2);
+  const blob = new Blob([deepScanJson], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `deep_scan_export_${Date.now()}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function addLogMessage(logMessage: ReportingResult) {

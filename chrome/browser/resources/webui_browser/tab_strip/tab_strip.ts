@@ -24,13 +24,13 @@ import type {TabElement} from './tab.js';
 import {getCss} from './tab_strip.css.js';
 import {getHtml} from './tab_strip.html.js';
 
-export interface TabStrip {
+export interface TabStripElement {
   $: {
     tabstrip: HTMLElement,
   };
 }
 
-export class TabStrip extends CrLitElement implements TabStripObserver {
+export class TabStripElement extends CrLitElement implements TabStripObserver {
   static get is() {
     return 'webui-browser-tab-strip';
   }
@@ -160,6 +160,7 @@ export class TabStrip extends CrLitElement implements TabStripObserver {
       case DataFieldTags.UNPINNED_TABS:
       case DataFieldTags.TAB_GROUP:
       case DataFieldTags.SPLIT_TAB:
+      case DataFieldTags.WINDOW:
         throw new Error(`unimplemented type: ${data}`);
       default:
         assertNotReachedCase(tag);
@@ -185,7 +186,7 @@ export class TabStrip extends CrLitElement implements TabStripObserver {
     });
   }
 
-  protected onTabCloseClick(e: CustomEvent) {
+  protected onTabCloseClick(e: CustomEvent<{id: string}>) {
     this.tabStripService_.closeTabs([e.detail.id]);
   }
 
@@ -404,8 +405,8 @@ export class TabStrip extends CrLitElement implements TabStripObserver {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'webui-browser-tab-strip': TabStrip;
+    'webui-browser-tab-strip': TabStripElement;
   }
 }
 
-customElements.define(TabStrip.is, TabStrip);
+customElements.define(TabStripElement.is, TabStripElement);

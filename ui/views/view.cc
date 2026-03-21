@@ -878,14 +878,17 @@ void View::SetClipLayerToVisibleBounds(bool clip_layer) {
     return;
   }
   bool remove_layer_clip = clip_layer_to_visible_bounds_;
+  clip_layer_to_visible_bounds_ = clip_layer;
   auto* widget = GetWidget();
   // Register / Unregister to visible bounds notification only when the view is
-  // already added to the widget.  Otherwise this will registered when added to
-  // the widget.
-  if (!clip_layer && widget) {
+  // already added to the widget. Otherwise this will registered when added to
+  // the widget. If the view still needs notifications after `clip_layer` is set
+  // to false, don't unregister for notifications.
+  if (!clip_layer && widget &&
+      !GetNeedsNotificationWhenVisibleBoundsChangeImpl()) {
     UnregisterForVisibleBoundsNotification();
   }
-  clip_layer_to_visible_bounds_ = clip_layer;
+
   if (clip_layer_to_visible_bounds_ && widget) {
     RegisterForVisibleBoundsNotification();
   }
@@ -1602,7 +1605,10 @@ View* View::GetEventHandlerForRect(const gfx::Rect& rect) {
 }
 
 bool View::GetCanProcessEventsWithinSubtree() const {
-  return can_process_events_within_subtree_;
+  if (!can_process_events_within_subtree_) {
+    return false;
+  }
+  return parent() ? parent()->GetCanProcessEventsWithinSubtree() : true;
 }
 
 void View::SetCanProcessEventsWithinSubtree(bool can_process) {
@@ -1719,9 +1725,10 @@ bool View::OnMouseWheel(const ui::MouseWheelEvent& event) {
 }
 
 void View::OnEvent(ui::Event* event) {
-  if (!GetEnabledInViewsSubtree()) {
-    // if this view or any of it parent is disabled, we should "eat" events
-    // without processing
+  if (!GetEnabledInViewsSubtree() || !GetCanProcessEventsWithinSubtree()) {
+    // If this view or any of it parent is disabled, we should "eat" events
+    // without processing. Similarly we should honor views configured to
+    // ignore events within its subtree.
     return;
   }
   ui::EventHandler::OnEvent(event);
@@ -1830,7 +1837,7 @@ WordLookupClient* View::GetWordLookupClient() {
 }
 
 bool View::CanAcceptEvent(const ui::Event& event) {
-  return IsDrawn();
+  return IsDrawn() && GetCanProcessEventsWithinSubtree();
 }
 
 ui::EventTarget* View::GetParentTarget() {
@@ -2352,6 +2359,23 @@ bool View::HasObserver(const ViewObserver* observer) const {
   return observers_.HasObserver(observer);
 }
 
+View::ScopedNotifyObserversOnVisibleBoundsChanged::
+    ScopedNotifyObserversOnVisibleBoundsChanged(View& view)
+    : view_(view),
+      reset_(base::AutoReset<bool>(
+          &view.notify_observers_on_visible_bounds_change_,
+          true)) {
+  view_->RegisterForVisibleBoundsNotification();
+}
+
+View::ScopedNotifyObserversOnVisibleBoundsChanged::
+    ~ScopedNotifyObserversOnVisibleBoundsChanged() {
+  reset_.reset();
+  if (!view_->GetNeedsNotificationWhenVisibleBoundsChangeImpl()) {
+    view_->UnregisterForVisibleBoundsNotification();
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // View, protected:
 
@@ -2713,11 +2737,13 @@ void View::SetLayerParent(ui::Layer* parent_layer) {
 
 bool View::GetNeedsNotificationWhenVisibleBoundsChangeImpl() const {
   return clip_layer_to_visible_bounds_ ||
+         notify_observers_on_visible_bounds_change_ ||
          GetNeedsNotificationWhenVisibleBoundsChange();
 }
 
 void View::OnVisibleBoundsChangedImpl() {
   OnVisibleBoundsChanged();
+  observers_.Notify(&ViewObserver::OnViewVisibleBoundsChanged, this);
 
   if (!clip_layer_to_visible_bounds_) {
     return;
@@ -3161,6 +3187,8 @@ void View::AddChildViewAtImpl(View* view, size_t index) {
   ui::NativeTheme* old_theme = old_widget ? view->GetNativeTheme() : nullptr;
   if (parent) {
     parent->DoRemoveChildView(view, true, false, this);
+  } else {
+    UnregisterChildrenForVisibleBoundsNotification(view);
   }
 
   view->parent_ = this;
@@ -3240,12 +3268,10 @@ void View::AddChildViewAtImpl(View* view, size_t index) {
 
   UpdateTooltip();
 
-  if (widget) {
-    RegisterChildrenForVisibleBoundsNotification(view);
+  RegisterChildrenForVisibleBoundsNotification(view);
 
-    if (view->GetVisible()) {
-      view->SchedulePaint();
-    }
+  if (widget && view->GetVisible()) {
+    view->SchedulePaint();
   }
 
   observers_.Notify(&ViewObserver::OnChildViewAdded, this, view);
@@ -3265,10 +3291,11 @@ void View::DoRemoveChildView(View* view,
   std::unique_ptr<View> view_to_be_deleted;
   view->RemoveFromFocusList();
 
+  UnregisterChildrenForVisibleBoundsNotification(view);
+
   Widget* widget = GetWidget();
   bool is_removed_from_widget = false;
   if (widget) {
-    UnregisterChildrenForVisibleBoundsNotification(view);
     if (view->GetVisible()) {
       view->SchedulePaint();
     }
@@ -3454,9 +3481,7 @@ void View::RegisterChildrenForVisibleBoundsNotification(View* view) {
 
 // static
 void View::UnregisterChildrenForVisibleBoundsNotification(View* view) {
-  if (view->GetNeedsNotificationWhenVisibleBoundsChangeImpl()) {
-    view->UnregisterForVisibleBoundsNotification();
-  }
+  view->UnregisterForVisibleBoundsNotification();
   for (View* child : view->children_) {
     UnregisterChildrenForVisibleBoundsNotification(child);
   }

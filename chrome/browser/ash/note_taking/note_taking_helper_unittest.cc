@@ -272,7 +272,15 @@ class NoteTakingHelperTest : public BrowserWithTestWindowTest {
     // TODO(derat): Sigh, something in ArcAppTest appears to be re-enabling ARC.
     profile()->GetPrefs()->SetBoolean(arc::prefs::kArcEnabled,
                                       flags & ENABLE_PLAY_STORE);
+
     NoteTakingHelper::Initialize();
+
+    // NOTE: In production, NoteTakingHelper is created before a profile.
+    // These simulate observer calls of ProfileManagerObserver and
+    // ArcIntentHelperObserver.
+    NoteTakingHelper::Get()->OnProfileAdded(profile());
+    NoteTakingHelper::Get()->OnIntentFiltersUpdated(std::nullopt);
+
     NoteTakingHelper::Get()->set_launch_chrome_app_callback_for_test(
         base::BindRepeating(&NoteTakingHelperTest::LaunchChromeApp,
                             base::Unretained(this)));
@@ -741,7 +749,7 @@ TEST_F(NoteTakingHelperTest, AddProfileWithPlayStoreEnabled) {
   // Add a second profile with the ARC-enabled pref already set. The Play Store
   // should be immediately regarded as being enabled and the observer should be
   // notified, since OnArcPlayStoreEnabledChanged() apparently isn't called in
-  // this case: http://crbug.com/700554
+  // this case: http://crbug.com/41306817
   auto prefs = std::make_unique<sync_preferences::TestingPrefServiceSyncable>();
   RegisterUserProfilePrefs(prefs->registry());
   prefs->SetBoolean(arc::prefs::kArcEnabled, true);
@@ -754,7 +762,7 @@ TEST_F(NoteTakingHelperTest, AddProfileWithPlayStoreEnabled) {
 
   // TODO(derat|hidehiko): Check that NoteTakingHelper adds itself as an
   // observer of the ArcIntentHelperBridge corresponding to the new profile:
-  // https://crbug.com/748763
+  // https://crbug.com/41335664
 
   // Notification of updated intent filters should result in the apps being
   // refreshed.

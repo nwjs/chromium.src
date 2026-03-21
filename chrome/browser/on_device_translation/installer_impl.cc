@@ -5,11 +5,14 @@
 #include "chrome/browser/on_device_translation/installer_impl.h"
 
 #include "base/command_line.h"
+#include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/path_service.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/component_updater/translate_kit_component_installer.h"
 #include "chrome/browser/component_updater/translate_kit_language_pack_component_installer.h"
@@ -18,8 +21,16 @@
 #include "components/on_device_translation/features.h"
 #include "components/on_device_translation/installer.h"
 #include "components/on_device_translation/public/language_pack.h"
+#include "components/on_device_translation/public/mojom/on_device_translation_service.mojom-forward.h"
+#include "components/on_device_translation/public/mojom/on_device_translation_service.mojom.h"
 #include "components/on_device_translation/public/paths.h"
 #include "components/on_device_translation/public/pref_names.h"
+#include "components/on_device_translation/public/supported_languages.h"
+#include "components/prefs/pref_change_registrar.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "base/strings/utf_string_conversions.h"
+#endif  // BUILDFLAG(IS_WIN)
 
 namespace on_device_translation {
 namespace {
@@ -39,9 +50,140 @@ base::FilePath GetTranslateKitLibraryPath(PrefService* prefs) {
   return GetFilePathFromGlobalPrefs(prefs, prefs::kTranslateKitBinaryPath);
 }
 
+const char kTranslateKitPackagePaths[] = "translate-kit-packages";
+
+std::optional<LanguagePackKey> FindLanguagePackKey(
+    SupportedLanguage language1,
+    SupportedLanguage language2) {
+  for (auto it : kLanguagePackComponentConfigMap) {
+    if (it.second->language1 == language1 &&
+        it.second->language2 == language2) {
+      return it.first;
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<std::map<LanguagePackKey, base::FilePath>>
+GetLanguagePackInfoFromCommandLine() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (!command_line->HasSwitch(kTranslateKitPackagePaths)) {
+    return std::nullopt;
+  }
+  const auto packages_string =
+      command_line->GetSwitchValueNative(kTranslateKitPackagePaths);
+  std::vector<base::CommandLine::StringType> splitted_strings =
+      base::SplitString(packages_string,
+#if BUILDFLAG(IS_WIN)
+                        L",",
+#else   // !BUILDFLAG(IS_WIN)
+                        ",",
+#endif  // BUILDFLAG(IS_WIN)
+                        base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+  if (splitted_strings.size() % 3 != 0) {
+    LOG(ERROR) << "Invalid --" << kTranslateKitPackagePaths << " flag.";
+    return std::nullopt;
+  }
+
+  std::map<LanguagePackKey, base::FilePath> packages;
+  auto it = splitted_strings.begin();
+  while (it != splitted_strings.end()) {
+    if (!base::IsStringASCII(*it) || !base::IsStringASCII(*(it + 1))) {
+      LOG(ERROR) << "Invalid --" << kTranslateKitPackagePaths << " flag.";
+      return std::nullopt;
+    }
+    std::string language1;
+    std::string language2;
+#if BUILDFLAG(IS_WIN)
+    language1 = base::WideToUTF8(*(it++));
+    language2 = base::WideToUTF8(*(it++));
+#else  // !BUILDFLAG(IS_WIN)
+    language1 = *(it++);
+    language2 = *(it++);
+#endif
+
+    std::optional<SupportedLanguage> supported_language1 =
+        ToSupportedLanguage(language1);
+    std::optional<SupportedLanguage> supported_language2 =
+        ToSupportedLanguage(language2);
+    CHECK(supported_language1) << "Language not supported: " << language1;
+    CHECK(supported_language2) << "Language not supported: " << language2;
+    std::optional<LanguagePackKey> lpack_key =
+        FindLanguagePackKey(*supported_language1, *supported_language2);
+    if (!lpack_key) {
+      LOG(ERROR) << "Language Pack not found " << language1 << "_" << language2;
+      it++;
+      continue;
+    }
+    packages.emplace(*lpack_key, base::FilePath(*(it++)));
+  }
+  return packages;
+}
+
 }  // namespace
 
-OnDeviceTranslationInstallerImpl::OnDeviceTranslationInstallerImpl() = default;
+class OnDeviceTranslationInstallerImpl::Notifier {
+ public:
+  explicit Notifier(PrefService* local_state) {
+    pref_registrar_.Init(local_state);
+    pref_registrar_.Add(
+        prefs::kTranslateKitBinaryPath,
+        base::BindRepeating(&OnDeviceTranslationInstallerImpl::Notifier::
+                                NotifyInstallationChanged,
+                            GetWeakPtr()));
+    // Start listening to pref changes for language pack keys.
+    for (const auto& it : kLanguagePackComponentConfigMap) {
+      pref_name_to_lang_pack_.emplace(GetComponentPathPrefName(*it.second),
+                                      it.first);
+      pref_registrar_.Add(
+          GetComponentPathPrefName(*it.second),
+          base::BindRepeating(&OnDeviceTranslationInstallerImpl::Notifier::
+                                  NotifyLanguagePackInstallationChanged,
+                              GetWeakPtr()));
+    }
+  }
+  // Called when a language pack has finished being installed.
+  void OnLanguagePackInstalled(LanguagePackKey language_pack) {
+    for (Observer& observer : observers_) {
+      observer.OnLanguagePackInstalled(language_pack);
+    }
+  }
+
+  base::WeakPtr<OnDeviceTranslationInstallerImpl::Notifier> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+  void NotifyLanguagePackInstallationChanged(const std::string& pref_name) {
+    for (Observer& observer : observers_) {
+      observer.OnLanguagePackInstallationChanged(
+          pref_name_to_lang_pack_[pref_name]);
+    }
+  }
+  void NotifyInstallationChanged(const std::string& pref_name) {
+    for (Observer& observer : observers_) {
+      observer.OnInstallationChanged();
+    }
+  }
+  void AddObserver(Observer* observer) { observers_.AddObserver(observer); }
+  void RemoveObserver(Observer* observer) {
+    observers_.RemoveObserver(observer);
+  }
+
+ private:
+  PrefChangeRegistrar pref_registrar_;
+  base::ObserverList<Observer> observers_;
+  base::flat_map<std::string, LanguagePackKey> pref_name_to_lang_pack_;
+  base::WeakPtrFactory<OnDeviceTranslationInstallerImpl::Notifier>
+      weak_ptr_factory_{this};
+};
+
+OnDeviceTranslationInstallerImpl::OnDeviceTranslationInstallerImpl()
+    : language_packs_from_command_line_(GetLanguagePackInfoFromCommandLine()) {
+  notifier_ = std::make_unique<OnDeviceTranslationInstallerImpl::Notifier>(
+      g_browser_process->local_state());
+}
+
 OnDeviceTranslationInstallerImpl::~OnDeviceTranslationInstallerImpl() = default;
 
 base::FilePath OnDeviceTranslationInstallerImpl::GetLibraryPath() const {
@@ -54,6 +196,14 @@ base::FilePath OnDeviceTranslationInstallerImpl::GetLanguagePackPath(
     LanguagePackKey language_pack) const {
   CHECK(IsInit()) << "Trying to use the OnDeviceTranslationInstaller before "
                      "initializing it.";
+  if (language_packs_from_command_line_.has_value()) {
+    if (!language_packs_from_command_line_->contains(language_pack)) {
+      return base::FilePath();
+    }
+
+    return (*language_packs_from_command_line_).at(language_pack);
+  }
+
   const auto* config =
       on_device_translation::kLanguagePackComponentConfigMap.at(language_pack);
   return g_browser_process->local_state()->GetFilePath(
@@ -61,7 +211,21 @@ base::FilePath OnDeviceTranslationInstallerImpl::GetLanguagePackPath(
 }
 
 std::set<LanguagePackKey>
+OnDeviceTranslationInstallerImpl::GetLanguagePackKeysFromCommandLine() const {
+  std::set<LanguagePackKey> keys;
+  std::transform(language_packs_from_command_line_->begin(),
+                 language_packs_from_command_line_->end(),
+                 std::inserter(keys, keys.begin()),
+                 [](const auto& pair) { return pair.first; });
+  return keys;
+}
+
+std::set<LanguagePackKey>
 OnDeviceTranslationInstallerImpl::InstalledLanguagePacks() const {
+  if (language_packs_from_command_line_.has_value()) {
+    return GetLanguagePackKeysFromCommandLine();
+  }
+
   std::set<LanguagePackKey> installed_pack_keys;
   for (const auto& it : kLanguagePackComponentConfigMap) {
     if (!GetFilePathFromGlobalPrefs(g_browser_process->local_state(),
@@ -75,6 +239,10 @@ OnDeviceTranslationInstallerImpl::InstalledLanguagePacks() const {
 
 std::set<LanguagePackKey>
 OnDeviceTranslationInstallerImpl::RegisteredLanguagePacks() const {
+  if (language_packs_from_command_line_.has_value()) {
+    return GetLanguagePackKeysFromCommandLine();
+  }
+
   std::set<LanguagePackKey> registered_pack_keys;
   for (const auto& it : kLanguagePackComponentConfigMap) {
     if (g_browser_process->local_state()->GetBoolean(
@@ -86,11 +254,22 @@ OnDeviceTranslationInstallerImpl::RegisteredLanguagePacks() const {
 }
 
 bool OnDeviceTranslationInstallerImpl::IsInit() const {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kTranslateKitBinaryPath)) {
+    return true;
+  }
+
   return !GetTranslateKitLibraryPath(g_browser_process->local_state()).empty();
 }
 
 void OnDeviceTranslationInstallerImpl::Init(
     base::RepeatingClosure on_ready_callback) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          kTranslateKitBinaryPath)) {
+    on_ready_callback.Run();
+    return;
+  }
+
   component_updater::RegisterTranslateKitComponent(
       g_browser_process->component_updater(), g_browser_process->local_state(),
       /*force_install=*/true,
@@ -104,6 +283,16 @@ void OnDeviceTranslationInstallerImpl::Init(
 
 void OnDeviceTranslationInstallerImpl::InstallLanguagePack(
     LanguagePackKey language_pack) {
+  if (language_packs_from_command_line_.has_value()) {
+    if (!language_packs_from_command_line_->contains(language_pack)) {
+      LOG(ERROR) << "Language pack not found in the command line.";
+      return;
+    }
+
+    notifier_->OnLanguagePackInstalled(language_pack);
+    return;
+  }
+
   // Registers the TranslateKit language pack component.
   component_updater::RegisterTranslateKitLanguagePackComponent(
       g_browser_process->component_updater(), g_browser_process->local_state(),
@@ -114,8 +303,8 @@ void OnDeviceTranslationInstallerImpl::InstallLanguagePack(
           base::Unretained(g_browser_process->component_updater()),
           language_pack),
       base::BindRepeating(
-          &OnDeviceTranslationInstallerImpl::OnLanguagePackInstalled,
-          weak_ptr_factory_.GetWeakPtr(), language_pack));
+          &OnDeviceTranslationInstallerImpl::Notifier::OnLanguagePackInstalled,
+          notifier_->GetWeakPtr(), language_pack));
 }
 
 void OnDeviceTranslationInstallerImpl::UnInstallLanguagePack(
@@ -126,15 +315,12 @@ void OnDeviceTranslationInstallerImpl::UnInstallLanguagePack(
       language_pack);
 }
 
-void OnDeviceTranslationInstallerImpl::AddOserver(Observer* observer) {
-  observers_.AddObserver(observer);
+void OnDeviceTranslationInstallerImpl::AddObserver(Observer* observer) {
+  notifier_->AddObserver(observer);
 }
 
-void OnDeviceTranslationInstallerImpl::OnLanguagePackInstalled(
-    LanguagePackKey language_pack) {
-  for (Observer& observer : observers_) {
-    observer.OnLanguagePackInstalled(language_pack);
-  }
+void OnDeviceTranslationInstallerImpl::RemoveObserver(Observer* observer) {
+  notifier_->RemoveObserver(observer);
 }
 
 }  // namespace on_device_translation

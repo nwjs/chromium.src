@@ -14,6 +14,7 @@
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_all_accepted_credentials_options.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_resolve_redirect_request_method.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_unknown_credential_options.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -29,7 +30,6 @@ class AuthenticationExtensionsPaymentOutputs;
 class AuthenticationExtensionsSupplementalPubKeysInputs;
 class AuthenticationExtensionsSupplementalPubKeysOutputs;
 class AuthenticatorSelectionCriteria;
-class CableAuthenticationData;
 class Credential;
 class CurrentUserDetailsOptions;
 class IdentityCredentialDisconnectOptions;
@@ -217,13 +217,6 @@ struct MODULES_EXPORT
 };
 
 template <>
-struct TypeConverter<blink::mojom::blink::CableAuthenticationPtr,
-                     blink::CableAuthenticationData> {
-  static blink::mojom::blink::CableAuthenticationPtr Convert(
-      const blink::CableAuthenticationData&);
-};
-
-template <>
 struct MODULES_EXPORT
     TypeConverter<blink::mojom::blink::PublicKeyCredentialRequestOptionsPtr,
                   blink::PublicKeyCredentialRequestOptions> {
@@ -357,6 +350,13 @@ struct MODULES_EXPORT TypeConverter<blink::mojom::blink::LoginStatusOptionsPtr,
                                     blink::LoginStatusOptions> {
   static blink::mojom::blink::LoginStatusOptionsPtr Convert(
       const blink::LoginStatusOptions&);
+};
+
+template <>
+struct MODULES_EXPORT TypeConverter<blink::mojom::blink::FedCmRedirectMethod,
+                                    blink::V8ResolveRedirectRequestMethod> {
+  static blink::mojom::blink::FedCmRedirectMethod Convert(
+      const blink::V8ResolveRedirectRequestMethod&);
 };
 
 }  // namespace mojo

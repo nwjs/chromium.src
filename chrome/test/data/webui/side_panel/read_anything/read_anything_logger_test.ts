@@ -4,7 +4,7 @@
 
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {MetricsBrowserProxyImpl, ReadAloudSettingsChange, ReadAnythingLogger, ReadAnythingSettingsChange, ReadAnythingVoiceType, SpeechControls, TimeFrom} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {LinkStatus, MetricsBrowserProxyImpl, ReadAloudSettingsChange, ReadAnythingLogger, ReadAnythingSettingsChange, ReadAnythingVoiceType, SpeechControls, TimeFrom} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertGT, assertLE} from 'chrome-untrusted://webui-test/chai_assert.js';
 
 import {createSpeechSynthesisVoice} from './common.js';
@@ -123,6 +123,20 @@ suite('Logger', () => {
     assertEquals(0, metrics.getCallCount('recordLineFocusSession'));
   });
 
+  test('line focus toggled with flag enabled', () => {
+    chrome.readingMode.isLineFocusEnabled = true;
+    logger.logLineFocusToggled(true);
+    logger.logLineFocusToggled(false);
+    assertEquals(2, metrics.getCallCount('recordLineFocusToggled'));
+  });
+
+  test('line focus toggled with flag disabled', () => {
+    chrome.readingMode.isLineFocusEnabled = false;
+    logger.logLineFocusToggled(true);
+    logger.logLineFocusToggled(false);
+    assertEquals(0, metrics.getCallCount('recordLineFocusToggled'));
+  });
+
   test('logVoiceSpeed', () => {
     logger.logVoiceSpeed(1);
     logger.logVoiceSpeed(2);
@@ -238,5 +252,17 @@ suite('Logger', () => {
     logger.logTimeFrom(TimeFrom.APP, startTime, endTime);
 
     assertEquals(expectedTime, (await metrics.whenCalled('recordTime'))[1]);
+  });
+
+  test('logLinkStatusCount', async () => {
+    logger.logLinkStatusCount(LinkStatus.NO_HREF, 10);
+    logger.logLinkStatusCount(LinkStatus.NO_MATCH, 20);
+    logger.logLinkStatusCount(LinkStatus.TOO_MANY_MATCHES, 30);
+    logger.logLinkStatusCount(LinkStatus.SUCCESS, 40);
+
+    assertEquals(4, metrics.getCallCount('recordCount'));
+    assertEquals(
+        'Accessibility.ReadAnything.Readability.PageLinksNoHrefCount',
+        (await metrics.whenCalled('recordCount'))[0]);
   });
 });

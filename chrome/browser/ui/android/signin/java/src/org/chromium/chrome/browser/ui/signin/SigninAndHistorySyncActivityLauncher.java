@@ -49,6 +49,7 @@ public interface SigninAndHistorySyncActivityLauncher {
         SigninAccessPoint.COLLABORATION_SHARE_TAB_GROUP,
         SigninAccessPoint.COLLABORATION_LEAVE_OR_DELETE_TAB_GROUP,
         SigninAccessPoint.HISTORY_SYNC_EDUCATIONAL_TIP,
+        SigninAccessPoint.SET_UP_LIST,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface AccessPoint {}
@@ -69,7 +70,11 @@ public interface SigninAndHistorySyncActivityLauncher {
             @AccessPoint int accessPoint);
 
     /**
-     * Creates a coordinator for the bottom-sheet sign-in and history sync flow.
+     * Creates a coordinator for the bottom-sheet sign-in and history sync flow and registers it to
+     * receive activity results using {@link ActivityResultTracker}. Should be called **early** in
+     * the embedding UI's creation (e.g. activity onCreate) so the coordinator can receive and
+     * handle in-flight activity result if the activity holding the coordinator is killed by the OS.
+     * See {@link ActivityResultTracker} for more details.
      *
      * @param windowAndroid The {@link WindowAndroid} for the current window.
      * @param activity The hosting {@link Activity}.
@@ -95,7 +100,7 @@ public interface SigninAndHistorySyncActivityLauncher {
                     DeviceLockActivityLauncher deviceLockActivityLauncher,
                     OneshotSupplier<Profile> profileSupplier,
                     Supplier<BottomSheetController> bottomSheetController,
-                    Supplier<@Nullable ModalDialogManager> modalDialogManagerSupplier,
+                    ModalDialogManager modalDialogManager,
                     SnackbarManager snackbarManager,
                     @SigninAccessPoint int signinAccessPoint);
 

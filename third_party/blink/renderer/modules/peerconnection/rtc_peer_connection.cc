@@ -320,74 +320,70 @@ webrtc::PeerConnectionInterface::RTCConfiguration ParseConfiguration(
       break;
   }
 
-  if (configuration->hasIceServers()) {
-    std::vector<webrtc::PeerConnectionInterface::IceServer>& ice_servers =
-        web_configuration.servers;
-    for (const RTCIceServer* ice_server : configuration->iceServers()) {
-      Vector<String> url_strings;
-      std::vector<std::string> converted_urls;
-      if (ice_server->hasUrls()) {
-        UseCounter::Count(context, WebFeature::kRTCIceServerURLs);
-        switch (ice_server->urls()->GetContentType()) {
-          case V8UnionStringOrStringSequence::ContentType::kString:
-            url_strings.push_back(ice_server->urls()->GetAsString());
-            break;
-          case V8UnionStringOrStringSequence::ContentType::kStringSequence:
-            url_strings = ice_server->urls()->GetAsStringSequence();
-            break;
-        }
-      } else if (ice_server->hasUrl()) {
-        UseCounter::Count(context, WebFeature::kRTCIceServerURL);
-        url_strings.push_back(ice_server->url());
-      } else {
-        exception_state->ThrowTypeError("Malformed RTCIceServer");
+  std::vector<webrtc::PeerConnectionInterface::IceServer>& ice_servers =
+      web_configuration.servers;
+  for (const RTCIceServer* ice_server : configuration->iceServers()) {
+    Vector<String> url_strings;
+    std::vector<std::string> converted_urls;
+    if (ice_server->hasUrls()) {
+      UseCounter::Count(context, WebFeature::kRTCIceServerURLs);
+      switch (ice_server->urls()->GetContentType()) {
+        case V8UnionStringOrStringSequence::ContentType::kString:
+          url_strings.push_back(ice_server->urls()->GetAsString());
+          break;
+        case V8UnionStringOrStringSequence::ContentType::kStringSequence:
+          url_strings = ice_server->urls()->GetAsStringSequence();
+          break;
+      }
+    } else if (ice_server->hasUrl()) {
+      UseCounter::Count(context, WebFeature::kRTCIceServerURL);
+      url_strings.push_back(ice_server->url());
+    } else {
+      exception_state->ThrowTypeError("Malformed RTCIceServer");
+      return {};
+    }
+
+    for (const String& url_string : url_strings) {
+      KURL url(NullUrl(), url_string);
+      if (!url.IsValid()) {
+        exception_state->ThrowDOMException(
+            DOMExceptionCode::kSyntaxError,
+            StrCat({"'", url_string, "' is not a valid URL."}));
         return {};
       }
-
-      for (const String& url_string : url_strings) {
-        KURL url(NullURL(), url_string);
-        if (!url.IsValid()) {
-          exception_state->ThrowDOMException(
-              DOMExceptionCode::kSyntaxError,
-              StrCat({"'", url_string, "' is not a valid URL."}));
-          return {};
-        }
-        bool is_valid_turn = IsValidTurnURL(url);
-        if (!is_valid_turn && !IsValidStunURL(url)) {
-          exception_state->ThrowDOMException(
-              DOMExceptionCode::kSyntaxError,
-              StrCat({"'", url_string, "' is not a valid stun or turn URL."}));
-          return {};
-        }
-        if (is_valid_turn &&
-            (!ice_server->hasUsername() || !ice_server->hasCredential())) {
-          exception_state->ThrowDOMException(
-              DOMExceptionCode::kInvalidAccessError,
-              "Both username and credential are "
-              "required when the URL scheme is "
-              "\"turn\" or \"turns\".");
-        }
-
-        converted_urls.push_back(String(url).Utf8());
+      bool is_valid_turn = IsValidTurnURL(url);
+      if (!is_valid_turn && !IsValidStunURL(url)) {
+        exception_state->ThrowDOMException(
+            DOMExceptionCode::kSyntaxError,
+            StrCat({"'", url_string, "' is not a valid stun or turn URL."}));
+        return {};
+      }
+      if (is_valid_turn &&
+          (!ice_server->hasUsername() || !ice_server->hasCredential())) {
+        exception_state->ThrowDOMException(
+            DOMExceptionCode::kInvalidAccessError,
+            "Both username and credential are "
+            "required when the URL scheme is "
+            "\"turn\" or \"turns\".");
       }
 
-      auto converted_ice_server = webrtc::PeerConnectionInterface::IceServer();
-      converted_ice_server.urls = std::move(converted_urls);
-      if (ice_server->hasUsername()) {
-        converted_ice_server.username = ice_server->username().Utf8();
-      }
-      if (ice_server->hasCredential()) {
-        converted_ice_server.password = ice_server->credential().Utf8();
-      }
-      ice_servers.emplace_back(std::move(converted_ice_server));
+      converted_urls.push_back(String(url).Utf8());
     }
+
+    auto converted_ice_server = webrtc::PeerConnectionInterface::IceServer();
+    converted_ice_server.urls = std::move(converted_urls);
+    if (ice_server->hasUsername()) {
+      converted_ice_server.username = ice_server->username().Utf8();
+    }
+    if (ice_server->hasCredential()) {
+      converted_ice_server.password = ice_server->credential().Utf8();
+    }
+    ice_servers.emplace_back(std::move(converted_ice_server));
   }
 
-  if (configuration->hasCertificates()) {
-    web_configuration.certificates = base::ToVector(
-        configuration->certificates(),
-        [](const auto& certificate) { return certificate->Certificate(); });
-  }
+  web_configuration.certificates = base::ToVector(
+      configuration->certificates(),
+      [](const auto& certificate) { return certificate->Certificate(); });
 
   web_configuration.ice_candidate_pool_size =
       configuration->iceCandidatePoolSize();
@@ -417,26 +413,26 @@ bool SdpMismatch(String old_sdp, String new_sdp, String attribute) {
   // Look for an attribute that is present in both old and new SDP
   // and is modified which is not allowed.
   String attribute_with_prefix = StrCat({"\na=", attribute, ":"});
-  const wtf_size_t new_attribute_pos = new_sdp.Find(attribute_with_prefix);
+  const wtf_size_t new_attribute_pos = new_sdp.find(attribute_with_prefix);
   if (new_attribute_pos == kNotFound) {
     return true;
   }
-  const wtf_size_t old_attribute_pos = old_sdp.Find(attribute_with_prefix);
+  const wtf_size_t old_attribute_pos = old_sdp.find(attribute_with_prefix);
   if (old_attribute_pos == kNotFound) {
     return true;
   }
-  wtf_size_t old_attribute_end = old_sdp.Find("\r\n", old_attribute_pos + 1);
+  wtf_size_t old_attribute_end = old_sdp.find("\r\n", old_attribute_pos + 1);
   if (old_attribute_end == kNotFound) {
-    old_attribute_end = old_sdp.Find("\n", old_attribute_pos + 1);
+    old_attribute_end = old_sdp.find('\n', old_attribute_pos + 1);
   }
-  wtf_size_t new_attribute_end = new_sdp.Find("\r\n", new_attribute_pos + 1);
+  wtf_size_t new_attribute_end = new_sdp.find("\r\n", new_attribute_pos + 1);
   if (new_attribute_end == kNotFound) {
-    new_attribute_end = new_sdp.Find("\n", new_attribute_pos + 1);
+    new_attribute_end = new_sdp.find('\n', new_attribute_pos + 1);
   }
-  return old_sdp.Substring(old_attribute_pos,
-                           old_attribute_end - old_attribute_pos) !=
-         new_sdp.Substring(new_attribute_pos,
-                           new_attribute_end - new_attribute_pos);
+  return old_sdp.substr(old_attribute_pos,
+                        old_attribute_end - old_attribute_pos) !=
+         new_sdp.substr(new_attribute_pos,
+                        new_attribute_end - new_attribute_pos);
 }
 
 bool IceUfragPwdMismatch(String old_sdp, String new_sdp) {
@@ -449,49 +445,49 @@ bool FingerprintMismatch(String old_sdp, String new_sdp) {
   // It's impossible to generate a valid fingerprint without createOffer
   // or createAnswer, so this only applies when there are no fingerprints.
   // This is allowed.
-  const wtf_size_t new_fingerprint_pos = new_sdp.Find("\na=fingerprint:");
+  const wtf_size_t new_fingerprint_pos = new_sdp.find("\na=fingerprint:");
   if (new_fingerprint_pos == kNotFound) {
     return false;
   }
   // Look for fingerprint having been added. Not allowed.
-  const wtf_size_t old_fingerprint_pos = old_sdp.Find("\na=fingerprint:");
+  const wtf_size_t old_fingerprint_pos = old_sdp.find("\na=fingerprint:");
   if (old_fingerprint_pos == kNotFound) {
     return true;
   }
   // Look for fingerprint being modified. Not allowed.  Handle differences in
   // line endings ('\r\n' vs, '\n' when looking for the end of the fingerprint).
   wtf_size_t old_fingerprint_end =
-      old_sdp.Find("\r\n", old_fingerprint_pos + 1);
+      old_sdp.find("\r\n", old_fingerprint_pos + 1);
   if (old_fingerprint_end == kNotFound) {
-    old_fingerprint_end = old_sdp.Find("\n", old_fingerprint_pos + 1);
+    old_fingerprint_end = old_sdp.find('\n', old_fingerprint_pos + 1);
   }
   wtf_size_t new_fingerprint_end =
-      new_sdp.Find("\r\n", new_fingerprint_pos + 1);
+      new_sdp.find("\r\n", new_fingerprint_pos + 1);
   if (new_fingerprint_end == kNotFound) {
-    new_fingerprint_end = new_sdp.Find("\n", new_fingerprint_pos + 1);
+    new_fingerprint_end = new_sdp.find('\n', new_fingerprint_pos + 1);
   }
-  return old_sdp.Substring(old_fingerprint_pos,
-                           old_fingerprint_end - old_fingerprint_pos) !=
-         new_sdp.Substring(new_fingerprint_pos,
-                           new_fingerprint_end - new_fingerprint_pos);
+  return old_sdp.subview(old_fingerprint_pos,
+                         old_fingerprint_end - old_fingerprint_pos) !=
+         new_sdp.subview(new_fingerprint_pos,
+                         new_fingerprint_end - new_fingerprint_pos);
 }
 
 bool ContainsLegacySimulcast(String sdp) {
   // Looks for the non-spec simulcast that іs enabled via SDP munging.
-  return sdp.Find("\na=ssrc-group:SIM") != kNotFound;
+  return sdp.contains("\na=ssrc-group:SIM");
 }
 
 bool ContainsLegacyRtpDataChannel(String sdp) {
   // Looks for the non-spec legacy RTP data channel.
-  return sdp.Find("google-data/90000") != kNotFound;
+  return sdp.contains("google-data/90000");
 }
 
 bool ContainsCandidate(String sdp) {
-  return sdp.Find("\na=candidate") != kNotFound;
+  return sdp.contains("\na=candidate");
 }
 
 bool ContainsOpusStereo(String sdp) {
-  return sdp.Find("stereo=1") != kNotFound;
+  return sdp.contains("stereo=1");
 }
 
 // Keep in sync with tools/metrics/histograms/metadata/web_rtc/enums.xml
@@ -1275,16 +1271,14 @@ RTCConfiguration* RTCPeerConnection::getConfiguration(
   }
   result->setIceServers(ice_servers);
 
-  if (!webrtc_configuration.certificates.empty()) {
-    HeapVector<blink::Member<RTCCertificate>> certificates;
-    certificates.reserve(base::checked_cast<wtf_size_t>(
-        webrtc_configuration.certificates.size()));
-    for (const auto& webrtc_certificate : webrtc_configuration.certificates) {
-      certificates.emplace_back(
-          MakeGarbageCollected<RTCCertificate>(webrtc_certificate));
-    }
-    result->setCertificates(certificates);
+  HeapVector<blink::Member<RTCCertificate>> certificates;
+  certificates.reserve(
+      base::checked_cast<wtf_size_t>(webrtc_configuration.certificates.size()));
+  for (const auto& webrtc_certificate : webrtc_configuration.certificates) {
+    certificates.emplace_back(
+        MakeGarbageCollected<RTCCertificate>(webrtc_certificate));
   }
+  result->setCertificates(certificates);
 
   result->setIceCandidatePoolSize(webrtc_configuration.ice_candidate_pool_size);
 

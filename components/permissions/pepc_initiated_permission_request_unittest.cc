@@ -42,13 +42,18 @@ using blink::mojom::GeolocationEmbeddedPermissionRequestDescriptor;
 using blink::mojom::PermissionDescriptor;
 using blink::mojom::PermissionDescriptorPtr;
 using blink::mojom::PermissionName;
+using blink::mojom::UserMediaEmbeddedPermissionRequestDescriptor;
 }  // namespace
 
 class PEPCInitiatedPermissionRequestTest
     : public content::RenderViewHostTestHarness {
  public:
-  PEPCInitiatedPermissionRequestTest()
-      : scoped_feature_list_(blink::features::kPermissionElement) {}
+  PEPCInitiatedPermissionRequestTest() {
+    scoped_feature_list_.InitWithFeatures(
+        /* enabled_features */ {blink::features::kUserMediaElement,
+                                blink::features::kGeolocationElement},
+        /* disabled_features */ {});
+  }
   PEPCInitiatedPermissionRequestTest(
       const PEPCInitiatedPermissionRequestTest&) = delete;
   PEPCInitiatedPermissionRequestTest& operator=(
@@ -122,10 +127,12 @@ class PEPCInitiatedPermissionRequestTest
   }
 
   EmbeddedPermissionRequestDescriptorPtr
-  CreateEmbeddedPermissionRequestDescriptorPtr() {
+  CreateUserMediaEmbeddedPermissionRequestDescriptorPtr() {
     EmbeddedPermissionRequestDescriptorPtr permission_descriptor =
         EmbeddedPermissionRequestDescriptor::New();
-
+    permission_descriptor->detail =
+        EmbeddedPermissionControlDescriptorExtension::NewUserMedia(
+            UserMediaEmbeddedPermissionRequestDescriptor::New());
     return permission_descriptor;
   }
 
@@ -208,7 +215,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestWhenSettingAllowed) {
   // setting.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_CAMERA),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));
@@ -251,7 +258,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestWhenSettingBlocked) {
   // setting.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_MIC),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));
@@ -278,7 +285,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestBlockedInFencedFrame) {
   // A PEPC request is not allowed in a fenced frame.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_MIC),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));
@@ -313,7 +320,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest,
   // A PEPC request is allowed through from a frame with a valid policy.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_MIC),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));
@@ -344,7 +351,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest,
   // A PEPC request is not allowed through from a frame without a valid policy.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_MIC),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));
@@ -373,7 +380,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestBlockedByKillSwitch) {
   // Attempt to make a PEPC request.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_CAMERA),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));
@@ -392,7 +399,7 @@ TEST_F(PEPCInitiatedPermissionRequestTest, PEPCRequestBlockedOnInsecureOrigin) {
   // Attempt to make a PEPC request.
   permission_service()->RequestPageEmbeddedPermission(
       CreatePermissionDescriptorPtrs(ContentSettingsType::MEDIASTREAM_CAMERA),
-      CreateEmbeddedPermissionRequestDescriptorPtr(),
+      CreateUserMediaEmbeddedPermissionRequestDescriptorPtr(),
       base::BindOnce(
           &PEPCInitiatedPermissionRequestTest::PermissionServiceCallbackPEPC,
           base::Unretained(this)));

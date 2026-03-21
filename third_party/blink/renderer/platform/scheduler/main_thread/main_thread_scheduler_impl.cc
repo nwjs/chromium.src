@@ -87,6 +87,10 @@ class LazyNow;
 namespace blink {
 namespace scheduler {
 
+// When within 500ms of a committed load, busy loop more aggressively.
+BASE_FEATURE(kBusyLoopAggressiveAfterCommittedLoad,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When scrolling and the main thread is not expected to be blocking, decrease
 // its thread priority, so as not to contend with the actually display critical
 // threads.
@@ -271,20 +275,6 @@ perfetto::StaticString RenderingPrioritizationStateToString(
   }
 }
 
-BASE_FEATURE(kBusyLoopOnRendererMain,
-             "BusyLoopOnMainThread",
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else   // BUILDFLAG(IS_ANDROID)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_ANDROID)
-);
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kBusyLoopTime,
-                   &kBusyLoopOnRendererMain,
-                   "busy_loop_for",
-                   base::Milliseconds(2));
-
 // Treat "input handling" specially in V8.
 BASE_FEATURE(kInputHandlingModeFromUseCase, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kInputHandlingModeFromPerformanceScenario,
@@ -292,19 +282,6 @@ BASE_FEATURE(kInputHandlingModeFromPerformanceScenario,
 BASE_FEATURE(kLoadingModeFromRAILMode, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kLoadingModeFromPerformanceScenario,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-void MaybeSetBusyLoop(raw_ptr<base::MessagePump> message_pump,
-                      double scale_factor) {
-  // Offset the additional power consumption of busy-looping by only enabling
-  // this on devices with 120Hz displays.
-  if (!message_pump ||
-      !(::features::IsEligibleForThrottleMainFrameTo60Hz() &&
-        base::FeatureList::IsEnabled(kBusyLoopOnRendererMain))) {
-    return;
-  }
-
-  message_pump->SetBusyLoop(kBusyLoopTime.Get() * scale_factor);
-}
 
 }  // namespace
 
@@ -379,8 +356,7 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
     std::unique_ptr<base::sequence_manager::SequenceManager> sequence_manager)
     : MainThreadSchedulerImpl(sequence_manager.get()) {
   owned_sequence_manager_ = std::move(sequence_manager);
-  MaybeSetBusyLoop(main_thread_only().message_pump,
-                   main_thread_only().renderer_backgrounded ? 0. : 1.);
+  MaybeSetBusyLoop();
 }
 
 MainThreadSchedulerImpl::MainThreadSchedulerImpl(
@@ -426,6 +402,7 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
       main_thread_only_(this, helper_.GetClock(), helper_.NowTicks()),
       any_thread_(this),
       policy_may_need_update_(&any_thread_lock_) {
+  MaybeUpdateThreadTypeLease();
   helper_.AttachToCurrentThread();
 
   // Compositor task queue and default task queue should be managed by
@@ -487,7 +464,8 @@ MainThreadSchedulerImpl::MainThreadSchedulerImpl(
     trace_event::AddTraceSessionObserver(this);
   }
 
-  if (base::FeatureList::IsEnabled(kInputHandlingModeFromPerformanceScenario)) {
+  if (base::FeatureList::IsEnabled(kInputHandlingModeFromPerformanceScenario) ||
+      base::FeatureList::IsEnabled(kLoadingModeFromPerformanceScenario)) {
     if (auto performance_scenario_observer_list =
             performance_scenarios::PerformanceScenarioObserverList::GetForScope(
                 performance_scenarios::ScenarioScope::kCurrentProcess)) {
@@ -553,7 +531,8 @@ MainThreadSchedulerImpl::~MainThreadSchedulerImpl() {
   CHECK(main_thread_only().detached_task_queues.empty());
   CHECK(!virtual_time_control_task_queue_);
 
-  if (base::FeatureList::IsEnabled(kInputHandlingModeFromPerformanceScenario)) {
+  if (base::FeatureList::IsEnabled(kInputHandlingModeFromPerformanceScenario) ||
+      base::FeatureList::IsEnabled(kLoadingModeFromPerformanceScenario)) {
     if (auto performance_scenario_observer_list =
             performance_scenarios::PerformanceScenarioObserverList::GetForScope(
                 performance_scenarios::ScenarioScope::kCurrentProcess)) {
@@ -561,6 +540,21 @@ MainThreadSchedulerImpl::~MainThreadSchedulerImpl() {
     }
   }
   trace_event::RemoveTraceSessionObserver(this);
+}
+
+void MainThreadSchedulerImpl::MaybeUpdateThreadTypeLease() {
+  // Boost the main thread priority to kPresentation for performance, except:
+  // 1. (under kLowerPriorityForCompositorGestures) During compositor gestures
+  // (to avoid contending with the compositor).
+  // 2. When default thread type is explicitly requested (e.g. by WebRTC being
+  // in use).
+  if ((base::FeatureList::IsEnabled(kLowerPriorityForCompositorGestures) &&
+       main_thread_only().current_use_case == UseCase::kCompositorGesture) ||
+      default_thread_type_usage_count_ > 0) {
+    raise_thread_type_lease_ = std::nullopt;
+  } else if (!raise_thread_type_lease_) {
+    raise_thread_type_lease_.emplace(base::ThreadType::kPresentation);
+  }
 }
 
 // static
@@ -1250,7 +1244,6 @@ void MainThreadSchedulerImpl::SetRendererBackgrounded(bool backgrounded) {
   base::TimeTicks now = NowTicks();
   main_thread_only().background_status_changed_at = now;
   main_thread_only().metrics_helper.SetRendererBackgrounded(backgrounded, now);
-  MaybeSetBusyLoop(main_thread_only().message_pump, backgrounded ? 0. : 1.);
 
   UpdatePolicy();
 
@@ -1701,16 +1694,7 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
     main_thread_only().current_policy_expiration_time = base::TimeTicks();
   }
 
-  double busy_loop_scale_factor;
-  if (main_thread_only().renderer_backgrounded) {
-    busy_loop_scale_factor = 0.;
-  } else if (main_thread_only().current_use_case != UseCase::kNone ||
-             main_thread_only().blocking_input_expected_soon) {
-    busy_loop_scale_factor = 1.;
-  } else {
-    busy_loop_scale_factor = 0.5;
-  }
-  MaybeSetBusyLoop(main_thread_only().message_pump, busy_loop_scale_factor);
+  MaybeSetBusyLoop();
 
   // Avoid prioritizing main thread compositing (e.g., rAF) if it is extremely
   // slow, because that can cause starvation in other task sources.
@@ -1797,25 +1781,7 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
     main_thread_only().renderer_frozen_metadata.reset();
   }
 
-  // During a compositor gesture, main thread latency is usually not directly
-  // visible to the user. In this case, make sure that the thread priority is
-  // low enough to not compete with the actually critical threads (e.g. the
-  // compositor thread).
-  if (base::FeatureList::IsEnabled(kLowerPriorityForCompositorGestures)) {
-    base::ThreadType desired_thread_type;
-    switch (main_thread_only().current_use_case) {
-      case UseCase::kCompositorGesture:
-        desired_thread_type = base::ThreadType::kDefault;
-        break;
-      default:
-        desired_thread_type = base::ThreadType::kPresentation;
-        break;
-    }
-
-    if (base::PlatformThread::GetCurrentThreadType() != desired_thread_type) {
-      base::PlatformThread::SetCurrentThreadType(desired_thread_type);
-    }
-  }
+  MaybeUpdateThreadTypeLease();
 
 #if BUILDFLAG(IS_ANDROID)
   if (ShouldRestrictMainThreadBigCoreAffinity()) {
@@ -1838,6 +1804,16 @@ void MainThreadSchedulerImpl::UpdatePolicyLocked(UpdateType update_type) {
     }
   }
 #endif  // BUILDFLAG(IS_ANDROID)
+}
+
+void MainThreadSchedulerImpl::IncreaseDefaultThreadTypeUsageCount() {
+  default_thread_type_usage_count_++;
+  MaybeUpdateThreadTypeLease();
+}
+
+void MainThreadSchedulerImpl::DecreaseDefaultThreadTypeUsageCount() {
+  default_thread_type_usage_count_--;
+  MaybeUpdateThreadTypeLease();
 }
 
 bool MainThreadSchedulerImpl::ComputeIsInputHandlingFromPerformanceScenario(
@@ -2320,6 +2296,10 @@ void MainThreadSchedulerImpl::DidCommitProvisionalLoad(
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"),
                "MainThreadSchedulerImpl::DidCommitProvisionalLoad");
   main_thread_only().has_navigated = true;
+  if (base::FeatureList::IsEnabled(kBusyLoopOnRendererMain) &&
+      base::FeatureList::IsEnabled(kBusyLoopAggressiveAfterCommittedLoad)) {
+    main_thread_only().last_committed_load_time = NowTicks();
+  }
 
   // If this either isn't a history inert commit or it's a reload then we must
   // reset the task cost estimators.
@@ -2954,6 +2934,10 @@ void MainThreadSchedulerImpl::MaybeUpdatePolicyOnTaskCompleted(
     }
   }
 
+  if (!main_thread_only().last_committed_load_time.is_null()) {
+    needs_policy_update = true;
+  }
+
   RenderingPrioritizationState old_state =
       main_thread_only().main_frame_prioritization_state;
   UpdateRenderingPrioritizationStateOnTaskCompleted(queue, task_timing);
@@ -3175,6 +3159,49 @@ void MainThreadSchedulerImpl::OnWidgetSchedulerWillShutdown(
   if (no_widgets_expecting_frame) {
     idle_helper_.EnableLongIdlePeriod();
   }
+}
+
+void MainThreadSchedulerImpl::MaybeSetBusyLoop() {
+  // Offset the additional power consumption of busy-looping by only enabling
+  // this on devices with 120Hz displays.
+  if (!::features::IsEligibleForThrottleMainFrameTo60Hz() ||
+      !base::FeatureList::IsEnabled(kBusyLoopOnRendererMain)) {
+    return;
+  }
+
+  float& busy_loop_scale_factor = main_thread_only().busy_loop_scale_factor;
+  if (main_thread_only().renderer_backgrounded) {
+    busy_loop_scale_factor = 0.f;
+  } else if (main_thread_only().blocking_input_expected_soon ||
+             main_thread_only().current_use_case != UseCase::kNone) {
+    if (main_thread_only().current_use_case == UseCase::kCompositorGesture &&
+        base::FeatureList::IsEnabled(kBusyLoopLessWhenCompositorGesture)) {
+      busy_loop_scale_factor = 0.5f;
+    } else {
+      busy_loop_scale_factor = 1.f;
+    }
+  } else {
+    busy_loop_scale_factor = 0.5f;
+  }
+
+  // The ordering of conditionals and the resetting of
+  // `last_committed_load_time` are used to avoid adding calls to
+  // TimeTicks::Now() in the path of all tasks.
+  if (busy_loop_scale_factor != 0.f &&
+      !main_thread_only().last_committed_load_time.is_null()) {
+    if (NowTicks() - main_thread_only().last_committed_load_time <
+        base::Milliseconds(500)) {
+      busy_loop_scale_factor = 1.5;
+    } else {
+      main_thread_only().last_committed_load_time = base::TimeTicks();
+    }
+  }
+
+  base::MessagePump* message_pump = main_thread_only().message_pump;
+  if (!message_pump) {
+    return;
+  }
+  message_pump->SetBusyLoop(kBusyLoopTime.Get() * busy_loop_scale_factor);
 }
 
 }  // namespace scheduler

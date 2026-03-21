@@ -20,7 +20,7 @@ import type {ContextualUpload} from 'chrome://resources/cr_components/composebox
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {VoiceSearchAction as ComposeVoiceSearchAction} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
-import type {SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
+import type {OpenComposeboxEventDetail, SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import type {ClickInfo} from 'chrome://resources/js/browser_command.mojom-webui.js';
@@ -33,7 +33,6 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
-import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
@@ -420,13 +419,9 @@ export class AppElement extends AppElementBase {
       loadTimeData.getInteger('maxTilesBeforeShowMore');
   protected accessor containerFocused_: boolean = false;
   protected accessor showScrim_: boolean = false;
-  private reducedMotionMediaQueryList_: MediaQueryList =
-      WindowProxy.getInstance().matchMedia('(prefers-reduced-motion: reduce)');
-  protected accessor reducedMotionPreferred_: boolean =
-      this.reducedMotionMediaQueryList_.matches;
+
   protected accessor contextMenuGlifAnimationState_: GlifAnimationState =
-      !this.reducedMotionPreferred_ && this.ntpNextFeaturesEnabled_ &&
-          this.isActionChipsVisible_ ?
+      this.ntpNextFeaturesEnabled_ && this.isActionChipsVisible_ ?
       GlifAnimationState.SPINNER_ONLY :
       GlifAnimationState.INELIGIBLE;
   protected accessor undoAutoRemovalCallback_: (() => void)|null = null;
@@ -459,7 +454,6 @@ export class AppElement extends AppElementBase {
   private pendingComposeboxText_: string = '';
   private pendingComposeboxMode_: ToolMode = ToolMode.kUnspecified;
   private pendingComposeboxModel_: ModelMode = ModelMode.kUnspecified;
-  private pendingComposeboxInputState_: InputState|null = null;
   private pendingAutoRemovalToasts_:
       Array<{message: string, undo: () => void}> = [];
 
@@ -517,8 +511,6 @@ export class AppElement extends AppElementBase {
     super.connectedCallback();
     realboxCanShowSecondarySideMediaQueryList.addEventListener(
         'change', this.onRealboxCanShowSecondarySideChanged_);
-    this.reducedMotionMediaQueryList_.addEventListener(
-        'change', this.onReducedMotionChanged_);
 
     // Listen for chrome-untrusted://ntp-microsoft-auth iframe trying to
     // connect to the NTP.
@@ -631,8 +623,7 @@ export class AppElement extends AppElementBase {
     super.disconnectedCallback();
     realboxCanShowSecondarySideMediaQueryList.removeEventListener(
         'change', this.onRealboxCanShowSecondarySideChanged_);
-    this.reducedMotionMediaQueryList_.removeEventListener(
-        'change', this.onReducedMotionChanged_);
+
     this.callbackRouter_.removeListener(
         this.connectMicrosoftAuthToParentDocumentListenerId_!);
     this.callbackRouter_.removeListener(this.setThemeListenerId_!);
@@ -645,27 +636,6 @@ export class AppElement extends AppElementBase {
         this.setActionChipsVisibilityListenerId_!);
     this.callbackRouter_.removeListener(this.footerVisibilityUpdatedListener_!);
     this.eventTracker_.removeAll();
-  }
-
-  override firstUpdated() {
-    this.pageHandler_.onAppRendered(WindowProxy.getInstance().now());
-    // Let the browser breathe and then render remaining elements.
-    WindowProxy.getInstance().waitForLazyRender().then(() => {
-      ensureLazyLoaded();
-      this.lazyRender_ = true;
-    });
-    this.printPerformance_();
-    performance.measure('app-creation', 'app-creation-start');
-
-    if (!this.modulesEnabled_) {
-      this.recordBrowserPromoMetrics_();
-    }
-
-    if (this.ntpRealboxNextEnabled_ && this.realboxLayoutMode_ !== '') {
-      this.registerHelpBubble(
-          CONTEXTUAL_ENTRYPOINT_ELEMENT_ID,
-          ['#searchbox', '#context'], {fixed: true});
-    }
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
@@ -739,6 +709,27 @@ export class AppElement extends AppElementBase {
     }
   }
 
+  override firstUpdated() {
+    this.pageHandler_.onAppRendered(WindowProxy.getInstance().now());
+    // Let the browser breathe and then render remaining elements.
+    WindowProxy.getInstance().waitForLazyRender().then(() => {
+      ensureLazyLoaded();
+      this.lazyRender_ = true;
+    });
+    this.printPerformance_();
+    performance.measure('app-creation', 'app-creation-start');
+
+    if (!this.modulesEnabled_) {
+      this.recordBrowserPromoMetrics_();
+    }
+
+    if (this.ntpRealboxNextEnabled_ && this.realboxLayoutMode_ !== '') {
+      this.registerHelpBubble(
+          CONTEXTUAL_ENTRYPOINT_ELEMENT_ID, ['#searchbox', '#context'],
+          {fixed: true});
+    }
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
 
@@ -793,13 +784,8 @@ export class AppElement extends AppElementBase {
   // Called to update the OGB of relevant NTP state changes.
   private updateOneGoogleBarAppearance_() {
     if (this.oneGoogleBarLoaded_) {
-      let isNtpDarkTheme;
-      if (this.showComposebox_) {
-        isNtpDarkTheme = this.theme_ && this.theme_.isDark;
-      } else {
-        isNtpDarkTheme = this.theme_ &&
+      const isNtpDarkTheme = this.theme_ &&
             (!!this.theme_.backgroundImage || this.theme_.isDark);
-      }
       $$<IframeElement>(this, '#oneGoogleBar')!.postMessage({
         type: 'updateAppearance',
         // We should be using a light OGB for dark themes and vice versa.
@@ -844,10 +830,6 @@ export class AppElement extends AppElementBase {
     this.realboxCanShowSecondarySide = e.matches;
   };
 
-  private onReducedMotionChanged_ = (e: MediaQueryListEvent) => {
-    this.reducedMotionPreferred_ = e.matches;
-  };
-
   private onLazyRendered_() {
     // Integration tests use this attribute to determine when lazy load has
     // completed.
@@ -872,27 +854,23 @@ export class AppElement extends AppElementBase {
 
   protected onComposeboxInitialized_(e: CustomEvent<{
     initializeComposeboxState:
-        (text: string, files: ContextualUpload[], mode: ToolMode, model: number,
-         inputState: InputState|null) => void,
+        (text: string, files: ContextualUpload[], mode: ToolMode,
+         model: number) => void,
   }>) {
     e.detail.initializeComposeboxState(
         this.pendingComposeboxText_, this.pendingComposeboxContextFiles_,
-        this.pendingComposeboxMode_, this.pendingComposeboxModel_,
-        this.pendingComposeboxInputState_);
+        this.pendingComposeboxMode_, this.pendingComposeboxModel_);
     this.pendingComposeboxContextFiles_ = [];
     this.pendingComposeboxText_ = '';
     this.pendingComposeboxMode_ = ToolMode.kUnspecified;
     this.pendingComposeboxModel_ = ModelMode.kUnspecified;
-    this.pendingComposeboxInputState_ = null;
   }
 
-  protected openComposebox_(e: CustomEvent<{
-    searchboxText: string,
-    contextFiles: ContextualUpload[],
-    mode: ToolMode,
-    model: ModelMode,
-    inputState: InputState|null,
-  }>) {
+  protected onActionChipClick_(e: CustomEvent<OpenComposeboxEventDetail>) {
+    this.onOpenComposebox_(e);
+  }
+
+  protected onOpenComposebox_(e: CustomEvent<OpenComposeboxEventDetail>) {
     if (e.detail.searchboxText) {
       this.pendingComposeboxText_ = e.detail.searchboxText;
     }
@@ -901,7 +879,6 @@ export class AppElement extends AppElementBase {
     }
     this.pendingComposeboxMode_ = e.detail.mode;
     this.pendingComposeboxModel_ = e.detail.model;
-    this.pendingComposeboxInputState_ = e.detail.inputState;
     this.toggleComposebox_();
   }
 
@@ -935,10 +912,10 @@ export class AppElement extends AppElementBase {
       cancelable: true,
     });
 
-    this.closeComposebox_(closeComposebox);
+    this.onCloseComposebox_(closeComposebox);
   }
 
-  protected closeComposebox_(e: CustomEvent) {
+  protected onCloseComposebox_(e: CustomEvent<{composeboxText?: string}>) {
     const composeboxDialog =
         this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
     assert(composeboxDialog);
@@ -1258,7 +1235,7 @@ export class AppElement extends AppElementBase {
     }
   }
 
-  protected onMiddleSlotPromoLoaded_() {
+  protected onNtpMiddleSlotPromoLoaded_() {
     this.middleSlotPromoLoaded_ = true;
   }
 
@@ -1442,13 +1419,13 @@ export class AppElement extends AppElementBase {
     this.realboxHadSecondarySide = e.detail.value;
   }
 
-  protected onSearchboxContainerFocusIn_() {
+  protected onSearchboxContainerFocusin_() {
     if (this.ntpRealboxNextEnabled_) {
       this.containerFocused_ = true;
     }
   }
 
-  protected onSearchboxContainerFocusOut_() {
+  protected onSearchboxContainerFocusout_() {
     if (this.ntpRealboxNextEnabled_) {
       this.containerFocused_ =
           this.shadowRoot.getElementById('searchboxContainer')!.matches(
@@ -1462,10 +1439,6 @@ export class AppElement extends AppElementBase {
 
   protected onActionChipsRetrievalStateChanged_(
       e: CustomEvent<{state: ActionChipsRetrievalState}>) {
-    if (this.reducedMotionPreferred_) {
-      // The animation should not be started.
-      return;
-    }
     const state = e.detail.state;
     // Mapping of ActionChipsRetrievalState => GlifAnimationState:
     // REQUESTED => SPINNER_ONLY
@@ -1499,6 +1472,16 @@ export class AppElement extends AppElementBase {
    * @param undoToastContext - An event that contains the undo toast message and
    *                           the undo callback function.
    */
+  protected onMostVisitedAutoRemoved_(
+      undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
+    this.showAutoRemovedToast_(undoToastContext);
+  }
+
+  protected onModulesAutoRemoved_(
+      undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
+    this.showAutoRemovedToast_(undoToastContext);
+  }
+
   protected showAutoRemovedToast_(
       undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
     this.pendingAutoRemovalToasts_.push(undoToastContext.detail);

@@ -1,5 +1,6 @@
 include_rules = [
   "+ash/constants",
+  "+components/accessibility_annotator/core/storage",
   "+components/autofill/core",
   "+components/bookmarks/browser",
   "+components/bookmarks/common",
@@ -9,6 +10,7 @@ include_rules = [
   "+components/collaboration/public/data_type_controller",
   "+components/commerce/core",
   "+components/consent_auditor",
+  "+components/contextual_tasks",
   "+components/data_sharing/public",
   "+components/history/core/browser",
   "+components/history/core/common",

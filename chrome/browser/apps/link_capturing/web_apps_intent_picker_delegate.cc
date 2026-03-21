@@ -106,7 +106,7 @@ void WebAppsIntentPickerDelegate::FindAllAppsForUrl(
   // this.
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::TaskPriority::USER_BLOCKING, base::MayBlock()},
-      base::BindOnce(&FindMacAppForUrl, url, base::span(icon_sizes_in_dep_)),
+      base::BindOnce(&FindMacAppForUrl, url, icon_sizes_in_dep_),
       base::BindOnce(
           &WebAppsIntentPickerDelegate::CacheMacAppInfoAndPostFinalCallback,
           weak_ptr_factory.GetWeakPtr(), std::move(apps_callback),
@@ -200,13 +200,7 @@ bool WebAppsIntentPickerDelegate::ShouldLaunchAppDirectly(
     return false;
   }
   if (entry_type == PickerEntryType::kWeb) {
-    // Launch app directly only if |url| is in the scope of |app_id|.
-    if (base::FeatureList::IsEnabled(
-            ::features::kPwaNavigationCapturingWithScopeExtensions)) {
-      return provider_->registrar_unsafe().IsUrlInAppExtendedScope(url, app_id);
-    } else {
-      return provider_->registrar_unsafe().IsUrlInAppScope(url, app_id);
-    }
+    return provider_->registrar_unsafe().IsUrlInAppExtendedScope(url, app_id);
   }
 
   // This is only reached on MacOS if there is one app available and the picker

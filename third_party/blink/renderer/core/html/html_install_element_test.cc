@@ -42,6 +42,7 @@ namespace {
 constexpr char kInstallString[] = "Install";
 constexpr char kLaunchString[] = "Launch";
 constexpr char kExampleSite[] = "https://site.example/app.manifest";
+constexpr char kInstallDataInvalidReason[] = "install_data_invalid";
 
 String ResourceIdToString(int resource_id) {
   switch (resource_id) {
@@ -109,6 +110,13 @@ class MockWebInstallService : public mojom::blink::WebInstallService {
   void RespondWithAbortError() {
     CHECK(callback_);
     std::move(callback_).Run(mojom::blink::WebInstallServiceResult::kAbortError,
+                             KURL());
+    called_.Clear();
+  }
+
+  void RespondWithDataError() {
+    CHECK(callback_);
+    std::move(callback_).Run(mojom::blink::WebInstallServiceResult::kDataError,
                              KURL());
     called_.Clear();
   }
@@ -230,7 +238,7 @@ TEST_F(HTMLInstallElementTestBase, RenderedText) {
 
     WaitForElementRegistration(element);
 
-    CheckInnerText(element, "Install");
+    CheckInnerText(element, kInstallString);
   }
 
   {
@@ -257,8 +265,10 @@ TEST_F(HTMLInstallElementTestBase, RenderedTextWhenInstalled) {
 
     WaitForElementRegistration(element);
 
-    CheckInnerText(element, kLaunchString);
-    EXPECT_TRUE(element->show_as_launch());
+    // TODO(crbug.com/485281836): Update expectations once a mitigation is in
+    // place for width-based side channel attacks.
+    CheckInnerText(element, kInstallString);
+    EXPECT_FALSE(element->show_as_launch());
   }
 
   {
@@ -272,8 +282,10 @@ TEST_F(HTMLInstallElementTestBase, RenderedTextWhenInstalled) {
 
     // TODO(crbug.com/467103133): Update when site-specific information is
     // rendered.
-    CheckInnerText(element, kLaunchString);
-    EXPECT_TRUE(element->show_as_launch());
+    // TODO(crbug.com/485281836): Update expectations once a mitigation is in
+    // place for width-based side channel attacks.
+    CheckInnerText(element, kInstallString);
+    EXPECT_FALSE(element->show_as_launch());
   }
 }
 
@@ -359,6 +371,63 @@ TEST_F(HTMLInstallElementTestBase, ActivationAborted) {
   // AbortError should trigger a `promptdismiss` event.
   web_install_service_.RespondWithAbortError();
   MakeGarbageCollected<WaitForEvent>(element, event_type_names::kPromptdismiss);
+}
+
+// TODO(crbug.com/482088884): Create WebInstallServiceImpl unit tests that
+// include checking more specific data error cases.
+TEST_F(HTMLInstallElementTestBase, DataErrorMakesElementInvalid) {
+  // Create the element with an invalid installurl.
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  // Use an installurl that has no manifest.
+  element->setAttribute(html_names::kInstallurlAttr,
+                        AtomicString("https://site.example/"));
+  WaitForElementRegistration(element);
+
+  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+
+  // The `Install` method should be called.
+  web_install_service_.WaitForCall();
+
+  // DataError should trigger a `promptdismiss` event.
+  web_install_service_.RespondWithDataError();
+
+  // Disable the bypass feature before waiting for the event.
+  // This ensures the element's state is correctly evaluated when the DataError
+  // is processed.
+  {
+    ScopedBypassPepcSecurityForTestingForTest scoped_feature(false);
+    MakeGarbageCollected<WaitForEvent>(element,
+                                       event_type_names::kPromptdismiss);
+
+    EXPECT_FALSE(element->IsClickingEnabled());
+    EXPECT_FALSE(element->isValid());
+    EXPECT_EQ(element->invalidReason(), String(kInstallDataInvalidReason));
+  }
+}
+
+TEST_F(HTMLInstallElementTestBase, InvalidUrlMakesElementInvalid) {
+  // Create the element with an invalid installurl.
+  HTMLInstallElement* element =
+      MakeGarbageCollected<HTMLInstallElement>(GetDocument());
+  // Use an invalid installurl.
+  element->setAttribute(html_names::kInstallurlAttr,
+                        AtomicString("invalid url"));
+  WaitForElementRegistration(element);
+
+  // Fast forward to ensure the element is not disabled by any temporary
+  // disabled reasons.
+  task_environment().FastForwardBy(base::Milliseconds(500));
+
+  // Disable bypass feature before event to evaluate element state.
+  ScopedBypassPepcSecurityForTestingForTest scoped_feature(false);
+  element->DispatchEvent(*Event::Create(event_type_names::kDOMActivate));
+
+  EXPECT_FALSE(element->IsClickingEnabled());
+  EXPECT_FALSE(element->isValid());
+  EXPECT_EQ(element->invalidReason(), String(kInstallDataInvalidReason));
+
+  // web_install_service_ should NOT have been called since the URL is invalid.
 }
 
 }  // namespace blink

@@ -37,6 +37,8 @@ const char* udev_device_get_devnode(udev_device* udev_device);
 COMPONENT_EXPORT(DEVICE_UDEV_LINUX)
 const char* udev_device_get_devtype(udev_device* udev_device);
 COMPONENT_EXPORT(DEVICE_UDEV_LINUX)
+const char* udev_device_get_driver(struct udev_device* udev_device);
+COMPONENT_EXPORT(DEVICE_UDEV_LINUX)
 udev_device* udev_device_get_parent(udev_device* udev_device);
 COMPONENT_EXPORT(DEVICE_UDEV_LINUX)
 udev_device* udev_device_get_parent_with_subsystem_devtype(
@@ -111,6 +113,11 @@ std::string UdevDeviceGetPropertyValue(udev_device* udev_device,
 COMPONENT_EXPORT(DEVICE_UDEV_LINUX)
 std::string UdevDeviceGetSysattrValue(udev_device* udev_device,
                                       const char* key);
+
+// Calls udev_device_get_action() and replaces missing values with the empty
+// string.
+COMPONENT_EXPORT(DEVICE_UDEV_LINUX)
+std::string UdevDeviceGetAction(udev_device* udev_device);
 
 // Walks up the chain of parent devices calling udev_device_get_sysattr_value()
 // until a value is found. If no value is found, an empty string is returned.

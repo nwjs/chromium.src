@@ -274,8 +274,9 @@ class DownloadsEventsListener : public EventRouter::TestObserver {
   void OnWillDispatchEvent(const extensions::Event& event) override {
     // TestObserver receives notifications for all events but only needs to
     // check download events.
-    if (!base::StartsWith(event.event_name, "downloads"))
+    if (!base::StartsWith(event.event_name, "downloads")) {
       return;
+    }
 
     Event* new_event = new Event(
         Profile::FromBrowserContext(event.restrict_to_browser_context),
@@ -493,8 +494,9 @@ class DownloadExtensionTest : public ExtensionApiTest {
   void GoOnTheRecord() {
     current_browser_ = browser_window_interface();
     current_profile_ = profile();
-    if (events_listener_.get())
+    if (events_listener_.get()) {
       events_listener_->UpdateProfile(current_profile());
+    }
   }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -520,8 +522,9 @@ class DownloadExtensionTest : public ExtensionApiTest {
                                                false);
     current_browser_ = incognito_browser_;
     current_profile_ = incognito_profile_;
-    if (events_listener_.get())
+    if (events_listener_.get()) {
       events_listener_->UpdateProfile(current_profile());
+    }
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -532,8 +535,9 @@ class DownloadExtensionTest : public ExtensionApiTest {
   bool WaitForInterruption(DownloadItem* item,
                            download::DownloadInterruptReason expected_error,
                            const std::string& on_created_event) {
-    if (!WaitFor(downloads::OnCreated::kEventName, on_created_event))
+    if (!WaitFor(downloads::OnCreated::kEventName, on_created_event)) {
       return false;
+    }
     // Now, onCreated is always fired before interruption.
     return WaitFor(
         downloads::OnChanged::kEventName,
@@ -649,8 +653,9 @@ class DownloadExtensionTest : public ExtensionApiTest {
 
     EXPECT_EQ(0, manager->BlockingShutdownCount());
     EXPECT_EQ(0, manager->InProgressCount());
-    if (manager->InProgressCount() != 0)
+    if (manager->InProgressCount() != 0) {
       return nullptr;
+    }
     return CreateSlowTestDownload(first_download_.get(), kFirstDownloadUrl);
   }
 
@@ -661,8 +666,9 @@ class DownloadExtensionTest : public ExtensionApiTest {
   DownloadItem* CreateSlowTestDownload(
       net::test_server::ControllableHttpResponse* response,
       const std::string& path) {
-    if (!embedded_test_server()->Started())
+    if (!embedded_test_server()->Started()) {
       StartEmbeddedTestServer();
+    }
     std::unique_ptr<content::DownloadTestObserver> observer(
         CreateInProgressDownloadObserver(1));
     DownloadManager* manager = GetCurrentManager();
@@ -963,8 +969,9 @@ class ScopedItemVectorCanceller {
   ~ScopedItemVectorCanceller() {
     for (DownloadManager::DownloadVector::const_iterator item = items_->begin();
          item != items_->end(); ++item) {
-      if ((*item)->GetState() == DownloadItem::IN_PROGRESS)
+      if ((*item)->GetState() == DownloadItem::IN_PROGRESS) {
         (*item)->Cancel(true);
+      }
       content::DownloadUpdatedObserver observer(
           (*item), base::BindRepeating(&ItemNotInProgress));
       observer.WaitForEvent();
@@ -1030,7 +1037,7 @@ class HTML5FileWriter {
 }  // namespace
 
 // Tests that Number/double properties in query are parsed correctly.
-// Regression test for https://crbug.com/617435.
+// Regression test for https://crbug.com/41257260.
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest, ParseSearchQuery) {
   ASSERT_TRUE(
       RunFunction(new DownloadsSearchFunction, "[{\"totalBytesLess\":1}]"));
@@ -1117,7 +1124,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   EXPECT_TRUE(download_item->IsPaused());
 
   // Calling removeFile on a non-active download yields kNotComplete
-  // and should not crash. http://crbug.com/319984
+  // and should not crash. http://crbug.com/41074456
   error = RunFunctionAndReturnError(
       base::MakeRefCounted<DownloadsRemoveFileFunction>(),
       DownloadItemIdAsArgList(download_item));
@@ -1548,7 +1555,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
   // no sorters, DownloadQuery does not call sort(), so the order of the results
   // depends on the order of the items in DownloadManagerImpl::downloads_,
   // which is unspecified and differs between libc++ and libstdc++.
-  // http://crbug.com/365334
+  // http://crbug.com/40361797
 }
 
 // Test the |danger| option for search().
@@ -3128,7 +3135,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 #endif
 }
 
-// Disabled due to cross-platform flakes; http://crbug.com/370531.
+// Disabled due to cross-platform flakes; http://crbug.com/41105685.
 IN_PROC_BROWSER_TEST_F(
     DownloadExtensionTest,
     DISABLED_DownloadExtensionTest_OnDeterminingFilename_Timeout) {
@@ -3266,7 +3273,7 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 }
 
 // Tests downloadsInternal.determineFilename.
-// Regression test for https://crbug.com/815362.
+// Regression test for https://crbug.com/40564481.
 IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
                        DownloadsInternalDetermineFilename) {
   GoOnTheRecord();

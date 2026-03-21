@@ -110,6 +110,10 @@ std::string GetHtmlTagForPDF(const ui::AXNode* ax_node,
                              const std::string& html_tag) {
   ax::mojom::Role role = ax_node->GetRole();
 
+  if (ui::IsTextField(ax_node->GetRole())) {
+    return "div";
+  }
+
   // Some nodes in PDFs don't have an HTML tag so use role instead.
   switch (role) {
     case ax::mojom::Role::kEmbeddedObject:
@@ -238,6 +242,9 @@ std::u16string GetPrefixText(const ui::AXNode* ax_node,
                              bool is_docs) {
   auto original_text = GetTextContent(ax_node, is_pdf, is_docs);
   auto* node = ax_node->GetPreviousUnignoredInTreeOrder();
+  if (!node) {
+    return std::u16string();
+  }
   auto prefix_text = GetTextContent(node, is_pdf, is_docs);
   // TODO(crbug.com/c/459160459): Update this logic for use with Readability
   // distillation.

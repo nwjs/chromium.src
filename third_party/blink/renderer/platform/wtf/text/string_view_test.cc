@@ -466,10 +466,10 @@ TEST(StringViewTest, NullString) {
   EXPECT_TRUE(EqualStringView(StringView(), StringView()));
   EXPECT_FALSE(EqualStringView(StringView(), "abc"));
   EXPECT_FALSE(EqualStringView("abc", StringView()));
-  EXPECT_FALSE(EqualIgnoringASCIICase(StringView(), ""));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(), StringView()));
-  EXPECT_FALSE(EqualIgnoringASCIICase(StringView(), "abc"));
-  EXPECT_FALSE(EqualIgnoringASCIICase("abc", StringView()));
+  EXPECT_FALSE(EqualIgnoringAsciiCase(StringView(), ""));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(), StringView()));
+  EXPECT_FALSE(EqualIgnoringAsciiCase(StringView(), "abc"));
+  EXPECT_FALSE(EqualIgnoringAsciiCase("abc", StringView()));
 }
 
 TEST(StringViewTest, IndexAccess) {
@@ -481,7 +481,7 @@ TEST(StringViewTest, IndexAccess) {
   EXPECT_EQ('3', view16[2]);
 }
 
-TEST(StringViewTest, EqualIgnoringASCIICase) {
+TEST(StringViewTest, EqualIgnoringAsciiCase) {
   static const char* link8 = "link";
   static const char* link_caps8 = "LINK";
   static const char* non_ascii8 = "a\xE1";
@@ -495,29 +495,29 @@ TEST(StringViewTest, EqualIgnoringASCIICase) {
   static const UChar kNonASCIICaps16[3] = {0x0041, 0x00e1, 0};     // A\xE1
   static const UChar kNonASCIIInvalid16[3] = {0x0061, 0x00c1, 0};  // a\xC1
 
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(kLink16), link8));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(kLink16), kLinkCaps16));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(kLink16), link_caps8));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(link8), link_caps8));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(link8), kLink16));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(kLink16), link8));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(kLink16), kLinkCaps16));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(kLink16), link_caps8));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(link8), link_caps8));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(link8), kLink16));
 
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(non_ascii8), non_ascii_caps8));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(non_ascii8), kNonASCIICaps16));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(kNonASCII16), kNonASCIICaps16));
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(kNonASCII16), non_ascii_caps8));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(non_ascii8), non_ascii_caps8));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(non_ascii8), kNonASCIICaps16));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(kNonASCII16), kNonASCIICaps16));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(kNonASCII16), non_ascii_caps8));
   EXPECT_FALSE(
-      EqualIgnoringASCIICase(StringView(non_ascii8), non_ascii_invalid8));
+      EqualIgnoringAsciiCase(StringView(non_ascii8), non_ascii_invalid8));
   EXPECT_FALSE(
-      EqualIgnoringASCIICase(StringView(non_ascii8), kNonASCIIInvalid16));
+      EqualIgnoringAsciiCase(StringView(non_ascii8), kNonASCIIInvalid16));
 
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView("link"), "lInK"));
-  EXPECT_FALSE(EqualIgnoringASCIICase(StringView("link"), "INKL"));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView("link"), "lInK"));
+  EXPECT_FALSE(EqualIgnoringAsciiCase(StringView("link"), "INKL"));
   EXPECT_FALSE(
-      EqualIgnoringASCIICase(StringView("link"), "link different length"));
+      EqualIgnoringAsciiCase(StringView("link"), "link different length"));
   EXPECT_FALSE(
-      EqualIgnoringASCIICase(StringView("link different length"), "link"));
+      EqualIgnoringAsciiCase(StringView("link different length"), "link"));
 
-  EXPECT_TRUE(EqualIgnoringASCIICase(StringView(""), ""));
+  EXPECT_TRUE(EqualIgnoringAsciiCase(StringView(""), ""));
 }
 
 TEST(StringViewTest, CodeUnitCompareIgnoringAsciiCase) {
@@ -647,6 +647,74 @@ TEST(StringViewTest, NextCodePointOffset) {
   EXPECT_EQ(1u, broken3.NextCodePointOffset(0));
 }
 
+TEST(StringViewTest, FindSubstring) {
+  EXPECT_EQ(0u, StringView().find(StringView()));
+  EXPECT_EQ(0u, StringView("").find(StringView()));
+  EXPECT_EQ(0u, StringView(u"").find(StringView()));
+  EXPECT_EQ(kNotFound, StringView().find("a"));
+  EXPECT_EQ(kNotFound, StringView("").find("a"));
+  EXPECT_EQ(kNotFound, StringView(u"").find("a"));
+
+  StringView view8("abcdeabcde");
+  ASSERT_TRUE(view8.Is8Bit());
+  EXPECT_EQ(0u, view8.find(""));
+  EXPECT_EQ(4u, view8.find("", 4));
+  EXPECT_EQ(view8.length(), view8.find("", view8.length()));
+  EXPECT_EQ(kNotFound, view8.find("", view8.length() + 1));
+
+  EXPECT_EQ(0u, view8.find("ab"));
+  EXPECT_EQ(5u, view8.find("ab", 1));
+  EXPECT_EQ(5u, view8.find("ab", 5));
+  EXPECT_EQ(kNotFound, view8.find("ab", 6));
+  EXPECT_EQ(kNotFound, view8.find("ab", view8.length() - 1));
+  EXPECT_EQ(kNotFound, view8.find("ab", view8.length()));
+  EXPECT_EQ(kNotFound, view8.find("ab", view8.length() + 1));
+  EXPECT_EQ(0u, view8.find(view8));
+  EXPECT_EQ(kNotFound, view8.find(view8, 1));
+  EXPECT_EQ(kNotFound, view8.find("abcdeabcdea"));
+
+  EXPECT_EQ(0u, view8.find(u"ab"));
+  EXPECT_EQ(5u, view8.find(u"ab", 1));
+  EXPECT_EQ(5u, view8.find(u"ab", 5));
+  EXPECT_EQ(kNotFound, view8.find(u"ab", 6));
+  EXPECT_EQ(kNotFound, view8.find(u"ab", view8.length() - 1));
+  EXPECT_EQ(kNotFound, view8.find(u"ab", view8.length()));
+  EXPECT_EQ(kNotFound, view8.find(u"ab", view8.length() + 1));
+  EXPECT_EQ(0u, view8.find(u"abcdeabcde"));
+  EXPECT_EQ(kNotFound, view8.find(u"abcdeabcde", 1));
+  EXPECT_EQ(kNotFound, view8.find(u"abcdeabcdea"));
+
+  StringView view8_with_null(base::byte_span_from_cstring("as\0cii"));
+  ASSERT_TRUE(view8_with_null.Is8Bit());
+  EXPECT_EQ(kNotFound, view8_with_null.find("ascii"));
+  const StringView kSNulC(base::byte_span_from_cstring("s\0c"));
+  EXPECT_EQ(1u, view8_with_null.find(kSNulC));
+  EXPECT_EQ(1u, view8_with_null.find(kSNulC, 1));
+  EXPECT_EQ(3u, view8_with_null.find("c"));
+  const StringView kNul(base::byte_span_from_cstring("\0"));
+  EXPECT_EQ(2u, view8_with_null.find(kNul));
+  EXPECT_EQ(kNotFound, view8_with_null.find(kNul, 3));
+
+  StringView view16(u"abcde\u1234abcde");
+  ASSERT_FALSE(view16.Is8Bit());
+  EXPECT_EQ(0u, view16.find("ab"));
+  EXPECT_EQ(2u, view16.find("cd"));
+  EXPECT_EQ(6u, view16.find("ab", 5));
+  EXPECT_EQ(kNotFound, view16.find("ab", 7));
+  EXPECT_EQ(5u, view16.find(u"\u1234a"));
+  EXPECT_EQ(kNotFound, view16.find("abd"));
+  EXPECT_EQ(kNotFound, view16.find(u"\u1234a", 6));
+
+  StringView view16_with_null(base::span_from_cstring(u"asci\0i"));
+  ASSERT_FALSE(view16_with_null.Is8Bit());
+  const StringView kNul16(base::span_from_cstring(u"\0"));
+  EXPECT_EQ(4u, view16_with_null.find(kNul));
+  EXPECT_EQ(4u, view16_with_null.find(kNul16));
+  EXPECT_EQ(4u, view16_with_null.find(kNul16, 4));
+  EXPECT_EQ(5u, view16_with_null.find("i", 4));
+  EXPECT_EQ(kNotFound, view16_with_null.find(kNul16, 5));
+}
+
 TEST(StringViewTest, FindChar) {
   EXPECT_EQ(kNotFound, StringView().find(0));
   EXPECT_EQ(kNotFound, StringView("").find(0));
@@ -739,7 +807,19 @@ TEST(StringViewTest, RfindChar) {
   EXPECT_EQ(kNotFound, view16_with_null.rfind(UChar(0), 3));
 }
 
-TEST(StringViewTest, Contains) {
+TEST(StringViewTest, RfindSubstring) {
+  EXPECT_EQ(0u, StringView().rfind(""));
+  EXPECT_EQ(0u, StringView("").rfind(""));
+  EXPECT_EQ(0u, StringView().rfind(StringView()));
+  EXPECT_EQ(0u, StringView("").rfind(StringView()));
+  EXPECT_EQ(3u, StringView("abc").rfind(""));
+  EXPECT_EQ(3u, StringView("abc").rfind(StringView()));
+  EXPECT_EQ(3u, StringView("abcdef").rfind("def", 3u));
+  EXPECT_EQ(StringView::npos, StringView("abcdef").rfind("def", 2u));
+  EXPECT_EQ(0u, StringView("abcdef").rfind("abc", 3u));
+}
+
+TEST(StringViewTest, ContainsChar) {
   EXPECT_FALSE(StringView().contains(0));
   EXPECT_FALSE(StringView("").contains(0));
   EXPECT_FALSE(StringView(u"").contains(0));
@@ -751,6 +831,27 @@ TEST(StringViewTest, Contains) {
   EXPECT_FALSE(StringView("ascii").contains(uchar::kBlackSquare));
   EXPECT_FALSE(StringView(u"ascii").contains(uchar::kBlackSquare));
   EXPECT_TRUE(StringView(u"ascii\u25A0").contains(uchar::kBlackSquare));
+}
+
+TEST(StringViewTest, ContainsString) {
+  EXPECT_TRUE(StringView().contains(""));
+  EXPECT_FALSE(StringView().contains("foo"));
+
+  EXPECT_TRUE(StringView("").contains(""));
+  EXPECT_TRUE(StringView(u"").contains(""));
+  EXPECT_FALSE(StringView(u"").contains("foo"));
+
+  EXPECT_TRUE(StringView("ascii").contains(""));
+  EXPECT_TRUE(StringView(u"ascii").contains(""));
+  EXPECT_TRUE(
+      StringView(base::byte_span_from_cstring("as\0cii")).contains("cii"));
+  EXPECT_TRUE(StringView(base::span_from_cstring(u"unico\0de")).contains("de"));
+  EXPECT_TRUE(StringView(base::span_from_cstring(u"unico\0de"))
+                  .contains(StringView(base::span_from_cstring(u"\0"))));
+
+  EXPECT_FALSE(StringView("ascii").contains(u"\u25A0"));
+  EXPECT_FALSE(StringView(u"ascii").contains(u"\u25A0"));
+  EXPECT_TRUE(StringView(u"ascii\u25A0").contains(u"\u25A0"));
 }
 
 TEST(StringViewTest, StartsWith) {
@@ -829,6 +930,30 @@ TEST(StringViewTest, Substr) {
   EXPECT_EQ(u"abc", view8.substr(0, 3));
   EXPECT_EQ(u"abc", view8.substr(0, 4));
   EXPECT_EQ(u"b", view16.substr(1, 1));
+}
+
+TEST(StringViewTest, Subview) {
+  StringView view8("abc");
+  EXPECT_EQ("abc", view8.subview(0));
+  EXPECT_EQ("bc", view8.subview(1));
+  EXPECT_EQ("c", view8.subview(2));
+  EXPECT_EQ("", view8.subview(3));
+  EXPECT_EQ("", view8.subview(3, 1));
+  EXPECT_EQ("ab", view8.subview(0, 2));
+  EXPECT_EQ("abc", view8.subview(0, 3));
+  EXPECT_EQ("abc", view8.subview(0, 4));
+  EXPECT_EQ("b", view8.subview(1, 1));
+
+  StringView view16(u"abc");
+  EXPECT_EQ(u"abc", view16.subview(0));
+  EXPECT_EQ(u"bc", view16.subview(1));
+  EXPECT_EQ(u"c", view16.subview(2));
+  EXPECT_EQ(u"", view16.subview(3));
+  EXPECT_EQ(u"", view16.subview(3, 1));
+  EXPECT_EQ(u"ab", view16.subview(0, 2));
+  EXPECT_EQ(u"abc", view16.subview(0, 3));
+  EXPECT_EQ(u"abc", view16.subview(0, 4));
+  EXPECT_EQ(u"b", view16.subview(1, 1));
 }
 
 TEST(StringViewTest, RemovePrefix) {
@@ -913,6 +1038,22 @@ TEST(StringViewTest, SplitByChar) {
   EXPECT_EQ("foo", result[0]);
   EXPECT_EQ("", result[1]);
   EXPECT_EQ("bar", result[2]);
+}
+
+TEST(StringViewTest, ContainsNoAsciiUpper) {
+  EXPECT_TRUE(StringView().ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView("").ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView("abc").ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView(u"abc").ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView("\xA9").ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView(u"\u3000").ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView("abc\xA9").ContainsNoAsciiUpper());
+  EXPECT_TRUE(StringView(u"abc\u3000").ContainsNoAsciiUpper());
+
+  EXPECT_FALSE(StringView("abcD").ContainsNoAsciiUpper());
+  EXPECT_FALSE(StringView(u"abcD").ContainsNoAsciiUpper());
+  EXPECT_FALSE(StringView("abcABC\xA9").ContainsNoAsciiUpper());
+  EXPECT_FALSE(StringView(u"abcD\u3000").ContainsNoAsciiUpper());
 }
 
 }  // namespace blink

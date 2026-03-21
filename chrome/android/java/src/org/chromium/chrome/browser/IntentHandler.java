@@ -190,11 +190,15 @@ public class IntentHandler {
             "org.chromium.chrome.browser.open_regular_overview_mode";
 
     /**
-     * For multi-window, passes the id of the window. On Android S, this is synonymous with
-     * the id of 'activity instance' among multiple instances that can be chosen on instance
-     * switcher UI, ranging from 0 ~ max_instances - 1. -1 for an invalid id.
+     * For multi-window, passes the id of the window. On Android S, this is synonymous with the id
+     * of 'activity instance' among multiple instances that can be chosen on instance switcher UI,
+     * ranging from 0 ~ max_instances - 1. -1 for an invalid id.
      */
     public static final String EXTRA_WINDOW_ID = "org.chromium.chrome.browser.window_id";
+
+    /** Extra to indicate a new window creation source. */
+    public static final String EXTRA_NEW_WINDOW_APP_SOURCE =
+            "org.chromium.chrome.browser.new_window_app_source";
 
     /** Extra to indicate the launch type of the tab to be created. */
     private static final String EXTRA_TAB_LAUNCH_TYPE =
@@ -313,9 +317,6 @@ public class IntentHandler {
     /** Optional extra for the maximum number of items the user can select. */
     public static final String EXTRA_ITEM_PICKER_MAX_SELECTABLE_ITEMS =
             "org.chromium.chrome.browser.extras.item_picker_max_selectable_items";
-
-    public static final String EXTRA_ITEM_PICKER_ERROR =
-            "org.chromium.chrome.browser.chrome_item_picker.EXTRA_ITEM_PICKER_ERROR";
 
     private static @Nullable Pair<Integer, String> sPendingReferrer;
     private static int sReferrerId;

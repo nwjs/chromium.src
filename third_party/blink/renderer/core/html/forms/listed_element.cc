@@ -51,8 +51,10 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/validation_message_client.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/bidi_paragraph.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/line_ending.h"
 
 namespace blink {
 
@@ -369,7 +371,11 @@ bool ListedElement::RecalcWillValidate() const {
   }
   return data_list_ancestor_state_ ==
              DataListAncestorState::kNotInsideDataList &&
-         !element.IsDisabledFormControl() && !is_readonly_;
+         !element.IsDisabledFormControl() &&
+         (!is_readonly_ ||
+          (RuntimeEnabledFeatures::
+               ElementSpecificReadOnlyConstraintValidationEnabled() &&
+           !ReadOnlyPreventsConstraintValidation()));
 }
 
 bool ListedElement::WillValidate() const {
@@ -481,9 +487,7 @@ String ListedElement::CustomValidationMessage() const {
 void ListedElement::SetCustomValidationMessage(const String& message) {
   // \r\n and \r should be replaced with \n:
   // https://github.com/whatwg/html/pull/10350.
-  String message_copy(message);
-  custom_validation_message_ =
-      message_copy.Replace("\r\n", "\n").Replace('\r', '\n');
+  custom_validation_message_ = NormalizeLineEndingsToLF(message);
 }
 
 String ListedElement::validationMessage() const {

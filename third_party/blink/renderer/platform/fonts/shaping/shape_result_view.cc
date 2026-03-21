@@ -200,7 +200,9 @@ ShapeResult* ShapeResultView::CreateShapeResult() const {
     new_run->start_index_ += char_index_offset_;
     new_run->width_ = part.width_;
     new_run->num_characters_ = part.num_characters_;
+#if EXPENSIVE_DCHECKS_ARE_ON()
     new_run->CheckConsistency();
+#endif
     new_result->runs_.push_back(new_run);
   }
 
@@ -564,15 +566,10 @@ float ShapeResultView::ForEachGraphemeClusters(const StringView& text,
                          : part.GlyphAt(i + 1).character_index +
                                character_index_offset_for_glyph_data);
         }
-        if (RuntimeEnabledFeatures::DeprecateCursorMovementIteratorEnabled()) {
-          graphemes_in_cluster = NumGraphemeClusters(
-              cluster_end >= cluster_start
-                  ? StringView(text, cluster_start, cluster_end - cluster_start)
-                  : StringView(text, cluster_end, cluster_start - cluster_end));
-        } else {
-          graphemes_in_cluster = ShapeResult::CountGraphemesInClusterDeprecated(
-              text.Span16(), cluster_start, cluster_end);
-        }
+        graphemes_in_cluster = NumGraphemeClusters(
+            cluster_end >= cluster_start
+                ? StringView(text, cluster_start, cluster_end - cluster_start)
+                : StringView(text, cluster_end, cluster_start - cluster_end));
         if (!graphemes_in_cluster || !cluster_advance)
           continue;
 

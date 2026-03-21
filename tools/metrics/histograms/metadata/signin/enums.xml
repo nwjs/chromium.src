@@ -148,6 +148,7 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Account is fully known"/>
   <int value="1" label="Account is unkown"/>
   <int value="2" label="Account is not full: gaia or email missing"/>
+  <int value="3" label="Account is not full: account id missing"/>
 </enum>
 
 <!-- LINT.IfChange(AccountManagedStatusFinderOutcome) -->
@@ -243,11 +244,6 @@ chromium-metrics-reviews@google.com.
 <enum name="BooleanIsNewOptIn">
   <int value="0" label="Existing opt-in"/>
   <int value="1" label="New opt-in"/>
-</enum>
-
-<enum name="BooleanIsShared">
-  <int value="0" label="Not Shared"/>
-  <int value="1" label="Is Shared"/>
 </enum>
 
 <enum name="BooleanSignoutFromManagedAccount">
@@ -393,41 +389,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/signin/internal/identity_manager/oauth_multilogin_helper.h:DeviceBoundSessionCreateSessionsResult) -->
 
-<!-- LINT.IfChange(DiceMigrationDialogCloseReason) -->
-
-<enum name="DiceMigrationDialogCloseReason">
-  <int value="0" label="Unspecified (likely browser shutdown)"/>
-  <int value="1" label="Accepted"/>
-  <int value="2" label="Cancelled"/>
-  <int value="3" label="Closed"/>
-  <int value="4" label="Esc key pressed"/>
-  <int value="5" label="Primary account cleared"/>
-  <int value="6" label="Primary account changed"/>
-  <int value="7" label="Sync turned on"/>
-  <int value="8" label="Avatar button clicked"/>
-  <int value="9" label="Service destroyed"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/ui/signin/dice_migration_service.h:DialogCloseReason) -->
-
-<!-- LINT.IfChange(DiceMigrationDialogNotShownReason) -->
-
-<enum name="DiceMigrationDialogNotShownReason">
-  <int value="0" label="Not eligible"/>
-  <int value="1" label="Max shown count reached"/>
-  <int value="2" label="Min time between dialogs not passed"/>
-  <int value="3" label="Managed account"/>
-  <int value="4" label="Error fetching account managed status"/>
-  <int value="5" label="Primary account changed"/>
-  <int value="6" label="Primary account cleared"/>
-  <int value="7" label="Sync turned on"/>
-  <int value="8" label="Browser instance unavailable"/>
-  <int value="9" label="Avatar button unavailable"/>
-  <int value="10" label="Service destroyed"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/ui/signin/dice_migration_service.h:DialogNotShownReason) -->
-
 <!-- LINT.IfChange(DiceTokenBindingOutcome) -->
 
 <enum name="DiceTokenBindingOutcome">
@@ -447,18 +408,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/signin/dice_response_handler.h:TokenBindingOutcome) -->
-
-<!-- LINT.IfChange(ExplicitSigninMigration) -->
-
-<enum name="ExplicitSigninMigration">
-  <int value="0" label="Migrated, signed out"/>
-  <int value="1" label="Migrated, signed in"/>
-  <int value="2" label="Migrated, syncing"/>
-  <int value="3" label="Not Migrated, signed in"/>
-  <int value="4" label="Not Migrated, syncing"/>
-</enum>
-
-<!-- LINT.ThenChange(//components/signin/core/browser/signin_metrics_service.h:ExplicitSigninMigration) -->
 
 <enum name="FRESigninEvents">
   <int value="0" label="Checking managed status"/>
@@ -799,9 +748,10 @@ chromium-metrics-reviews@google.com.
   <int value="84" label="Ash Scanner Keyed Service"/>
   <int value="85" label="Autotest Private Api"/>
   <int value="86" label="Sync Device Statistics Metrics"/>
-  <int value="87" label="Legion Service"/>
+  <int value="87" label="Private AI Service"/>
   <int value="88" label="Wallet Passes Service"/>
   <int value="89" label="Aim Eligibility Service"/>
+  <int value="90" label="DevTools AiCode Client"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/public/base/oauth_consumer_id.h:OAuthConsumerId) -->
@@ -875,6 +825,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Batch Upload - Bookmarks deduplication"/>
   <int value="3" label="Batch Upload - Windows10 Depreciation"/>
   <int value="4" label="Sync Promo"/>
+  <int value="5" label="Signin Promo"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/signin/signin_promo_util.h:ProfileMenuAvatarButtonPromoType) -->
@@ -932,7 +883,7 @@ chromium-metrics-reviews@google.com.
   <int value="14" label="(obsolete) Content area"/>
   <int value="15" label="Fullscreen Signin promo shown on start-up"/>
   <int value="16" label="Tabs from other devices"/>
-  <int value="17" label="Unknown"/>
+  <int value="17" label="(obsolete) Unknown"/>
   <int value="18" label="Password save bubble"/>
   <int value="19" label="Autofill dropdown"/>
   <int value="20" label="(obsolete) NTP Content Suggestions"/>
@@ -972,7 +923,7 @@ chromium-metrics-reviews@google.com.
   <int value="48" label="Reauth info bar"/>
   <int value="49" label="Account consistency service"/>
   <int value="50" label="(obsolete) Search companion"/>
-  <int value="51" label="Set Up List (iOS only)"/>
+  <int value="51" label="Set Up List (Mobile only)"/>
   <int value="52" label="(obsolete) Password migration warning (Android only)"/>
   <int value="53" label="Save to photos (iOS only)"/>
   <int value="54" label="Chrome Sign-in intercept bubble."/>
@@ -1020,6 +971,10 @@ chromium-metrics-reviews@google.com.
   <int value="92" label="Credential Exchange import"/>
   <int value="93" label="Set sync consent from sync internals"/>
   <int value="94" label="Chrome WebView (iOS only)"/>
+  <int value="95" label="Ash user session manager (ChromeOS only)"/>
+  <int value="96" label="Ash Chrome session manager (ChromeOS only)"/>
+  <int value="97" label="AvatarPill expanding on startup"/>
+  <int value="98" label="Search AI Mode (Desktop only)"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -1162,12 +1117,18 @@ chromium-metrics-reviews@google.com.
       label="Failed to set ExcludedFromBackup flag on sentinel file"/>
 </enum>
 
+<!-- LINT.IfChange(SigninLoadTokenFromDB) -->
+
 <enum name="SigninLoadTokenFromDB">
   <int value="0" label="Loaded"/>
   <int value="1" label="Revoked by Dice migration"/>
   <int value="2" label="Revoked as secondary account"/>
   <int value="3" label="Revoked on load due to cookie settings"/>
+  <int value="4" label="Revoked on load due to invalid token characters"/>
+  <int value="5" label="Revoked on load due to invalid account ID"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/signin/internal/identity_manager/mutable_profile_oauth2_token_service_delegate.h:LoadTokenFromDBStatus) -->
 
 <enum name="SigninReconcilerOperation">
   <int value="0" label="No-op"/>

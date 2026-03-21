@@ -25,6 +25,7 @@
 #include "base/functional/bind.h"
 #include "base/mac/mac_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
@@ -76,6 +77,7 @@
 #include "chrome/browser/ui/browser_mac.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/cocoa/apps/quit_with_apps_controller_mac.h"
@@ -102,6 +104,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/color_provider_browser_helper.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
@@ -132,9 +135,9 @@
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_manager.h"
+#include "ui/color/color_provider_source.h"
 #include "ui/gfx/native_ui_types.h"
-#include "ui/native_theme/native_theme_mac.h"
-#include "ui/native_theme/native_theme_observer.h"
+#include "ui/native_theme/native_theme.h"
 #include "url/gurl.h"
 
 #include "content/nw/src/nw_content.h"
@@ -636,25 +639,6 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
   AppController* const app_controller_;  // Weak; owns us.
 };
 
-class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
- public:
-  explicit AppControllerNativeThemeObserver(AppController* app_controller)
-      : app_controller_(app_controller) {
-    native_theme_observation_.Observe(
-        ui::NativeThemeMac::GetInstanceForNativeUi());
-  }
-
-  // NativeThemeObserver:
-  void OnNativeThemeUpdated(ui::NativeTheme* observed_theme) override {
-    [app_controller_ nativeThemeDidChange];
-  }
-
- private:
-  base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver>
-      native_theme_observation_{this};
-  AppController* const app_controller_;  // Weak; owns us.
-};
-
 @implementation AppController {
   // Manages the state of the command menu items.
   std::unique_ptr<CommandUpdater> _menuState;
@@ -667,10 +651,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   // when a profile has been deleted.
   std::unique_ptr<AppControllerProfileObserver>
       _profileAttributesStorageObserver;
-
-  // The NativeThemeObserver observes system-wide theme related settings
-  // change.
-  std::unique_ptr<AppControllerNativeThemeObserver> _nativeThemeObserver;
 
   // Management of the bookmark menu which spans across all windows
   // (and Browser*s). |profileBookmarkMenuBridgeMap_| is a cache that owns one
@@ -763,8 +743,9 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   // state controller changes.
   base::CallbackListSubscription _verticalTabSubscription;
 
-  // The color provider associated with the last active browser view.
-  raw_ptr<const ui::ColorProvider, DanglingUntriaged> _lastActiveColorProvider;
+  // The last active browser, used to query its ColorProvider on demand.
+  // WeakPtr self-nulls on browser destruction.
+  base::WeakPtr<BrowserWindowInterface> _lastActiveBrowser;
 }
 
 @synthesize startupComplete = _startupComplete;
@@ -1126,21 +1107,23 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
   Profile* profile = browser->profile();
 
+  _lastActiveBrowser = browser->GetWeakPtr();
   [self setLastProfile:profile];
-  _lastActiveColorProvider = browser->window()->GetColorProvider();
 }
 
 - (void)onVerticalTabStripModeChanged:
     (tabs::VerticalTabStripStateController*)stateController {
+  bool enabled = stateController->ShouldDisplayVerticalTabs();
+  bool is_rtl = base::i18n::IsRTL();
+
+  // Updates the `Tab` menu's "New Tab to the ..." and "Close Tabs to the ..."
+  // accordingly.
   if (_tabMenuBridge) {
     NSMenu* tabSubmenu = [[[NSApp mainMenu] itemWithTag:IDC_TAB_MENU] submenu];
     NSMenuItem* newTabPositionalItem =
         [tabSubmenu itemWithTag:IDC_NEW_TAB_TO_RIGHT];
     NSMenuItem* closeTabsPositionalItem =
         [tabSubmenu itemWithTag:IDC_WINDOW_CLOSE_TABS_TO_RIGHT];
-
-    bool enabled = stateController->ShouldDisplayVerticalTabs();
-    bool is_rtl = base::i18n::IsRTL();
 
     [newTabPositionalItem
         setTitle:l10n_util::GetNSString(enabled ? IDS_TAB_CXMENU_NEWTABBELOW
@@ -1268,10 +1251,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
       std::make_unique<AppControllerProfileObserver>(
           g_browser_process->profile_manager(), self);
 
-  // Observe native theme change (e.g. light and dark mode).
-  _nativeThemeObserver =
-      std::make_unique<AppControllerNativeThemeObserver>(self);
-
   // Record the path to the (browser) app bundle; this is used by the app mode
   // shim.
   if (base::apple::AmIBundled()) {
@@ -1292,10 +1271,9 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
   Browser* browser = chrome::FindLastActive();
   content::WebContents* activeWebContents = nullptr;
-  _lastActiveColorProvider = nullptr;
   if (browser) {
     activeWebContents = browser->tab_strip_model()->GetActiveWebContents();
-    _lastActiveColorProvider = browser->window()->GetColorProvider();
+    _lastActiveBrowser = browser->GetWeakPtr();
   }
   [self updateHandoffManager:activeWebContents];
   [self openStartupUrls];
@@ -1771,6 +1749,14 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
       // We've performed the unminimize, so AppKit shouldn't do anything.
       return NO;
     }
+
+    if (ProfilePicker::IsOpen()) {
+      ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
+          // The entry point should be irrelevant here because the picker is
+          // already open.
+          ProfilePicker::EntryPoint::kNewSessionOnExistingProcess));
+      return NO;
+    }
   }
 
   base::FilePath lastProfilePath = GetStartupProfilePathMac();
@@ -2188,26 +2174,19 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 }
 
 - (const ui::ColorProvider&)lastActiveColorProvider {
-  // During the browser startup the creation of Browser and AppController is
-  // a race condition. The color provider will be missing if the browser is
-  // created later than the AppController.
-  if (!_lastActiveColorProvider) {
-    return *ui::ColorProviderManager::Get().GetColorProviderFor(
-        ui::NativeTheme::GetInstanceForNativeUi()->GetColorProviderKey(
-            nullptr));
+  BrowserWindowInterface* browser = _lastActiveBrowser.get();
+  if (browser) {
+    auto* helper = ColorProviderBrowserHelper::From(browser);
+    if (helper) {
+      const auto* color_provider =
+          helper->color_provider_source()->GetColorProvider();
+      if (color_provider) {
+        return *color_provider;
+      }
+    }
   }
-
-  return *_lastActiveColorProvider;
-}
-
-- (void)nativeThemeDidChange {
-  // Some tests manually notify native theme change without setting
-  // a profile for app controller, so `_lastProfile` will be nullptr.
-  if (_lastProfile) {
-    Browser* browser = chrome::FindBrowserWithProfile(_lastProfile);
-    if (browser && browser->window())
-      _lastActiveColorProvider = browser->window()->GetColorProvider();
-  }
+  return *ui::ColorProviderManager::Get().GetColorProviderFor(
+      ui::NativeTheme::GetInstanceForNativeUi()->GetColorProviderKey(nullptr));
 }
 
 - (id)targetForPerformClose {
@@ -2468,7 +2447,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 - (void)setLastProfileForTesting:(Profile*)profile {
   _lastProfile = profile;
   Browser* browser = chrome::FindLastActiveWithProfile(profile);
-  _lastActiveColorProvider = browser->window()->GetColorProvider();
+  _lastActiveBrowser = browser->GetWeakPtr();
 }
 
 @end  // @implementation AppController

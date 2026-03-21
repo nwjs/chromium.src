@@ -33,6 +33,7 @@ source_set("browser_tests") {
   ]
 
   deps = [
+    "//chrome/browser/bookmarks",
     "//chrome/browser/ui/tabs/tab_group_home:constants",
     "//chrome/test:test_support",
     "//components/commerce/core:commerce_constants",
@@ -56,6 +57,7 @@ source_set("browser_tests") {
       "downloads/downloads_browsertest.cc",
       "engagement/site_engagement_browsertest.cc",
       "feedback/feedback_browsertest.cc",
+      "glic/glic_browsertest.cc",
       "histograms/histograms_internals_browsertest.cc",
       "history/history_supervised_user_browsertest.cc",
       "history/history_ui_browsertest.cc",
@@ -79,7 +81,6 @@ source_set("browser_tests") {
       "privacy_sandbox/internals/privacy_sandbox_internals_browsertest.cc",
       "privacy_sandbox/internals/private_state_tokens/private_state_tokens_browsertest.cc",
       "privacy_sandbox/internals/related_website_sets/related_website_sets_browsertest.cc",
-      "privacy_sandbox/privacy_sandbox_dialog_browsertest.cc",
       "sandbox/sandbox_browsertest.cc",
       "settings/settings_browsertest.cc",
       "side_panel/commerce/commerce_browsertest.cc",
@@ -95,13 +96,12 @@ source_set("browser_tests") {
     deps += [
       "//chrome/browser/actor",
       "//chrome/browser/engagement",
+      "//chrome/browser/glic",
+      "//chrome/browser/glic/test_support",
+      "//chrome/browser/preloading",
       "//chrome/browser/signin:signin_promo",
       "//chrome/browser/subscription_eligibility",
     ]
-
-    if (enable_glic) {
-      deps += [ "//chrome/browser/glic" ]
-    }
 
     if (is_chrome_branded) {
       sources += [ "media_router/cast_feedback_ui_browsertest.cc" ]
@@ -137,11 +137,6 @@ source_set("browser_tests") {
 
   if (chrome_root_store_cert_management_ui) {
     sources += [ "certificate_manager/certificate_manager_browsertest.cc" ]
-  }
-
-  if (enable_glic && !is_android) {
-    sources += [ "glic/glic_browsertest.cc" ]
-    deps += [ "//chrome/browser/glic/test_support" ]
   }
 
   if (is_chromeos) {
@@ -256,7 +251,8 @@ source_set("browser_tests") {
       "//components/history/core/common",
       "//components/history_clusters/core",
       "//components/history_clusters/history_clusters_internals/webui:constants",
-      "//components/history_embeddings",
+      "//components/history_embeddings/content",
+      "//components/history_embeddings/core",
       "//components/language/core/browser",
       "//components/lens:enterprise_policy",
       "//components/lens:features",
@@ -330,7 +326,7 @@ source_set("interactive_ui_tests") {
 
   sources = [ "cr_elements/cr_elements_focus_test.cc" ]
 
-  deps = []
+  deps = [ "//chrome/browser/glic/test_support" ]
 
   if (!is_android) {
     sources += [
@@ -401,10 +397,6 @@ source_set("interactive_ui_tests") {
       "//chrome/browser/compose",
       "//components/compose/core/browser:features",
     ]
-  }
-
-  if (enable_glic) {
-    deps += [ "//chrome/browser/glic/test_support" ]
   }
 }
 
@@ -478,6 +470,7 @@ webui_ts_library("build_ts") {
     "test_plural_string_proxy.ts",
     "test_util.ts",
     "test_open_window_proxy.ts",
+    "trusted_html.ts",
   ]
 
   if (!is_android) {
@@ -489,7 +482,6 @@ webui_ts_library("build_ts") {
       "polymer_test_util.ts",
       "test_api.ts",
       "test_store.ts",
-      "trusted_html.ts",
     ]
   }
 
@@ -531,6 +523,7 @@ generate_grd("build_grd") {
     "commerce_internals:build_grdp",
     "cr_elements:build_grdp",
     "flags:build_grdp",
+    "glic:build_grdp",
     "js:build_grdp",
     "location_internals:build_grdp",
     "sync_internals:build_grdp",
@@ -544,6 +537,7 @@ generate_grd("build_grd") {
     "$target_gen_dir/commerce_internals/resources.grdp",
     "$target_gen_dir/cr_elements/resources.grdp",
     "$target_gen_dir/flags/resources.grdp",
+    "$target_gen_dir/glic/resources.grdp",
     "$target_gen_dir/js/resources.grdp",
     "$target_gen_dir/location_internals/resources.grdp",
     "$target_gen_dir/mocha_resources.grdp",
@@ -597,7 +591,6 @@ generate_grd("build_grd") {
       "optimization_guide_internals:build_grdp",
       "password_manager:build_grdp",
       "password_manager_internals:build_grdp",
-      #"privacy_sandbox:build_grdp",
       #"privacy_sandbox/internals:build_grdp",
       "privacy_sandbox/internals/private_state_tokens:build_grdp",
       "privacy_sandbox/internals/related_website_sets:build_grdp",
@@ -656,7 +649,6 @@ generate_grd("build_grd") {
       #"$target_gen_dir/privacy_sandbox/internals/resources.grdp",
       "$target_gen_dir/privacy_sandbox/internals/private_state_tokens/resources.grdp",
       "$target_gen_dir/privacy_sandbox/internals/related_website_sets/resources.grdp",
-      #"$target_gen_dir/privacy_sandbox/resources.grdp",
       "$target_gen_dir/sandbox/resources.grdp",
       "$target_gen_dir/settings/resources.grdp",
       #"$target_gen_dir/side_panel/customize_chrome/resources.grdp",
@@ -740,11 +732,6 @@ generate_grd("build_grd") {
   if (is_win || is_chromeos) {
     deps += [ "gaia_auth_host:build_grdp" ]
     grdp_files += [ "$target_gen_dir/gaia_auth_host/resources.grdp" ]
-  }
-
-  if (enable_glic) {
-    grdp_files += [ "$target_gen_dir/glic/resources.grdp" ]
-    deps += [ "glic:build_grdp" ]
   }
 
   if (is_chromeos) {

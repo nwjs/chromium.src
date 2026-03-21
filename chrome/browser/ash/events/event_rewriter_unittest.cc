@@ -32,6 +32,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/ash/events/event_rewriter_delegate_impl.h"
 #include "chrome/browser/ash/input_method/input_method_configuration.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
@@ -3804,7 +3805,7 @@ TEST_P(EventRewriterTest, MouseEventMaintainNativeEvent) {
   }
 }
 
-// Tests edge cases of key event rewriting (see https://crbug.com/913209).
+// Tests edge cases of key event rewriting (see https://crbug.com/40605692).
 TEST_P(EventRewriterTest, KeyEventRewritingEdgeCases) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
 

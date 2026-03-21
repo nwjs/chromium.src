@@ -51,6 +51,7 @@
 #include "ui/views/animation/ink_drop_mask.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
+#include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/label_button_border.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/menu_model_adapter.h"
@@ -168,6 +169,10 @@ float ToolbarButton::GetCornerRadiusFor(ToolbarButton::Edge edge) const {
   return GetRoundedCornerRadius();
 }
 
+void ToolbarButton::SetDefaultBackgroundColorId(ChromeColorIds color_id) {
+  default_background_color_id_ = color_id;
+}
+
 void ToolbarButton::UpdateColorsAndInsets() {
   // First, calculate new border insets assuming CalculatePreferredSize()
   // accurately reflects the desired content size.
@@ -195,6 +200,12 @@ void ToolbarButton::UpdateColorsAndInsets() {
     SetBackground(nullptr);
     const auto* cp = GetColorProvider();
     if (cp) {
+      if (default_background_color_id_ != kChromeColorsStart) {
+        SetBackground(views::CreateBackgroundFromPainter(
+            views::Painter::CreateSolidRoundRectPainter(
+                cp->GetColor(default_background_color_id_), highlight_radius,
+                paint_insets)));
+      }
       label()->SetBackgroundColor(cp->GetColor(kColorToolbar));
     }
   }
@@ -261,11 +272,7 @@ std::optional<SkColor> ToolbarButton::GetBackgroundColor() const {
 }
 
 int ToolbarButton::GetIconSize() const {
-  if (ui::TouchUiController::Get()->touch_ui()) {
-    return kDefaultTouchableIconSize;
-  }
-
-  return kDefaultIconSizeChromeRefresh;
+  return GetLayoutConstant(LayoutConstant::kToolbarButtonIconSize);
 }
 
 bool ToolbarButton::ShouldPaintBorder() const {
@@ -395,6 +402,20 @@ const gfx::Size ToolbarButton::GetTargetSize() const {
   const gfx::Insets target_insets = GetTargetInsets();
 
   return target_contents_size + target_insets.size();
+}
+
+void ToolbarButton::StateChanged(ButtonState old_state) {
+  LabelButton::StateChanged(old_state);
+  auto* const ink_drop = views::InkDrop::Get(this);
+
+  if (GetState() == STATE_DISABLED) {
+    ink_drop->SetMode(views::InkDropHost::InkDropMode::OFF);
+  } else if (old_state == STATE_DISABLED) {
+    ink_drop->SetMode(views::InkDropHost::InkDropMode::ON);
+    if (auto* impl = ink_drop->GetInkDrop()) {
+      impl->SetHovered(IsMouseHovered());
+    }
+  }
 }
 
 void ToolbarButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {

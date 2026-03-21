@@ -10,9 +10,142 @@
 
 #include "overridden/jni_zero_internal.h"
 #include "extra_include.h"
+#include "SampleBidirectionalNonProxy_shared_jni.h"
 
-// Macro for transition to enable_definition_macros=true.
-#define DEFINE_JNI_FOR_SampleBidirectionalNonProxy_SEE_JNI_ZERO_README()
+// Example signatures (to be implemented by #including file).
+// * JNIEnv* parameters are optional.
+// * Types do not have to be exact; they must accept rvalues of the examples.
+//
+// static int32_t JNI_SampleBidirectionalNonProxy_Init(
+//     JNIEnv* env,
+//     const jni_zero::JavaRef<jobject>& jcaller);
+//
+// static int32_t JNI_SampleBidirectionalNonProxy_Init(
+//     JNIEnv* env,
+//     const jni_zero::JavaRef<jobject>& jcaller);
+//
+// int32_t Test::Method(JNIEnv* env, const jni_zero::JavaRef<jobject>& jcaller, int32_t arg1);
+//
+// int32_t Test::StaticMethod(JNIEnv* env, int32_t arg1);
+//
+
+// Triggers a compiler warning if DEFINE_JNI(SampleBidirectionalNonProxy) is forgotten (requires -Wunused-function).
+static void YouForgotToCallMacro_DEFINE_JNI_SampleBidirectionalNonProxy() {}
+
+// Java to native functions
+#define DEFINE_JNI_FOR_SampleBidirectionalNonProxy()                                               \
+  namespace {                                                                                      \
+                                                                                                   \
+  JNI_ZERO_BOUNDARY_EXPORT int32_t Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeInit(      \
+      JNIEnv* env,                                                                                 \
+      jobject jcaller) {                                                                           \
+    /* Prevent -Wunused-function warning. */                                                       \
+    YouForgotToCallMacro_DEFINE_JNI_SampleBidirectionalNonProxy();                                 \
+                                                                                                   \
+    /* Lambda required to make "if constexpr" work properly. */                                    \
+    auto dependent_context = [&](auto) {                                                           \
+      /* Lambda required to disambiguate overloads. */                                             \
+      auto func_wrapper = [&](auto&&... args) ->                                                   \
+      decltype(JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...)) {      \
+        return JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...);        \
+      };                                                                                           \
+      if constexpr (requires { func_wrapper(                                                       \
+          env,                                                                                     \
+          jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {                             \
+        return func_wrapper(env, jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));           \
+      } else if constexpr (requires { func_wrapper(                                                \
+          jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {                             \
+        return func_wrapper(jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));                \
+      } else {                                                                                     \
+        static_assert(false, "JNI_SampleBidirectionalNonProxy_Init() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: ()\nSee SampleBidirectionalNonProxy_jni.h for an example."); \
+      }                                                                                            \
+    };                                                                                             \
+    auto return_value = dependent_context(0);                                                      \
+    return return_value;                                                                           \
+  }                                                                                                \
+                                                                                                   \
+  JNI_ZERO_BOUNDARY_EXPORT int32_t Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeInit(      \
+      JNIEnv* env,                                                                                 \
+      jobject jcaller) {                                                                           \
+    /* Lambda required to make "if constexpr" work properly. */                                    \
+    auto dependent_context = [&](auto) {                                                           \
+      /* Lambda required to disambiguate overloads. */                                             \
+      auto func_wrapper = [&](auto&&... args) ->                                                   \
+      decltype(JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...)) {      \
+        return JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...);        \
+      };                                                                                           \
+      if constexpr (requires { func_wrapper(                                                       \
+          env,                                                                                     \
+          jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {                             \
+        return func_wrapper(env, jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));           \
+      } else if constexpr (requires { func_wrapper(                                                \
+          jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {                             \
+        return func_wrapper(jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));                \
+      } else {                                                                                     \
+        static_assert(false, "JNI_SampleBidirectionalNonProxy_Init() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: ()\nSee SampleBidirectionalNonProxy_jni.h for an example."); \
+      }                                                                                            \
+    };                                                                                             \
+    auto return_value = dependent_context(0);                                                      \
+    return return_value;                                                                           \
+  }                                                                                                \
+                                                                                                   \
+  JNI_ZERO_BOUNDARY_EXPORT int32_t Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeMethod(    \
+      JNIEnv* env,                                                                                 \
+      jobject jcaller,                                                                             \
+      int64_t nativeTest,                                                                          \
+      int32_t arg1) {                                                                              \
+    Test* _ptr = reinterpret_cast<Test*>(nativeTest);                                              \
+    /* Lambda required to make "if constexpr" work properly. */                                    \
+    auto dependent_context = [&](auto) {                                                           \
+      /* Lambda required to disambiguate overloads. */                                             \
+      auto func_wrapper = [&](auto&&... args) ->                                                   \
+      decltype(_ptr->Method(std::forward<decltype(args)>(args)...)) {                              \
+        return _ptr->Method(std::forward<decltype(args)>(args)...);                                \
+      };                                                                                           \
+      if constexpr (requires { func_wrapper(                                                       \
+          env,                                                                                     \
+          jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller),                                   \
+          arg1); }) {                                                                              \
+        return func_wrapper(env, jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller), arg1);     \
+      } else if constexpr (requires { func_wrapper(                                                \
+          jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller),                                   \
+          arg1); }) {                                                                              \
+        return func_wrapper(jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller), arg1);          \
+      } else {                                                                                     \
+        static_assert(false, "Test::Method() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: (int32_t)\nSee SampleBidirectionalNonProxy_jni.h for an example."); \
+      }                                                                                            \
+    };                                                                                             \
+    auto return_value = dependent_context(0);                                                      \
+    return return_value;                                                                           \
+  }                                                                                                \
+                                                                                                   \
+  JNI_ZERO_BOUNDARY_EXPORT int32_t Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeStaticMethod( \
+      JNIEnv* env,                                                                                 \
+      jclass jcaller,                                                                              \
+      int64_t nativeTest,                                                                          \
+      int32_t arg1) {                                                                              \
+    Test* _ptr = reinterpret_cast<Test*>(nativeTest);                                              \
+    /* Lambda required to make "if constexpr" work properly. */                                    \
+    auto dependent_context = [&](auto) {                                                           \
+      /* Lambda required to disambiguate overloads. */                                             \
+      auto func_wrapper = [&](auto&&... args) ->                                                   \
+      decltype(_ptr->StaticMethod(std::forward<decltype(args)>(args)...)) {                        \
+        return _ptr->StaticMethod(std::forward<decltype(args)>(args)...);                          \
+      };                                                                                           \
+      if constexpr (requires { func_wrapper(env, arg1); }) {                                       \
+        return func_wrapper(env, arg1);                                                            \
+      } else if constexpr (requires { func_wrapper(arg1); }) {                                     \
+        return func_wrapper(arg1);                                                                 \
+      } else {                                                                                     \
+        static_assert(false, "Test::StaticMethod() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: (int32_t)\nSee SampleBidirectionalNonProxy_jni.h for an example."); \
+      }                                                                                            \
+    };                                                                                             \
+    auto return_value = dependent_context(0);                                                      \
+    return return_value;                                                                           \
+  }                                                                                                \
+                                                                                                   \
+                                                                                                   \
+  }  /* namespace */
 
 // Class Accessors
 #ifndef org_jni_1zero_SampleBidirectionalNonProxy_clazz_defined
@@ -26,123 +159,6 @@ inline jclass org_jni_1zero_SampleBidirectionalNonProxy_clazz(JNIEnv* env) {
 }
 #pragma clang diagnostic pop
 #endif
-
-
-// Java to native functions
-// Forward declaration. To be implemented by the including .cc file.
-static jint JNI_SampleBidirectionalNonProxy_Init(
-    JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& jcaller);
-
-JNI_ZERO_BOUNDARY_EXPORT jint Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeInit(
-    JNIEnv* env,
-    jobject jcaller) {
-  /* Lambda required to make "if constexpr" work properly. */
-  auto dependent_context = [&](auto) {
-    /* Lambda required to disambiguate overloads. */
-    auto func_wrapper = [&](auto&&... args) ->
-    decltype(JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...)) {
-      return JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...);
-    };
-    if constexpr (requires { func_wrapper(
-        env,
-        jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {
-      return func_wrapper(env, jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));
-    } else if constexpr (requires { func_wrapper(
-        jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {
-      return func_wrapper(jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));
-    } else {
-      static_assert(false, "JNI_SampleBidirectionalNonProxy_Init() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: ()\nSee SampleBidirectionalNonProxy_jni.h for an example.");
-    }
-  };
-  auto return_value = dependent_context(0);
-  return return_value;
-}
-
-// Forward declaration. To be implemented by the including .cc file.
-static jint JNI_SampleBidirectionalNonProxy_Init(
-    JNIEnv* env,
-    const jni_zero::JavaRef<jobject>& jcaller);
-
-JNI_ZERO_BOUNDARY_EXPORT jint Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeInit(
-    JNIEnv* env,
-    jobject jcaller) {
-  /* Lambda required to make "if constexpr" work properly. */
-  auto dependent_context = [&](auto) {
-    /* Lambda required to disambiguate overloads. */
-    auto func_wrapper = [&](auto&&... args) ->
-    decltype(JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...)) {
-      return JNI_SampleBidirectionalNonProxy_Init(std::forward<decltype(args)>(args)...);
-    };
-    if constexpr (requires { func_wrapper(
-        env,
-        jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {
-      return func_wrapper(env, jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));
-    } else if constexpr (requires { func_wrapper(
-        jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller)); }) {
-      return func_wrapper(jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller));
-    } else {
-      static_assert(false, "JNI_SampleBidirectionalNonProxy_Init() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: ()\nSee SampleBidirectionalNonProxy_jni.h for an example.");
-    }
-  };
-  auto return_value = dependent_context(0);
-  return return_value;
-}
-
-JNI_ZERO_BOUNDARY_EXPORT jint Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeMethod(
-    JNIEnv* env,
-    jobject jcaller,
-    jlong nativeTest,
-    jint arg1) {
-  Test* _ptr = reinterpret_cast<Test*>(nativeTest);
-  /* Lambda required to make "if constexpr" work properly. */
-  auto dependent_context = [&](auto) {
-    /* Lambda required to disambiguate overloads. */
-    auto func_wrapper = [&](auto&&... args) ->
-    decltype(_ptr->Method(std::forward<decltype(args)>(args)...)) {
-      return _ptr->Method(std::forward<decltype(args)>(args)...);
-    };
-    if constexpr (requires { func_wrapper(
-        env,
-        jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller),
-        arg1); }) {
-      return func_wrapper(env, jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller), arg1);
-    } else if constexpr (requires { func_wrapper(
-        jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller),
-        arg1); }) {
-      return func_wrapper(jni_zero::JavaRef<jobject>::CreateLeaky(env, jcaller), arg1);
-    } else {
-      static_assert(false, "Test::Method() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: (jint)\nSee SampleBidirectionalNonProxy_jni.h for an example.");
-    }
-  };
-  auto return_value = dependent_context(0);
-  return return_value;
-}
-
-JNI_ZERO_BOUNDARY_EXPORT jint Java_org_jni_1zero_SampleBidirectionalNonProxy_nativeStaticMethod(
-    JNIEnv* env,
-    jclass jcaller,
-    jlong nativeTest,
-    jint arg1) {
-  Test* _ptr = reinterpret_cast<Test*>(nativeTest);
-  /* Lambda required to make "if constexpr" work properly. */
-  auto dependent_context = [&](auto) {
-    /* Lambda required to disambiguate overloads. */
-    auto func_wrapper = [&](auto&&... args) ->
-    decltype(_ptr->StaticMethod(std::forward<decltype(args)>(args)...)) {
-      return _ptr->StaticMethod(std::forward<decltype(args)>(args)...);
-    };
-    if constexpr (requires { func_wrapper(env, arg1); }) {
-      return func_wrapper(env, arg1);
-    } else if constexpr (requires { func_wrapper(arg1); }) {
-      return func_wrapper(arg1);
-    } else {
-      static_assert(false, "Test::StaticMethod() is missing or has incorrect signature.\nIt should accept an optional JNIEnv* parameter as well as rvalues of the given types: (jint)\nSee SampleBidirectionalNonProxy_jni.h for an example.");
-    }
-  };
-  auto return_value = dependent_context(0);
-  return return_value;
-}
 
 
 // Native to Java functions
@@ -199,7 +215,7 @@ static void Java_SampleBidirectionalNonProxy_setStringBuilder(
   env->CallVoidMethod(obj.obj(), call_context.method_id(), sb.obj());
 }
 
-static jdouble Java_SampleBidirectionalNonProxy_testMethodWithNoParam(JNIEnv* env) {
+static double Java_SampleBidirectionalNonProxy_testMethodWithNoParam(JNIEnv* env) {
   static std::atomic<jmethodID> cached_method_id(nullptr);
   jclass clazz = org_jni_1zero_SampleBidirectionalNonProxy_clazz(env);
   CHECK_CLAZZ(env, clazz, clazz, 0);
@@ -267,7 +283,7 @@ static jni_zero::ScopedJavaLocalRef<jstring> Java_SampleBidirectionalNonProxy_te
   return jni_zero::ScopedJavaLocalRef<jstring>::Adopt(env, _ret2);
 }
 
-static jint Java_SampleBidirectionalNonProxy_testStaticMethodWithParam(
+static int32_t Java_SampleBidirectionalNonProxy_testStaticMethodWithParam(
     JNIEnv* env,
     JniIntWrapper iParam) {
   static std::atomic<jmethodID> cached_method_id(nullptr);
@@ -284,6 +300,104 @@ static jint Java_SampleBidirectionalNonProxy_testStaticMethodWithParam(
   return _ret;
 }
 
+
+// Lazy definition of C++ classes JMyClass:
+#ifndef _JNI_ZERO_java_lang_JInteger_DEFINED
+namespace java::lang {
+class _JInteger : public _jobject {};
+using JInteger = _JInteger*;
+}  // namespace java::lang
+#define _JNI_ZERO_java_lang_JInteger_DEFINED
+#endif
+
+#ifndef _JNI_ZERO_java_lang_JStringBuilder_DEFINED
+namespace java::lang {
+class _JStringBuilder : public _jobject {};
+using JStringBuilder = _JStringBuilder*;
+}  // namespace java::lang
+#define _JNI_ZERO_java_lang_JStringBuilder_DEFINED
+#endif
+
+#ifndef _JNI_ZERO_org_jni_zero_JBoolean_DEFINED
+namespace org::jni_zero {
+class _JBoolean : public _jobject {};
+using JBoolean = _JBoolean*;
+}  // namespace org::jni_zero
+#define _JNI_ZERO_org_jni_zero_JBoolean_DEFINED
+#endif
+
+#ifndef _JNI_ZERO_org_jni_zero_JSampleForTests_DEFINED
+namespace org::jni_zero {
+class _JSampleForTests : public _jobject {};
+using JSampleForTests = _JSampleForTests*;
+}  // namespace org::jni_zero
+#define _JNI_ZERO_org_jni_zero_JSampleForTests_DEFINED
+#endif
+
+#ifndef _JNI_ZERO_org_jni_zero_JInnerStructB_DEFINED
+namespace org::jni_zero {
+class _JInnerStructB : public _jobject {};
+using JInnerStructB = _JInnerStructB*;
+}  // namespace org::jni_zero
+#define _JNI_ZERO_org_jni_zero_JInnerStructB_DEFINED
+#endif
+
+
+// Actual implementations of C++ classes JMyClass:
+namespace jni_zero::internal {
+
+template<>
+class _CalledByNatives<JSampleBidirectionalNonProxy> {
+  public:
+  void addStructB(
+      JNIEnv* env,
+      const jni_zero::JavaRef<::org::jni_zero::JSampleForTests>& caller,
+      const jni_zero::JavaRef<::org::jni_zero::JInnerStructB>& b) const {
+    auto this_obj = reinterpret_cast<const JavaRef<JSampleBidirectionalNonProxy>*>(this);
+    return Java_SampleBidirectionalNonProxy_addStructB(env, *this_obj, caller, b);
+  }
+
+  void setBool(
+      JNIEnv* env,
+      const jni_zero::JavaRef<::org::jni_zero::JBoolean>& b,
+      const jni_zero::JavaRef<::java::lang::JInteger>& i) const {
+    auto this_obj = reinterpret_cast<const JavaRef<JSampleBidirectionalNonProxy>*>(this);
+    return Java_SampleBidirectionalNonProxy_setBool(env, *this_obj, b, i);
+  }
+
+  void setStringBuilder(JNIEnv* env, const jni_zero::JavaRef<::java::lang::JStringBuilder>& sb) const {
+    auto this_obj = reinterpret_cast<const JavaRef<JSampleBidirectionalNonProxy>*>(this);
+    return Java_SampleBidirectionalNonProxy_setStringBuilder(env, *this_obj, sb);
+  }
+
+  static double testMethodWithNoParam(JNIEnv* env) {
+    return Java_SampleBidirectionalNonProxy_testMethodWithNoParam(env);
+  }
+
+  void testMethodWithParam(JNIEnv* env, JniIntWrapper iParam) const {
+    auto this_obj = reinterpret_cast<const JavaRef<JSampleBidirectionalNonProxy>*>(this);
+    return Java_SampleBidirectionalNonProxy_testMethodWithParam(env, *this_obj, iParam);
+  }
+
+  jni_zero::ScopedJavaLocalRef<jstring> testMethodWithParamAndReturn(
+      JNIEnv* env,
+      JniIntWrapper iParam) const {
+    auto this_obj = reinterpret_cast<const JavaRef<JSampleBidirectionalNonProxy>*>(this);
+    return Java_SampleBidirectionalNonProxy_testMethodWithParamAndReturn(env, *this_obj, iParam);
+  }
+
+  static jni_zero::ScopedJavaLocalRef<jstring> testStaticMethodWithNoParam(JNIEnv* env) {
+    return Java_SampleBidirectionalNonProxy_testStaticMethodWithNoParam(env);
+  }
+
+  static int32_t testStaticMethodWithParam(JNIEnv* env, JniIntWrapper iParam) {
+    return Java_SampleBidirectionalNonProxy_testStaticMethodWithParam(env, iParam);
+  }
+
+};
+
+
+}  // namespace jni_zero::internal
 
 
 #endif  // org_jni_1zero_SampleBidirectionalNonProxy_JNI

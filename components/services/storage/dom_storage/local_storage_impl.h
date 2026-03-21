@@ -21,13 +21,13 @@
 #include "base/trace_event/memory_allocator_dump.h"
 #include "base/trace_event/memory_dump_provider.h"
 #include "components/services/storage/dom_storage/async_dom_storage_database.h"
+#include "components/services/storage/dom_storage/db_status.h"
 #include "components/services/storage/dom_storage/dom_storage_database.h"
 #include "components/services/storage/public/mojom/local_storage_control.mojom.h"
 #include "components/services/storage/public/mojom/storage_policy_update.mojom.h"
 #include "components/services/storage/public/mojom/storage_usage_info.mojom.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "storage/common/database/db_status.h"
 #include "third_party/blink/public/mojom/dom_storage/storage_area.mojom.h"
 
 namespace blink {
@@ -113,14 +113,16 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
 
   // Runs |callback| immediately if already connected to a database, otherwise
   // delays running |callback| untill after a connection has been established.
-  // Initiates connecting to the database if no connection is in progres yet.
+  // Initiates connecting to the database if no connection is in progress yet.
   void RunWhenConnected(base::OnceClosure callback);
 
   // StorageAreas held by this LocalStorageImpl retain an unmanaged reference to
   // `database_`. This deletes them and is used any time `database_` is reset.
   void PurgeAllStorageAreas();
 
-  // Part of our asynchronous directory opening called from RunWhenConnected().
+  // Part of asynchronous database opening called from `RunWhenConnected()`. If
+  // opening the database on disk fails twice, falls back to in memory. If
+  // opening the database in memory fails, runs without a database.
   void InitiateConnection(bool in_memory_only = false);
   void OnDatabaseOpened(DbStatus status);
   void OnConnectionFinished();
@@ -167,6 +169,7 @@ class LocalStorageImpl : public base::trace_event::MemoryDumpProvider,
 
   base::trace_event::MemoryAllocatorDumpGuid memory_dump_id_;
 
+  // `database_` is null after failing to open repeatedly.
   std::unique_ptr<AsyncDomStorageDatabase> database_;
   bool tried_to_recreate_during_open_ = false;
   bool in_memory_ = false;

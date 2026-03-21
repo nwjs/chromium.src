@@ -58,7 +58,8 @@ GURL GetEffectiveDocumentURL(
       allow_inaccessible_parents);
 }
 
-std::string GetContextTypeDescriptionString(mojom::ContextType context_type) {
+std::string_view GetContextTypeDescriptionString(
+    mojom::ContextType context_type) {
   switch (context_type) {
     case mojom::ContextType::kUnspecified:
       return "UNSPECIFIED";
@@ -334,12 +335,12 @@ Feature::Availability ScriptContext::GetAvailability(
       kRendererProfileId, RendererFrameContextData(web_frame()));
 }
 
-std::string ScriptContext::GetContextTypeDescription() const {
+std::string_view ScriptContext::GetContextTypeDescription() const {
   DCHECK(thread_checker_.CalledOnValidThread());
   return GetContextTypeDescriptionString(context_type_);
 }
 
-std::string ScriptContext::GetEffectiveContextTypeDescription() const {
+std::string_view ScriptContext::GetEffectiveContextTypeDescription() const {
   DCHECK(thread_checker_.CalledOnValidThread());
   return GetContextTypeDescriptionString(effective_context_type_);
 }
@@ -460,7 +461,7 @@ bool ScriptContext::HasAccessOrThrowError(const std::string& name) {
   //
   // In any case, this check is silly. The frame's document's security origin
   // already tells us if it's sandboxed. The only problem is that until
-  // crbug.com/466373 is fixed, we don't know the security origin up-front and
+  // crbug.com/40409183 is fixed, we don't know the security origin up-front and
   // may not know it here, either.
   //
   // [1] citation needed. This ScriptContext should already be in a state that
@@ -502,10 +503,10 @@ std::string ScriptContext::GetDebugString() const {
       "  effective extension id: %s\n"
       "  effective context type: %s",
       extension_.get() ? extension_->id().c_str() : "(none)", web_frame_.get(),
-      url_.spec().c_str(), GetContextTypeDescription().c_str(),
+      url_.spec().c_str(), GetContextTypeDescription(),
       effective_extension_.get() ? effective_extension_->id().c_str()
                                  : "(none)",
-      GetEffectiveContextTypeDescription().c_str());
+      GetEffectiveContextTypeDescription());
 }
 
 std::string ScriptContext::GetStackTraceAsString() const {

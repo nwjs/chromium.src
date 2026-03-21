@@ -21,6 +21,7 @@ import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -45,7 +46,7 @@ public class ObservableSupplierImplTest {
                     mLastSuppliedString = result;
                 };
 
-        mSupplier.addObserver(supplierObserver);
+        mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
         checkState(0, null, null, "before setting first string.");
 
         mSupplier.set(TEST_STRING_1);
@@ -65,8 +66,8 @@ public class ObservableSupplierImplTest {
         AtomicBoolean called = new AtomicBoolean(false);
         Callback<String> supplierObserver = ignored -> called.set(true);
 
-        mSupplier.addObserver(supplierObserver);
-        ShadowLooper.runUiThreadTasks();
+        mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
+        RobolectricUtil.runAllBackgroundAndUi();
         assertTrue(called.get());
     }
 
@@ -78,11 +79,11 @@ public class ObservableSupplierImplTest {
         Callback<String> supplierObserver = ignored -> called.set(true);
 
         mSupplier.addSyncObserver(supplierObserver);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         assertFalse(called.get());
 
         mSupplier.set(TEST_STRING_2);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         assertTrue(called.get());
     }
 
@@ -92,11 +93,11 @@ public class ObservableSupplierImplTest {
         Callback<String> supplierObserver = ignored -> called.set(true);
 
         mSupplier.addSyncObserverAndCallIfNonNull(supplierObserver);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         assertFalse(called.get());
 
         mSupplier.set(TEST_STRING_2);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         assertTrue(called.get());
     }
 
@@ -107,7 +108,7 @@ public class ObservableSupplierImplTest {
         Callback<String> supplierObserver = ignored -> called.set(true);
 
         mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         assertTrue(called.get());
     }
 
@@ -145,7 +146,7 @@ public class ObservableSupplierImplTest {
                     mLastSuppliedString = result;
                 };
 
-        mSupplier.addObserver(supplierObserver);
+        mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
         checkState(0, null, null, "before setting first string.");
 
         mSupplier.set(TEST_STRING_1);
@@ -171,7 +172,7 @@ public class ObservableSupplierImplTest {
                     mLastSuppliedString = result;
                 };
 
-        mSupplier.addObserver(supplierObserver);
+        mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
         checkState(0, null, null, "before setting first string.");
 
         mSupplier.set(TEST_STRING_1);
@@ -197,7 +198,7 @@ public class ObservableSupplierImplTest {
                                 mLastSuppliedString = result;
                             };
 
-                    mSupplier.addObserver(supplierObserver);
+                    mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
 
                     checkState(0, null, TEST_STRING_1, "after setting observer.");
                 });
@@ -219,7 +220,7 @@ public class ObservableSupplierImplTest {
                                 mLastSuppliedString = result;
                             };
 
-                    mSupplier.addObserver(supplierObserver);
+                    mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
 
                     checkState(0, null, TEST_STRING_1, "after setting observer.");
 
@@ -244,7 +245,7 @@ public class ObservableSupplierImplTest {
                                 mLastSuppliedString = result;
                             };
 
-                    mSupplier.addObserver(supplierObserver);
+                    mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
 
                     checkState(0, null, TEST_STRING_1, "after setting observer.");
 
@@ -266,7 +267,7 @@ public class ObservableSupplierImplTest {
                     }
                 };
 
-        mSupplier.addObserver(supplierObserver);
+        mSupplier.addSyncObserverAndPostIfNonNull(supplierObserver);
         checkState(0, null, null, "before setting first string.");
 
         mSupplier.set(TEST_STRING_1);
@@ -283,18 +284,18 @@ public class ObservableSupplierImplTest {
 
         assertFalse("No observers yet", mSupplier.hasObservers());
 
-        mSupplier.addObserver(observer1);
+        mSupplier.addSyncObserverAndPostIfNonNull(observer1);
         assertTrue("Should have observer1", mSupplier.hasObservers());
 
-        mSupplier.addObserver(observer1);
+        mSupplier.addSyncObserverAndPostIfNonNull(observer1);
         assertTrue("Adding observer1 twice shouldn't break anything", mSupplier.hasObservers());
 
         mSupplier.removeObserver(observer1);
         assertFalse(
                 "observer1 should be entirely removed with one remove", mSupplier.hasObservers());
 
-        mSupplier.addObserver(observer1);
-        mSupplier.addObserver(observer2);
+        mSupplier.addSyncObserverAndPostIfNonNull(observer1);
+        mSupplier.addSyncObserverAndPostIfNonNull(observer2);
         assertTrue("Should have multiple observers", mSupplier.hasObservers());
 
         mSupplier.removeObserver(observer1);

@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Снимањето е сопрено. „Контролната табла за игри“ не може да се користи во „Режим на таблет“.</translation>
 <translation id="1024364763893396229">Зачувајте: <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Батеријата на пенкалото е слаба</translation>
-<translation id="1036073649888683237">За да управувате со известувањата, одете во „Поставки“</translation>
 <translation id="1036348656032585052">Исклучи</translation>
 <translation id="1037492556044956303">Додаден е <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Прикажувај предлози</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Инсталирај апликација</translation>
 <translation id="2482878487686419369">Известувања</translation>
 <translation id="2484513351006226581">Притиснете <ph name="KEYBOARD_SHORTCUT" /> за да го префрлите распоредот на тастатурата.</translation>
+<translation id="2485422356828889247">Деинсталирај</translation>
 <translation id="2486214324139475545">Преглед на <ph name="DESK_NAME" />. Активна работна површина.</translation>
 <translation id="2486405091093637109">Резолуцијата на „<ph name="DISPLAY_NAME" />“ се промени во резолуција од <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Без потврдување, претходните поставки ќе се вратат за <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Приклучи се</translation>
@@ -2422,7 +2422,7 @@
 <translation id="9079012373317704997">Не може да се вклучи пристапот до камерата далечински</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080073830732419341">Камерата е поставена во горниот лев агол</translation>
-<translation id="9080132581049224423">Повлечете нагоре за да појдете на почетен екран</translation>
+<translation id="9080132581049224423">Повлечете нагоре за да одите на почетниот екран</translation>
 <translation id="9080206825613744995">Се користи микрофонот.</translation>
 <translation id="9083324773537346962">Верзија на OS</translation>
 <translation id="9084606467167974638">Промени ја позицијата на менито</translation>

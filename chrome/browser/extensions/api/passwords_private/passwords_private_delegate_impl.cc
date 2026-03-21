@@ -29,8 +29,10 @@
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_event_router_factory.h"
 #include "chrome/browser/extensions/profile_util.h"
 #include "chrome/browser/password_manager/account_password_store_factory.h"
+#include "chrome/browser/password_manager/chrome_password_change_service.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/factories/password_sender_service_factory.h"
+#include "chrome/browser/password_manager/password_change_service_factory.h"
 #include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
@@ -885,6 +887,26 @@ void PasswordsPrivateDelegateImpl::StartPasswordCheck(
     return;
   }
   sentiment_service->RanPasswordCheck();
+}
+
+void PasswordsPrivateDelegateImpl::StartPasswordChange(
+    int credential_id,
+    content::WebContents* web_contents) {
+  CHECK(web_contents);
+  const CredentialUIEntry* credential =
+      credential_id_generator_.TryGetKey(credential_id);
+  if (!credential) {
+    // TODO(crbug.com/485620841): Show error, instead of returning.
+    // There should always be a credential, unless something went wrong.
+    return;
+  }
+
+  auto* password_change_service =
+      PasswordChangeServiceFactory::GetForProfile(profile_);
+  if (password_change_service) {
+    password_change_service->StartPasswordChangeFromCheckup(*credential,
+                                                            web_contents);
+  }
 }
 
 api::passwords_private::PasswordCheckStatus

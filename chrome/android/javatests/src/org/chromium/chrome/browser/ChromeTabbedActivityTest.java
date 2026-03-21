@@ -52,9 +52,7 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.incognito.IncognitoWindowNightModeStateProvider;
-import org.chromium.chrome.browser.multiwindow.InstanceInfo;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
-import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
@@ -91,7 +89,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** Instrumentation tests for ChromeTabbedActivity. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -638,6 +635,38 @@ public class ChromeTabbedActivityTest {
 
     @Test
     @MediumTest
+    public void testBackShouldCloseTab_FromChromeUIWithParent() {
+        mActivityTestRule.getTestServer();
+        Tab tabWithParent =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            ChromeTabCreator tabCreator = mActivity.getCurrentTabCreator();
+                            return tabCreator.createNewTab(
+                                    new LoadUrlParams("about:blank"),
+                                    TabLaunchType.FROM_CHROME_UI,
+                                    mActivity.getActivityTab());
+                        });
+        boolean retWithParent =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> mActivity.backShouldCloseTab(tabWithParent));
+        Assert.assertTrue(retWithParent);
+
+        Tab tabNoParent =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> {
+                            ChromeTabCreator tabCreator = mActivity.getCurrentTabCreator();
+                            return tabCreator.createNewTab(
+                                    new LoadUrlParams("about:blank"),
+                                    TabLaunchType.FROM_CHROME_UI,
+                                    null);
+                        });
+        boolean retNoParent =
+                ThreadUtils.runOnUiThreadBlocking(() -> mActivity.backShouldCloseTab(tabNoParent));
+        Assert.assertFalse(retNoParent);
+    }
+
+    @Test
+    @MediumTest
     public void testBackShouldCloseTab_Collaboration() {
         mActivityTestRule.getTestServer(); // Triggers the lazy initialization of the test server.
         Tab tab =
@@ -1145,28 +1174,14 @@ public class ChromeTabbedActivityTest {
         // 3. Get MultiInstanceManager for activity1 and InstanceInfo for activity2.
         MultiInstanceManager mim1 = mActivity.getMultiInstanceMangerForTesting();
 
-        final AtomicReference<InstanceInfo> instanceInfo2Ref = new AtomicReference<>();
-        CriteriaHelper.pollUiThread(
-                () -> {
-                    List<InstanceInfo> instanceInfos =
-                            mim1.getInstanceInfo(PersistedInstanceType.ANY);
-                    for (InstanceInfo info : instanceInfos) {
-                        if (info.taskId == activity2.getTaskId()) {
-                            instanceInfo2Ref.set(info);
-                            return true;
-                        }
-                    }
-                    return false;
-                },
-                "Could not find InstanceInfo for activity2");
-        InstanceInfo instanceInfo2 = instanceInfo2Ref.get();
-
         // 4. Move tab1 to activity2.
         ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mim1.moveTabsToWindow(
-                            instanceInfo2, List.of(tab1), -1, NewWindowAppSource.OTHER);
-                });
+                () ->
+                        mim1.moveTabsToWindowByIdChecked(
+                                activity2.getWindowIdForTesting(),
+                                List.of(tab1),
+                                /* destTabIndex= */ TabList.INVALID_TAB_INDEX,
+                                /* destGroupTabId= */ TabList.INVALID_TAB_INDEX));
 
         // 5. Verify tab1 is in activity2.
         CriteriaHelper.pollUiThread(
@@ -1179,12 +1194,11 @@ public class ChromeTabbedActivityTest {
         // 6. Move tab2 to activity2 and merge with tab1.
         ThreadUtils.runOnUiThreadBlocking(
                 () ->
-                        mim1.moveTabsToWindow(
+                        mim1.moveTabsToWindowByIdChecked(
                                 activity2.getWindowIdForTesting(),
                                 List.of(tab2),
                                 /* destTabIndex= */ TabList.INVALID_TAB_INDEX,
-                                /* destGroupTabId= */ tab1.getId(),
-                                NewWindowAppSource.OTHER));
+                                /* destGroupTabId= */ tab1.getId()));
 
         // 7. Verify tab2 is in activity2 and merged with tab1.
         CriteriaHelper.pollUiThread(

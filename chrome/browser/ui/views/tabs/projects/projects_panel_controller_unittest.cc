@@ -7,9 +7,14 @@
 #include <vector>
 
 #include "base/no_destructor.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
+#include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/ui_features.h"
+#include "components/contextual_tasks/public/contextual_task.h"
+#include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/test_support/mock_tab_group_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -68,12 +73,6 @@ const tab_groups::SavedTabGroup& GetNewGroup() {
   return *group;
 }
 
-const tab_groups::SavedTabGroup& GetPinnedGroup1DayOlder() {
-  static const base::NoDestructor<tab_groups::SavedTabGroup> group(
-      CreateGroup(u"Group X", kFixedTime - base::Days(1), /*pinned=*/true));
-  return *group;
-}
-
 class MockProjectsPanelControllerObserver
     : public ProjectsPanelController::Observer {
  public:
@@ -87,9 +86,17 @@ class MockProjectsPanelControllerObserver
               (override));
   MOCK_METHOD(void,
               OnTabGroupUpdated,
-              (const tab_groups::SavedTabGroup&, int, std::optional<int>),
+              (const tab_groups::SavedTabGroup&),
               (override));
   MOCK_METHOD(void, OnTabGroupRemoved, (const base::Uuid&, int), (override));
+  MOCK_METHOD(void,
+              OnTabGroupsReordered,
+              (const std::vector<tab_groups::SavedTabGroup>& tab_groups),
+              (override));
+  MOCK_METHOD(void,
+              OnThreadsInitialized,
+              (const std::vector<contextual_tasks::Thread>& threads),
+              (override));
 };
 
 MATCHER_P(GroupIs, expected_group, "") {
@@ -100,17 +107,29 @@ MATCHER_P(GroupIs, expected_group, "") {
 
 class ProjectsPanelControllerTest : public testing::Test {
  protected:
+  ProjectsPanelControllerTest() {
+    EXPECT_CALL(mock_browser_window_interface_, GetBrowserForMigrationOnly())
+        .WillRepeatedly(testing::Return(nullptr));
+  }
+
   std::unique_ptr<ProjectsPanelController> GetInitializedController() {
     auto controller = std::make_unique<ProjectsPanelController>(
-        &mock_tab_group_sync_service_);
+        &mock_browser_window_interface_, &mock_tab_group_sync_service_,
+        &mock_contextual_tasks_service_, &mock_contextual_tasks_ui_service_);
     controller->OnInitialized();
     return controller;
   }
+
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_interface_;
   testing::NiceMock<tab_groups::MockTabGroupSyncService>
       mock_tab_group_sync_service_;
+  testing::NiceMock<contextual_tasks::MockContextualTasksService>
+      mock_contextual_tasks_service_;
+  testing::NiceMock<contextual_tasks::MockContextualTasksUiService>
+      mock_contextual_tasks_ui_service_;
 };
 
-TEST_F(ProjectsPanelControllerTest, SortsGroupsOnConstruction) {
+TEST_F(ProjectsPanelControllerTest, PreservesOrderOnConstruction) {
   std::vector<tab_groups::SavedTabGroup> groups = {
       GetGroup(), GetGroup1DayOlder(), GetGroup1DayNewer()};
   EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
@@ -120,29 +139,12 @@ TEST_F(ProjectsPanelControllerTest, SortsGroupsOnConstruction) {
 
   const auto& tab_groups = controller->GetTabGroups();
   ASSERT_EQ(3u, tab_groups.size());
-  EXPECT_EQ(GetGroup1DayNewer().saved_guid(), tab_groups[0].saved_guid());
-  EXPECT_EQ(GetGroup().saved_guid(), tab_groups[1].saved_guid());
-  EXPECT_EQ(GetGroup1DayOlder().saved_guid(), tab_groups[2].saved_guid());
+  EXPECT_EQ(GetGroup().saved_guid(), tab_groups[0].saved_guid());
+  EXPECT_EQ(GetGroup1DayOlder().saved_guid(), tab_groups[1].saved_guid());
+  EXPECT_EQ(GetGroup1DayNewer().saved_guid(), tab_groups[2].saved_guid());
 }
 
-TEST_F(ProjectsPanelControllerTest, SortsPinnedGroupsFirst) {
-  tab_groups::SavedTabGroup unpinned_new = GetGroup1DayNewer();
-  tab_groups::SavedTabGroup pinned_old = GetPinnedGroup1DayOlder();
-
-  std::vector<tab_groups::SavedTabGroup> groups = {unpinned_new, pinned_old};
-  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
-      .WillOnce(testing::Return(groups));
-
-  auto controller = GetInitializedController();
-
-  const auto& tab_groups = controller->GetTabGroups();
-  ASSERT_EQ(2u, tab_groups.size());
-  // Pinned group should be first, even thought it's older.
-  EXPECT_EQ(pinned_old.saved_guid(), tab_groups[0].saved_guid());
-  EXPECT_EQ(unpinned_new.saved_guid(), tab_groups[1].saved_guid());
-}
-
-TEST_F(ProjectsPanelControllerTest, AddsGroupInCorrectOrder) {
+TEST_F(ProjectsPanelControllerTest, AddsGroupAtCorrectPosition) {
   std::vector<tab_groups::SavedTabGroup> groups = {GetGroup(),
                                                    GetGroup2DaysOld()};
   EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
@@ -150,14 +152,33 @@ TEST_F(ProjectsPanelControllerTest, AddsGroupInCorrectOrder) {
 
   auto controller = GetInitializedController();
 
-  controller->OnTabGroupAdded(GetGroup1DayOlder(),
-                              tab_groups::TriggerSource::REMOTE);
+  tab_groups::SavedTabGroup group_to_add = GetGroup1DayOlder();
+  group_to_add.SetPosition(1);
+  controller->OnTabGroupAdded(group_to_add, tab_groups::TriggerSource::REMOTE);
 
   const auto& tab_groups = controller->GetTabGroups();
   ASSERT_EQ(3u, tab_groups.size());
   EXPECT_EQ(GetGroup().saved_guid(), tab_groups[0].saved_guid());
   EXPECT_EQ(GetGroup1DayOlder().saved_guid(), tab_groups[1].saved_guid());
   EXPECT_EQ(GetGroup2DaysOld().saved_guid(), tab_groups[2].saved_guid());
+}
+
+TEST_F(ProjectsPanelControllerTest, AddsGroupAtTopIfNoPosition) {
+  std::vector<tab_groups::SavedTabGroup> groups = {GetGroup(),
+                                                   GetGroup2DaysOld()};
+  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
+      .WillOnce(testing::Return(groups));
+
+  auto controller = GetInitializedController();
+
+  tab_groups::SavedTabGroup group_to_add =
+      CreateGroup(u"New Group", kFixedTime + base::Days(10));
+  controller->OnTabGroupAdded(group_to_add, tab_groups::TriggerSource::REMOTE);
+
+  const auto& tab_groups = controller->GetTabGroups();
+  ASSERT_EQ(3u, tab_groups.size());
+  EXPECT_EQ(group_to_add.saved_guid(), tab_groups[0].saved_guid());
+  EXPECT_EQ(GetGroup().saved_guid(), tab_groups[1].saved_guid());
 }
 
 TEST_F(ProjectsPanelControllerTest, UpdatesExistingGroup) {
@@ -195,25 +216,75 @@ TEST_F(ProjectsPanelControllerTest, RemovesGroup) {
 
 TEST_F(ProjectsPanelControllerTest, OpenTabGroupCallsService) {
   auto controller = GetInitializedController();
-  const base::Uuid uuid =
-      base::Uuid::ParseLowercase("00000000-0000-0000-0000-000000000001");
+  const base::Uuid uuid = base::Uuid::GenerateRandomV4();
 
   EXPECT_CALL(mock_tab_group_sync_service_,
               OpenTabGroup(testing::Eq(uuid), testing::_))
       .Times(1);
 
-  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window_interface;
-  EXPECT_CALL(mock_browser_window_interface, GetBrowserForMigrationOnly())
-      .WillOnce(testing::Return(nullptr));
+  controller->OpenTabGroup(uuid);
+}
 
-  controller->OpenTabGroup(uuid, &mock_browser_window_interface);
+TEST_F(ProjectsPanelControllerTest, MoveTabGroupUpCallsReorderGroupBefore) {
+  std::vector<tab_groups::SavedTabGroup> groups = {
+      GetGroup(), GetGroup1DayOlder(), GetNewGroup()};
+  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
+      .WillOnce(testing::Return(groups));
+
+  auto controller = GetInitializedController();
+
+  // Move "New Group" (index 2) to index 0.
+  // Should call ReorderGroupBefore("New Group", "Group 1").
+  EXPECT_CALL(mock_tab_group_sync_service_,
+              ReorderGroupBefore(testing::Eq(GetNewGroup().saved_guid()),
+                                 testing::Eq(GetGroup().saved_guid())))
+      .Times(1);
+
+  controller->MoveTabGroup(GetNewGroup().saved_guid(), 0);
+}
+
+TEST_F(ProjectsPanelControllerTest, MoveTabGroupDownCallsReorderGroupAfter) {
+  std::vector<tab_groups::SavedTabGroup> groups = {
+      GetGroup(), GetGroup1DayOlder(), GetNewGroup()};
+  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
+      .WillOnce(testing::Return(groups));
+
+  auto controller = GetInitializedController();
+
+  // Move "Group 1" (index 0) to index 2.
+  // Should call ReorderGroupAfter("Group 1", "New Group").
+  EXPECT_CALL(mock_tab_group_sync_service_,
+              ReorderGroupAfter(testing::Eq(GetGroup().saved_guid()),
+                                testing::Eq(GetNewGroup().saved_guid())))
+      .Times(1);
+
+  controller->MoveTabGroup(GetGroup().saved_guid(), 2);
+}
+
+TEST_F(ProjectsPanelControllerTest, OpenTabGroupAutofocus) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kTabGroupsFocusing,
+      {{"tab_groups_focusing_default_to_focused", "true"}});
+
+  auto controller = GetInitializedController();
+  const base::Uuid uuid =
+      base::Uuid::ParseLowercase("00000000-0000-0000-0000-000000000001");
+  auto local_group_id = tab_groups::TabGroupId::GenerateNew();
+
+  EXPECT_CALL(mock_tab_group_sync_service_,
+              OpenTabGroup(testing::Eq(uuid), testing::_))
+      .WillOnce(testing::Return(local_group_id));
+
+  controller->OpenTabGroup(uuid);
 }
 
 class ProjectsPanelControllerObserverTest : public ProjectsPanelControllerTest {
  public:
   void SetUp() override {
     controller_ = std::make_unique<ProjectsPanelController>(
-        &mock_tab_group_sync_service_);
+        &mock_browser_window_interface_, &mock_tab_group_sync_service_,
+        &mock_contextual_tasks_service_, &mock_contextual_tasks_ui_service_);
     controller_->AddObserver(&observer_);
   }
 
@@ -226,8 +297,10 @@ class ProjectsPanelControllerObserverTest : public ProjectsPanelControllerTest {
 
 TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnAdd) {
   InitializeController();
-  EXPECT_CALL(observer_, OnTabGroupAdded(GroupIs(GetNewGroup()), 0));
-  controller_->OnTabGroupAdded(GetNewGroup(), tab_groups::TriggerSource::LOCAL);
+  tab_groups::SavedTabGroup group = GetNewGroup();
+  group.SetPosition(0);
+  EXPECT_CALL(observer_, OnTabGroupAdded(GroupIs(group), 0));
+  controller_->OnTabGroupAdded(group, tab_groups::TriggerSource::LOCAL);
 }
 
 TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnUpdate) {
@@ -238,8 +311,7 @@ TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnUpdate) {
 
   tab_groups::SavedTabGroup updated_group = GetGroup();
   updated_group.SetTitle(u"Updated Title");
-  EXPECT_CALL(observer_, OnTabGroupUpdated(GroupIs(updated_group), 0,
-                                           testing::Eq(std::nullopt)));
+  EXPECT_CALL(observer_, OnTabGroupUpdated(GroupIs(updated_group)));
   controller_->OnTabGroupUpdated(updated_group,
                                  tab_groups::TriggerSource::LOCAL);
 }
@@ -255,48 +327,6 @@ TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnRemove) {
                                  tab_groups::TriggerSource::LOCAL);
 }
 
-TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnPinning) {
-  auto group_to_pin = CreateGroup(u"Group", kFixedTime);
-  std::vector<tab_groups::SavedTabGroup> initial_groups = {GetGroup1DayNewer(),
-                                                           group_to_pin};
-  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
-      .WillOnce(testing::Return(initial_groups));
-  InitializeController();
-
-  // Pin the group. It should move from index 1 to index 0.
-  group_to_pin.SetPinned(true);
-  group_to_pin.SetPosition(0);
-
-  EXPECT_CALL(observer_, OnTabGroupUpdated(GroupIs(group_to_pin), 1,
-                                           testing::Optional(0)));
-  controller_->OnTabGroupUpdated(group_to_pin,
-                                 tab_groups::TriggerSource::LOCAL);
-
-  EXPECT_EQ(group_to_pin.saved_guid(),
-            controller_->GetTabGroups()[0].saved_guid());
-}
-
-TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnUnpinning) {
-  auto group_to_unpin = CreateGroup(u"Group", kFixedTime, /*pinned=*/true);
-  std::vector<tab_groups::SavedTabGroup> initial_groups = {group_to_unpin,
-                                                           GetGroup1DayNewer()};
-
-  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
-      .WillOnce(testing::Return(initial_groups));
-  InitializeController();
-
-  // Unpin the group. It should move from index 0 to index 1.
-  group_to_unpin.SetPinned(false);
-
-  EXPECT_CALL(observer_, OnTabGroupUpdated(GroupIs(group_to_unpin), 0,
-                                           testing::Optional(1)));
-  controller_->OnTabGroupUpdated(group_to_unpin,
-                                 tab_groups::TriggerSource::LOCAL);
-
-  EXPECT_EQ(group_to_unpin.saved_guid(),
-            controller_->GetTabGroups()[1].saved_guid());
-}
-
 TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnLocalIdChange) {
   auto group = CreateGroup(u"Group", kFixedTime);
 
@@ -309,9 +339,26 @@ TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnLocalIdChange) {
       base::Token{0x12345678, 0x9ABCDEF0});
   group.SetLocalGroupId(local_group_id);
 
-  EXPECT_CALL(observer_, OnTabGroupUpdated(GroupIs(group), 0, testing::_));
+  EXPECT_CALL(observer_, OnTabGroupUpdated(GroupIs(group)));
   controller_->OnTabGroupLocalIdChanged(group.saved_guid(), local_group_id);
 
   EXPECT_EQ(group.local_group_id(),
             controller_->GetTabGroups()[0].local_group_id());
+}
+
+TEST_F(ProjectsPanelControllerObserverTest, NotifiesObserverOnReorder) {
+  InitializeController();
+
+  std::vector<tab_groups::SavedTabGroup> reordered_groups = {
+      GetGroup1DayOlder(), GetGroup()};
+  EXPECT_CALL(mock_tab_group_sync_service_, GetAllGroups())
+      .WillOnce(testing::Return(reordered_groups));
+
+  EXPECT_CALL(observer_, OnTabGroupsReordered(testing::SizeIs(2)));
+  controller_->OnTabGroupsReordered(tab_groups::TriggerSource::REMOTE);
+
+  EXPECT_EQ(GetGroup1DayOlder().saved_guid(),
+            controller_->GetTabGroups()[0].saved_guid());
+  EXPECT_EQ(GetGroup().saved_guid(),
+            controller_->GetTabGroups()[1].saved_guid());
 }

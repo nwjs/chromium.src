@@ -52,16 +52,19 @@ class DesktopSessionFactoryLinux final
   // Creates a new desktop session instance.
   std::unique_ptr<DesktopSession> CreateDesktopSession(
       int id,
-      DaemonProcess* daemon_process);
+      DaemonProcess* daemon_process,
+      const mojom::DesktopSessionOptions& options);
 
  private:
   class DesktopSessionLinux;
+
+  void OnStartResult(Callback callback, base::expected<void, Loggable> result);
 
   void OnCreateRemoteDisplayResult(std::string_view display_name,
                                    base::expected<void, Loggable> result);
 
   // RemoteDisplaySessionManager::Delegate implementation.
-  void OnRemoteDisplaySessionChanged(
+  void OnRemoteDisplayChanged(
       std::string_view display_name,
       const RemoteDisplaySessionManager::RemoteDisplayInfo& info) override;
   void OnRemoteDisplayTerminated(std::string_view display_name) override;

@@ -6,13 +6,13 @@
 
 #include <string>
 
+#include "ash/constants/webui_url_constants.h"
 #include "base/strings/strcat.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/webui/ash/add_supervision/add_supervision_metrics_recorder.h"
 #include "chrome/browser/ui/webui/ash/add_supervision/confirm_signout_dialog.h"
-#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
@@ -90,10 +90,8 @@ class AddSupervisionBrowserTest : public InProcessBrowserTest {
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
 
-  GURL settings_webui_url() { return GURL(chrome::kChromeUISettingsURL); }
-
   GURL add_supervision_webui_url() {
-    return GURL(chrome::kChromeUIAddSupervisionURL);
+    return GURL(ash::kChromeUIAddSupervisionURL);
   }
 
   bool IsScreenActive(const std::string& element_selector) {

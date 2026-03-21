@@ -72,6 +72,7 @@
 <translation id="1698376642261615901">Google Chrome – це веб-переглядач, який запускає веб-сторінки та програми з блискавичною швидкістю. Він швидкий, надійний і зручний у користуванні. Вбудований у Google Chrome захист від шкідливих програм і фішингу гарантує ще більшу безпеку під час перегляду веб-сторінок.</translation>
 <translation id="1713301662689114961">{0,plural, =1{Chrome перезапуститься через годину}one{Chrome перезапуститься через # годину}few{Chrome перезапуститься через # години}many{Chrome перезапуститься через # годин}other{Chrome перезапуститься через # години}}</translation>
 <translation id="1722488837206509557">Ви зможете вибирати доступні пристрої і показувати на них контент.</translation>
+<translation id="177180974022074201">Спробувати з Gemini у Chrome</translation>
 <translation id="1786003790898721085">Переконайтеся, що ви ввійшли в Chrome на пристрої <ph name="TARGET_DEVICE_NAME" />, і повторіть спробу.</translation>
 <translation id="1786044937610313874">Ярлики відкриваються в Chrome</translation>
 <translation id="178701303897325119">Це розширення більше не підтримується. Chrome радить вилучити його.</translation>
@@ -221,6 +222,7 @@
 <translation id="3226612997184048185">Щоб відстежувати ціни на товари в Chrome і отримувати сповіщення, якщо вони знизяться, також збережіть закладки в обліковому записі Google</translation>
 <translation id="3242123554343253302">Додати профіль Chrome</translation>
 <translation id="3245429137663807393">Якщо ви також будете надсилати звіти про використання Chrome, у них буде включено дані про відвідані URL-адреси</translation>
+<translation id="3259748324892322072">Завантажити додаток Chrome</translation>
 <translation id="3286538390144397061">Перезапустити зараз</translation>
 <translation id="3292333338048274092">Потім вам потрібно буде перезапустити Chrome.</translation>
 <translation id="3324218984287646518">Запитати Google Об’єктив про це відео</translation>
@@ -251,6 +253,7 @@
 <translation id="3622716124581627104">Визначайте об’єкти й місця, а також копіюйте та перекладайте текст. Коли ви користуєтеся Google Об’єктивом, у Google надсилається знімок сторінки. <ph name="LEARN_MORE" /></translation>
 <translation id="3622797965165704966">Користуватися Chrome у своєму обліковому записі Google на спільних комп’ютерах стало легше.</translation>
 <translation id="3635073343384702370">Chrome зможе перевірити ваші паролі, коли ви їх збережете</translation>
+<translation id="3636970668267555808">Зробіть Chrome вебпереглядачем за умовчанням, щоб легко користуватись улюбленими функціями.</translation>
 <translation id="3667616615096815454">Не вдалося встановити, оскільки цей додаток невідомий для сервера.</translation>
 <translation id="3673813398384385993">Веб-переглядач Chrome виявив, що розширення "<ph name="EXTENSION_NAME" />" містить зловмисне програмне забезпечення</translation>
 <translation id="3697952514309507634">Інші профілі Chrome</translation>
@@ -278,7 +281,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="3892148308691398805">Копіювати текст</translation>
 <translation id="3893985792899396936">Підказка щодо Chrome: шукайте за допомогою Об’єктива</translation>
 <translation id="3906096710440765802">Увійдіть в обліковий запис у Chrome, щоб отримати доступ до своїх паролів, закладок і інших даних на всіх пристроях</translation>
-<translation id="3921132130819999051">Дозвольте Chrome шукати інформацію для вас</translation>
 <translation id="3941890832296813527">Сталася помилка. Назва файлу програми встановлення недійсна або не підтримується.</translation>
 <translation id="395904275706073188">Захищені сторінки не можна зчитувати. Спробуйте на іншій сторінці.</translation>
 <translation id="3968962723676998462">Щоб використовувати й зберігати дані Chrome в обліковому записі <ph name="ACCOUNT_EMAIL" />, введіть парольну фразу</translation>
@@ -305,7 +307,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="4205939740494406371">Chrome не може перевірити паролі. Повторіть спробу через 24 години або <ph name="BEGIN_LINK" />перевірте паролі в обліковому записі Google<ph name="END_LINK" />.</translation>
 <translation id="4222932583846282852">Скасування…</translation>
 <translation id="4224210481850767180">Встановлення скасовано.</translation>
-<translation id="4230631012078055975">Увійдіть у Chrome, щоб отримати більше можливостей</translation>
 <translation id="4242034826641750751">Веб-переглядачу Chrome потрібен доступ до камери та мікрофона для цього сайту</translation>
 <translation id="424864128008805179">Вийти з Chrome?</translation>
 <translation id="4251615635259297716">Пов’язати ваші дані Chrome із цим обліковим записом?</translation>
@@ -490,7 +491,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="6173637689840186878"><ph name="PAGE_TITLE" /> – Бета-версія Google Chrome</translation>
 <translation id="6180522807229584611">Ця вкладка використовує додаткові ресурси. Щоб підвищити продуктивність, дозвольте Chrome зробити її неактивною.</translation>
 <translation id="6182736845697986886">Не вдалося встановити через внутрішню помилку сервера оновлень.</translation>
-<translation id="6183773856988300112">Gemini у Chrome використовує функцію автоматичного перегляду, щоб шукати інформацію на ваших вкладках і виконувати для вас завдання. <ph name="LINK_BEGIN" />Докладніше<ph name="LINK_END" /></translation>
 <translation id="6187085551300363958">Порада щодо Chrome: зберігайте паролі</translation>
 <translation id="6192058120268468905">Ваш обліковий запис у Chrome</translation>
 <translation id="6220551899604141979"><ph name="PARTNER_NAME" /> додає розширення, яке може вплинути на роботу Chrome.
@@ -502,6 +502,7 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="6251759518630934363">Попереджає вас про небезпечні сайти, навіть раніше невідомі Google, аналізуючи більше даних від сайтів, ніж системи стандартного захисту. Ви можете пропустити попередження Chrome.</translation>
 <translation id="6277547788421725101">Хтось із батьків вимкнув "Дозволи для сайтів, додатків і розширень" для Chrome</translation>
 <translation id="627882678981830918">Керуйте налаштуваннями Chrome. Зробіть Chrome вебпереглядачем за умовчанням.</translation>
+<translation id="6280042952415350607">Покращений захист вимикає оптимізацію JavaScript для сайтів, які Chrome не розпізнає</translation>
 <translation id="6288580400488258237">Зробіть Google Chrome вебпереглядачем за умовчанням і закріпіть його на панелі завдань</translation>
 <translation id="6291089322031436445">Версія Chrome для розробників додатків</translation>
 <translation id="6291549208091401781">Google Chrome уже встановлено для всіх користувачів на вашому комп’ютері.</translation>
@@ -525,6 +526,7 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="6481963882741794338">Зв’яжіть Chrome з іншими сервісами Google для персоналізації і інших цілей</translation>
 <translation id="648319183876919572">Безпечний перегляд із розширеним захистом додатково захищає вас від небезпечних веб-сайтів і завантажень</translation>
 <translation id="6489302989675808168">Увімкнено • Chrome не може перевірити, звідки походить це розширення</translation>
+<translation id="6491330562720922580">QR-код для завантаження вебпереглядача Chrome на мобільні пристрої</translation>
 <translation id="6493527311031785448">Google Chrome намагається <ph name="AUTHENTICATION_PURPOSE" /></translation>
 <translation id="6497147134301593682">Chrome закрито автоматично</translation>
 <translation id="6506909944137591434">Веб-переглядачу Chrome потрібен доступ до камери, щоб створити 3D-карту вашого оточення</translation>
@@ -603,7 +605,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="7308322188646931570">Chrome потрібен доступ до пам’яті, щоб завантажувати файли</translation>
 <translation id="7339898014177206373">Нове вікно</translation>
 <translation id="7352651011704765696">Виникли проблеми</translation>
-<translation id="7379321689415048316">Chrome може автоматично заповнювати складні поля, які не заповнюються за допомогою стандартної функції</translation>
 <translation id="7386878009611068389">Щоб користуватися безпечнішими налаштуваннями, які вибрали твої батьки, перейди в профіль Chrome, у який уже виконано вхід за допомогою електронної адреси <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="7398801000654795464">Ви ввійшли в Chrome як <ph name="USER_EMAIL_ADDRESS" />. Скористайтеся тим самим обліковим записом, щоб увійти знову.</translation>
 <translation id="7412494426921990001">Натисніть значок меню Chrome</translation>
@@ -687,6 +688,9 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="8041795619940733262">Запитати Google<ph name="LINE_BREAK" />про цю вкладку</translation>
 <translation id="80471789339884597">Дякуємо за встановлення. Щоб почати використовувати пакет <ph name="BUNDLE_NAME" />, потрібно перезапустити всі веб-переглядачі.</translation>
 <translation id="8064015586118426197">ОС Chrome Flex</translation>
+<translation id="8064965390968184078">1. Натисніть кнопку "<ph name="BUTTON_LABEL" />" нижче.
+2. Натисніть "<ph name="BUTTON_2" />" у налаштуваннях Windows.
+3. Коли у Windows з’явиться сповіщення, натисніть "<ph name="BUTTON_3" />", щоб закріпити Chrome на панелі завдань для швидкого доступу.</translation>
 <translation id="8077579734294125741">Інші профілі Chrome</translation>
 <translation id="8086881907087796310">Не вдалося встановити, оскільки ваш комп’ютер не відповідає мінімальним вимогам до апаратного забезпечення.</translation>
 <translation id="8113883687556086139">Щоб використовувати й зберігати дані Chrome в обліковому записі <ph name="ACCOUNT_EMAIL" />, підтвердьте свою особу</translation>
@@ -706,7 +710,6 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="8321888067342493336">Зберегти як зображення</translation>
 <translation id="8336463659890584292">Коли сайт надсилає запит на приватне попереднє завантаження посилань на його сторінці, Chrome використовує сервери Google. Завдяки цьому вашу особу не можна визначити через попередньо завантажений сайт. При цьому Google отримує інформацію про сайти, які попередньо завантажуються.</translation>
 <translation id="8342675569599923794">Цей файл небезпечний, тому Chrome заблокував його.</translation>
-<translation id="8349094670477064572">Увійшовши в Chrome, ви зможете зберігати й використовувати паролі та інші дані у своєму обліковому записі Google. <ph name="LEARN_MORE" /></translation>
 <translation id="835927394551949760">Запитання до Google</translation>
 <translation id="8362914115861174987">Перекласти такою мовою:</translation>
 <translation id="8366770919198174997">Знижує продуктивність, але робить вебпереглядач Chrome стійкішим до атак</translation>
@@ -766,6 +769,7 @@ Google Chrome потрібен доступ до Bluetooth. <ph name="IDS_SERIAL
 <translation id="8914504000324227558">Перезапустити Chrome</translation>
 <translation id="8922193594870374009">Щоб надіслати номер із сайту <ph name="ORIGIN" /> на телефон Android, увійдіть у Chrome на обох пристроях.</translation>
 <translation id="8922998289262614701">Видалити дані цього додатка з Chrome</translation>
+<translation id="8925636929359899517">Ми використовуємо цю інформацію, щоб покращувати сервіс. Перегляньте <ph name="BEGIN_LINK1" />Політику конфіденційності<ph name="END_LINK1" /> й <ph name="BEGIN_LINK2" />Умови використання<ph name="END_LINK2" />.</translation>
 <translation id="8936233353620149764">Увімкнути або вимкнути Gemini у Chrome</translation>
 <translation id="8948460679427074738">Немає відомостей про конфіденційність цього розширення, зокрема про те, як воно збирає і використовує дані. Chrome радить вилучити його.</translation>
 <translation id="8958307504142971576">Тепер у Chrome доступно більше функцій</translation>

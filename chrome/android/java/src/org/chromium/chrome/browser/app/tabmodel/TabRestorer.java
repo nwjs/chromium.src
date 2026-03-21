@@ -8,6 +8,7 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.tabmodel.TabPersistenceUtils.shouldSkipTab;
 
 import androidx.annotation.IntDef;
+import androidx.core.util.Supplier;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.PostTask;
@@ -15,14 +16,21 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.tab.ScopedStorageBatch;
 import org.chromium.chrome.browser.tab.StorageLoadedData;
 import org.chromium.chrome.browser.tab.StorageLoadedData.LoadedTabState;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.WebContentsState;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabGroupVisualDataStore;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
+import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.url.GURL;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -40,6 +48,7 @@ class TabRestorer {
     @IntDef({
         State.EMPTY,
         State.RESTORE_ONCE_LOADED,
+        State.ACTIVE_TAB_RESTORED,
         State.LOADED,
         State.RESTORING,
         State.CANCELLED,
@@ -53,16 +62,18 @@ class TabRestorer {
         int EMPTY = 0;
         // Restore once loaded.
         int RESTORE_ONCE_LOADED = 1;
+        // Active tab has been restored from cache.
+        int ACTIVE_TAB_RESTORED = 2;
         // Data to restore tabs has been loaded.
-        int LOADED = 2;
+        int LOADED = 3;
         // Tab restore is in progress.
-        int RESTORING = 3;
+        int RESTORING = 4;
         // Tab restore is cancelled.
-        int CANCELLED = 4;
+        int CANCELLED = 5;
         // Tab restore is finished, but the finish signals have not been sent yet.
-        int FINISHING = 5;
+        int FINISHING = 6;
         // Tab restore is finished and all finish signals have been sent.
-        int FINISHED = 6;
+        int FINISHED = 7;
     }
 
     interface TabRestorerDelegate {
@@ -92,6 +103,13 @@ class TabRestorer {
         void onFinished(boolean incognito);
 
         /**
+         * Called when the active tab has been restored.
+         *
+         * @param incognito Whether the active tab is incognito.
+         */
+        void onActiveTabRestored(boolean incognito);
+
+        /**
          * Called when the details of a tab have been read {@see
          * TabPersistentStoreObserver#onDetailsRead}.
          */
@@ -108,11 +126,14 @@ class TabRestorer {
     private final boolean mIncognito;
     private final TabRestorerDelegate mDelegate;
     private final TabCreator mTabCreator;
+    private final Supplier<ScopedStorageBatch> mBatchFactory;
+    private final TabModelSelector mTabModelSelector;
     private final List<Integer> mTabIdsToIgnore = new ArrayList<>();
 
     private @State int mState = State.EMPTY;
     private @Nullable StorageLoadedData mData;
     private boolean mRestoreActiveTabImmediately;
+    private boolean mActiveTabRestoredFromCache;
     private int mRestoreFilteredTabCount;
 
     /**
@@ -126,11 +147,47 @@ class TabRestorer {
      * @param incognito Whether the tab restorer is for incognito tabs.
      * @param delegate The delegate to notify when the tab restorer for certain events.
      * @param tabCreator The tab creator to use to create tabs.
+     * @param batchFactory The factory to create scoped storage batches.
+     * @param tabModelSelector The tab model selector.
      */
-    TabRestorer(boolean incognito, TabRestorerDelegate delegate, TabCreator tabCreator) {
+    TabRestorer(
+            boolean incognito,
+            TabRestorerDelegate delegate,
+            TabCreator tabCreator,
+            Supplier<ScopedStorageBatch> batchFactory,
+            TabModelSelector tabModelSelector) {
         mIncognito = incognito;
         mDelegate = delegate;
         mTabCreator = tabCreator;
+        mBatchFactory = batchFactory;
+        mTabModelSelector = tabModelSelector;
+    }
+
+    /**
+     * Should be called when the active tab for this model has been loaded from the cache.
+     *
+     * @param loadedTabState The tab state loaded from storage.
+     */
+    public void onCachedActiveTabLoaded(LoadedTabState loadedTabState) {
+        TabState tabState = loadedTabState.tabState;
+        if (mState == State.CANCELLED) {
+            WebContentsState contentsState = tabState.contentsState;
+            if (contentsState != null) contentsState.destroy();
+        } else if (mState >= State.LOADED) {
+            return;
+        }
+
+        if (mState == State.EMPTY) {
+            mState = State.ACTIVE_TAB_RESTORED;
+        }
+
+        mTabIdsToIgnore.add(loadedTabState.tabId);
+
+        int tabCount = mTabModelSelector.getModel(mIncognito).getCount();
+        Tab tab = resolveTab(tabState, loadedTabState.tabId, tabCount, /* isActiveTab= */ true);
+
+        if (tab == null) destroyLoadedTabState(loadedTabState);
+        mActiveTabRestoredFromCache = true;
     }
 
     /**
@@ -158,7 +215,7 @@ class TabRestorer {
             return;
         }
 
-        assert mState == State.EMPTY;
+        assert mState == State.EMPTY || mState == State.ACTIVE_TAB_RESTORED;
         mState = State.LOADED;
         mDelegate.onDataLoaded(mIncognito, restoredTabCount);
     }
@@ -176,7 +233,7 @@ class TabRestorer {
         mRestoreActiveTabImmediately = restoreActiveTabImmediately;
 
         // If load is not finished yet, schedule restore to start as soon as it finishes.
-        if (mState == State.EMPTY) {
+        if (mState == State.EMPTY || mState == State.ACTIVE_TAB_RESTORED) {
             mState = State.RESTORE_ONCE_LOADED;
             return;
         }
@@ -193,10 +250,12 @@ class TabRestorer {
             return;
         }
 
+        maybeDestroyActiveTabState();
+
         // Synchronously restore the active tab if requested as there is no other tab already open
         // and doing this in a posted task would block user interaction with the app until finished.
-        if (restoreActiveTabImmediately) {
-            restoreActiveTab();
+        if (restoreActiveTabImmediately && !mActiveTabRestoredFromCache) {
+            restoreActiveTabFromData();
         } else {
             // Post this task as there is an assumption that another tab is already open and this
             // operation is not blocking user interaction.
@@ -253,8 +312,9 @@ class TabRestorer {
 
     private void cancelInternal() {
         if (mData != null) {
-            cleanupStorageLoadedData();
+            // Delegate still needs access to the StorageLoadedData before it is cleaned up.
             mDelegate.onCancelled(mIncognito);
+            cleanupStorageLoadedData();
         }
     }
 
@@ -269,8 +329,10 @@ class TabRestorer {
 
         assert mState == State.FINISHING;
         mState = State.FINISHED;
-        cleanupStorageLoadedData();
+
+        // Delegate still needs access to the StorageLoadedData before it is cleaned up.
         mDelegate.onFinished(mIncognito);
+        cleanupStorageLoadedData();
 
         RecordHistogram.recordCount1000Histogram(
                 "Tabs.TabStateStore.FilteredTabCount", mRestoreFilteredTabCount);
@@ -307,10 +369,11 @@ class TabRestorer {
     }
 
     /**
-     * Restores the active tab from {@code data}. Will post a task to restore the next batch if
-     * there are more tabs to restore otherwise will signal the end of restoration.
+     * Restores the active tab from {@code data}. This will not restore the active tab is it was
+     * already restored from the cache. Will post a task to restore the next batch if there are more
+     * tabs to restore otherwise will signal the end of restoration.
      */
-    private void restoreActiveTab() {
+    private void restoreActiveTabFromData() {
         if (mState == State.CANCELLED) return;
         assert mState == State.RESTORING;
 
@@ -347,10 +410,14 @@ class TabRestorer {
     private void restoreTab(LoadedTabState loadedTabState, int index, boolean isActive) {
         assert mState == State.RESTORING;
         @TabId int tabId = loadedTabState.tabId;
-        Tab tab = resolveTab(loadedTabState.tabState, tabId, index);
+
+        assert mData != null;
+        boolean isActiveTab = mData.getActiveTabIndex() == index;
+        assert !isActiveTab || !mActiveTabRestoredFromCache;
+
+        Tab tab = resolveTab(loadedTabState.tabState, tabId, index, isActiveTab);
         if (tab == null) {
-            WebContentsState state = loadedTabState.tabState.contentsState;
-            if (state != null) state.destroy();
+            destroyLoadedTabState(loadedTabState);
             return;
         }
 
@@ -379,14 +446,16 @@ class TabRestorer {
         LoadedTabState[] loadedTabStates = mData.getLoadedTabStates();
         int finalIndex = loadedTabStates.length;
 
-        while (batchSize > 0 && mIndex < finalIndex) {
-            LoadedTabState loadedTabState = loadedTabStates[mIndex];
-            if (!mTabIdsToIgnore.contains(loadedTabState.tabId)) {
-                restoreTab(loadedTabState, mIndex, /* isActive= */ false);
-            }
+        try (ScopedStorageBatch batch = mBatchFactory.get()) {
+            while (batchSize > 0 && mIndex < finalIndex) {
+                LoadedTabState loadedTabState = loadedTabStates[mIndex];
+                if (!mTabIdsToIgnore.contains(loadedTabState.tabId)) {
+                    restoreTab(loadedTabState, mIndex, /* isActive= */ false);
+                }
 
-            mIndex++;
-            batchSize--;
+                mIndex++;
+                batchSize--;
+            }
         }
 
         if (mIndex < finalIndex) {
@@ -396,12 +465,55 @@ class TabRestorer {
         }
     }
 
-    private @Nullable Tab resolveTab(TabState tabState, @TabId int tabId, int index) {
-        assert mData != null;
-        if (mData.getActiveTabIndex() != index && shouldSkipTab(tabState)) {
+    private @Nullable Tab resolveTab(
+            TabState tabState, @TabId int tabId, int index, boolean isActiveTab) {
+        if (!isActiveTab && shouldSkipTab(tabState)) {
             mRestoreFilteredTabCount++;
             return null;
         }
-        return mTabCreator.createFrozenTab(tabState, tabId, index);
+
+        Tab tab = null;
+        GURL url = tabState.url;
+        if (isActiveTab && tabState.contentsState == null && url != null) {
+            // Use fallback url if no contents state is available.
+            tab =
+                    mTabCreator.createNewTab(
+                            new LoadUrlParams(url),
+                            TabLaunchType.FROM_RESTORE,
+                            null,
+                            index);
+        } else if (tabState.contentsState != null) {
+            if (url != null) {
+                tabState.contentsState.setFallbackUrlForRestorationFailure(url.getSpec());
+            }
+            tab = mTabCreator.createFrozenTab(tabState, tabId, index);
+        }
+
+        if (isActiveTab && tab != null) {
+            TabModel model = mTabModelSelector.getModel(mIncognito);
+            TabModelUtils.setIndex(model, TabModelUtils.getTabIndexById(model, tab.getId()));
+            mDelegate.onActiveTabRestored(mIncognito);
+        }
+        return tab;
+    }
+
+    private void maybeDestroyActiveTabState() {
+        assert mData != null;
+
+        if (!mActiveTabRestoredFromCache) return;
+
+        LoadedTabState[] loadedTabStates = mData.getLoadedTabStates();
+        if (loadedTabStates.length == 0) return;
+
+        int activeTabIndex = mData.getActiveTabIndex();
+        if (activeTabIndex < 0 || activeTabIndex >= loadedTabStates.length) return;
+
+        LoadedTabState activeTabState = loadedTabStates[activeTabIndex];
+        destroyLoadedTabState(activeTabState);
+    }
+
+    private void destroyLoadedTabState(LoadedTabState loadedTabState) {
+        WebContentsState state = loadedTabState.tabState.contentsState;
+        if (state != null) state.destroy();
     }
 }

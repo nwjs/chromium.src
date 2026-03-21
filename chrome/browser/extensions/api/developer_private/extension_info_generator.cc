@@ -32,7 +32,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/branded_strings.h"
@@ -789,7 +788,7 @@ void ExtensionInfoGenerator::FillExtensionInfo(const Extension& extension,
           break;
         case ExtensionError::Type::kInternalError:
           // TODO(wittman): Support InternalError in developer tools:
-          // https://crbug.com/503427.
+          // https://crbug.com/41184632.
           break;
         case ExtensionError::Type::kNumErrorTypes:
           NOTREACHED();

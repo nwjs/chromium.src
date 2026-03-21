@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_EXTENSIONS_API_SESSIONS_SESSIONS_API_H__
 
 #include <string>
+#include <vector>
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/common/extensions/api/sessions.h"
@@ -44,6 +45,10 @@ class SessionsGetRecentlyClosedFunction : public ExtensionFunction {
   SessionsGetRecentlyClosedFunction& operator=(
       const SessionsGetRecentlyClosedFunction&) = delete;
 
+  void set_window_last_modified_for_test(int last_modified) {
+    window_last_modified_for_test_ = last_modified;
+  }
+
  protected:
   // Ref-counted so protected destructor.
   ~SessionsGetRecentlyClosedFunction() override;
@@ -65,7 +70,13 @@ class SessionsGetRecentlyClosedFunction : public ExtensionFunction {
       const base::android::JavaRef<jobject>& j_tab_model);
 #endif  // BUILDFLAG(IS_ANDROID)
 
+  size_t max_results_ = api::sessions::MAX_SESSION_RESULTS;
   std::vector<api::sessions::Session> result_;
+
+  // If non-zero, used as the last modified time (in seconds from epoch) for
+  // the session for a window close. Used to ensure timestamps don't have the
+  // same value (since they only have second-level precision).
+  int window_last_modified_for_test_ = 0;
 };
 
 class SessionsGetDevicesFunction : public ExtensionFunction {
@@ -90,21 +101,44 @@ class SessionsGetDevicesFunction : public ExtensionFunction {
 };
 
 class SessionsRestoreFunction : public ExtensionFunction {
+ public:
+  SessionsRestoreFunction();
+  SessionsRestoreFunction(const SessionsRestoreFunction&) = delete;
+  SessionsRestoreFunction& operator=(const SessionsRestoreFunction&) = delete;
+
  protected:
-  ~SessionsRestoreFunction() override = default;
+  // Ref-counted so protected destructor.
+  ~SessionsRestoreFunction() override;
   ResponseAction Run() override;
   DECLARE_EXTENSION_FUNCTION("sessions.restore", SESSIONS_RESTORE)
 
  private:
   ResponseValue GetRestoredTabResult(content::WebContents* contents);
   ResponseValue GetRestoredWindowResult(int window_id);
-  ResponseValue RestoreMostRecentlyClosed(BrowserWindowInterface* browser);
-  ResponseValue RestoreLocalSession(const SessionId& session_id,
-                                    BrowserWindowInterface* browser);
+  ResponseAction RestoreMostRecentlyClosed(BrowserWindowInterface* browser);
+  ResponseAction RestoreLocalSession(const SessionId& session_id,
+                                     BrowserWindowInterface* browser);
   ResponseAction RestoreForeignSession(const SessionId& session_id,
                                        BrowserWindowInterface* browser);
   void OnRestoreForeignSessionWindows(
       std::vector<BrowserWindowInterface*> browsers);
+
+#if BUILDFLAG(IS_ANDROID)
+  // Uses JNI to query Java `RecentlyClosedEntitiesManager` for recently closed
+  // windows. If instance_id is kInvalidWindowId it returns the most closed.
+  // Otherwise it only returns a window with a matching instance id.
+  ResponseAction QueryRecentlyClosedEntitiesManager(int instance_id);
+
+  // Callback for `QueryRecentlyClosedEntitiesManager()`.
+  void OnGetRecentlyClosedWindow(
+      const base::android::JavaRef<jobject>& j_tab_model);
+
+  // Callback for browser window creation.
+  void OnBrowserWindowCreated(BrowserWindowInterface* browser);
+
+  // A global reference to `TabModel` so it stays alive across callbacks.
+  base::android::ScopedJavaGlobalRef<jobject> global_ref_tab_model_;
+#endif  // BUILDFLAG(IS_ANDROID)
 };
 
 class SessionsEventRouter : public sessions::TabRestoreServiceObserver {
@@ -127,6 +161,14 @@ class SessionsEventRouter : public sessions::TabRestoreServiceObserver {
       sessions::TabRestoreService* service) override;
 
  private:
+#if BUILDFLAG(IS_ANDROID)
+  // Callback for when the recently closed list is updated on the Java side.
+  void OnRecentlyClosedUpdated(int64_t j_browser_context);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+  // Broadcasts the API OnChanged event to JS.
+  static void BroadcastOnChangedEvent(Profile* profile);
+
   raw_ptr<Profile> profile_;
 
   // TabRestoreService that we are observing.

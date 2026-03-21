@@ -407,18 +407,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//content/browser/private_aggregation/private_aggregation_pending_contributions.h:TruncationResult) -->
 
-<!-- LINT.IfChange(PrivacySandboxSentimentSurveyStatus) -->
-
-<enum name="PrivacySandboxSentimentSurveyStatus">
-  <int value="0" label="Survey was successfully launched"/>
-  <int value="1" label="Feature not enabled"/>
-  <int value="2" label="Failed to fetch HaTS service"/>
-  <int value="3" label="Failed to launch survey"/>
-  <int value="4" label="Failed to find survey config"/>
-</enum>
-
-<!-- LINT.ThenChange(//components/privacy_sandbox/privacy_sandbox_survey_service.h:PrivacySandboxSentimentSurveyStatus) -->
-
 <enum name="PrivacySandboxStorageActivityType">
   <int value="0" label="Received kOther (partial CCT or unknown) type"/>
   <int value="1" label="Received kTabbed (BrowserApp) type"/>
@@ -440,15 +428,6 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="kHasWebapp"/>
   <int value="7" label="kHasPreFirstTab"/>
 </enum>
-
-<!-- LINT.IfChange(PrivacySandboxSurveyTypesEnums) -->
-
-<enum name="PrivacySandboxSurveyTypes">
-  <int value="0" label="Unknown Survey"/>
-  <int value="1" label="Sentiment Survey"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/privacy_sandbox/PrivacySandboxSurveyController.java:PrivacySandboxSurveyTypes) -->
 
 <enum name="QuickDeleteAction">
   <int value="0" label="Entry from menu item clicked"/>

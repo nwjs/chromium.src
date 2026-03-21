@@ -74,8 +74,9 @@ Vector<StringView> EmailInputType::ParseMultipleValues(
 
 String EmailInputType::ConvertEmailAddressToAscii(const ScriptRegexp& regexp,
                                                   const StringView& address) {
-  if (address.ContainsOnlyASCIIOrEmpty())
+  if (address.ContainsOnlyAsciiOrEmpty()) {
     return address.ToString();
+  }
 
   wtf_size_t at_position = address.find('@');
   if (at_position == kNotFound)
@@ -112,15 +113,17 @@ String EmailInputType::ConvertEmailAddressToAscii(const ScriptRegexp& regexp,
 
 String EmailInputType::ConvertEmailAddressToUnicode(
     const String& address) const {
-  if (!address.ContainsOnlyASCIIOrEmpty())
+  if (!address.ContainsOnlyAsciiOrEmpty()) {
     return address;
+  }
 
   wtf_size_t at_position = address.find('@');
   if (at_position == kNotFound)
     return address;
 
-  if (address.Find("xn--", at_position + 1) == kNotFound)
+  if (address.find("xn--", at_position + 1) == kNotFound) {
     return address;
+  }
 
   String unicode_host = Platform::Current()->ConvertIDNToUnicode(
       address.Substring(at_position + 1));
@@ -134,7 +137,7 @@ static bool IsInvalidLocalPartCharacter(UChar ch) {
   if (!IsASCII(ch))
     return true;
   DEFINE_STATIC_LOCAL(const String, valid_characters, (kLocalPartCharacters));
-  return valid_characters.find(ToASCIILower(ch)) == kNotFound;
+  return !valid_characters.contains(ToASCIILower(ch));
 }
 
 static bool IsInvalidDomainCharacter(UChar ch) {
@@ -149,7 +152,7 @@ static bool CheckValidDotUsage(const String& domain) {
     return true;
   if (domain[0] == '.' || domain[domain.length() - 1] == '.')
     return false;
-  return domain.Find("..") == kNotFound;
+  return !domain.contains("..");
 }
 
 bool EmailInputType::IsValidEmailAddress(const ScriptRegexp& regexp,

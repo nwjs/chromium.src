@@ -13,7 +13,6 @@
 #include "remoting/protocol/connection_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/libjingle_xmpp/xmllite/xmlelement.h"
 
 using testing::_;
 using testing::DeleteArg;
@@ -86,11 +85,11 @@ TEST_F(Spake2AuthenticatorTest, InvalidSecret) {
   reinterpret_cast<Spake2Authenticator*>(client_.get())->state_ =
       Authenticator::MESSAGE_READY;
 
-  std::unique_ptr<jingle_xmpp::XmlElement> message(client_->GetNextMessage());
-  ASSERT_TRUE(message.get());
+  JingleAuthentication message = client_->GetNextMessage();
+  ASSERT_FALSE(message.is_empty());
 
   ASSERT_EQ(Authenticator::WAITING_MESSAGE, client_->state());
-  host_->ProcessMessage(message.get(), base::DoNothing());
+  host_->ProcessMessage(message, base::DoNothing());
   // This assumes that Spake2Authenticator::ProcessMessage runs synchronously.
   ASSERT_EQ(Authenticator::REJECTED, host_->state());
 }

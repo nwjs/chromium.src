@@ -21,12 +21,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.view.View;
 
 import androidx.annotation.Nullable;
-import androidx.appcompat.content.res.AppCompatResources;
 import androidx.test.core.app.ApplicationProvider;
 
 import org.junit.After;
@@ -39,8 +39,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -48,8 +46,11 @@ import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.hub.DisplayButtonData;
 import org.chromium.chrome.browser.hub.FullButtonData;
 import org.chromium.chrome.browser.hub.LoadHint;
@@ -67,6 +68,7 @@ import org.chromium.chrome.browser.tabmodel.TabGroupModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
+import org.chromium.components.sensitive_content.SensitiveContentFeatures;
 
 import java.util.List;
 import java.util.function.DoubleConsumer;
@@ -75,6 +77,12 @@ import java.util.function.DoubleConsumer;
  * Unit tests for {@link IncognitoTabSwitcherPane}. Refer to {@link TabSwitcherPaneUnitTest} for
  * tests for shared functionality with {@link TabSwitcherPaneBase}.
  */
+@DisableFeatures({
+    ChromeFeatureList.DATA_SHARING,
+    ChromeFeatureList.DATA_SHARING_JOIN_ONLY,
+    SensitiveContentFeatures.SENSITIVE_CONTENT,
+    SensitiveContentFeatures.SENSITIVE_CONTENT_WHILE_SWITCHING_TABS
+})
 @RunWith(BaseRobolectricTestRunner.class)
 public class IncognitoTabSwitcherPaneUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -202,14 +210,12 @@ public class IncognitoTabSwitcherPaneUnitTest {
         assertEquals(PaneId.INCOGNITO_TAB_SWITCHER, mIncognitoTabSwitcherPane.getPaneId());
     }
 
-    // TODO(crbug.com/450954710): This test fails on SDK 36.
-    @Config(sdk = 29)
     @Test
     public void testNewTabButtonData() {
         checkNewTabButton(/* enabled= */ false);
 
         mIncognitoReauthControllerSupplier.set(mIncognitoReauthController);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         verify(mIncognitoReauthController)
                 .addIncognitoReauthCallback(mIncognitoReauthCallbackCaptor.capture());
         when(mIncognitoReauthController.isIncognitoReauthPending()).thenReturn(false);
@@ -225,15 +231,13 @@ public class IncognitoTabSwitcherPaneUnitTest {
         checkNewTabButton(/* enabled= */ false);
     }
 
-    // TODO(crbug.com/450954710): This test fails on SDK 36.
-    @Config(sdk = 29)
     @Test
     public void testIncognitoReauthCallback() {
         assertTrue(mIncognitoTabSwitcherPane.getHubSearchEnabledStateSupplier().get());
         checkNewTabButton(/* enabled= */ false);
 
         mIncognitoReauthControllerSupplier.set(mIncognitoReauthController);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         verify(mIncognitoReauthController)
                 .addIncognitoReauthCallback(mIncognitoReauthCallbackCaptor.capture());
         IncognitoReauthCallback callback = mIncognitoReauthCallbackCaptor.getValue();
@@ -284,8 +288,6 @@ public class IncognitoTabSwitcherPaneUnitTest {
         verifyNoMoreInteractions(coordinator);
     }
 
-    // TODO(crbug.com/450954710): This test fails on SDK 36.
-    @Config(sdk = 29)
     @Test
     public void testResetWithTabList() {
         mIncognitoTabSwitcherPane.resetWithListOfTabs(null);
@@ -313,11 +315,11 @@ public class IncognitoTabSwitcherPaneUnitTest {
     @Test
     public void testLoadHintColdWarmHotCold() {
         mIncognitoTabSwitcherPane.notifyLoadHint(LoadHint.COLD);
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         assertNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
 
         mIncognitoTabSwitcherPane.notifyLoadHint(LoadHint.WARM);
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         assertNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
 
         mIncognitoTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
@@ -328,25 +330,23 @@ public class IncognitoTabSwitcherPaneUnitTest {
         verify(coordinator, never()).hardCleanup();
 
         mIncognitoTabSwitcherPane.notifyLoadHint(LoadHint.COLD);
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         assertNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
         verify(coordinator).softCleanup();
         verify(coordinator).hardCleanup();
     }
 
-    // TODO(crbug.com/450954710): This test fails on SDK 36.
-    @Config(sdk = 29)
     @Test
     public void testLoadHintColdHot_TabStateNotInitialized() {
         when(mIncognitoTabModel.isActiveModel()).thenReturn(true);
         when(mTabGroupModelFilter.isTabModelRestored()).thenReturn(false);
 
         mIncognitoTabSwitcherPane.notifyLoadHint(LoadHint.COLD);
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         assertNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
 
         mIncognitoTabSwitcherPane.notifyLoadHint(LoadHint.HOT);
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
         TabSwitcherPaneCoordinator coordinator =
                 mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator();
         assertNotNull(coordinator);
@@ -363,12 +363,10 @@ public class IncognitoTabSwitcherPaneUnitTest {
         watcher.assertExpected();
     }
 
-    // TODO(crbug.com/450954710): This test fails on SDK 36.
-    @Config(sdk = 29)
     @Test
     public void testResetWithTabListReauthRequired() {
         mIncognitoReauthControllerSupplier.set(mIncognitoReauthController);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         mIncognitoTabSwitcherPane.createTabSwitcherPaneCoordinator();
         TabSwitcherPaneCoordinator coordinator =
                 mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator();
@@ -385,7 +383,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
     @Test
     public void testRequestAccessibilityFocusOnCurrentTab() {
         mIncognitoReauthControllerSupplier.set(mIncognitoReauthController);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         mIncognitoTabSwitcherPane.createTabSwitcherPaneCoordinator();
         TabSwitcherPaneCoordinator coordinator =
                 mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator();
@@ -420,7 +418,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
     public void testForceCleanup_ReauthVisible() {
         when(mIncognitoReauthController.isReauthPageShowing()).thenReturn(true);
         mIncognitoReauthControllerSupplier.set(mIncognitoReauthController);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         mIncognitoTabSwitcherPane.createTabSwitcherPaneCoordinator();
         assertNotNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
         mIncognitoTabSwitcherPane.setPaneHubController(mPaneHubController);
@@ -452,7 +450,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
 
         observer.onFinishingTabClosure(mockTab, TabClosingSource.UNKNOWN);
         incognitoObserver.didBecomeEmpty();
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mPaneHubController).focusPane(PaneId.TAB_SWITCHER);
         assertNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
@@ -470,7 +468,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
 
         mTabGridDialogShowingOrAnimationSupplier.set(true);
         incognitoObserver.didBecomeEmpty();
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mPaneHubController).focusPane(PaneId.TAB_SWITCHER);
         assertNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
@@ -488,7 +486,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
 
         mTabGridDialogShowingOrAnimationSupplier.set(false);
         incognitoObserver.didBecomeEmpty();
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mPaneHubController, never()).focusPane(PaneId.TAB_SWITCHER);
         assertNotNull(mIncognitoTabSwitcherPane.getTabSwitcherPaneCoordinator());
@@ -511,10 +509,9 @@ public class IncognitoTabSwitcherPaneUnitTest {
         assertEquals(
                 mContext.getString(R.string.button_new_incognito_tab),
                 buttonData.resolveContentDescription(mContext));
-        assertTrue(
-                AppCompatResources.getDrawable(mContext, R.drawable.new_tab_icon)
-                        .getConstantState()
-                        .equals(buttonData.resolveIcon(mContext).getConstantState()));
+        assertEquals(
+                R.drawable.new_tab_icon,
+                shadowOf(buttonData.resolveIcon(mContext)).getCreatedFromResId());
         if (!enabled) {
             assertNull(buttonData.getOnPressRunnable());
         } else {
@@ -535,7 +532,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
         observer.didBecomeEmpty();
         mIsRecyclerViewAnimatorRunningSupplier.set(true);
         mIsRecyclerViewAnimatorRunningSupplier.set(false);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         assertNull(mIncognitoTabSwitcherPane.getReferenceButtonDataSupplier().get());
         verify(mPaneHubController).focusPane(PaneId.TAB_SWITCHER);
@@ -557,7 +554,7 @@ public class IncognitoTabSwitcherPaneUnitTest {
         observer.didBecomeEmpty();
         mIsRecyclerViewAnimatorRunningSupplier.set(true);
         mIsRecyclerViewAnimatorRunningSupplier.set(false);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         assertNull(mIncognitoTabSwitcherPane.getReferenceButtonDataSupplier().get());
         verify(mPaneHubController, times(2)).focusPane(PaneId.TAB_SWITCHER);

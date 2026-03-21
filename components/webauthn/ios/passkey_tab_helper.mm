@@ -652,11 +652,10 @@ std::optional<bool> PasskeyTabHelper::ShouldPerformUserVerification(
 }
 
 // TODO(crbug.com/460485614): Handle error here or in the passkey client.
-void PasskeyTabHelper::CompletePasskeyCreation(
-    RegistrationRequestParams params,
-    std::string client_data_json,
-    const SharedKeyList& shared_key_list,
-    NSError* error) {
+void PasskeyTabHelper::CompletePasskeyCreation(RegistrationRequestParams params,
+                                               std::string client_data_json,
+                                               SharedKeyList shared_key_list,
+                                               NSError* error) {
   web::WebFrame* web_frame = GetWebFrame(params.FrameId());
   if (!web_frame) {
     return;
@@ -675,6 +674,11 @@ void PasskeyTabHelper::CompletePasskeyCreation(
   auto [passkey, attestation_data] = CreatePasskeyAndAttestationObject(
       shared_key_list[0], std::move(client_data_json), params.RpId(),
       params.UserEntity(), extension_input_data);
+
+  if (!webauthn::passkey_model_utils::IsPasskeyValid(passkey)) {
+    DeferToRenderer(web_frame, passkey_request_id, params.Type());
+    return;
+  }
 
   // Add passkey to the passkey model and present the confirmation infobar.
   // TODO(crbug.com/460485333): Wait until success message from TypeScript code?
@@ -728,7 +732,7 @@ void PasskeyTabHelper::CompletePasskeyAssertion(
     AssertionRequestParams params,
     sync_pb::WebauthnCredentialSpecifics passkey,
     std::string client_data_json,
-    const SharedKeyList& shared_key_list,
+    SharedKeyList shared_key_list,
     NSError* error) {
   web::WebFrame* web_frame = GetWebFrame(params.FrameId());
   if (!web_frame) {
@@ -808,6 +812,16 @@ void PasskeyTabHelper::WebFrameBecameAvailable(
 
 base::WeakPtr<PasskeyTabHelper> PasskeyTabHelper::AsWeakPtr() {
   return weak_factory_.GetWeakPtr();
+}
+
+bool PasskeyTabHelper::ShowCreationInterstitialIfNecessary(
+    base::OnceCallback<void(bool)> callback) {
+  if (web_state_->GetBrowserState()->IsOffTheRecord()) {
+    LogEvent(WebAuthenticationIOSContentAreaEvent::kIncognitoInterstitialShown);
+    client_->ShowInterstitial(std::move(callback));
+    return true;
+  }
+  return false;
 }
 
 }  // namespace webauthn

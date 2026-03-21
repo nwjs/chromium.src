@@ -10,6 +10,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/time/time.h"
+#import "components/autofill/core/common/autofill_features.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "ios/chrome/browser/autofill/form_input_accessory/ui/form_input_accessory_view_controller+testing.h"
 #import "ios/chrome/browser/autofill/model/features.h"
@@ -30,6 +31,7 @@ bool IsAvailableOnIos(autofill::FillingProduct filling_product) {
     case autofill::FillingProduct::kIban:
     case autofill::FillingProduct::kPassword:
     case autofill::FillingProduct::kAutocomplete:
+    case autofill::FillingProduct::kAutofillAi:
     // Note: There shouldn't be any suggestion of these 3 types below on iOS,
     // but they technically exist on iOS.
     case autofill::FillingProduct::kDataList:
@@ -37,11 +39,11 @@ bool IsAvailableOnIos(autofill::FillingProduct filling_product) {
     case autofill::FillingProduct::kNone:
       return true;
     case autofill::FillingProduct::kCompose:
-    case autofill::FillingProduct::kAutofillAi:
     case autofill::FillingProduct::kMerchantPromoCode:
     case autofill::FillingProduct::kLoyaltyCard:
     case autofill::FillingProduct::kIdentityCredential:
     case autofill::FillingProduct::kOneTimePassword:
+    case autofill::FillingProduct::kAtMemory:
       return false;
   }
 }
@@ -88,6 +90,11 @@ class FormInputAccessoryViewControllerTest : public PlatformTest {
 // Tests FormInputAccessoryViewController can press the manual fill button with
 // any filling product that's available on iOS when that button is accessible.
 TEST_F(FormInputAccessoryViewControllerTest, ManualFillButtonPress) {
+  base::test::ScopedFeatureList scoped_featurelist;
+  scoped_featurelist.InitWithFeatures(
+      /*enabled_features=*/{autofill::features::kAutofillAiWithDataSchema},
+      /*disabled_features=*/{});
+
   FormInputAccessoryView* accessory_view =
       base::apple::ObjCCastStrict<FormInputAccessoryView>(
           view_controller_.view);

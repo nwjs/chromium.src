@@ -99,12 +99,22 @@ class WebStateDelegate {
   // `protection_space`, and is unable to respond using cached credentials.
   // Clients must call `callback` even if they want to cancel authentication
   // (in which case `username` or `password` should be nil).
-  typedef base::OnceCallback<void(NSString* username, NSString* password)>
-      AuthCallback;
+  using HTTPAuthCallback =
+      base::OnceCallback<void(NSString* username, NSString* password)>;
   virtual void OnAuthRequired(WebState* source,
                               NSURLProtectionSpace* protection_space,
                               NSURLCredential* proposed_credential,
-                              AuthCallback callback);
+                              HTTPAuthCallback callback);
+
+  // Called when a request receives an authentication challenge specified by
+  // `protection_space`, and is unable to respond using cached credentials.
+  // Clients must call `callback` even if they want to cancel authentication
+  // (in which case `identity` should be nil).
+  using ClientCertAuthCallback =
+      base::OnceCallback<void(SecIdentityRef identity)>;
+  virtual void OnAuthRequired(WebState* source,
+                              NSURLProtectionSpace* protection_space,
+                              ClientCertAuthCallback callback);
 
   // Returns the UIView used to contain the WebView for sizing purposes. Can be
   // nil.
@@ -117,6 +127,15 @@ class WebStateDelegate {
       WebState* source,
       const ContextMenuParams& params,
       void (^completion_handler)(UIContextMenuConfiguration*));
+
+  // Returns a custom context menu configuration.
+  virtual UIContextMenuConfiguration* GetCustomContextMenuConfiguration();
+
+  // Called when the context menu configuration is loaded.
+  virtual void ContextMenuConfigurationLoaded(
+      UIContextMenuConfiguration* configuration,
+      UIContextMenuConfiguration* update) {}
+
   // Called when the context menu will commit with animator.
   virtual void ContextMenuWillCommitWithAnimator(
       WebState* source,

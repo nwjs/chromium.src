@@ -114,7 +114,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.BrowsingHistoryResult.{LocalOrRemote}.{VisitAge}"
-    units="visits" expires_after="2026-07-01">
+    units="visits" expires_after="2026-08-30">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <component>1456716</component>
@@ -1755,65 +1755,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.Embeddings.DatabaseAsCacheAccessTime.TotalWait"
-    units="ms" expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    The time the HistoryEmbeddingsService waited to receive existing passages
-    and embeddings from its database Storage sequence. Logged each time page
-    passages are retrieved. (This metric includes the SQL query time plus
-    sequence waits.)
-  </summary>
-</histogram>
-
-<histogram name="History.Embeddings.DatabaseCachedPassageHitCount"
-    units="passages" expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Number of passages that skip the embedder because the stored data for the
-    URL was retrieved and used as a cache. This is effectively the numerator for
-    History.Embeddings.DatabaseCachedPassageRatio.
-  </summary>
-</histogram>
-
-<histogram name="History.Embeddings.DatabaseCachedPassageRatio" units="%"
-    expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Percentage of passages that skip the embedder because the stored data for
-    the URL was retrieved and used as a cache. These passages reuse the
-    embedding stored for the identical passage in the database, thus saving the
-    embedder this portion of work. Logged regardless of presence/absence of
-    existing data for the URL.
-  </summary>
-</histogram>
-
-<histogram name="History.Embeddings.DatabaseCachedPassageTryCount"
-    units="passages" expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Number of passages that attempted to bypass the embedder by using the
-    database as an embeddings cache. This is effectively the denominator for
-    History.Embeddings.DatabaseCachedPassageRatio.
-  </summary>
-</histogram>
-
-<histogram name="History.Embeddings.DatabaseCacheHit" enum="Boolean"
-    expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Whether one passage attempting to bypass the embedder actually bypassed the
-    embedder due to having its embedding already available in the database.
-    Logged History.Embeddings.DatabaseCachedPassageTryCount times when a set of
-    passages are checked against available passages/embeddings in the database.
-  </summary>
-</histogram>
-
 <histogram name="History.Embeddings.DatabaseInitialized" enum="Boolean"
     expires_after="2026-05-03">
   <owner>orinj@chromium.org</owner>
@@ -1998,7 +1939,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Embedder.EmbeddingsGenerationSucceeded"
-    enum="Boolean" expires_after="2026-05-03">
+    enum="Boolean" expires_after="2026-08-09">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -2008,7 +1949,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Embedder.EmbeddingsModelLoadDuration"
-    units="ms" expires_after="2026-05-03">
+    units="ms" expires_after="2026-08-30">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -2168,17 +2109,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="History.Embeddings.ExtractionCancelled"
-    enum="EmbeddingsExtractionCancelled" expires_after="2026-02-28">
-  <owner>orinj@chromium.org</owner>
-  <owner>sophiechang@chromium.org</owner>
-  <summary>
-    Signals a reason code when passage extraction, embedding, etc. is cancelled
-    before completion and storage to database. Logged with different codes at
-    various stages of extraction, embedding, etc.
-  </summary>
-</histogram>
-
 <histogram name="History.Embeddings.LoadedMissizedEmbedding" enum="Boolean"
     expires_after="2026-02-28">
   <owner>orinj@chromium.org</owner>
@@ -2251,7 +2181,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Passages.ExtractionTime" units="ms"
-    expires_after="2026-05-03">
+    expires_after="2026-08-30">
   <owner>orinj@chromium.org</owner>
   <owner>src/components/history_embeddings/OWNERS</owner>
   <summary>
@@ -2283,7 +2213,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Passages.TotalTextSize" units="bytes"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>orinj@chromium.org</owner>
   <owner>src/components/history_embeddings/OWNERS</owner>
   <summary>
@@ -2518,7 +2448,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.TaskDuration.Urgent" units="ms"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>wittman@chromium.org</owner>
   <owner>src/components/history_embeddings/OWNERS</owner>
   <summary>
@@ -2658,7 +2588,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.InitializationFailureStep" enum="HistoryInitStep"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>sky@chromium.org</owner>
   <owner>sdefresne@chromium.org</owner>
   <component>1456716</component>
@@ -2697,9 +2627,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Is4XXOr5XXStatusCode" enum="Boolean"
-    expires_after="2026-04-05">
+    expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     Whether HistoryTabHelper::DidFinishNavigation() encountered a navigation
     with a 4XX - 5XX status code. This value is recorded in both the chrome/ and
@@ -2759,7 +2689,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.MostVisitedTilesVisualDeduplication" units="tiles"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>hitarthkothari@google.com</owner>
   <owner>ckitagawa@chromium.org</owner>
   <summary>
@@ -2822,7 +2752,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.RemoveVisitsFromWebHistory.EntryCount" units="entries"
-    expires_after="2026-06-20">
+    expires_after="2026-08-23">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -2877,7 +2807,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ShouldUpdateHistory" enum="Boolean"
-    expires_after="2027-01-29">
+    expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
   <owner>tiffanysong@google.com</owner>
   <summary>
@@ -2957,9 +2887,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.HashTableLengthOnReaderInit"
-    units="entries" expires_after="2026-04-26">
+    units="entries" expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     When VisitedLinkReader's in-memory hashtable is initialized, this metric
     records the value for table_length_ (the maximum number of entries that can
@@ -2968,9 +2898,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.HashTableSizeOnTableCreate" units="MB"
-    expires_after="2026-04-26">
+    expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     When a new in-memory hashtable is created in VisitedLinkWriter, this metric
     records the size of the memory allocated for that new hashtable in MB.
@@ -2978,9 +2908,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.HashTableUsageOnLinkAdded"
-    units="fingerprints" expires_after="2026-04-26">
+    units="fingerprints" expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     When a new URL fingerprint is added to the VisitedLink hashtable, this
     metric logs value for used_items_ (the number of entries in the hashtable
@@ -3003,9 +2933,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.TryToAddFingerprint"
-    enum="AddFingerprint" expires_after="2026-03-29">
+    enum="AddFingerprint" expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     When VisitedLinkWriter is asked to add a URL, it calculates that URL's
     fingerprint and tries to add that fingerprint to the hashtable. This metric
@@ -3018,9 +2948,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.VisitLoggedFromMainFrame" enum="Boolean"
-    expires_after="2026-03-08">
+    expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     For each visit being logged in the VisitedLinks hashtable by the
     HistoryService, record whether its ui::PageTransition type came from the
@@ -3029,9 +2959,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinks.VisitLoggedFromTransition"
-    enum="PageTransitionForVisitedLinks" expires_after="2026-03-08">
+    enum="PageTransitionForVisitedLinks" expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <summary>
     For each visit being logged in the VisitedLinks hashtable by the
     HistoryService, record its PageTransitionForVisitedLinks type. This enum
@@ -3041,9 +2971,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitedLinkTableCount" units="VisitedLinks"
-    expires_after="2026-07-26">
+    expires_after="2027-03-01">
   <owner>kyraseevers@chromium.org</owner>
-  <owner>janiceliu@chromium.org</owner>
+  <owner>tiffanysong@google.com</owner>
   <component>1456589</component>
   <summary>
     Number of rows in visited_links table in History DB. Metrics are logged on
@@ -3086,7 +3016,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WebHistoryMergeResult.{LocalOrRemote}.{VisitAge}"
-    units="visits" expires_after="2026-07-01">
+    units="visits" expires_after="2026-08-30">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <component>1456716</component>
@@ -3138,7 +3068,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WeeklyURLCount" units="URLs"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -3150,7 +3080,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.ActorContextMenuActions"
-    enum="VisitContextMenuAction" expires_after="2026-06-01">
+    enum="VisitContextMenuAction" expires_after="2026-08-16">
   <owner>zalmashni@google.com</owner>
   <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>

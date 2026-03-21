@@ -29,6 +29,7 @@
 <translation id="126567311906253476">Երբ <ph name="USER_EMAIL" /> հաշվի միջոցով մուտք եք գործում Google-ի ծառայություններ, օր․՝ Gmail կամ YouTube, նույն հաշվի միջոցով կարող եք ավտոմատ մուտք գործել Chrome</translation>
 <translation id="1290883685122687410">Կարգավորման սխալ՝ <ph name="METAINSTALLER_EXIT_CODE" />։ <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">Կարգավորեք Chromium-ի ձեր նոր պրոֆիլը</translation>
+<translation id="132092532143527429">Փորձել Gemini-ը Chromium-ում</translation>
 <translation id="1324107359134968521">Chromium-ին անհրաժեշտ է Bluetooth-ի հասանելիություն՝
  Bluetooth սարքեր որոնելու համար։ <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">Ճանաչել լեզուն</translation>
@@ -166,7 +167,6 @@
 <translation id="2738871930057338499">Հնարավոր չէ միանալ ինտերնետին։ HTTP 403 Forbidden։ Ստուգեք ձեր պրոքսի սերվերի կազմաձևը։</translation>
 <translation id="2753623023919742414">Սեղմեք որոնելու համար</translation>
 <translation id="2768103863314748511">Սահմանեք Chromium-ը որպես ձեր կանխադրված PDF դիտակ</translation>
-<translation id="277828055419948999">Chromium-ը կարող է ավտոմատ լրացնել դժվար դաշտերը, որոնք ստանդարտ ինքնալրացումը կարող է բաց թողնել</translation>
 <translation id="2785438272836277133">Այս ընդլայնումը պարունակում է վնասագիր և վտանգավոր է։ Հեռացրեք ընդլայնումը Chromium-ից, որպեսզի այն այլևս չկարողանա տեսնել և փոփոխել ձեր տվյալները, այդ թվում՝ անձնական տեղեկությունները, ձեր այցելած կայքերում։</translation>
 <translation id="2799223571221894425">Վերագործարկել</translation>
 <translation id="2803971713792056305">Ձեր Chromium-ը</translation>
@@ -242,7 +242,9 @@
 <translation id="3509308970982693815">Փակեք Chromium-ի բոլոր պատուհանները և կրկին փորձեք:</translation>
 <translation id="3522404737534491619">Ձեր պատուհանով կիսվելու համար Համակարգի կարգավորումներում թույլատրեք էկրանի տեսագրումը Chromium-ի համար</translation>
 <translation id="3530103706039034513"><ph name="EXISTING_USER" />-ն արդեն մտել է հաշիվ։  Ձեր այցելությունների պատմությունն առանձին պահելու համար ձեր սեփական պրոֆիլում մուտք գործեք Chromium <ph name="USER_EMAIL_ADDRESS" /> հաշվով։</translation>
+<translation id="3531741627422851418">QR կոդ՝ Chromium դիտարկիչը շարժական սարքերում ներբեռնելու համար</translation>
 <translation id="3561853857681580870">Ձեր էկրանով կիսվելու համար Համակարգի կարգավորումներում թույլատրեք էկրանի տեսագրումը Chromium-ի համար։</translation>
+<translation id="3588112919289558122">Բարելավված պաշտպանությունն անջատում է JavaScript-ի օպտիմալացումը այն կայքերի համար, որոնք Chromium-ը չի ճանաչում</translation>
 <translation id="3597003331831379823">Չհաջողվեց գործարկել ընդլայնված արտոնություններով կարգավորումը։ <ph name="METAINSTALLER_ERROR" /></translation>
 <translation id="3600428265489994557">Մուտք գործեք Chromium</translation>
 <translation id="3639635944603682591">Այս օգտատիրոջ այցելությունների պատմությունը կհեռացվի այս սարքից։ Տվյալները վերականգնելու համար <ph name="USER_EMAIL" /> հաշվով մուտք գործեք Chromium-ում։</translation>
@@ -479,6 +481,7 @@
 <translation id="6327105987658262776">Հասանելի թարմացումներ չկան։</translation>
 <translation id="6333502561965082103">Chromium-ում տեղադրման մեկ այլ գործողություն ընթացքի մեջ է: Փորձեք ավելի ուշ:</translation>
 <translation id="6334986366598267305">Այժմ ավելի հեշտ է օգտագործել Chromium-ը ձեր Google հաշվի հետ, այդ թվում նաև համօգտագործվող համակարգիչներով:</translation>
+<translation id="6347002662287820329">Դարձրեք Chromium-ը ձեր կանխադրված դիտարկիչը՝ հեշտությամբ օգտվելու ձեզ ծանոթ, սիրելի և վստահելի գործառույթներից։</translation>
 <translation id="6347933965114150440">Chromium-ի դյուրանցում</translation>
 <translation id="6366160072964553914">Chromium-ն արգելափակել է այս ներբեռնումը, քանի որ ֆայլը հազվադեպ է ներբեռնվում, և այն կարող է վտանգավոր լինել</translation>
 <translation id="6373523479360886564">Հեռացնե՞լ Chromium-ը:</translation>
@@ -588,6 +591,9 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="7384121030444253939">Այս ընդլայնումն այլևս չի աջակցվում։ Chromium-ը խորհուրդ է տալիս հեռացնել այն։</translation>
 <translation id="7413153308467572558">Շարունակեք այնտեղից, որտեղ կանգ էիք առել։ Chromium-ը վերականգնում է ներդիրները յուրաքանչյուր վերագործարկումից հետո։ Այս գործառույթն անջատելու համար անցեք</translation>
 <translation id="7427879960656355200">Արտահանեք գաղտնաբառեր Chromium</translation>
+<translation id="744815265653811511">1. Սեղմեք <ph name="BUTTON_LABEL" /> ստորև
+2. Windows-ի կարգավորումներում սեղմեք <ph name="BUTTON_2" />
+3. Սեղմեք <ph name="BUTTON_3" /> Windows-ի ծանուցման մեջ՝ Chromium-ը հավելվածների վահանակում ամրացնելու համար</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> – Chromium Dev</translation>
 <translation id="7450541714075000668">Տեքստը պատճենվեց</translation>
 <translation id="7451052299415159299">Chromium-ին այս կայքի համար անհրաժեշտ է ձեր տեսախցիկն օգտագործելու թույլտվություն</translation>
@@ -595,7 +601,6 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="7461356015007898716">Chromium-ի հետագա թարմացումները ստանալու համար ձեզ անհրաժեշտ է Windows 10 կամ ավելի նոր տարբերակ։ Այս համակարգիչն օգտագործում է Windows 7 տարբերակը։</translation>
 <translation id="7467949745582939695">Վերագործարկե՞լ Chromium-ը</translation>
 <translation id="7483335560992089831">Հնարավոր չէ տեղադրել Chromium-ի նույն տարբերակը, որն այժմ գործարկվում է: Փակեք Chromium-ը և նորից փորձեք:</translation>
-<translation id="7517403744065880907">Դուք կկարողանաք պահել գաղտնաբառեր ու այլ տվյալներ և օգտագործել դրանք ձեր Google հաշվում, եթե մտած եք հաշիվ Chromium-ում։ <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">Կայքերի մեծ մասը ամենայն հավանականությամբ պատշաճ կերպով կաշխատի։ Դուք դուրս կգրվեք կայքերի մեծամասնությունից, երբ փակեք Chromium-ի բոլոր պատուհանները, սակայն կմնաք ձեր Google հաշվում, եթե մուտք եք գործել Chromium։</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium-ը կվերագործարկվի 1 րոպեից}one{Chromium-ը կվերագործարկվի # րոպեից}other{Chromium-ը կվերագործարկվի # րոպեից}}</translation>
 <translation id="7565444033145385702">Ձեր տվյալները պաշտպանելու համար թույլ տվեք Chromium-ին հեռացնել թույլտվություններն այն կայքերից, որոնք վերջերս չեք այցելել։</translation>
@@ -604,7 +609,9 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="761356813943268536">Chromium-ն օգտագործում է ձեր տեսախցիկն ու խոսափողը:</translation>
 <translation id="7617377681829253106">Chromium-ը կատարելագործվել է</translation>
 <translation id="7622753900276619808">Այժմ Chromium-ում ձեզ ավելի շատ գործառույթներ են հասանելի</translation>
+<translation id="7624307931717240213">Մենք օգտագործում ենք տեղեկությունները՝ այս ծառայությունը բարելավելու համար։ Ծանոթացեք գաղտնիության քաղաքականությանը և Օգտագործման պայմաններին։</translation>
 <translation id="7649070708921625228">Օգնություն</translation>
+<translation id="7650134251917003571">Ներբեռնել Chromium հավելվածը</translation>
 <translation id="7656340475565475526">Թույլ տվեք Chromium-ին դիտարկել ձեր փոխարեն</translation>
 <translation id="7658239707568436148">Չեղարկել</translation>
 <translation id="7686590090926151193">Chromium-ը ձեր կանխադրված դիտարկիչը չէ</translation>
@@ -738,7 +745,6 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="9183331186620388872">Խորհուրդ Chromium-ից․ որոնեք Տեսապակու միջոցով</translation>
 <translation id="9185526690718004400">Վերագործարկել՝ &amp;Chromium-ը թարմացնելու համար</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
-<translation id="9206863043651638213">Ստացեք ավելին՝ մուտք գործելով Chromium</translation>
 <translation id="924957577793602335">Անհատականացրեք Chromium-ը</translation>
 <translation id="93478295209880648">Chromium-ը հնարավոր է չաշխատի ինչպես հարկն է, քանի որ այն այլևս չի աջակցվում Windows XP և Windows Vista համակարգերում</translation>
 <translation id="945522503751344254">Կարծիք հայտնել</translation>

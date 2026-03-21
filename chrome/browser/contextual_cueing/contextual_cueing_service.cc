@@ -15,12 +15,14 @@
 #include "chrome/browser/contextual_cueing/contextual_cueing_prefs.h"
 #include "chrome/browser/contextual_cueing/zero_state_suggestions_page_data.h"
 #include "chrome/browser/contextual_cueing/zero_state_suggestions_request.h"
+#include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
+#include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url.h"
@@ -31,10 +33,6 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/glic_pref_names.h"
-#endif
 
 namespace contextual_cueing {
 namespace {
@@ -64,7 +62,6 @@ void LogNudgeInteractionUKM(ukm::SourceId source_id,
       .Record(ukm_recorder->Get());
 }
 
-#if BUILDFLAG(ENABLE_GLIC)
 bool IsGlicTabContextEnabled(PrefService* pref_service) {
   if (base::FeatureList::IsEnabled(features::kGlicDefaultTabContextSetting)) {
     return true;
@@ -93,7 +90,6 @@ void OnSuggestionsReceived(bool is_fre,
 
   std::move(callback).Run(suggestions);
 }
-#endif
 
 base::ListValue ConvertSupportedToolsToPrefValue(
     const std::vector<std::string>& supported_tools) {
@@ -335,7 +331,6 @@ void ContextualCueingService::PrepareToFetchContextualGlicZeroStateSuggestions(
     return;
   }
 
-#if BUILDFLAG(ENABLE_GLIC)
   if (!IsPageTypeEligibleForContextualSuggestions(
           web_contents->GetLastCommittedURL())) {
     return;
@@ -355,7 +350,6 @@ void ContextualCueingService::PrepareToFetchContextualGlicZeroStateSuggestions(
     loading_predictor_->PreconnectURLIfAllowed(
         mes_url_, /*allow_credentials=*/true, anonymization_key);
   }
-#endif
 }
 
 std::unique_ptr<ZeroStateSuggestionsRequest>
@@ -370,6 +364,7 @@ ContextualCueingService::MakeZeroStateSuggestionsRequest(
   if (g_browser_process) {
     request_proto.set_locale(g_browser_process->GetApplicationLocale());
   }
+  request_proto.set_chrome_platform(optimization_guide::GetChromePlatform());
   PopulateSupportedToolsForRequest(supported_tools, pref_service_,
                                    &request_proto);
   // Instantiate the one-of to indicate the request type.
@@ -407,7 +402,6 @@ void ContextualCueingService::
     return;
   }
 
-#if BUILDFLAG(ENABLE_GLIC)
   if (!IsGlicTabContextEnabled(pref_service_)) {
     std::move(callback).Run({});
     return;
@@ -427,9 +421,6 @@ void ContextualCueingService::
   zss_request_ptr->AddCallback(base::BindOnce(&OnSuggestionsReceived, is_fre,
                                               base::TimeTicks::Now(),
                                               std::move(callback)));
-#else
-  std::move(callback).Run({});
-#endif
 }
 
 std::optional<std::vector<content::WebContents*>>
@@ -466,7 +457,6 @@ bool ContextualCueingService::
     return false;
   }
 
-#if BUILDFLAG(ENABLE_GLIC)
   // Initiate request for suggestions for pinned tabs.
   pinned_tabs_zero_state_suggestions_request_ = MakeZeroStateSuggestionsRequest(
       pinned_web_contents, is_fre, supported_tools, focused_tab);
@@ -476,10 +466,6 @@ bool ContextualCueingService::
       pinned_tabs_zero_state_suggestions_request_->AsWeakPtr(),
       std::move(callback)));
   return true;
-#else
-  std::move(callback).Run({});
-  return false;
-#endif
 }
 
 void ContextualCueingService::OnPinnedTabsSuggestionsReceived(
@@ -488,7 +474,6 @@ void ContextualCueingService::OnPinnedTabsSuggestionsReceived(
     base::WeakPtr<ZeroStateSuggestionsRequest> pinned_tabs_request,
     GlicSuggestionsCallback callback,
     std::vector<std::string> suggestions) {
-#if BUILDFLAG(ENABLE_GLIC)
   OnSuggestionsReceived(is_fre, fetch_begin_time, std::move(callback),
                         std::move(suggestions));
 
@@ -501,19 +486,21 @@ void ContextualCueingService::OnPinnedTabsSuggestionsReceived(
         base::BindOnce(&ZeroStateSuggestionsRequest::Destroy,
                        std::move(pinned_tabs_zero_state_suggestions_request_)));
   }
-#endif
 }
 
 void ContextualCueingService::OnPageContentExtracted(
     content::Page& page,
-    const optimization_guide::proto::AnnotatedPageContent& page_content) {
+    scoped_refptr<
+        const page_content_annotations::RefCountedAnnotatedPageContent>
+        page_content) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(page_content);
 
   auto* cueing_page_data = ContextualCueingPageData::GetForPage(page);
   if (!cueing_page_data) {
     return;
   }
-  cueing_page_data->OnPageContentExtracted(page_content);
+  cueing_page_data->OnPageContentExtracted(page_content->data);
 }
 
 }  // namespace contextual_cueing

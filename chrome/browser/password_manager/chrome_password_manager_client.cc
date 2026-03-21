@@ -21,7 +21,6 @@
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/types/optional_util.h"
-#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/affiliations/affiliation_service_factory.h"
@@ -417,7 +416,7 @@ void ChromePasswordManagerClient::ShowManualFallbackForSaving(
   PasswordsClientUIDelegate* manage_passwords_ui_controller =
       PasswordsClientUIDelegateFromWebContents(web_contents());
   // There may be no UI controller for ChromeOS login page
-  // (see crbug.com/774676).
+  // (see crbug.com/41349753).
   if (manage_passwords_ui_controller) {
     manage_passwords_ui_controller->OnShowManualFallbackForSaving(
         std::move(form_to_save), has_generated_password, is_update);
@@ -434,7 +433,7 @@ void ChromePasswordManagerClient::HideManualFallbackForSaving() {
   PasswordsClientUIDelegate* manage_passwords_ui_controller =
       PasswordsClientUIDelegateFromWebContents(web_contents());
   // There may be no UI controller for ChromeOS login page
-  // (see crbug.com/774676).
+  // (see crbug.com/41349753).
   if (manage_passwords_ui_controller) {
     manage_passwords_ui_controller->OnHideManualFallbackForSaving();
   }

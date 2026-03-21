@@ -14,7 +14,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
 #include "build/chromecast_buildflags.h"
-#include "components/system_media_controls/linux/buildflags/buildflags.h"
 #include "gpu/config/gpu_driver_bug_workarounds.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "media/media_buildflags.h"
@@ -23,6 +22,7 @@
 
 #if BUILDFLAG(IS_LINUX)
 #include "base/cpu.h"
+#include "components/system_media_controls/linux/buildflags/buildflags.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -330,15 +330,6 @@ const char kHardwareVideoDevicePath[] = "hardware-video-device-path";
 
 namespace media {
 
-// Controls whether the new, AudioDecoder interface backed AudioFileReader is
-// used, instead of the LegacyAudioFileReader that manually uses an
-// FFmpegDecodingLoop.
-// For more information, see crbug.com/440616500.
-#if BUILDFLAG(ENABLE_FFMPEG)
-BASE_FEATURE(kAudioDecoderAudioFileReader,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // Only used for disabling overlay fullscreen (aka SurfaceView) in Clank.
 BASE_FEATURE(kOverlayFullscreenVideo,
              "overlay-fullscreen-video",
@@ -376,6 +367,10 @@ BASE_FEATURE(kVideoPipForceTrustedForMediaPlaybackForTesting,
 // Enables tracking the occlusion of encrypted video elements.
 BASE_FEATURE(kEncryptedMediaOcclusionTracking,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables extended video bitstream validation for H.264 and H.265.
+BASE_FEATURE(kExtendedVideoBitstreamValidation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables user control over muting tab audio from the tab strip.
 BASE_FEATURE(kEnableTabMuting, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -572,9 +567,6 @@ BASE_FEATURE(kCrOSDspBasedNsDeactivatedGroups,
 BASE_FEATURE(kCrOSDspBasedAgcDeactivatedGroups,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCrOSDspBasedNsAllowed, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kCrOSDspBasedAgcAllowed, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kIgnoreUiGains, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kShowForceRespectUiGainsToggle, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -611,7 +603,14 @@ BASE_FEATURE(kRevokeMediaSourceObjectURLOnAttach,
 
 #if BUILDFLAG(ENABLE_SYMPHONIA)
 BASE_FEATURE(kSymphoniaAudioDecoding, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSymphoniaMp3Decoding, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// Forces D3D11VideoDecoder to use one decoder texture per picture buffer.
+// Owner: media-gpu-team@chromium.org
+// Expiry: When no longer needed for decode texture selection experiments.
+BASE_FEATURE(kD3D11VideoDecoderForceSingleTexture,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kD3D11VideoDecoderUseSharedHandle,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -675,15 +674,6 @@ BASE_FEATURE(kFileDialogsTuckPictureInPicture,
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-// Show toolbar button that opens dialog for controlling media sessions.
-BASE_FEATURE(kGlobalMediaControls,
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
 // Auto-dismiss global media controls.
 BASE_FEATURE(kGlobalMediaControlsAutoDismiss, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -705,9 +695,6 @@ BASE_FEATURE(kGlobalMediaControlsSeamlessTransfer,
 
 // CanPlayThrough issued according to standard.
 BASE_FEATURE(kSpecCompliantCanPlayThrough, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Standardize the quantization range for VP9 and AV1 encoders to 0-255.
-BASE_FEATURE(kStandardizeVP9AndAV1Quantizer, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Suspends WebMediaPlayerImpl instances when the containing RenderFrame is
 // frozen. TODO(crbug.com/41161335): Remove in M143 after it goes stable.
@@ -847,22 +834,6 @@ BASE_FEATURE(kLogSodaLoadFailures,
 BASE_FEATURE(kGetDisplayMediaConfersActivation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Controls whether a "Share this tab instead" button should be shown for
-// getDisplayMedia captures. Note: This flag does not control if the "Share this
-// tab instead" button is shown for chrome.desktopCapture captures.
-BASE_FEATURE(kShareThisTabInsteadButtonGetDisplayMedia,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// If kShareThisTabInsteadButtonGetDisplayMedia is ENABLED, this flag controls
-// whether a "Share this tab instead" button should be enabled for
-// getDisplayMedia captures with audio.
-// If kShareThisTabInsteadButtonGetDisplayMedia is DISABLED, this flag has no
-// effect.
-// Note: This flag does not control if the "Share this tab instead" button is
-// shown for chrome.desktopCapture captures.
-BASE_FEATURE(kShareThisTabInsteadButtonGetDisplayMediaAudio,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enable the Speaker Change Detection feature, which inserts a line break when
 // the Speech On-Device API (SODA) detects a speaker change.
 BASE_FEATURE(kSpeakerChangeDetection, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -954,7 +925,7 @@ const base::FeatureParam<bool>
 
 // Enables hardware secure AV1 decoding if supported by the hardware
 // and the OS Content Decryption Module (CDM).
-BASE_FEATURE(kHardwareSecureDecryptionAv1, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kHardwareSecureDecryptionAv1, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables hardware secure VP9 decoding if supported by the hardware
 // and the OS Content Decryption Module (CDM).
@@ -974,12 +945,18 @@ BASE_FEATURE(kHardwareSecureDecryptionRequireServerCert,
 
 // Enables handling of hardware media keys for controlling media.
 BASE_FEATURE(kHardwareMediaKeyHandling,
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || \
-    BUILDFLAG(USE_MPRIS)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#elif BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(USE_MPRIS)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
-#endif
+#endif  // BUILDFLAG(USE_MPRIS)
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) ||
+        // BUILDFLAG(IS_LINUX)
 );
 
 // Enables a platform-specific resolution cutoff for prioritizing platform
@@ -995,20 +972,20 @@ BASE_FEATURE(kResolutionBasedDecoderPriority, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAutoPictureInPictureForVideoPlayback,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables Happiness Tracking Surveys for Auto Picture-in-Picture.
+BASE_FEATURE(kAutoPictureInPictureSurveys, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables showing auto picture-in-picture permission details in page info.
 BASE_FEATURE(kAutoPictureInPicturePageInfoDetails,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables sending provisioning requests in the body of the POST request rather
-// than encoding it inside the URL.
-// Owner: vpasupathy@chromium.org
-// Bug: 448700051
-BASE_FEATURE(kUsePostBodyForUrlProvisionFetcher,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Causes the AVC parser to additionally parse and indicate when an SEI
 // recovery point with `recovery_frame_cnt=0` has been found.
 BASE_FEATURE(kParseSEIRecoveryPoints, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Allows media to autoplay without a user gesture if the site has been
+// granted microphone or camera permissions.
+BASE_FEATURE(kAutoplayBypassForMicCamera, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Whether we should show a setting to disable autoplay policy.
 BASE_FEATURE(kAutoplayDisableSettings, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1036,6 +1013,11 @@ BASE_FEATURE(kBrowserInitiatedAutomaticPictureInPictureDryRun,
 BASE_FEATURE(kMatchSourceAudioChannelLayout, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
+// Allows media playback to start when the audio focus request is delayed
+// (e.g. during a phone call).
+BASE_FEATURE(kAllowDelayedAudioFocusGainAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Allows the enhanced picture-in-picture transition animation that depend on
 // the sourceRectHint PictureInPictureParam.
 BASE_FEATURE(kAllowEnhancedPipTransition, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1059,6 +1041,10 @@ BASE_FEATURE(kEnableAudioMonitoringOnAndroid,
 // Enables Picture-in-Picture menu item on the video context menu on Android.
 BASE_FEATURE(kContextMenuPictureInPictureAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables fullscreen video Picture-in-Picture on Android.
+BASE_FEATURE(kFullscreenVideoPictureInPicture,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the use of a Surface (ANativeWindow) as the input for the
 // NdkVideoEncodeAccelerator on Android.
@@ -1368,6 +1354,10 @@ BASE_FEATURE(kReduceHardwareVideoDecoderBuffers,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
+// Enables the Enterprise Autoplay policies (AutoplayAllowed and
+// AutoplayAllowlist) on Android.
+BASE_FEATURE(kAutoplayPoliciesAndroid, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // The following Media Engagement flags are not enabled on mobile platforms:
 // - MediaEngagementBypassAutoplayPolicies: enables the Media Engagement Index
 //   data to be esude to override autoplay policies. An origin with a high MEI
@@ -1453,8 +1443,28 @@ BASE_FEATURE(kCastStreamingAv1, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the new exponential bitrate calculate logic is used, or
 // the legacy linear algorithm.
+// TODO(crbug.com/302584587): This is the V2 implementation of this experiment,
+// following the failure of the initial experiment.
 BASE_FEATURE(kCastStreamingExponentialVideoBitrateAlgorithm,
              base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<int>
+    kCastStreamingExponentialVideoBitrateAlgorithmWindowSize{
+        &kCastStreamingExponentialVideoBitrateAlgorithm, "window_size", 30};
+const base::FeatureParam<int>
+    kCastStreamingExponentialVideoBitrateAlgorithmDropThreshold{
+        &kCastStreamingExponentialVideoBitrateAlgorithm, "drop_threshold", 1};
+const base::FeatureParam<double>
+    kCastStreamingExponentialVideoBitrateAlgorithmIncreaseFactor{
+        &kCastStreamingExponentialVideoBitrateAlgorithm, "increase_factor",
+        1.05};
+const base::FeatureParam<double>
+    kCastStreamingExponentialVideoBitrateAlgorithmDecreaseFactor{
+        &kCastStreamingExponentialVideoBitrateAlgorithm, "decrease_factor",
+        0.9};
+const base::FeatureParam<double>
+    kCastStreamingExponentialVideoBitrateAlgorithmDynamicWindowMultiplier{
+        &kCastStreamingExponentialVideoBitrateAlgorithm,
+        "dynamic_window_multiplier", 0.0};
 
 BASE_FEATURE(kCastStreamingHardwareHevc, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1529,8 +1539,12 @@ BASE_FEATURE(kMediaLogToConsole,
 #endif
 );
 
-BASE_FEATURE(kLibvpxUseChromeThreads, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kLibaomUseChromeThreads, base::FEATURE_ENABLED_BY_DEFAULT);
+// Controls whether AOM/VPX decoders should use the presentation thread type.
+BASE_FEATURE(kAomVpxUsePresentationThreadType,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the Rust-based JPEG parser.
+BASE_FEATURE(kUseRustJpegParser, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Controls whether to use D3D12 video decoder instead of D3D11 when supported.

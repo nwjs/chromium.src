@@ -9,23 +9,21 @@ import static org.chromium.chrome.browser.autofill.editors.address.EditorPropert
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.ALL_KEYS;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.CANCEL_RUNNABLE;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.CUSTOM_DONE_BUTTON_TEXT;
+import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.DELETE_CALLBACK;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.DELETE_CONFIRMATION_PRIMARY_BUTTON_TEXT_ID;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.DELETE_CONFIRMATION_TEXT;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.DELETE_CONFIRMATION_TITLE;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.DELETE_RUNNABLE;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.DONE_RUNNABLE;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.EDITOR_FIELDS;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.EDITOR_TITLE;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.ItemType.DROPDOWN;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.ItemType.NON_EDITABLE_TEXT;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.ItemType.NOTICE;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.ItemType.TEXT_INPUT;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.OPEN_HELP_CALLBACK;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.SHOW_BUTTONS;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.VALIDATE_ON_SHOW;
 import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.VISIBLE;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.scrollToFieldWithErrorMessage;
-import static org.chromium.chrome.browser.autofill.editors.address.EditorProperties.validateForm;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.ItemType.DROPDOWN;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.ItemType.NON_EDITABLE_TEXT;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.ItemType.NOTICE;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.ItemType.TEXT_INPUT;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NonEditableTextProperties.CLICK_RUNNABLE;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NonEditableTextProperties.CONTENT_DESCRIPTION;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NonEditableTextProperties.ICON;
@@ -34,6 +32,9 @@ import static org.chromium.chrome.browser.autofill.editors.common.EditorComponen
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.IMPORTANT_FOR_ACCESSIBILITY;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_ALL_KEYS;
 import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.NOTICE_TEXT;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.NoticeProperties.SHOW_BACKGROUND;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsProperties.validateForm;
+import static org.chromium.chrome.browser.autofill.editors.common.EditorComponentsUtil.scrollToFieldWithErrorMessage;
 import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.DROPDOWN_ALL_KEYS;
 import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.DROPDOWN_CALLBACK;
 import static org.chromium.chrome.browser.autofill.editors.common.dropdown_field.DropdownFieldProperties.DROPDOWN_KEY_VALUE_LIST;
@@ -52,8 +53,10 @@ import android.text.style.ClickableSpan;
 import android.view.View;
 
 import androidx.annotation.StringRes;
+import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.AddressValidationType;
@@ -94,7 +97,14 @@ import java.util.function.Predicate;
  * reacts to events like address country selection.
  */
 @NullMarked
-class AddressEditorMediator {
+public class AddressEditorMediator {
+    @VisibleForTesting
+    public static final String PROFILE_DELETED_HISTOGRAM = "Autofill.ProfileDeleted.Any.Total";
+
+    @VisibleForTesting
+    public static final String PROFILE_DELETED_SETTINGS_HISTOGRAM =
+            "Autofill.ProfileDeleted.Settings.Total";
+
     private final PhoneNumberUtil.CountryAwareFormatTextWatcher mPhoneFormatter =
             new PhoneNumberUtil.CountryAwareFormatTextWatcher();
     private final AutofillProfileBridge mAutofillProfileBridge = new AutofillProfileBridge();
@@ -235,7 +245,7 @@ class AddressEditorMediator {
                         // partial address).
                         .with(CANCEL_RUNNABLE, this::onCancelEditing)
                         .with(ALLOW_DELETE, mAllowDelete)
-                        .with(DELETE_RUNNABLE, () -> mDelegate.onDelete(mAddressToEdit))
+                        .with(DELETE_CALLBACK, this::onDelete)
                         .with(
                                 VALIDATE_ON_SHOW,
                                 mPromptMode
@@ -357,6 +367,7 @@ class AddressEditorMediator {
                                                 NOTICE_TEXT,
                                                 mContext.getString(
                                                         R.string.payments_required_field_message))
+                                        .with(SHOW_BACKGROUND, false)
                                         // Required fields are indicated by an asterisk (*) and
                                         // announced separately by screen readers. Don't announce
                                         // the message itself.
@@ -427,6 +438,7 @@ class AddressEditorMediator {
                             NOTICE,
                             new PropertyModel.Builder(NOTICE_ALL_KEYS)
                                     .with(NOTICE_TEXT, recordTypeNoticeText)
+                                    .with(SHOW_BACKGROUND, false)
                                     .with(IMPORTANT_FOR_ACCESSIBILITY, true)
                                     .build(),
                             /* isFullLine= */ true));
@@ -440,8 +452,8 @@ class AddressEditorMediator {
 
     private void onCommitChanges() {
         assumeNonNull(mEditorModel);
-        if (!validateForm(mEditorModel)) {
-            scrollToFieldWithErrorMessage(mEditorModel);
+        if (!validateForm(mEditorModel.get(EDITOR_FIELDS))) {
+            scrollToFieldWithErrorMessage(mEditorModel.get(EDITOR_FIELDS));
             return;
         }
         mEditorModel.set(VISIBLE, false);
@@ -459,6 +471,22 @@ class AddressEditorMediator {
         mEditorModel.set(VISIBLE, false);
 
         mDelegate.onCancel();
+    }
+
+    private void onDelete(boolean userConfirmedDeletion) {
+        RecordHistogram.recordBooleanHistogram(PROFILE_DELETED_HISTOGRAM, userConfirmedDeletion);
+        RecordHistogram.recordBooleanHistogram(
+                PROFILE_DELETED_SETTINGS_HISTOGRAM, userConfirmedDeletion);
+
+        RecordHistogram.recordBooleanHistogram(
+                PROFILE_DELETED_HISTOGRAM + "." + getProfileRecordTypeSuffix(),
+                userConfirmedDeletion);
+        RecordHistogram.recordBooleanHistogram(
+                PROFILE_DELETED_SETTINGS_HISTOGRAM + "." + getProfileRecordTypeSuffix(),
+                userConfirmedDeletion);
+        if (userConfirmedDeletion) {
+            mDelegate.onDelete(mAddressToEdit);
+        }
     }
 
     /** Saves the edited profile on disk. */

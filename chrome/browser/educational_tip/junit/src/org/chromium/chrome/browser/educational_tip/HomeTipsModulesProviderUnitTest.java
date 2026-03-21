@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.educational_tip;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -21,10 +22,12 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.educational_tip.two_cell.EducationalTipModuleTwoCellBuilder;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.setup_list.SetupListManager;
 import org.chromium.chrome.browser.setup_list.SetupListModuleUtils;
 
@@ -40,9 +43,14 @@ public class HomeTipsModulesProviderUnitTest {
     @Mock private ModuleRegistry mModuleRegistry;
     @Mock private EducationTipModuleActionDelegate mActionDelegate;
     @Mock private SetupListManager mSetupListManager;
+    @Mock private Profile mProfile;
 
     @Before
     public void setUp() {
+        when(mActionDelegate.getProfileSupplier())
+                .thenReturn(ObservableSuppliers.createNonNull(mProfile));
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
+
         SetupListManager.setInstanceForTesting(mSetupListManager);
         when(mSetupListManager.getRankedModuleTypes())
                 .thenReturn(
@@ -75,7 +83,7 @@ public class HomeTipsModulesProviderUnitTest {
 
         HomeTipsModulesProvider.registerTipModules(mActionDelegate, mModuleRegistry);
 
-        List<Integer> setupListModules = SetupListModuleUtils.getRankedModuleTypes();
+        List<Integer> setupListModules = SetupListManager.BASE_SETUP_LIST_ORDER;
         for (@ModuleType int moduleType : setupListModules) {
             verify(mModuleRegistry)
                     .registerModule(eq(moduleType), any(EducationalTipModuleBuilder.class));
@@ -98,17 +106,6 @@ public class HomeTipsModulesProviderUnitTest {
 
     @Test
     @SmallTest
-    public void testGetModulesToRegister_returnsSetupListWhenActive() {
-        Collection<Integer> expectedModules = SetupListModuleUtils.getRankedModuleTypes();
-        Collection<Integer> actualModules =
-                HomeTipsModulesProvider.getModuleTypesToRegister(
-                        /* isSetupListActive= */ true, /* showTwoCell= */ false);
-
-        assertArrayEquals(expectedModules.toArray(), actualModules.toArray());
-    }
-
-    @Test
-    @SmallTest
     public void testGetModulesToRegister_returnsEducationalTipsWhenInactive() {
         Collection<Integer> expectedModules = EducationalTipModuleUtils.getModuleTypes();
         Collection<Integer> actualModules =
@@ -121,11 +118,9 @@ public class HomeTipsModulesProviderUnitTest {
     @SmallTest
     public void
             testGetModulesToRegister_returnsTwoCellContainerWhenSetupListActiveAndTwoCellEnabled() {
-        Collection<Integer> expectedModules =
-                List.of(SetupListModuleUtils.getTwoCellContainerModuleTypes().get(0));
         Collection<Integer> actualModules =
                 HomeTipsModulesProvider.getModuleTypesToRegister(
                         /* isSetupListActive= */ true, /* showTwoCell= */ true);
-        assertArrayEquals(expectedModules.toArray(), actualModules.toArray());
+        assertTrue(actualModules.contains(ModuleType.SETUP_LIST_TWO_CELL_CONTAINER));
     }
 }

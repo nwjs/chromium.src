@@ -17,7 +17,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #include "chrome/browser/ui/webid/account_selection_view.h"
-#include "chrome/browser/webid/federated_actor_login_request.h"
 #include "chrome/browser/webid/identity_provider_permission_request.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver.h"
@@ -27,6 +26,8 @@
 #include "components/segmentation_platform/public/result.h"
 #include "components/segmentation_platform/public/segmentation_platform_service.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/webid/federated_embedder_login_request.h"
+#include "content/public/browser/webid/identity_credential_source.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom-shared.h"
 
 // We add nognchecks on these includes so that Android bots do not fail
@@ -145,6 +146,7 @@ bool IdentityDialogController::ShowAccountsDialog(
     content::RelyingPartyData rp_data,
     const std::vector<IdentityProviderDataPtr>& identity_provider_data,
     const std::vector<IdentityRequestAccountPtr>& accounts,
+    const std::vector<IdentityRequestAccountPtr>& filtered_accounts,
     blink::mojom::RpMode rp_mode,
     AccountSelectionCallback on_selected,
     LoginToIdPCallback on_add_account,
@@ -159,11 +161,11 @@ bool IdentityDialogController::ShowAccountsDialog(
   // If there is an actor login request, we will not show the accounts
   // dialog. Pretend that we did for the caller and automatically select the
   // account.
-  FederatedActorLoginRequest* actor_login_request =
-      FederatedActorLoginRequest::Get(rp_web_contents_);
-  if (actor_login_request) {
-    url::Origin idp_origin = actor_login_request->idp_origin();
-    std::string account_id = actor_login_request->account_id();
+  content::webid::FederatedEmbedderLoginRequest* embedder_login_request =
+      content::webid::FederatedEmbedderLoginRequest::Get(rp_web_contents_);
+  if (embedder_login_request) {
+    url::Origin idp_origin = embedder_login_request->idp_origin();
+    std::string account_id = embedder_login_request->account_id();
     for (const auto& account : accounts) {
       if (account->id != account_id ||
           url::Origin::Create(
@@ -184,13 +186,31 @@ bool IdentityDialogController::ShowAccountsDialog(
         // explicitly requested an account to be automatically selected. This
         // could happen if the account was revoked between being shown to the
         // user and the actor login request being sent.
-        actor_login_request->on_federated_result_received_callback().Run(
-            FederatedLoginResult::kFailure);
+        embedder_login_request->OnFederatedResultReceived(
+            content::webid::FederatedLoginResult::kAccountIsSignUp);
         return false;
       }
     }
-    actor_login_request->on_federated_result_received_callback().Run(
-        FederatedLoginResult::kFailure);
+
+    // If the account is not available in the accounts list, check the
+    // filtered_accounts list. The current FedCM flow could have filtered out
+    // the account despite it being displayed in the initial account chooser
+    // from the actor.
+    for (const auto& account : filtered_accounts) {
+      if (account->id == account_id &&
+          url::Origin::Create(
+              account->identity_provider->idp_metadata.config_url) ==
+              idp_origin) {
+        embedder_login_request->OnFederatedResultReceived(
+            content::webid::FederatedLoginResult::kAccountNotAvailable);
+        return false;
+      }
+    }
+
+    // The selected account was not found in the list of accounts fetched from
+    // the IdP.
+    embedder_login_request->OnFederatedResultReceived(
+        content::webid::FederatedLoginResult::kAccountNotLoggedIn);
     return false;
   }
 
@@ -229,11 +249,33 @@ bool IdentityDialogController::ShowFailureDialog(
     blink::mojom::RpContext rp_context,
     blink::mojom::RpMode rp_mode,
     const content::IdentityProviderMetadata& idp_metadata,
+    const std::vector<IdentityRequestAccountPtr>& filtered_accounts,
     DismissCallback dismiss_callback,
     LoginToIdPCallback login_callback) {
   const GURL rp_url = rp_web_contents_->GetLastCommittedURL();
   on_dismiss_ = std::move(dismiss_callback);
   on_login_ = std::move(login_callback);
+
+  // If there is an actor login request, check if the account is filtered.
+  content::webid::FederatedEmbedderLoginRequest* embedder_login_request =
+      content::webid::FederatedEmbedderLoginRequest::Get(rp_web_contents_);
+  if (embedder_login_request) {
+    url::Origin idp_origin = embedder_login_request->idp_origin();
+    std::string account_id = embedder_login_request->account_id();
+    // There were no available accounts, but the selected account may have been
+    // filtered out, in which case we want to send the correct message to the
+    // actor.
+    for (const auto& account : filtered_accounts) {
+      if (account->id == account_id &&
+          url::Origin::Create(
+              account->identity_provider->idp_metadata.config_url) ==
+              idp_origin) {
+        embedder_login_request->OnFederatedResultReceived(
+            content::webid::FederatedLoginResult::kAccountNotAvailable);
+        return false;
+      }
+    }
+  }
 
   if (!TrySetAccountView()) {
     return false;
@@ -334,18 +376,17 @@ void IdentityDialogController::OnAccountsDisplayed() {
   std::move(on_accounts_displayed_).Run();
 }
 
-void IdentityDialogController::OnFlowCompleted(bool success) {
+void IdentityDialogController::OnFlowCompleted(
+    content::webid::FederatedLoginResult result) {
   // OnFlowCompleted() may be invoked while the WebContents is being destroyed,
   // so be careful when trying to access the Page.
   if (rp_web_contents_->IsBeingDestroyed()) {
     return;
   }
-  FederatedActorLoginRequest* actor_login_request =
-      FederatedActorLoginRequest::Get(rp_web_contents_);
-  if (actor_login_request) {
-    actor_login_request->on_federated_result_received_callback().Run(
-        success ? FederatedLoginResult::kSuccess
-                : FederatedLoginResult::kFailure);
+  content::webid::FederatedEmbedderLoginRequest* embedder_login_request =
+      content::webid::FederatedEmbedderLoginRequest::Get(rp_web_contents_);
+  if (embedder_login_request) {
+    embedder_login_request->OnFederatedResultReceived(result);
   }
 }
 
@@ -434,11 +475,11 @@ content::WebContents* IdentityDialogController::ShowModalDialog(
 
   did_invoke_show_ui_ = true;
   did_show_ui_ = true;
-  FederatedActorLoginRequest* actor_login_request =
-      FederatedActorLoginRequest::Get(rp_web_contents_);
-  if (actor_login_request) {
-    actor_login_request->on_federated_result_received_callback().Run(
-        FederatedLoginResult::kContinuation);
+  content::webid::FederatedEmbedderLoginRequest* embedder_login_request =
+      content::webid::FederatedEmbedderLoginRequest::Get(rp_web_contents_);
+  if (embedder_login_request) {
+    embedder_login_request->OnFederatedResultReceived(
+        content::webid::FederatedLoginResult::kContinuation);
   }
   // Show the modal dialog even if FedCM UI is not being shown.
   return account_view_->ShowModalDialog(url, rp_mode);

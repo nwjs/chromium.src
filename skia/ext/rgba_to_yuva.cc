@@ -44,6 +44,109 @@ void ApplyColorMatrix(SkPixmap& pm, const std::array<float, 20>& m) {
   }
 }
 
+// Read the specified row `y` to `dst_pixmap`. This is slow and should only be
+// used in tests or in extreme edge cases.
+void ReadYUVRow(const std::vector<SkPixmap>& src_pixmaps,
+                const SkYUVAInfo& src_yuva_info,
+                const size_t src_bit_depth,
+                size_t y,
+                SkPixmap& row_pm) {
+  CHECK_EQ(row_pm.colorType(), kRGBA_F32_SkColorType);
+  CHECK_NE(row_pm.alphaType(), kPremul_SkAlphaType);
+  CHECK_EQ(row_pm.height(), 1);
+  const size_t w = src_pixmaps[0].width();
+
+  // Let sf be a scale factor to account for discrepancies between the source
+  // pixel format bit depth and the specified `src_bit_depth`. Also CHECK that
+  // plane pixel formats are consistent.
+  float sf = 1.f;
+  switch (src_pixmaps[0].colorType()) {
+    case kAlpha_8_SkColorType:
+    case kA16_unorm_SkColorType:
+    case kA16_float_SkColorType:
+      NOTREACHED();
+      break;
+    case kR8_unorm_SkColorType:
+      for (const auto& plane_pm : src_pixmaps) {
+        CHECK(plane_pm.colorType() == kR8_unorm_SkColorType ||
+              plane_pm.colorType() == kR8G8_unorm_SkColorType);
+      }
+      sf = ((1 << 8) - 1.f) / ((1 << src_bit_depth) - 1.f);
+      break;
+    case kR16_unorm_SkColorType:
+      for (const auto& plane_pm : src_pixmaps) {
+        CHECK(plane_pm.colorType() == kR16_unorm_SkColorType ||
+              plane_pm.colorType() == kR16G16_unorm_SkColorType);
+      }
+      sf = ((1 << 16) - 1.f) / ((1 << src_bit_depth) - 1.f);
+      break;
+    default:
+      break;
+  }
+
+  // Read the row, pixel-by-pixel. This is written for readability and not
+  // speed.
+  for (size_t x = 0; x < w; ++x) {
+    // Sample the planes.
+    std::array<SkColor4f, SkYUVAInfo::kMaxPlanes> planes;
+    for (int p = 0; p < src_yuva_info.numPlanes(); ++p) {
+      const auto [ssx, ssy] = src_yuva_info.planeSubsamplingFactors(p);
+      planes[p] = src_pixmaps[p].getColor4f(x / ssx, y / ssy);
+
+      // Scale to adjust for the input bits per pixel.
+      planes[p] = {
+          sf * planes[p].fR,
+          sf * planes[p].fG,
+          sf * planes[p].fB,
+          sf * planes[p].fA,
+      };
+    }
+    // Swizzle them to get the YUVA value.
+    SkColor4f src_yuva = {0.f, 0.f, 0.f, 1.f};
+    switch (src_yuva_info.planeConfig()) {
+      case SkYUVAInfo::PlaneConfig::kY_U_V:
+        src_yuva = {planes[0].fR, planes[1].fR, planes[2].fR, 1.f};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_V_U:
+        src_yuva = {planes[0].fR, planes[2].fR, planes[1].fR, 1.f};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_UV:
+        src_yuva = {planes[0].fR, planes[1].fR, planes[1].fG, 1.f};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_VU:
+        src_yuva = {planes[0].fR, planes[1].fG, planes[1].fR, 1.f};
+        break;
+      case SkYUVAInfo::PlaneConfig::kYUV:
+        src_yuva = {planes[0].fR, planes[0].fG, planes[0].fB, 1.f};
+        break;
+      case SkYUVAInfo::PlaneConfig::kUYV:
+        src_yuva = {planes[0].fG, planes[0].fR, planes[0].fB, 1.f};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_U_V_A:
+        src_yuva = {planes[0].fR, planes[1].fR, planes[2].fR, planes[3].fR};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_V_U_A:
+        src_yuva = {planes[0].fR, planes[2].fR, planes[1].fR, planes[3].fR};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_UV_A:
+        src_yuva = {planes[0].fR, planes[1].fR, planes[1].fG, planes[2].fR};
+        break;
+      case SkYUVAInfo::PlaneConfig::kY_VU_A:
+        src_yuva = {planes[0].fR, planes[1].fG, planes[1].fR, planes[2].fR};
+        break;
+      case SkYUVAInfo::PlaneConfig::kYUVA:
+        src_yuva = {planes[0].fR, planes[0].fG, planes[0].fB, planes[0].fA};
+        break;
+      case SkYUVAInfo::PlaneConfig::kUYVA:
+        src_yuva = {planes[0].fG, planes[0].fR, planes[0].fB, planes[0].fA};
+        break;
+      case SkYUVAInfo::PlaneConfig::kUnknown:
+        NOTREACHED();
+    }
+    *reinterpret_cast<SkColor4f*>(row_pm.writable_addr(x, 0)) = src_yuva;
+  }
+}
+
 }  // namespace
 
 void BlitRGBAToYUVA(SkImage* src_image,
@@ -64,31 +167,111 @@ void BlitRGBAToYUVA(SkImage* src_image,
 
   // Permutation matrices to select the appropriate YUVA channels for each
   // output plane.
-  constexpr SkColorMatrix Yxx1(1, 0, 0, 0, 0,  //
+  constexpr SkColorMatrix YxxA(1, 0, 0, 0, 0,  //
                                0, 0, 0, 0, 0,  //
                                0, 0, 0, 0, 0,  //
-                               0, 0, 0, 0, 1);
-  constexpr SkColorMatrix UVx1(0, 1, 0, 0, 0,  //
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix UxxA(0, 1, 0, 0, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix VxxA(0, 0, 1, 0, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix AxxA(0, 0, 0, 1, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix UVxA(0, 1, 0, 0, 0,  //
                                0, 0, 1, 0, 0,  //
                                0, 0, 0, 0, 0,  //
-                               0, 0, 0, 0, 1);
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix VUxA(0, 0, 1, 0, 0,  //
+                               0, 1, 0, 0, 0,  //
+                               0, 0, 0, 0, 0,  //
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix YUVA(1, 0, 0, 0, 0,  //
+                               0, 1, 0, 0, 0,  //
+                               0, 0, 1, 0, 0,  //
+                               0, 0, 0, 1, 0);
+  constexpr SkColorMatrix UYVA(0, 1, 0, 0, 0,  //
+                               1, 0, 0, 0, 0,  //
+                               0, 0, 1, 0, 0,  //
+                               0, 0, 0, 1, 0);
 
   // Only Y_UV has been tested.
   std::array<SkColorMatrix, SkYUVAInfo::kMaxPlanes> permutation_matrices;
   switch (dst_yuva_info.planeConfig()) {
-    case SkYUVAInfo::PlaneConfig::kY_UV:
-      permutation_matrices[0] = Yxx1;
-      permutation_matrices[1] = UVx1;
+    case SkYUVAInfo::PlaneConfig::kY_U_V:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = UxxA;
+      permutation_matrices[2] = VxxA;
       break;
-    default:
-      DLOG(ERROR) << "Unsupported plane configuration.";
-      return;
+    case SkYUVAInfo::PlaneConfig::kY_V_U:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = VxxA;
+      permutation_matrices[2] = UxxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kY_UV:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = UVxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kY_VU:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = VUxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kYUV:
+      permutation_matrices[0] = YUVA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kUYV:
+      permutation_matrices[0] = UYVA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kY_U_V_A:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = UxxA;
+      permutation_matrices[2] = VxxA;
+      permutation_matrices[3] = AxxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kY_V_U_A:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = VxxA;
+      permutation_matrices[2] = UxxA;
+      permutation_matrices[3] = AxxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kY_UV_A:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = UVxA;
+      permutation_matrices[2] = AxxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kY_VU_A:
+      permutation_matrices[0] = YxxA;
+      permutation_matrices[1] = VUxA;
+      permutation_matrices[2] = AxxA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kYUVA:
+      permutation_matrices[0] = YUVA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kUYVA:
+      permutation_matrices[0] = UYVA;
+      break;
+    case SkYUVAInfo::PlaneConfig::kUnknown:
+      NOTREACHED();
   }
   SkColorMatrix rgb_to_yuv_matrix =
       SkColorMatrix::RGBtoYUV(dst_yuva_info.yuvColorSpace());
 
   // Blit each plane.
   for (int plane = 0; plane < dst_yuva_info.numPlanes(); ++plane) {
+    // If there exists a separate alpha plane, then, when rendering to the
+    // individual planes (which have R and RG pixel formats), ensure that
+    // those pixel values are unpremultiplied.
+    if (dst_yuva_info.hasAlpha() && dst_yuva_info.numPlanes() > 1 &&
+        !src_image->isOpaque()) {
+      CHECK_EQ(dst_surfaces[plane]->imageInfo().alphaType(),
+               kUnpremul_SkAlphaType);
+    }
+
     SkCanvas* plane_canvas = dst_surfaces[plane]->getCanvas();
 
     SkColorMatrix color_matrix = rgb_to_yuv_matrix;
@@ -99,11 +282,14 @@ void BlitRGBAToYUVA(SkImage* src_image,
     SkPaint paint;
     paint.setBlendMode(SkBlendMode::kSrc);
 
-    // Blend the input image over black before performing RGB to YUV
-    // conversion, to match un-accelerated versions.
-    paint.setColorFilter(SkColorFilters::Compose(
-        SkColorFilters::Matrix(color_matrix),
-        SkColorFilters::Blend(SK_ColorBLACK, SkBlendMode::kDstOver)));
+    auto filter = SkColorFilters::Matrix(color_matrix);
+    if (!dst_yuva_info.hasAlpha()) {
+      // Blend the input image over black before performing RGB to YUV
+      // conversion, to match un-accelerated versions.
+      filter = SkColorFilters::Compose(
+          filter, SkColorFilters::Blend(SK_ColorBLACK, SkBlendMode::kDstOver));
+    }
+    paint.setColorFilter(filter);
 
     auto [ssHoriz, ssVert] = dst_yuva_info.planeSubsamplingFactors(plane);
     const SkRect plane_dst_rect = SkRect::MakeXYWH(
@@ -136,69 +322,96 @@ void BlitRGBAToYUVA(SkImage* src_image,
   }
 }
 
-void ConvertRGBAToOrFromYUVA(SkPixmap src_pm,
-                             SkYUVColorSpace src_yuv_cs,
-                             SkPixmap dst_pm,
-                             SkYUVColorSpace dst_yuv_cs) {
-  CHECK(src_pm.dimensions() == dst_pm.dimensions());
-  if (dst_pm.alphaType() == kOpaque_SkAlphaType) {
-    CHECK(src_pm.alphaType() == kOpaque_SkAlphaType);
+void ConvertRGBAToYUVA(SkPixmap src_pm,
+                       const SkYUVAInfo& dst_yuva_info,
+                       const std::vector<SkPixmap>& dst_pixmaps) {
+  CHECK(src_pm.dimensions() == dst_pixmaps[0].dimensions());
+  CHECK(dst_yuva_info.isValid());
+  const auto* dst_color_space = dst_pixmaps[0].colorSpace();
+
+  auto src_image = SkImages::RasterFromPixmap(src_pm, nullptr, nullptr);
+  std::array<sk_sp<SkSurface>, SkYUVAInfo::kMaxPlanes> dst_surfaces;
+  std::array<SkSurface*, SkYUVAInfo::kMaxPlanes> dst_surface_ptrs;
+  for (size_t p = 0; p < dst_pixmaps.size(); ++p) {
+    SkPixmap pm = dst_pixmaps[p];
+    // Color space conversion is from `src_pm`'s color space to the space of
+    // `dst_pixmaps`. This is only coherent if all of `dst_pixmaps` have the
+    // same color space.
+    CHECK(SkColorSpace::Equals(dst_color_space, pm.colorSpace()));
+    // If `dst_pixmaps` has a separate alpha channel, then the alpha type
+    // of the individual planes for sampling isn't relevant (their alpha channel
+    // will always sample 1). For rendering to the plane's SkPixmap as an
+    // SkSurface, force its alpha type to unpremultiplied to ensure that
+    // the values written to it are unpremultiplied.
+    if (dst_yuva_info.hasAlpha() && dst_yuva_info.numPlanes() > 1 &&
+        !src_pm.isOpaque()) {
+      pm = SkPixmap(pm.info().makeAlphaType(kUnpremul_SkAlphaType), pm.addr(),
+                    pm.rowBytes());
+    }
+    dst_surfaces[p] = SkSurfaces::WrapPixels(pm);
+    dst_surface_ptrs[p] = dst_surfaces[p].get();
   }
-  const int h = src_pm.height();
-  const int w = src_pm.width();
-  const SkAlphaType alpha_type = src_pm.alphaType() == kOpaque_SkAlphaType
-                                     ? kOpaque_SkAlphaType
-                                     : kUnpremul_SkAlphaType;
+  BlitRGBAToYUVA(src_image.get(),
+                 base::span<SkSurface* const>(dst_surface_ptrs), dst_yuva_info);
+}
 
-  // If we need to do YUV to RGB conversion, we will do that in-place in
-  // `src_rgb_row`.
-  SkPixmap src_rgb_row;
-  SkBitmap src_rgb_row_bm;
-  std::array<float, 20> src_matrix;
-  if (src_yuv_cs != kIdentity_SkYUVColorSpace) {
-    src_rgb_row_bm.allocPixels(SkImageInfo::Make(
-        w, 1, kRGBA_F32_SkColorType, alpha_type, src_pm.refColorSpace()));
-    src_rgb_row = src_rgb_row_bm.pixmap();
-    SkColorMatrix::YUVtoRGB(src_yuv_cs).getRowMajor(src_matrix.data());
+void ConvertYUVAToRGBA(const SkYUVAInfo& src_yuva_info,
+                       size_t src_bit_depth,
+                       const std::vector<SkPixmap>& src_pixmaps,
+                       const SkPixmap& dst_pixmap) {
+  DCHECK(src_pixmaps[0].dimensions() == dst_pixmap.dimensions());
+  const auto src_color_space = src_pixmaps[0].refColorSpace();
+  const size_t w = static_cast<size_t>(dst_pixmap.width());
+  const size_t h = static_cast<size_t>(dst_pixmap.height());
+
+  // Just use ReadPixels for RGBA inputs.
+  if (!src_yuva_info.isValid()) {
+    CHECK_EQ(src_pixmaps.size(), 1u);
+    CHECK(src_pixmaps[0].readPixels(dst_pixmap));
+    return;
   }
 
-  // If we need to do RGB to YUV conversion, we will do that in-place in
-  // `dst_rgb_row`.
-  SkBitmap dst_rgb_row_bm;
-  SkPixmap dst_rgb_row;
-  std::array<float, 20> dst_matrix;
-  if (dst_yuv_cs != kIdentity_SkYUVColorSpace) {
-    dst_rgb_row_bm.allocPixels(SkImageInfo::Make(
-        w, 1, kRGBA_F32_SkColorType, alpha_type, dst_pm.refColorSpace()));
-    dst_rgb_row = dst_rgb_row_bm.pixmap();
-    SkColorMatrix::RGBtoYUV(dst_yuv_cs).getRowMajor(dst_matrix.data());
+  // Make sure we have the expected number of planes and dimensions of planes,
+  // and that all planes have the same color space.
+  CHECK_EQ(src_pixmaps.size(), static_cast<size_t>(src_yuva_info.numPlanes()));
+  std::array<SkISize, SkYUVAInfo::kMaxPlanes> plane_dimensions;
+  src_yuva_info.planeDimensions(plane_dimensions.data());
+  for (size_t p = 0; p < src_pixmaps.size(); ++p) {
+    CHECK(src_pixmaps[p].dimensions() == plane_dimensions[p]);
+    CHECK(SkColorSpace::Equals(src_pixmaps[p].colorSpace(),
+                               src_color_space.get()));
   }
 
-  // Process one row at a time.
-  for (int y = 0; y < h; ++y) {
-    // Extract the source and destination rows.
-    SkPixmap src_yuv_row;
-    SkPixmap dst_yuv_row;
-    const auto row_rect = SkIRect::MakeXYWH(0, y, w, 1);
-    CHECK(src_pm.extractSubset(&src_yuv_row, row_rect));
-    CHECK(dst_pm.extractSubset(&dst_yuv_row, row_rect));
+  // Compute the YUV to RGB matrix, if needed.
+  const bool use_src_yuv_to_rgb_matrix =
+      src_yuva_info.yuvColorSpace() != kIdentity_SkYUVColorSpace;
+  std::array<float, 20> src_yuv_to_rgb_matrix;
+  if (use_src_yuv_to_rgb_matrix) {
+    SkColorMatrix::YUVtoRGB(src_yuva_info.yuvColorSpace())
+        .getRowMajor(src_yuv_to_rgb_matrix.data());
+  }
 
-    // Let `src_rgb_row` be the source row in full-range RGB.
-    if (src_yuv_cs == kIdentity_SkYUVColorSpace) {
-      src_rgb_row = src_yuv_row;
-    } else {
-      CHECK(src_yuv_row.readPixels(src_rgb_row));
-      ApplyColorMatrix(src_rgb_row, src_matrix);
+  // Allocate a single unpremultiplied row buffer.
+  SkBitmap src_row_bm;
+  src_row_bm.allocPixels(SkImageInfo::Make(
+      w, 1, kRGBA_F32_SkColorType, kUnpremul_SkAlphaType, src_color_space));
+  auto src_row = src_row_bm.pixmap();
+
+  for (size_t y = 0; y < h; ++y) {
+    const auto dst_row_rect = SkIRect::MakeXYWH(0, y, w, 1);
+    SkPixmap dst_row;
+    CHECK(dst_pixmap.extractSubset(&dst_row, dst_row_rect));
+
+    // Read and resample `src_pixmaps` into `src_row`.
+    ReadYUVRow(src_pixmaps, src_yuva_info, src_bit_depth, y, src_row);
+
+    // Perform YUV to RGB conversion.
+    if (use_src_yuv_to_rgb_matrix) {
+      ApplyColorMatrix(src_row, src_yuv_to_rgb_matrix);
     }
 
-    // Write `dst_yuv_row`.
-    if (dst_yuv_cs == kIdentity_SkYUVColorSpace) {
-      CHECK(src_rgb_row.readPixels(dst_yuv_row));
-    } else {
-      src_rgb_row.readPixels(dst_rgb_row);
-      ApplyColorMatrix(dst_rgb_row, dst_matrix);
-      dst_rgb_row.readPixels(dst_yuv_row);
-    }
+    // Convert to `dst_pixmap` color space and pixel format.
+    CHECK(src_row.readPixels(dst_row));
   }
 }
 

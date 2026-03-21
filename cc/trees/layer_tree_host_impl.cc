@@ -156,6 +156,7 @@
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/skia_span_util.h"
+#include "ui/latency/latency_info.h"
 
 namespace cc {
 namespace {
@@ -182,18 +183,6 @@ constexpr size_t kContainsSrgbCacheSize = 3;
 static_assert(kContainsSrgbCacheSize ==
                   gfx::DisplayColorSpaces::kConfigCount / 2,
               "sRGB cache must match the size of DisplayColorSpaces");
-
-enum HasDamageDataBits : uint32_t {
-  kHandleVisibilityChangedMask = 1 << 0,
-  kViewportDamageMask = 1 << 1,
-  kReferencedSurfacesChangedMask = 1 << 2,
-  kNewLocalSurfaceIdMask = 1 << 3,
-  kPrimaryMainFrameItemSequenceNumberMask = 1 << 4,
-  kRootSurfaceDamageMask = 1 << 5,
-  kHasCopyRequestsMask = 1 << 6,
-  kHudWantsToDrawMask = 1 << 7,
-  kHasViewTransitionRequestsMask = 1 << 8,
-};
 
 void AccumulateInvalidatedArea(
     LayerImpl* layer,
@@ -1368,211 +1357,6 @@ static viz::CompositorRenderPass* FindRenderPassById(
   return it == list.end() ? nullptr : it->get();
 }
 
-uint32_t LayerTreeHostImpl::GetHasDamageData() const {
-  uint32_t has_damage_data = 0;
-
-  // When touch handle visibility changes there is no visible damage
-  // because touch handles are composited in the browser. However we
-  // still want the browser to be notified that the handles changed
-  // through the |ViewHostMsg_SwapCompositorFrame| IPC so we keep
-  // track of handle visibility changes here.
-  if (active_tree()->HandleVisibilityChanged()) {
-    has_damage_data |= kRootSurfaceDamageMask;
-  }
-
-  if (!viewport_damage_rect_.IsEmpty()) {
-    has_damage_data |= kViewportDamageMask;
-  }
-
-  // If the set of referenced surfaces has changed then we must submit a new
-  // CompositorFrame to update surface references.
-  if (last_draw_referenced_surfaces_ != active_tree()->SurfaceRanges()) {
-    has_damage_data |= kReferencedSurfacesChangedMask;
-  }
-
-  // If we have a new LocalSurfaceId, we must always submit a CompositorFrame
-  // because the parent is blocking on us.
-  if (last_draw_local_surface_id_ != GetCurrentLocalSurfaceId()) {
-    has_damage_data |= kNewLocalSurfaceIdMask;
-  }
-
-  const LayerTreeImpl* active_tree = active_tree_.get();
-  // Make sure we propagate the primary main item sequence number. If there is
-  // no stored sequence number, we don't need to damage: either damage will
-  // happen anyway, or we're not generating metadata entries.
-  if (last_draw_render_frame_metadata_ &&
-      last_draw_render_frame_metadata_
-              ->primary_main_frame_item_sequence_number !=
-          active_tree->primary_main_frame_item_sequence_number()) {
-    has_damage_data |= kPrimaryMainFrameItemSequenceNumberMask;
-  }
-
-  // If the root render surface has no visible damage, then don't generate a
-  // frame at all.
-  const RenderSurfaceImpl* root_surface = active_tree->RootRenderSurface();
-  if (root_surface->GetDamageRect().Intersects(root_surface->content_rect())) {
-    has_damage_data |= kRootSurfaceDamageMask;
-  }
-
-  if (active_tree->property_trees()->effect_tree().HasCopyRequests()) {
-    has_damage_data |= kHasCopyRequestsMask;
-  }
-
-  if (active_tree->IsAnimatingHUDContents()) {
-    has_damage_data |= kHudWantsToDrawMask;
-  }
-
-  if (active_tree->HasViewTransitionRequests()) {
-    has_damage_data |= kHasViewTransitionRequestsMask;
-  }
-
-  return has_damage_data;
-}
-void LayerTreeHostImpl::AddDamageDataCrashKeys(uint32_t damage_data,
-                                               bool is_viz) {
-  if (!base::FeatureList::IsEnabled(features::kTreesInViz)) {
-    // Only add crash keys when the feature is enabled.
-    return;
-  }
-  bool handle_visibility_changed = damage_data & kHandleVisibilityChangedMask;
-  bool viewport_damage_rect_not_empty = damage_data & kViewportDamageMask;
-  bool referenced_surfaces_changed =
-      damage_data & kReferencedSurfacesChangedMask;
-  bool local_surface_id_changed = damage_data & kNewLocalSurfaceIdMask;
-  bool primary_main_frame_item_sequence_number_changed =
-      damage_data & kPrimaryMainFrameItemSequenceNumberMask;
-  bool root_surface_has_visible_damage = damage_data & kRootSurfaceDamageMask;
-  bool has_copy_requests = damage_data & kHasCopyRequestsMask;
-  bool hud_wants_to_draw = damage_data & kHudWantsToDrawMask;
-  bool has_view_transition_requests =
-      damage_data & kHasViewTransitionRequestsMask;
-
-  if (is_viz) {
-    static auto* const kHandleVisibilityChanged =
-        base::debug::AllocateCrashKeyString("cchd_handle_visibility_changed_vz",
-                                            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kHandleVisibilityChanged, handle_visibility_changed ? "true" : "false");
-
-    static auto* const kViewportDamageRectNotEmpty =
-        base::debug::AllocateCrashKeyString(
-            "cchd_viewport_damage_rect_not_empty_vz",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kViewportDamageRectNotEmpty,
-        viewport_damage_rect_not_empty ? "true" : "false");
-
-    static auto* const kReferencedSurfacesChanged =
-        base::debug::AllocateCrashKeyString(
-            "cchd_referenced_surfaces_changed_vz",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kReferencedSurfacesChanged,
-        referenced_surfaces_changed ? "true" : "false");
-
-    static auto* const kLocalSurfaceIdChanged =
-        base::debug::AllocateCrashKeyString("cchd_local_surface_id_changed_vz",
-                                            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(kLocalSurfaceIdChanged,
-                                   local_surface_id_changed ? "true" : "false");
-
-    static auto* const kSeqNumChanged = base::debug::AllocateCrashKeyString(
-        "cchd_pmfi_sequence_number_changed_vz",
-        base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kSeqNumChanged,
-        primary_main_frame_item_sequence_number_changed ? "true" : "false");
-
-    static auto* const kRootSurfaceHasVisibleDamage =
-        base::debug::AllocateCrashKeyString(
-            "cchd_root_surface_has_visible_damage_vz",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kRootSurfaceHasVisibleDamage,
-        root_surface_has_visible_damage ? "true" : "false");
-
-    static auto* const kHudWantsToDraw = base::debug::AllocateCrashKeyString(
-        "cchd_hud_wants_to_draw_vz", base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(kHudWantsToDraw,
-                                   hud_wants_to_draw ? "true" : "false");
-
-    static auto* const kHasCopyRequests = base::debug::AllocateCrashKeyString(
-        "cchd_has_copy_requests_vz", base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(kHasCopyRequests,
-                                   has_copy_requests ? "true" : "false");
-
-    static auto* const kHasViewTransitionRequests =
-        base::debug::AllocateCrashKeyString(
-            "cchd_has_view_transition_requests_vz",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kHasViewTransitionRequests,
-        has_view_transition_requests ? "true" : "false");
-  } else {
-    static auto* const kHandleVisibilityChanged =
-        base::debug::AllocateCrashKeyString("cchd_handle_visibility_changed_cl",
-                                            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kHandleVisibilityChanged, handle_visibility_changed ? "true" : "false");
-
-    static auto* const kViewportDamageRectNotEmpty =
-        base::debug::AllocateCrashKeyString(
-            "cchd_viewport_damage_rect_not_empty_cl",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kViewportDamageRectNotEmpty,
-        viewport_damage_rect_not_empty ? "true" : "false");
-
-    static auto* const kReferencedSurfacesChanged =
-        base::debug::AllocateCrashKeyString(
-            "cchd_referenced_surfaces_changed_cl",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kReferencedSurfacesChanged,
-        referenced_surfaces_changed ? "true" : "false");
-
-    static auto* const kLocalSurfaceIdChanged =
-        base::debug::AllocateCrashKeyString("cchd_local_surface_id_changed_cl",
-                                            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(kLocalSurfaceIdChanged,
-                                   local_surface_id_changed ? "true" : "false");
-
-    static auto* const kSeqNumChanged = base::debug::AllocateCrashKeyString(
-        "cchd_pmfi_sequence_number_changed_"
-        "cl",
-        base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kSeqNumChanged,
-        primary_main_frame_item_sequence_number_changed ? "true" : "false");
-
-    static auto* const kRootSurfaceHasVisibleDamage =
-        base::debug::AllocateCrashKeyString(
-            "cchd_root_surface_has_visible_damage_cl",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kRootSurfaceHasVisibleDamage,
-        root_surface_has_visible_damage ? "true" : "false");
-
-    static auto* const kHudWantsToDraw = base::debug::AllocateCrashKeyString(
-        "cchd_hud_wants_to_draw_cl", base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(kHudWantsToDraw,
-                                   hud_wants_to_draw ? "true" : "false");
-
-    static auto* const kHasCopyRequests = base::debug::AllocateCrashKeyString(
-        "cchd_has_copy_requests_cl", base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(kHasCopyRequests,
-                                   has_copy_requests ? "true" : "false");
-
-    static auto* const kHasViewTransitionRequests =
-        base::debug::AllocateCrashKeyString(
-            "cchd_has_view_transition_requests_cl",
-            base::debug::CrashKeySize::Size32);
-    base::debug::SetCrashKeyString(
-        kHasViewTransitionRequests,
-        has_view_transition_requests ? "true" : "false");
-  }
-}
-
 bool LayerTreeHostImpl::HasDamage() const {
   DCHECK(!active_tree()->needs_update_draw_properties());
   DCHECK(CanDraw());
@@ -1642,13 +1426,36 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
       active_tree_->RootRenderSurface()->damage_tracker()->GetDamageReasons();
 
   bool has_damage = HasDamage();
-  last_frame_has_damage_data_ = GetHasDamageData();
 
   if (expects_to_draw) {
+    if (active_tree_->RootRenderSurface()) {
+      gfx::Rect viz_damage_rect =
+          active_tree_->RootRenderSurface()->GetDamageRect();
+      // Add a 1px margin to the viz damage rect to filter out precision issues
+      // with transforms.  This will be re-added once the larger damage
+      // discrepancies are fixed.
+      viz_damage_rect.Outset(1);
+      // If Viz has MORE damage than the client expected, it's safe for
+      // rendering (just potentially wasteful). If Viz has LESS damage, we might
+      // miss redrawing some areas.
+      if (!root_layer_damage_rect_.IsEmpty()) {
+        DUMP_WILL_BE_CHECK(viz_damage_rect.Contains(root_layer_damage_rect_))
+            << "crbug.com/454680865: Viz damage does not contain client "
+               "damage! "
+            << "Client: " << root_layer_damage_rect_.ToString()
+            << " Viz: " << viz_damage_rect.ToString() << " Viz content rect: "
+            << active_tree_->RootRenderSurface()->content_rect().ToString()
+            << " Client-in-Viz Insets: "
+            << viz_damage_rect.InsetsFrom(root_layer_damage_rect_).ToString()
+            << " DSF: " << active_tree_->device_scale_factor() << " Transform: "
+            << active_tree_->RootRenderSurface()->draw_transform().ToString();
+      }
+    }
+
     // Force drawing, but assert in DCHECK builds.
-    AddDamageDataCrashKeys(last_frame_has_damage_data_, /*is_viz=*/true);
     DUMP_WILL_BE_CHECK(has_damage)
-        << "crbug.com/454680865: Has no damage while expects_to_draw is set";
+        << "crbug.com/454680865: Has no damage while expects_to_draw is set."
+        << " Client damage: " << root_layer_damage_rect_.ToString();
     has_damage = true;
   }
 
@@ -1739,7 +1546,6 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
   DrawResult draw_result = DrawResult::kSuccess;
 
   int num_missing_tiles = 0;
-  CHECK(!frame->checkerboarded_needs_raster);
   CHECK(!frame->checkerboarded_needs_record);
 
   frame->has_copy_requests =
@@ -1865,8 +1671,6 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
             append_quads_data.approximated_visible_content_area);
 
         num_missing_tiles += append_quads_data.num_missing_tiles;
-        frame->checkerboarded_needs_raster |=
-            append_quads_data.checkerboarded_needs_raster;
         frame->checkerboarded_needs_record |=
             append_quads_data.checkerboarded_needs_record;
 
@@ -1966,26 +1770,36 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
   if (root_render_surface && !has_transparent_background) {
     frame->render_passes.back()->has_transparent_background = false;
 
-    // If any tiles are missing, then fill behind the entire root render
-    // surface.  This is a workaround for this edge case, instead of tracking
-    // individual tiles that are missing.
-    Region fill_region = unoccluded_screen_space_region;
-    if (num_missing_tiles > 0) {
-      fill_region = root_render_surface->content_rect();
-    }
+    if (output_frame_data) {
+      // If any tiles are missing, then fill behind the entire root render
+      // surface.  This is a workaround for this edge case, instead of tracking
+      // individual tiles that are missing.
+      Region fill_region = unoccluded_screen_space_region;
+      if (num_missing_tiles > 0) {
+        fill_region = root_render_surface->content_rect();
+      }
 
-    AppendQuadsToFillScreen(frame->render_passes.back().get(),
-                            root_render_surface,
-                            active_tree_->background_color(), fill_region);
+      AppendQuadsToFillScreen(frame->render_passes.back().get(),
+                              root_render_surface,
+                              active_tree_->background_color(), fill_region);
+    }
   }
 
-  RemoveRenderPasses(frame);
+  if (output_frame_data) {
+    RemoveRenderPasses(frame);
+  }
   // If we're making a frame to draw, it better have at least one render pass.
   DCHECK(!frame->render_passes.empty());
 
-  TRACE_EVENT_END2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
-                   "draw_result", draw_result, "missing tiles",
-                   num_missing_tiles);
+  if (settings_.TreesInVizInClientProcess()) {
+    // num_missing_tiles is not counted.
+    TRACE_EVENT_END1("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
+                     "draw_result", draw_result);
+  } else {
+    TRACE_EVENT_END2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
+                     "draw_result", draw_result, "missing tiles",
+                     num_missing_tiles);
+  }
 
   // Draw has to be successful to not drop the copy request layer.
   // When we have a copy request for a layer, we need to draw even if there
@@ -2008,6 +1822,10 @@ void LayerTreeHostImpl::DidAnimateScrollOffset() {
 
 void LayerTreeHostImpl::SetViewportDamage(const gfx::Rect& damage_rect) {
   viewport_damage_rect_.Union(damage_rect);
+}
+
+void LayerTreeHostImpl::SetRootLayerDamageRect(const gfx::Rect& damage_rect) {
+  root_layer_damage_rect_.Union(damage_rect);
 }
 
 void LayerTreeHostImpl::InvalidateContentOnImplSide() {
@@ -2069,7 +1887,7 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame,
     // This will cause NotifyTileStateChanged() to be called for any tiles that
     // completed, which will add damage for visible tiles to the frame for them
     // so they appear as part of the current frame being drawn.
-    tile_manager_.PrepareToDraw();
+    frame->checkerboarded_needs_raster = !tile_manager_.PrepareToDraw();
   }
 
   frame->render_surface_list = &active_tree_->GetRenderSurfaceList();
@@ -3196,7 +3014,7 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
 
     // Send updates to Viz even for no damage case when TreesInViz is enabled.
     if (settings_.TreesInVizInClientProcess()) {
-      UpdateDisplayTree(*frame);
+      UpdateDisplayTree(*frame, {});
     }
 
     active_tree()->ResetAllChangeTracking();
@@ -3286,7 +3104,8 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   if (settings_.TreesInVizInClientProcess()) {
     send_frame_token_to_embedder_ =
         compositor_frame.metadata.send_frame_token_to_embedder;
-    trees_in_viz_submit_time = UpdateDisplayTree(*frame);
+    trees_in_viz_submit_time = UpdateDisplayTree(
+        *frame, std::move(compositor_frame.metadata.latency_info));
 
     layer_tree_frame_sink_->ExportFrameTiming();
   } else {
@@ -3396,6 +3215,7 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   }
   if (active_tree_->RootRenderSurface()) {
     viewport_damage_rect_ = gfx::Rect();
+    root_layer_damage_rect_ = gfx::Rect();
   }
   active_tree_->ResetAllChangeTracking();
 
@@ -3780,14 +3600,17 @@ void LayerTreeHostImpl::DidDrawAllLayers(const FrameData& frame) {
   }
 }
 
-base::TimeTicks LayerTreeHostImpl::UpdateDisplayTree(FrameData& frame) {
+base::TimeTicks LayerTreeHostImpl::UpdateDisplayTree(
+    FrameData& frame,
+    std::vector<ui::LatencyInfo> latency_info) {
   DCHECK(settings_.TreesInVizInClientProcess());
   DCHECK(layer_context_);
 
   return layer_context_->UpdateDisplayTreeFrom(
       *active_tree(), *resource_provider(),
       layer_tree_frame_sink_->shared_image_interface().get(),
-      viewport_damage_rect_, target_local_surface_id_, !frame.has_no_damage);
+      viewport_damage_rect_, target_local_surface_id_, !frame.has_no_damage,
+      std::move(latency_info));
 }
 
 int LayerTreeHostImpl::RequestedMSAASampleCount() const {
@@ -3924,7 +3747,6 @@ void LayerTreeHostImpl::
 }
 
 bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
-  last_frame_has_damage_data_ = 0;
   if (!settings().single_thread_proxy_scheduler) {
     client_->SetWaitingForScrollEvent(input_delegate_ &&
                                       input_delegate_->IsCurrentlyScrolling() &&
@@ -4004,8 +3826,6 @@ bool LayerTreeHostImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {
     DCHECK(ok);
     DamageTracker::UpdateDamageTracking(active_tree_.get());
     bool has_damage = HasDamage();
-    last_frame_has_damage_data_ = GetHasDamageData();
-
     // Animations are updated after we attempt to draw. If the frame is aborted,
     // update animations now.
     if (!has_damage) {
@@ -5620,7 +5440,7 @@ bool LayerTreeHostImpl::AnimateLayers(base::TimeTicks monotonic_time,
       is_active_tree ? active_tree_->property_trees()->scroll_tree()
                      : pending_tree_->property_trees()->scroll_tree();
   const bool animated = mutator_host_->TickAnimations(
-      monotonic_time, scroll_tree, is_active_tree);
+      monotonic_time, scroll_tree, is_active_tree, mutator_events_.get());
 
   // TODO(crbug.com/40443202): Only do this if the animations are on the active
   // tree, or if they are on the pending tree waiting for some future time to

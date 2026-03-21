@@ -50,8 +50,9 @@ std::string ToLowerASCIIInternal(base::span<const CharType> chars) {
 
 // Does the same as ToASCIIOrEmpty, but also makes the chars lower.
 std::string ToLowerASCIIOrEmpty(const String& str) {
-  if (str.empty() || !str.ContainsOnlyASCIIOrEmpty())
+  if (str.empty() || !str.ContainsOnlyAsciiOrEmpty()) {
     return std::string();
+  }
   return VisitCharacters(
       str, [](auto chars) { return ToLowerASCIIInternal(chars); });
 }
@@ -110,9 +111,9 @@ bool MIMETypeRegistry::IsSupportedImagePrefixedMIMEType(
 
 bool MIMETypeRegistry::IsSupportedImageMIMETypeForEncoding(
     const String& mime_type) {
-  return (EqualIgnoringASCIICase(mime_type, "image/jpeg") ||
-          EqualIgnoringASCIICase(mime_type, "image/png") ||
-          EqualIgnoringASCIICase(mime_type, "image/webp"));
+  return (EqualIgnoringAsciiCase(mime_type, "image/jpeg") ||
+          EqualIgnoringAsciiCase(mime_type, "image/png") ||
+          EqualIgnoringAsciiCase(mime_type, "image/webp"));
 }
 
 bool MIMETypeRegistry::IsSupportedJavaScriptMIMEType(const String& mime_type) {
@@ -163,31 +164,32 @@ bool MIMETypeRegistry::IsJavaAppletMIMEType(const String& mime_type) {
   // with the overhead of using a hash set.  Any of the MIME types below may be
   // followed by any number of specific versions of the JVM, which is why we use
   // startsWith()
-  return mime_type.StartsWithIgnoringASCIICase("application/x-java-applet") ||
-         mime_type.StartsWithIgnoringASCIICase("application/x-java-bean") ||
-         mime_type.StartsWithIgnoringASCIICase("application/x-java-vm");
+  return mime_type.StartsWithIgnoringAsciiCase("application/x-java-applet") ||
+         mime_type.StartsWithIgnoringAsciiCase("application/x-java-bean") ||
+         mime_type.StartsWithIgnoringAsciiCase("application/x-java-vm");
 }
 
 bool MIMETypeRegistry::IsSupportedStyleSheetMIMEType(const String& mime_type) {
-  return EqualIgnoringASCIICase(mime_type, "text/css");
+  return EqualIgnoringAsciiCase(mime_type, "text/css");
 }
 
 bool MIMETypeRegistry::IsSupportedFontMIMEType(const String& mime_type) {
   static const unsigned kFontLen = 5;
-  if (!mime_type.StartsWithIgnoringASCIICase("font/"))
+  if (!mime_type.StartsWithIgnoringAsciiCase("font/")) {
     return false;
+  }
   String sub_type = mime_type.Substring(kFontLen).LowerASCII();
   return sub_type == "woff" || sub_type == "woff2" || sub_type == "otf" ||
          sub_type == "ttf" || sub_type == "sfnt";
 }
 
 bool MIMETypeRegistry::IsSupportedTextTrackMIMEType(const String& mime_type) {
-  return EqualIgnoringASCIICase(mime_type, "text/vtt");
+  return EqualIgnoringAsciiCase(mime_type, "text/vtt");
 }
 
 bool MIMETypeRegistry::IsXMLMIMEType(const String& mime_type) {
-  if (EqualIgnoringASCIICase(mime_type, "text/xml") ||
-      EqualIgnoringASCIICase(mime_type, "application/xml")) {
+  if (EqualIgnoringAsciiCase(mime_type, "text/xml") ||
+      EqualIgnoringAsciiCase(mime_type, "application/xml")) {
     return true;
   }
 
@@ -199,8 +201,9 @@ bool MIMETypeRegistry::IsXMLMIMEType(const String& mime_type) {
     return false;
 
   if (mime_type[0] == '/' || mime_type[length - 5] == '/' ||
-      !mime_type.EndsWithIgnoringASCIICase("+xml"))
+      !mime_type.EndsWithIgnoringAsciiCase("+xml")) {
     return false;
+  }
 
   bool has_slash = false;
   for (int i = 0; i < length - 4; ++i) {
@@ -244,16 +247,16 @@ bool MIMETypeRegistry::IsXMLMIMEType(const String& mime_type) {
 }
 
 bool MIMETypeRegistry::IsXMLExternalEntityMIMEType(const String& mime_type) {
-  return EqualIgnoringASCIICase(mime_type,
+  return EqualIgnoringAsciiCase(mime_type,
                                 "application/xml-external-parsed-entity") ||
-         EqualIgnoringASCIICase(mime_type, "text/xml-external-parsed-entity");
+         EqualIgnoringAsciiCase(mime_type, "text/xml-external-parsed-entity");
 }
 
 bool MIMETypeRegistry::IsPlainTextMIMEType(const String& mime_type) {
-  return mime_type.StartsWithIgnoringASCIICase("text/") &&
-         !(EqualIgnoringASCIICase(mime_type, "text/html") ||
-           EqualIgnoringASCIICase(mime_type, "text/xml") ||
-           EqualIgnoringASCIICase(mime_type, "text/xsl"));
+  return mime_type.StartsWithIgnoringAsciiCase("text/") &&
+         !(EqualIgnoringAsciiCase(mime_type, "text/html") ||
+           EqualIgnoringAsciiCase(mime_type, "text/xml") ||
+           EqualIgnoringAsciiCase(mime_type, "text/xsl"));
 }
 
 }  // namespace blink

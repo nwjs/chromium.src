@@ -39,7 +39,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.MathUtils;
 import org.chromium.base.UserDataHost;
@@ -47,7 +46,9 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -107,7 +108,6 @@ public class NewTabAnimationLayoutUnitTest {
     @Mock private ToolbarManager mToolbarManager;
     @Mock private CustomTabCount mCustomTabCount;
     @Mock private BrowserControlsManager mBrowserControlsManager;
-    @Mock private BrowserStateBrowserControlsVisibilityDelegate mBrowserVisibilityDelegate;
     @Mock private SceneLayer.Natives mSceneLayerJni;
     @Mock private StaticTabSceneLayer.Natives mStaticTabSceneLayerJni;
     @Mock private LayoutUpdateHost mUpdateHost;
@@ -132,11 +132,12 @@ public class NewTabAnimationLayoutUnitTest {
             new TransitiveTopInsetProvider();
     private final SettableNonNullObservableSupplier<Float>
             mNtpSearchBoxTransitionPercentageSupplier = ObservableSuppliers.createNonNull(0f);
+    private final BrowserStateBrowserControlsVisibilityDelegate mBrowserVisibilityDelegate =
+            new BrowserStateBrowserControlsVisibilityDelegate(ObservableSuppliers.alwaysFalse());
     private NewTabAnimationLayout mNewTabAnimationLayout;
     private FrameLayout mContentContainer;
     private FrameLayout mAnimationHostView;
     private UserDataHost mUserDataHost;
-    private int mToken;
 
     @Before
     public void setUp() {
@@ -180,9 +181,6 @@ public class NewTabAnimationLayoutUnitTest {
         when(mNtp.getLastTouchPosition()).thenReturn(sPoint);
         when(mBrowserControlsManager.getBrowserVisibilityDelegate())
                 .thenReturn(mBrowserVisibilityDelegate);
-        mToken = 0;
-        when(mBrowserVisibilityDelegate.showControlsPersistent())
-                .thenAnswer(invocation -> mToken++);
         when(mToolbarManager.getCustomTabCount()).thenReturn(mCustomTabCount);
         when(mToolbarManager.getNtpSearchBoxTransitionPercentageSupplier())
                 .thenReturn(mNtpSearchBoxTransitionPercentageSupplier);
@@ -201,7 +199,7 @@ public class NewTabAnimationLayoutUnitTest {
                             TopInsetProvider.Observer observer =
                                     (TopInsetProvider.Observer) invocation.getArgument(0);
                             // Trigger the callback immediately with systemTopInset=100
-                            observer.onToEdgeChange(100, true);
+                            observer.onToEdgeChange(100, true, LayoutType.BROWSING);
                             return null;
                         })
                 .when(mTopInsetProvider)
@@ -359,7 +357,7 @@ public class NewTabAnimationLayoutUnitTest {
         assertTrue(mNewTabAnimationLayout.isRunningAnimations());
         verify(mAnimationHostView, times(1)).addView(any(NewForegroundTabAnimationHostView.class));
 
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         assertFalse(mNewTabAnimationLayout.isRunningAnimations());
         verify(mAnimationHostView, times(1))
@@ -391,7 +389,7 @@ public class NewTabAnimationLayoutUnitTest {
         assertEquals(
                 "Top padding should be applied.",
                 150,
-                layoutTab.get(LayoutTab.CONTENT_OFFSET),
+                layoutTab.get(LayoutTab.CONTENT_OFFSET_Y),
                 MathUtils.EPSILON);
     }
 
@@ -416,15 +414,15 @@ public class NewTabAnimationLayoutUnitTest {
         assertEquals(CURRENT_TAB_ID, layoutTabs[0].getId());
         verify(mNewTabAnimationLayout, times(1)).forceAnimationToFinish();
         assertTrue(mNewTabAnimationLayout.isStartingToHide());
-        verify(mBrowserVisibilityDelegate, times(1)).showControlsPersistent();
+        assertThat(mBrowserVisibilityDelegate.get()).isEqualTo(BrowserControlsState.SHOWN);
         verify(mAnimationHostView, times(1)).addView(any(NewBackgroundTabAnimationHostView.class));
 
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         verify(mAnimationHostView, times(1))
                 .removeView(any(NewBackgroundTabAnimationHostView.class));
         verify(mTabModelSelector, never()).selectModel(false);
-        verify(mBrowserVisibilityDelegate, times(1)).releasePersistentShowingToken(0);
+        assertThat(mBrowserVisibilityDelegate.get()).isEqualTo(BrowserControlsState.BOTH);
     }
 
     @Test
@@ -470,9 +468,9 @@ public class NewTabAnimationLayoutUnitTest {
                 /* originX= */ 0f,
                 /* originY= */ 0f);
 
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mBrowserVisibilityDelegate, never()).showControlsPersistent();
+        assertThat(mBrowserVisibilityDelegate.get()).isEqualTo(BrowserControlsState.BOTH);
     }
 
     @Test
@@ -487,7 +485,7 @@ public class NewTabAnimationLayoutUnitTest {
                 /* originX= */ 0f,
                 /* originY= */ 0f);
 
-        verify(mBrowserVisibilityDelegate, times(1)).showControlsPersistent();
+        assertThat(mBrowserVisibilityDelegate.get()).isEqualTo(BrowserControlsState.SHOWN);
 
         // Halt animation with second animation
         mNewTabAnimationLayout.onTabCreated(
@@ -500,12 +498,11 @@ public class NewTabAnimationLayoutUnitTest {
                 /* originX= */ 0f,
                 /* originY= */ 0f);
 
-        verify(mBrowserVisibilityDelegate, times(1)).releasePersistentShowingToken(0);
-        verify(mBrowserVisibilityDelegate, times(2)).showControlsPersistent();
+        assertThat(mBrowserVisibilityDelegate.get()).isEqualTo(BrowserControlsState.SHOWN);
 
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mBrowserVisibilityDelegate, times(1)).releasePersistentShowingToken(1);
+        assertThat(mBrowserVisibilityDelegate.get()).isEqualTo(BrowserControlsState.BOTH);
     }
 
     private void setNtp() {

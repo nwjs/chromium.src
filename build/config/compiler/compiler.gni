@@ -28,11 +28,24 @@ if (is_apple) {
 }
 
 declare_args() {
+  if (!is_win && !is_mac && !is_ios) {
+    # Link using a non-lld linker. See https://crbug.com/40208899
+    experimental_linker_path = ""
+  }
+}
+
+# Disable for host toolchain to prevent all sources from needing to be rebuilt
+# when toggling between linkers.
+if (!defined(experimental_linker_path) || !is_a_target_toolchain) {
+  experimental_linker_path = ""
+}
+
+declare_args() {
   # Set to true to use lld, the LLVM linker.
   # In late bring-up on macOS (see docs/mac_lld.md).
   # Tentatively used on iOS.
   # The default linker everywhere else.
-  use_lld = is_clang && current_os != "zos"
+  use_lld = is_clang && current_os != "zos" && experimental_linker_path == ""
 
   # If false, build using C++20; otherwise, build using C++23.
   use_cxx23 = true
@@ -43,15 +56,25 @@ declare_args() {
       !is_high_end_android && (is_android || is_castos || is_fuchsia)
 }
 
+if (is_mac && use_lld) {
+  declare_args() {
+    # Enables the `--read-workers` flag for LLD.
+    # Currently only implemented for Mach-O (macOS) in LLD.
+    enable_lld_read_workers = false
+  }
+
+  if (enable_lld_read_workers) {
+    lld_read_workers =
+        exec_script("//build/toolchain/get_lld_read_workers.py", [], "value")
+  }
+}
+
 declare_args() {
   # Default to warnings as errors for default workflow, where we catch
   # warnings with known toolchains. Allow overriding this e.g. for Chromium
   # builds on Linux that could use a different version of the compiler.
   # With GCC, warnings in no-Chromium code are always not treated as errors.
   treat_warnings_as_errors = true
-
-  # Ignore unknown warning flags when using an older Clang version.
-  disable_unknown_warning_option = false
 
   # How clang should report warnings, either false to report in the usual
   # manner, or true to add source range information to the diagnostics in

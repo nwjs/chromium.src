@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 
 #import "base/run_loop.h"
+#import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
@@ -53,7 +54,8 @@
 class GeminiBrowserAgentTest : public PlatformTest {
  protected:
   GeminiBrowserAgentTest()
-      : web_client_(std::make_unique<web::FakeWebClient>()) {
+      : web_client_(std::make_unique<web::FakeWebClient>()),
+        task_environment_(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     feature_list_.InitWithFeatures({kPageContextExtractorRefactored,
                                     kGeminiRefactoredFRE, kGeminiCopresence},
                                    {});
@@ -166,10 +168,9 @@ class GeminiBrowserAgentTest : public PlatformTest {
     gemini_browser_agent_->is_floaty_invoked_ = is_invoked;
   }
 
-  // Setter for `is_floaty_temporarily_hidden_`.
-  void SetIsFloatyTemporarilyHidden(bool is_temporarily_hidden) {
-    gemini_browser_agent_->is_floaty_temporarily_hidden_ =
-        is_temporarily_hidden;
+  // Clear `active_hiding_sources_`.
+  void ClearActiveHidingSources() {
+    gemini_browser_agent_->active_hiding_sources_.clear();
   }
 
   // Setter for `floaty_hidden_timestamp_`.
@@ -206,6 +207,7 @@ TEST_F(GeminiBrowserAgentTest, TestGeminiBrowserAgentStartGeminiFlow) {
 
   // Set a valid URL.
   web_state_->SetCurrentURL(GURL("https://example.com"));
+  web_state_->SetContentsMimeType("text/html");
 
   // Add a fake JS result for page context extraction.
   base::DictValue result;
@@ -242,35 +244,15 @@ TEST_F(GeminiBrowserAgentTest, TestGeminiBrowserAgentStartGeminiFlow) {
   // Ensure the WebState is visible so PageContextWrapper attempts a snapshot.
   web_state_->WasShown();
 
-  gemini_browser_agent_->StartGeminiFlow(base_view_controller, nil,
-                                         gemini::EntryPoint::Promo);
+  gemini_browser_agent_->StartGeminiFlow(
+      base_view_controller, [[GeminiStartupState alloc]
+                                initWithEntryPoint:gemini::EntryPoint::Promo]);
 
   // Wait for the delegate method to be called.
   ASSERT_TRUE(
       base::test::RunUntil([delegate_called]() { return *delegate_called; }));
 
   [mock_delegate verify];
-
-  // Assert the BWG tab helper was set as foregrounded.
-  ASSERT_FALSE(bwg_tab_helper_->GetIsBwgSessionActiveInBackground());
-}
-
-// Tests the presentation of the floaty and state of tab helper side
-// effects.
-TEST_F(GeminiBrowserAgentTest,
-       TestGeminiBrowserAgentPresentFloatyWithPageContext) {
-  UIViewController* base_view_controller = [[UIViewController alloc] init];
-  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
-      std::make_unique<optimization_guide::proto::PageContext>();
-  PageContextWrapperCallbackResponse response =
-      base::ok(std::move(page_context));
-
-  // Set the BWG tab helper as backgrounded and assert.
-  bwg_tab_helper_->PrepareBwgFreBackgrounding();
-  ASSERT_TRUE(bwg_tab_helper_->GetIsBwgSessionActiveInBackground());
-
-  gemini_browser_agent_->PresentFloatyWithPageContext(
-      base_view_controller, std::move(response), gemini::EntryPoint::Promo);
 
   // Assert the BWG tab helper was set as foregrounded.
   ASSERT_FALSE(bwg_tab_helper_->GetIsBwgSessionActiveInBackground());
@@ -287,7 +269,9 @@ TEST_F(GeminiBrowserAgentTest,
   ASSERT_TRUE(bwg_tab_helper_->GetIsBwgSessionActiveInBackground());
 
   gemini_browser_agent_->PresentFloatyWithPendingContext(
-      base_view_controller, std::move(page_context), gemini::EntryPoint::Promo);
+      base_view_controller, std::move(page_context),
+      [[GeminiStartupState alloc]
+          initWithEntryPoint:gemini::EntryPoint::Promo]);
 
   // Assert the BWG tab helper was set as foregrounded.
   ASSERT_FALSE(bwg_tab_helper_->GetIsBwgSessionActiveInBackground());
@@ -343,6 +327,7 @@ TEST_F(GeminiBrowserAgentTest, TestActiveWebStateChanged) {
 TEST_F(GeminiBrowserAgentTest, TestOnGeminiViewStateExpanded) {
   // Set a valid URL.
   web_state_->SetCurrentURL(GURL("https://example.com"));
+  web_state_->SetContentsMimeType("text/html");
 
   // Add a fake JS result for page context extraction.
   base::DictValue result;
@@ -377,6 +362,75 @@ TEST_F(GeminiBrowserAgentTest, TestOnGeminiViewStateExpanded) {
       base::test::RunUntil([delegate_called]() { return *delegate_called; }));
 
   [mock_delegate verify];
+}
+
+TEST_F(GeminiBrowserAgentTest, TestPageContextGenerationTimeout) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  // Simulate FRE completion.
+  profile_->GetPrefs()->SetBoolean(prefs::kIOSBwgConsent, true);
+
+  UIViewController* base_view_controller = [[UIViewController alloc] init];
+  web_state_->SetCurrentURL(GURL("https://example.com"));
+  web_state_->SetContentsMimeType("text/html");
+  web_state_->SetLoading(true);
+
+  // Add a fake JS result for page context extraction.
+  base::DictValue result;
+  result.Set("currentNodeInnerText", "Example Text");
+  fake_main_frame_->AddJsResultForFunctionCall(
+      new base::Value(std::move(result)),
+      "pageContextExtractor.extractPageContext");
+
+  // Create a protocol mock to intercept the delegate call.
+  id mock_delegate = OCMProtocolMock(@protocol(SnapshotGeneratorDelegate));
+  SnapshotTabHelper::FromWebState(web_state_)->SetDelegate(mock_delegate);
+  // Stub the canTakeSnapshot method to return YES.
+  OCMStub([mock_delegate canTakeSnapshotWithWebStateInfo:[OCMArg any]])
+      .andReturn(YES);
+
+  gemini_browser_agent_->StartGeminiFlow(
+      base_view_controller, [[GeminiStartupState alloc]
+                                initWithEntryPoint:gemini::EntryPoint::Promo]);
+
+  // At this point, the page is loading and we are waiting for context.
+  // The timer should be running. Verify that JS has NOT been called yet.
+  EXPECT_EQ(0ul, fake_main_frame_->GetJavaScriptCallHistory().size());
+
+  // Fast forward by the timeout duration (3 seconds) + epsilon.
+  task_environment_.FastForwardBy(base::Seconds(3) + base::Milliseconds(100));
+
+  // Verify that the page context extraction was forced (JS called).
+  // We check if "extractPageContext" was called.
+  const auto& call_history = fake_main_frame_->GetJavaScriptCallHistory();
+  ASSERT_GT(call_history.size(), 0ul);
+  bool found_context_extraction = false;
+  for (const auto& call : call_history) {
+    if (base::UTF16ToUTF8(call).find("extractPageContext") !=
+        std::string::npos) {
+      found_context_extraction = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_context_extraction);
+  fake_main_frame_->ClearJavaScriptCallHistory();
+
+  // Now simulate the page finishing loading.
+  web_state_->SetLoading(false);
+  web_state_->OnPageLoaded(web::PageLoadCompletionStatus::SUCCESS);
+
+  // Verify that the page context extraction was triggered AGAIN (JS called).
+  const auto& new_call_history = fake_main_frame_->GetJavaScriptCallHistory();
+  ASSERT_GT(new_call_history.size(), 0ul);
+  bool found_context_extraction_again = false;
+  for (const auto& call : new_call_history) {
+    if (base::UTF16ToUTF8(call).find("extractPageContext") !=
+        std::string::npos) {
+      found_context_extraction_again = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_context_extraction_again);
+  task_environment_.RunUntilIdle();  // IN-TEST
 }
 
 // Tests hiding the floaty.
@@ -423,10 +477,6 @@ TEST_F(GeminiBrowserAgentTest, TestShowFloatyIfInvokedWithWebNavigation) {
   gemini_browser_agent_->SetLastShownViewState(
       ios::provider::GeminiViewState::kExpanded);
 
-  // Set the hidden timestamp to represent a quick timestamp update such as when
-  // an old WebState is hidden followed quickly by a new WebState being shown.
-  SetFloatyHiddenTimestamp(base::TimeTicks::Now());
-
   gemini_browser_agent_->ShowFloatyIfInvoked(
       /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::WebNavigation);
 
@@ -459,12 +509,44 @@ TEST_F(GeminiBrowserAgentTest,
   EXPECT_EQ(ios::provider::GeminiViewState::kExpanded, GetLastShownViewState());
 }
 
+// Tests that the floaty remains hidden if the keyboard dismisses but a view
+// controller is still presenting.
+TEST_F(GeminiBrowserAgentTest,
+       TestFloatyRemainsHiddenWhenKeyboardDismissedIfViewPresent) {
+  SetIsFloatyInvoked(true);
+  gemini_browser_agent_->HideFloatyIfInvoked(
+      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::ViewTransition);
+  gemini_browser_agent_->HideFloatyIfInvoked(
+      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::Keyboard);
+  gemini_browser_agent_->SetLastShownViewState(
+      ios::provider::GeminiViewState::kExpanded);
+
+  // Emulate a user typing for some time.
+  SetFloatyHiddenTimestamp(base::TimeTicks::Now() - base::Seconds(5));
+
+  // Emulate keyboard dismissing.
+  gemini_browser_agent_->ShowFloatyIfInvoked(
+      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::Keyboard);
+
+  // The floaty should still be considered temporarily hidden.
+  EXPECT_TRUE(IsFloatyTemporarilyHidden());
+
+  // Emulate view controller dismissing.
+  gemini_browser_agent_->ShowFloatyIfInvoked(
+      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::ViewTransition);
+
+  // The floaty should now be shown.
+  EXPECT_FALSE(IsFloatyTemporarilyHidden());
+  EXPECT_EQ(ios::provider::GeminiViewState::kExpanded, GetLastShownViewState());
+}
+
 // Tests that the floaty is not dismissed when `DismissFloaty` is called to
 // clean up properties but a user has not interacted with floaty UI to properly
 // dismiss it.
 TEST_F(GeminiBrowserAgentTest, TestDismissFloatyWhenTemporarilyHidden) {
   SetIsFloatyInvoked(true);
-  SetIsFloatyTemporarilyHidden(true);
+  gemini_browser_agent_->HideFloatyIfInvoked(
+      /*animated=*/true, /*source=*/gemini::FloatyUpdateSource::ViewTransition);
 
   gemini_browser_agent_->DismissFloaty();
 
@@ -477,7 +559,7 @@ TEST_F(GeminiBrowserAgentTest, TestDismissFloatyWhenTemporarilyHidden) {
 // floaty i.e. when the floaty is shown.
 TEST_F(GeminiBrowserAgentTest, TestDismissFloatyWhenFloatyIsShown) {
   SetIsFloatyInvoked(true);
-  SetIsFloatyTemporarilyHidden(false);
+  ClearActiveHidingSources();
   gemini_browser_agent_->DismissFloaty();
 
   EXPECT_FALSE(IsFloatyInvoked());

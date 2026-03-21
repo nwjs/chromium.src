@@ -869,9 +869,38 @@ std::vector<CreditCard> GetTouchToFillCardsToSuggest(
              : std::vector<CreditCard>();
 }
 
+bool ShouldCreateBnplSuggestionForTouchToFill(BrowserAutofillManager& manager,
+                                              const FormGlobalId& form_id) {
+  bool passes_credit_card_number_check = true;
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableAiBasedAmountExtraction)) {
+    const FormStructure* form_structure = manager.FindCachedFormById(form_id);
+    // Checks whether the credit card number field is empty. If the number field
+    // is not empty, privacy restrictions prohibit showing the BNPL option.
+    passes_credit_card_number_check =
+        form_structure
+            ? std::ranges::none_of(
+                  form_structure->fields(),
+                  [](const std::unique_ptr<AutofillField>& form_field) {
+                    return form_field->Type().GetCreditCardType() ==
+                               FieldType::CREDIT_CARD_NUMBER &&
+                           !SanitizedFieldIsEmpty(form_field->value());
+                  })
+            : false;
+  }
+  return base::FeatureList::IsEnabled(
+             features::kAutofillEnableBuyNowPayLater) &&
+         manager.GetPaymentsBnplManager() &&
+         payments::IsEligibleForBnpl(manager.client()) &&
+         base::FeatureList::IsEnabled(
+             features::kAutofillEnableAmountExtraction) &&
+         passes_credit_card_number_check;
+}
+
 std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
     base::span<const CreditCard> credit_cards,
-    BrowserAutofillManager& manager) {
+    BrowserAutofillManager& manager,
+    const FormGlobalId& form_id) {
   std::vector<Suggestion> suggestions;
   suggestions.reserve(credit_cards.size());
   autofill_metrics::CardMetadataLoggingContext metadata_logging_context =
@@ -947,10 +976,7 @@ std::vector<Suggestion> GetCreditCardSuggestionsForTouchToFill(
     }
     suggestions.push_back(suggestion);
   }
-  if (manager.GetPaymentsBnplManager() &&
-      payments::IsEligibleForBnpl(manager.client()) &&
-      base::FeatureList::IsEnabled(features::kAutofillEnableAmountExtraction) &&
-      base::FeatureList::IsEnabled(features::kAutofillEnableBuyNowPayLater)) {
+  if (ShouldCreateBnplSuggestionForTouchToFill(manager, form_id)) {
     suggestions.reserve(suggestions.size() + 1);
     suggestions.push_back(
         CreateBnplSuggestion(/*bnpl_issuers=*/manager.client()
@@ -992,6 +1018,12 @@ Suggestion CreateManagePaymentMethodsEntry(SuggestionType suggestion_type,
 Suggestion CreateManageCreditCardsSuggestion(bool with_gpay_logo) {
   return CreateManagePaymentMethodsEntry(SuggestionType::kManageCreditCard,
                                          with_gpay_logo);
+}
+
+Suggestion CreateBnplFootnoteSuggestion() {
+  Suggestion bnpl_footnote = Suggestion(SuggestionType::kBnplFootnote);
+  bnpl_footnote.acceptability = Suggestion::Acceptability::kUnacceptable;
+  return bnpl_footnote;
 }
 
 Suggestion CreateSaveAndFillSuggestion(const AutofillClient& client,
@@ -1040,6 +1072,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kManageCreditCard:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kUndoOrClear:
+    case SuggestionType::kBnplFootnote:
       return true;
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
@@ -1055,6 +1088,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kAccountStoragePasswordEntry:
     case SuggestionType::kAddressEntry:
     case SuggestionType::kAddressEntryOnTyping:
+    case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAddressFieldByFieldFilling:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kComposeResumeNudge:
@@ -1091,6 +1125,7 @@ bool IsCreditCardFooterSuggestion(
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kOneTimePasswordEntry:
+    case SuggestionType::kLoadingThrobber:
       return false;
   }
 }
@@ -1127,13 +1162,15 @@ Suggestion CreateCreditCardSuggestionForTest(
 
 std::vector<Suggestion> GetCreditCardFooterSuggestionsForTest(
     const AutofillClient& client,
-    bool should_show_bnpl_suggestion,
+    bool should_show_pay_later_tab_suggestions,
+    bool should_append_bnpl_suggestion,
     bool should_show_scan_credit_card,
     bool is_autofilled,
     bool with_gpay_logo,
     const payments::AmountExtractionStatus& amount_extraction_status) {
   return GetCreditCardFooterSuggestions(
-      client, should_show_bnpl_suggestion, should_show_scan_credit_card,
+      client, should_show_pay_later_tab_suggestions,
+      should_append_bnpl_suggestion, should_show_scan_credit_card,
       is_autofilled, with_gpay_logo, amount_extraction_status);
 }
 
@@ -1142,7 +1179,7 @@ std::u16string GetBnplPriceLowerBoundForTest(
   return GetBnplPriceLowerBound(bnpl_issuers);
 }
 
-bool ShouldShowVirtualCardOptionForTest(const CreditCard* candidate_card,
+bool ShouldShowVirtualCardOptionForTest(const CreditCard& candidate_card,
                                         const AutofillClient& client) {
   return ShouldShowVirtualCardOption(candidate_card, client);
 }
@@ -1231,7 +1268,7 @@ std::vector<CreditCard> GetOrderedCardsToSuggest(
       continue;
     }
     if (include_virtual_cards &&
-        ShouldShowVirtualCardOption(credit_card, client)) {
+        ShouldShowVirtualCardOption(*credit_card, client)) {
       cards_to_suggest.push_back(CreditCard::CreateVirtualCard(*credit_card));
     }
     cards_to_suggest.push_back(*credit_card);
@@ -1350,7 +1387,8 @@ Suggestion CreateCreditCardSuggestion(
 
 std::vector<Suggestion> GetCreditCardFooterSuggestions(
     const AutofillClient& client,
-    bool should_show_bnpl_suggestion,
+    bool should_show_pay_later_tab_suggestions,
+    bool should_append_bnpl_suggestion,
     bool should_show_scan_credit_card,
     bool is_autofilled,
     bool with_gpay_logo,
@@ -1359,9 +1397,7 @@ std::vector<Suggestion> GetCreditCardFooterSuggestions(
 
   // TODO(crbug.com/444684996): Add another check to not show BNPL chip anymore
   // for this transaction if the previous amount extraction is timeout.
-  if (should_show_bnpl_suggestion &&
-      !base::FeatureList::IsEnabled(
-          features::kAutofillEnablePayNowPayLaterTabs)) {
+  if (should_append_bnpl_suggestion) {
     if (base::FeatureList::IsEnabled(
             features::
                 kAutofillEnableBuyNowPayLaterUpdatedSuggestionSecondLineString)) {
@@ -1373,6 +1409,10 @@ std::vector<Suggestion> GetCreditCardFooterSuggestions(
             .payments_data_manager()
             .GetBnplIssuers(),
         /*extracted_amount_in_micros=*/std::nullopt, amount_extraction_status));
+  }
+
+  if (should_show_pay_later_tab_suggestions) {
+    footer_suggestions.push_back(CreateBnplFootnoteSuggestion());
   }
 
   if (should_show_scan_credit_card) {
@@ -1482,17 +1522,17 @@ GetVirtualCreditCardsForStandaloneCvcField(
   return virtual_card_guid_to_last_four_map;
 }
 
-bool ShouldShowVirtualCardOption(const CreditCard* candidate_card,
+bool ShouldShowVirtualCardOption(const CreditCard& candidate_card,
                                  const AutofillClient& client) {
   const CreditCard* candidate_server_card = nullptr;
-  switch (candidate_card->record_type()) {
+  switch (candidate_card.record_type()) {
     case CreditCard::RecordType::kLocalCard:
       candidate_server_card = client.GetPersonalDataManager()
                                   .payments_data_manager()
-                                  .GetServerCardForLocalCard(candidate_card);
+                                  .GetServerCardForLocalCard(&candidate_card);
       break;
     case CreditCard::RecordType::kMaskedServerCard:
-      candidate_server_card = candidate_card;
+      candidate_server_card = &candidate_card;
       break;
     case CreditCard::RecordType::kFullServerCard:
     case CreditCard::RecordType::kVirtualCard:
@@ -1503,11 +1543,10 @@ bool ShouldShowVirtualCardOption(const CreditCard* candidate_card,
   if (!candidate_server_card) {
     return false;
   }
-  candidate_card = candidate_server_card;
 
   // Virtual card suggestion is shown only when the card is enrolled into
   // virtual cards.
-  return candidate_card->virtual_card_enrollment_state() ==
+  return candidate_server_card->virtual_card_enrollment_state() ==
          CreditCard::VirtualCardEnrollmentState::kEnrolled;
 }
 

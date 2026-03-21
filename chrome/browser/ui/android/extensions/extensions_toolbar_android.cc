@@ -138,9 +138,15 @@ void ExtensionsToolbarAndroid::OnPinnedActionsChanged() {
                                                       java_object_);
 }
 
-void ExtensionsToolbarAndroid::OnActiveWebContentsChanged() {
+void ExtensionsToolbarAndroid::OnActiveWebContentsChanged(
+    bool /*is_same_document*/) {
   Java_ExtensionsToolbarBridge_onActiveWebContentsChanged(AttachCurrentThread(),
                                                           java_object_);
+}
+
+void ExtensionsToolbarAndroid::OnToolbarControlStateUpdated() {
+  Java_ExtensionsToolbarBridge_onToolbarControlStateUpdated(
+      AttachCurrentThread(), java_object_);
 }
 
 void ExtensionsToolbarAndroid::Destroy(JNIEnv* env) {
@@ -149,11 +155,13 @@ void ExtensionsToolbarAndroid::Destroy(JNIEnv* env) {
 
 base::android::ScopedJavaLocalRef<jobject> ExtensionsToolbarAndroid::GetAction(
     JNIEnv* env,
-    const ToolbarActionsModel::ActionId& action_id) {
+    const ToolbarActionsModel::ActionId& action_id,
+    content::WebContents* web_contents) {
   ToolbarActionViewModel* action =
       toolbar_view_model_->GetActionModelForId(action_id);
   return Java_ExtensionAction_Constructor(
-      env, action_id, base::UTF16ToUTF8(action->GetActionName()));
+      env, action_id, base::UTF16ToUTF8(action->GetTooltip(web_contents)),
+      base::UTF16ToUTF8(action->GetAccessibleName(web_contents)));
 }
 
 base::android::ScopedJavaLocalRef<jobject> ExtensionsToolbarAndroid::GetIcon(
@@ -196,6 +204,12 @@ std::vector<ToolbarActionsModel::ActionId>
 ExtensionsToolbarAndroid::GetPinnedActionIds(JNIEnv* env) {
   const auto& ids = toolbar_view_model_->GetPinnedActionIds();
   return std::vector(ids.begin(), ids.end());
+}
+
+int ExtensionsToolbarAndroid::GetExtensionsMenuButtonState(
+    JNIEnv* env,
+    content::WebContents* web_contents) {
+  return static_cast<int>(toolbar_view_model_->GetButtonState(*web_contents));
 }
 
 void ExtensionsToolbarAndroid::ExecuteUserAction(

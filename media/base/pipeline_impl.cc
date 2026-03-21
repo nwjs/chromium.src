@@ -550,8 +550,14 @@ void PipelineImpl::RendererWrapper::Resume(
   // Queue the asynchronous actions required to start playback.
   SerialRunner::Queue fns;
 
-  fns.Push(base::BindOnce(&Demuxer::Seek, base::Unretained(demuxer_),
-                          start_timestamp));
+  // Non-seekable demuxers are responsible for resetting their own media times
+  // and issuing a seek directly. This is common for live content, where a
+  // resumption of playback after a delay may cause `start_timestamp` to be
+  // outside of a valid window where data is still available.
+  if (demuxer_->IsSeekable()) {
+    fns.Push(base::BindOnce(&Demuxer::Seek, base::Unretained(demuxer_),
+                            start_timestamp));
+  }
 
   fns.Push(base::BindOnce(&RendererWrapper::CreateRenderer,
                           weak_factory_.GetWeakPtr()));
@@ -726,9 +732,11 @@ void PipelineImpl::RendererWrapper::CreateRendererInternal(
   }
 #endif  // BUILDFLAG(IS_WIN)
 
-  // TODO(xhwang): During Resume(), the |default_renderer_| might already match
-  // the |renderer_type|, in which case we shouldn't need to create a new one.
-  if (!default_renderer_ || renderer_type) {
+  // During Resume(), the |default_renderer_| might already match the
+  // |renderer_type|, in which case we shouldn't need to create a new one.
+  if (!default_renderer_ ||
+      (renderer_type &&
+       default_renderer_->GetRendererType() != renderer_type.value())) {
     // Create the Renderer asynchronously on the main task runner. Use
     // base::BindPostTaskToCurrentDefault to call OnRendererCreated() on the
     // media task runner.

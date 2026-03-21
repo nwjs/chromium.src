@@ -64,7 +64,6 @@
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/login_ui_test_utils.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -158,6 +157,7 @@ const char kOAuth2TokenRevokeURL[] = "/o/oauth2/revoke";
 const char kSecondaryEmail[] = "secondary_email@example.com";
 const char kSigninURL[] = "/signin";
 const char kSigninWithOutageInDiceURL[] = "/signin/outage";
+const char kSyncDuringOAuthOutageURL[] = "/sync/outage";
 const char kSignoutURL[] = "/signout";
 const char kAddAccountURL[] = "/AddSession";
 
@@ -288,6 +288,24 @@ std::unique_ptr<HttpResponse> HandleEnableSyncURL(
 
   std::unique_ptr<BlockedHttpResponse> http_response =
       std::make_unique<BlockedHttpResponse>(callback);
+  http_response->AddCustomHeader(
+      kDiceResponseHeader,
+      base::StringPrintf(
+          "action=ENABLE_SYNC,authuser=1,id=%s,email=%s",
+          signin::GetTestGaiaIdForEmail(main_email).ToString().c_str(),
+          main_email.c_str()));
+  http_response->AddCustomHeader("Cache-Control", "no-store");
+  return std::move(http_response);
+}
+
+std::unique_ptr<HttpResponse> HandleEnableSyncDuringOAuthOutage(
+    const std::string& main_email,
+    const HttpRequest& request) {
+  if (!net::test_server::ShouldHandle(request, kSyncDuringOAuthOutageURL)) {
+    return nullptr;
+  }
+
+  auto http_response = std::make_unique<BasicHttpResponse>();
   http_response->AddCustomHeader(
       kDiceResponseHeader,
       base::StringPrintf(
@@ -460,6 +478,8 @@ class DiceBrowserTest : public InProcessBrowserTest,
         &FakeGaia::HandleEnableSyncURL, main_email_,
         base::BindRepeating(&DiceBrowserTest::OnEnableSyncRequest,
                             base::Unretained(this))));
+    https_server_.RegisterDefaultHandler(base::BindRepeating(
+        &FakeGaia::HandleEnableSyncDuringOAuthOutage, main_email_));
     https_server_.RegisterDefaultHandler(
         base::BindRepeating(&FakeGaia::HandleSignoutURL, main_email_));
     https_server_.RegisterDefaultHandler(base::BindRepeating(
@@ -878,6 +898,37 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, SupportOAuthOutageInDice) {
   WaitForReconcilorUnblockedCount(1);
 }
 
+// Checks that the ENABLE_SYNC header is gracefully handled by Chrome during an
+// OAuth outage.
+// This is a regression test for https://crbug.com/483610401.
+IN_PROC_BROWSER_TEST_F(DiceBrowserTest,
+                       EnableSyncHeadersGracefullyHandledDuringOAuthOutage) {
+  base::HistogramTester histogram_tester;
+  DiceResponseHandler* dice_response_handler =
+      DiceResponseHandlerFactory::GetForProfile(browser()->profile());
+  scoped_refptr<base::TestMockTimeTaskRunner> task_runner =
+      new base::TestMockTimeTaskRunner();
+  dice_response_handler->SetTaskRunner(task_runner);
+  NavigateToURL(kSigninWithOutageInDiceURL);
+  // Check that the Dice request header was sent.
+  std::string client_id = GaiaUrls::GetInstance()->oauth2_chrome_client_id();
+  EXPECT_EQ(base::StringPrintf("version=%s,client_id=%s,device_id=%s,"
+                               "signin_mode=all_accounts,"
+                               "signout_mode=show_confirmation",
+                               signin::kDiceProtocolVersion, client_id.c_str(),
+                               GetDeviceId().c_str()),
+            dice_request_header_);
+  // Check that the reconcilor was blocked.
+  EXPECT_EQ(1, reconcilor_blocked_count_);
+  EXPECT_EQ(0, reconcilor_unblocked_count_);
+
+  NavigateToURL(kSyncDuringOAuthOutageURL);
+
+  histogram_tester.ExpectUniqueSample(
+      "Signin.DiceEnableSyncHeaderAccountInfoIsPresent", /*sample=*/0,
+      /*expected_bucket_count=*/1);
+}
+
 // Checks that re-auth on Gaia triggers the fetch for a refresh token.
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, Reauth) {
   EXPECT_EQ(0, reconcilor_started_count_);
@@ -903,7 +954,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, Reauth) {
   EXPECT_EQ(GetMainAccountID(), GetIdentityManager()->GetPrimaryAccountId(
                                     signin::ConsentLevel::kSignin));
 
-  // Old token must not be revoked (see http://crbug.com/865189).
+  // Old token must not be revoked (see http://crbug.com/40585591).
   EXPECT_EQ(0, token_revoked_notification_count_);
 
   EXPECT_EQ(1, reconcilor_blocked_count_);
@@ -1007,7 +1058,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, RevokePrimaryAccountInAuthErrorState) {
 }
 
 // Checks that Dice request header is not set from request from WebUI.
-// See https://crbug.com/428396
+// See https://crbug.com/40391545
 #if BUILDFLAG(IS_WIN)
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, NoDiceFromWebUI) {
   // Navigate to Gaia and from the native tab, which uses an extension.
@@ -1643,9 +1694,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithExplicitSignin,
                        SigninWithChoiceRemembered_Signin) {
   base::HistogramTester histogram_tester;
 
-  PrefService* prefs = browser()->profile()->GetPrefs();
-  ASSERT_FALSE(prefs->GetBoolean(prefs::kExplicitBrowserSignin));
-
   // Simulates a previous choice done with Always sign in.
   SetChromeSigninChoice(ChromeSigninUserChoice::kSignin);
 
@@ -1656,9 +1704,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithExplicitSignin,
   histogram_tester.ExpectUniqueSample(
       "Signin.SignIn.Completed",
       signin_metrics::AccessPoint::kSigninChoiceRemembered, 1);
-  // Should still count as an explicit sign in since the choice was explicit
-  // set.
-  EXPECT_TRUE(prefs->GetBoolean(prefs::kExplicitBrowserSignin));
 }
 
 class DiceBrowserTestWithExplicitSigninReplaceSyncPromosWithSignInPromos
@@ -1773,9 +1818,6 @@ class DiceBrowserTestWithAutoAcceptFlag
 IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithAutoAcceptFlag, AutoSignin) {
   base::HistogramTester histogram_tester;
 
-  PrefService* prefs = browser()->profile()->GetPrefs();
-  ASSERT_FALSE(prefs->GetBoolean(prefs::kExplicitBrowserSignin));
-
   SimulateWebSigninMainAccount();
 
   EXPECT_TRUE(
@@ -1783,9 +1825,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithAutoAcceptFlag, AutoSignin) {
   histogram_tester.ExpectUniqueSample(
       "Signin.SignIn.Completed",
       signin_metrics::AccessPoint::kSigninChoiceRemembered, 1);
-  // Should still count as an explicit sign in since the choice was explicit
-  // set.
-  EXPECT_TRUE(prefs->GetBoolean(prefs::kExplicitBrowserSignin));
 
   // Expect that metrics related to the browser signin stage are not recorded
   // for the web sigin case.

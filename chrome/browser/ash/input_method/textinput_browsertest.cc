@@ -240,8 +240,7 @@ IN_PROC_BROWSER_TEST_F(TextInput_TextInputStateChangedTest,
   };  // The order should be same as tab order in all_input_node.html.
 
   for (auto& expectation : expectations) {
-    content::SimulateKeyPress(tab, ui::DomKey::TAB, ui::DomCode::TAB,
-                              ui::VKEY_TAB, false, false, false, false);
+    content::SimulateCharTyped(tab, '\t');
 
     helper.WaitForTextInputStateChanged(expectation.type);
     EXPECT_EQ(expectation.type, helper.GetTextInputType());
@@ -255,7 +254,7 @@ IN_PROC_BROWSER_TEST_F(TextInput_TextInputStateChangedTest,
   }
 }
 
-// Flaky on chromeos.  http://crbug.com/391582
+// Flaky on chromeos.  http://crbug.com/40373506
 IN_PROC_BROWSER_TEST_F(TextInput_TextInputStateChangedTest,
                        DISABLED_OpenNewTabOnloadTest) {
   TextInputTestHelper helper(GetInputMethod());

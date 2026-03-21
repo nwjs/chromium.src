@@ -293,6 +293,16 @@ found in the LICENSE file.
     <!-- 18dp padding is added to each side of the remove button to limit the image width to 20dp (56dp - 2 * 18dp). -->
     <dimen name="history_item_remove_button_lateral_padding">18dp</dimen>
     <dimen name="history_item_leading_padding">2dp</dimen>
+    <dimen name="history_item_spark_size">18dp</dimen>
+    <!--
+        Calculated to align the spark center with the favicon bottom-right corner.
+        Favicon right edge = list_item_default_margin(16dp) + list_item_start_icon_width(36dp) = 52dp.
+        Spark margin start = 52dp - (history_item_spark_size(18dp) / 2) = 43dp.
+    -->
+    <dimen name="history_item_spark_margin_start">43dp</dimen>
+    <!-- Calculated using list_item_min_height(64dp) / 2. -->
+    <dimen name="history_item_spark_margin_top">32dp</dimen>
+    <dimen name="history_item_spark_padding">4dp</dimen>
 
     <!-- Context Menu Dimensions -->
     <!-- Prevent the chip from reaching the edges of the screen for long translations. -->
@@ -434,6 +444,7 @@ found in the LICENSE file.
     <dimen name="tab_strip_group_context_menu_max_width">392dp</dimen>
     <dimen name="tab_strip_context_menu_min_width">200dp</dimen>
     <dimen name="tab_strip_context_menu_max_width">300dp</dimen>
+    <dimen name="tab_strip_glic_menu_max_width">144dp</dimen>
 
     <!-- Link Hover Status Bar dimensions. -->
     <dimen name="link_hover_status_bar_max_width">300dp</dimen>
@@ -457,6 +468,7 @@ found in the LICENSE file.
     <dimen name="tips_notifications_bottom_sheet_step_content_margin_start">16dp</dimen>
     <dimen name="tips_notifications_bottom_sheet_step_number_width">25dp</dimen>
     <dimen name="tips_notifications_bottom_sheet_title_padding">24dp</dimen>
+    <dimen name="tips_notifications_bottom_sheet_vertical_margin">20dp</dimen>
 
     <!-- View list background dimensions -->
     <dimen name="view_list_item_large_radius">24dp</dimen>
@@ -474,4 +486,7 @@ found in the LICENSE file.
     <dimen name="document_picture_in_picture_header_component_size">48dp</dimen>
     <dimen name="document_picture_in_picture_url_bar_padding">6dp</dimen>
     <dimen name="document_picture_in_picture_header_min_height">48dp</dimen>
+
+    <!-- Chrome Finds dimensions -->
+    <dimen name="chrome_finds_opt_in_bottom_sheet_horizontal_margin">24dp</dimen>
 </resources>

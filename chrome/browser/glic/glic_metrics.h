@@ -185,14 +185,18 @@ enum class ResponseSegmentation {
   kActorTaskIconAttachedAudio = 50,
   kActorTaskIconDetachedText = 51,
   kActorTaskIconDetachedAudio = 52,
-  kHandoffButtonAttachedText = 53,
-  kHandoffButtonAttachedAudio = 54,
-  kHandoffButtonDetachedText = 55,
-  kHandoffButtonDetachedAudio = 56,
-  kSkillsAttachedText = 57,
-  kSkillsAttachedAudio = 58,
-  kSkillsDetachedText = 59,
-  kSkillsDetachedAudio = 60,
+  kSharedImageAttachedText = 53,
+  kSharedImageAttachedAudio = 54,
+  kSharedImageDetachedText = 55,
+  kSharedImageDetachedAudio = 56,
+  kHandoffButtonAttachedText = 57,
+  kHandoffButtonAttachedAudio = 58,
+  kHandoffButtonDetachedText = 59,
+  kHandoffButtonDetachedAudio = 60,
+  kSkillsAttachedText = 61,
+  kSkillsAttachedAudio = 62,
+  kSkillsDetachedText = 63,
+  kSkillsDetachedAudio = 64,
   kAutoOpenedByContextualCueAttachedText = 65,
   kAutoOpenedByContextualCueAttachedAudio = 66,
   kAutoOpenedByContextualCueDetachedText = 67,
@@ -209,7 +213,15 @@ enum class ResponseSegmentation {
   kAutoOpenedForPdfAttachedAudio = 78,
   kAutoOpenedForPdfDetachedText = 79,
   kAutoOpenedForPdfDetachedAudio = 80,
-  kMaxValue = kAutoOpenedForPdfDetachedAudio,
+  kCaptureRegionHotkeyAttachedText = 81,
+  kCaptureRegionHotkeyAttachedAudio = 82,
+  kCaptureRegionHotkeyDetachedText = 83,
+  kCaptureRegionHotkeyDetachedAudio = 84,
+  kIphAttachedText = 85,
+  kIphAttachedAudio = 86,
+  kIphDetachedText = 87,
+  kIphDetachedAudio = 88,
+  kMaxValue = kIphDetachedAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicResponseSegmentation)
 
@@ -300,21 +312,23 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   ~GlicMetrics() override;
 
   // `GlicInstanceMetricsBackwardsCompatibility`:
+  void OnUserInputSubmitted(mojom::WebClientMode mode) override;
+  void OnReaction(mojom::MetricUserInputReactionType reaction_type) override;
+  void OnResponseStarted() override;
+  void OnResponseStopped(mojom::ResponseStopCause cause) override;
+  void OnTurnCompleted(mojom::WebClientModel model,
+                       base::TimeDelta duration) override;
+  void DidRequestContextFromTab(tabs::TabInterface& tab) override;
   void OnGlicScrollAttempt() override;
   void OnGlicScrollComplete(bool success) override;
 
   // See glic.mojom for details. These are events from the web client. The
   // lifetime of the web client is scoped to that of the window, so if these
   // methods are called then controller_ is guaranteed to exist.
-  void OnUserInputSubmitted(mojom::WebClientMode mode);
   void OnContextUploadStarted();
   void OnContextUploadCompleted();
-  void OnReaction(mojom::MetricUserInputReactionType reaction_type);
-  void OnResponseStarted();
-  void OnResponseStopped(mojom::ResponseStopCause cause);
   void OnSessionTerminated();
   void OnResponseRated(bool positive);
-  void OnTurnCompleted(mojom::WebClientModel model, base::TimeDelta duration);
   void OnRecordUseCounter(uint16_t counter);
 
   void OnAttachedToBrowser(AttachChangeReason reason);
@@ -389,10 +403,11 @@ class GlicMetrics : public GlicInstanceMetricsBackwardsCompatibility {
                                   GlicSharingManager* sharing_manager);
   void ClearControllers();
 
-  void SetDelegateForTesting(std::unique_ptr<Delegate> delegate);
+  // Records user preferences for the profile. Called when the GlicKeyedService
+  // for each profile is created.
+  void RecordGlicProfilePreferences();
 
-  // Must be called when context is requested from a tab.
-  void DidRequestContextFromTab(content::WebContents& web_contents);
+  void SetDelegateForTesting(std::unique_ptr<Delegate> delegate);
 
   // Sets the input mode of the web client. Should be called when the panel is
   // opened and in every subsequent mode change.

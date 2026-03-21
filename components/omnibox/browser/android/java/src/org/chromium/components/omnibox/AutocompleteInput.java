@@ -5,13 +5,16 @@
 package org.chromium.components.omnibox;
 
 import android.text.TextUtils;
+import android.util.Range;
 
 import androidx.annotation.IntDef;
 
 import org.chromium.base.UserData;
 import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
@@ -23,6 +26,7 @@ import org.chromium.url.GURL;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * AutocompleteInput encompasses the input to autocomplete and fusebox.
@@ -50,6 +54,17 @@ public class AutocompleteInput implements UserData {
         int COUNT = 4;
     }
 
+    /** Data class representing the active site search mode state in the Omnibox. */
+    public static class SiteSearchData {
+        public final String keyword;
+        public final String fullName;
+
+        public SiteSearchData(String keyword, String fullName) {
+            this.keyword = keyword;
+            this.fullName = fullName;
+        }
+    }
+
     private long mUrlFocusTime;
     private GURL mPageUrl;
     private int mPageClassification;
@@ -57,14 +72,18 @@ public class AutocompleteInput implements UserData {
     private String mUserText;
     private boolean mAllowExactKeywordMatch;
     private boolean mHasAttachments;
-    private int mSelectionStart;
-    private int mSelectionEnd;
+    private boolean mSuppressAutomaticSuggestionsUntilUserStartsTyping;
+    private Range<Integer> mSelection;
     private @RefineActionUsage int mRefineActionUsage;
     private boolean mSuggestionsListScrolled;
     private @OmniboxFocusReason int mFocusReason;
     private final SettableNonNullObservableSupplier<@AutocompleteRequestType Integer>
             mRequestTypeSupplier =
                     ObservableSuppliers.createNonNull(AutocompleteRequestType.SEARCH);
+    private final SettableNonNullObservableSupplier<Integer> mToolModeSupplier =
+            ObservableSuppliers.createNonNull(ToolMode.TOOL_MODE_UNSPECIFIED_VALUE);
+    private final SettableNullableObservableSupplier<SiteSearchData> mSiteSearchData =
+            ObservableSuppliers.createNullable();
 
     public AutocompleteInput() {
         reset();
@@ -170,6 +189,7 @@ public class AutocompleteInput implements UserData {
     /** Set the AutocompleteRequestType */
     public AutocompleteInput setRequestType(@AutocompleteRequestType int type) {
         mRequestTypeSupplier.set(type);
+        updateToolMode();
         return this;
     }
 
@@ -188,6 +208,28 @@ public class AutocompleteInput implements UserData {
         return mRequestTypeSupplier;
     }
 
+    /** Set the current keyword */
+    public AutocompleteInput setSiteSearchData(@Nullable SiteSearchData siteSearchData) {
+        if (Objects.equals(siteSearchData, mSiteSearchData.get())) return this;
+        mSiteSearchData.set(siteSearchData);
+        return this;
+    }
+
+    /** Returns the current SiteSearchData. */
+    public @Nullable SiteSearchData getSiteSearchData() {
+        return mSiteSearchData.get();
+    }
+
+    /**
+     * Returns the supplier for the current keyword.
+     *
+     * <p>Use sparingly - to install/remove observers. Readers should use {@see getKeyword()}.
+     * Writers should use {@see setSiteSearchData()}.
+     */
+    public NullableObservableSupplier<SiteSearchData> getSiteSearchDataSupplier() {
+        return mSiteSearchData;
+    }
+
     /**
      * Whether the given mode allows "conventional" fulfillment of a valid typed url, i.e.
      * navigating to that url directly. As an example of where this might return false: if if the
@@ -200,15 +242,9 @@ public class AutocompleteInput implements UserData {
         return mRequestTypeSupplier.get() == AutocompleteRequestType.SEARCH;
     }
 
-    /** Returns the Autocomplete Tool to use to fulfill the Request. */
-    public /* ToolMode */ int getToolMode() {
-        return switch (mRequestTypeSupplier.get()) {
-            case AutocompleteRequestType.IMAGE_GENERATION ->
-                    mHasAttachments
-                            ? ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD_VALUE
-                            : ToolMode.TOOL_MODE_IMAGE_GEN_VALUE;
-            default -> ToolMode.TOOL_MODE_UNSPECIFIED_VALUE;
-        };
+    /** Returns a supplier for the Autocomplete Tool that is currently selected. */
+    public NonNullObservableSupplier</* ToolMode */ Integer> getToolModeSupplier() {
+        return mToolModeSupplier;
     }
 
     /**
@@ -236,8 +272,8 @@ public class AutocompleteInput implements UserData {
         mAllowExactKeywordMatch &= !(oldTextUsesKeywordActivator && !newTextUsesKeywordActivator);
 
         mUserText = text;
-        mSelectionStart = text.length();
-        mSelectionEnd = mSelectionStart;
+        // Place cursor at the end of text.
+        mSelection = Range.create(text.length(), text.length());
         return this;
     }
 
@@ -279,20 +315,16 @@ public class AutocompleteInput implements UserData {
 
     public void setHasAttachments(boolean hasAttachments) {
         mHasAttachments = hasAttachments;
+        updateToolMode();
     }
 
     public AutocompleteInput setSelection(int rangeStart, int rangeEnd) {
-        mSelectionStart = rangeStart;
-        mSelectionEnd = rangeEnd;
+        mSelection = Range.create(rangeStart, rangeEnd);
         return this;
     }
 
-    public int getSelectionStart() {
-        return mSelectionStart;
-    }
-
-    public int getSelectionEnd() {
-        return mSelectionEnd;
+    public Range<Integer> getSelection() {
+        return mSelection;
     }
 
     /** Returns the current RefineActionUsage. */
@@ -321,14 +353,17 @@ public class AutocompleteInput implements UserData {
         mPageUrl = GURL.emptyGURL();
         mPageTitle = "";
         mHasAttachments = false;
-        mSelectionStart = 0;
-        mSelectionEnd = 0;
+        // Selection after all text
+        mSelection = Range.create(Integer.MAX_VALUE, Integer.MAX_VALUE);
         mRefineActionUsage = RefineActionUsage.NOT_USED;
         mPageClassification = PageClassification.BLANK_VALUE;
         mFocusReason = OmniboxFocusReason.OMNIBOX_TAP;
         mRequestTypeSupplier.set(AutocompleteRequestType.SEARCH);
+        mSiteSearchData.set(null);
         mUrlFocusTime = 0;
         mSuggestionsListScrolled = false;
+        mSuppressAutomaticSuggestionsUntilUserStartsTyping = false;
+        updateToolMode();
 
         return this;
     }
@@ -348,5 +383,31 @@ public class AutocompleteInput implements UserData {
 
     public void setSuggestionsListScrolled() {
         mSuggestionsListScrolled = true;
+    }
+
+    /**
+     * Whether to instantly show suggestions for the supplied input (false), or wait until the user
+     * actually began typing query (true).
+     */
+    public boolean shouldSuppressAutomaticSuggestionsUntilUserStartsTyping() {
+        return mSuppressAutomaticSuggestionsUntilUserStartsTyping;
+    }
+
+    public AutocompleteInput setSuppressAutomaticSuggestionsUntilUserStartsTyping(
+            boolean suppress) {
+        mSuppressAutomaticSuggestionsUntilUserStartsTyping = suppress;
+        return this;
+    }
+
+    private void updateToolMode() {
+        int mode =
+                switch (mRequestTypeSupplier.get()) {
+                    case AutocompleteRequestType.IMAGE_GENERATION ->
+                            mHasAttachments
+                                    ? ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD_VALUE
+                                    : ToolMode.TOOL_MODE_IMAGE_GEN_VALUE;
+                    default -> ToolMode.TOOL_MODE_UNSPECIFIED_VALUE;
+                };
+        mToolModeSupplier.set(mode);
     }
 }

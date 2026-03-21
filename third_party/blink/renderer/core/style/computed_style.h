@@ -1045,8 +1045,7 @@ class ComputedStyle final : public ComputedStyleBase {
   }
   bool ColumnRuleEquivalent(const ComputedStyle& other_style) const;
   bool HasColumnRule() const {
-    if (!SpecifiesColumns() && (Display() != EDisplay::kGrid &&
-                                Display() != EDisplay::kFlex)) [[likely]] {
+    if (!IsGapDecorationsContainer()) [[likely]] {
       return false;
     }
     return HasRuleWidth(ColumnRuleWidth()) && !ColumnRuleIsTransparent() &&
@@ -1057,10 +1056,7 @@ class ComputedStyle final : public ComputedStyleBase {
     return GapRuleColorIsTransparent(RowRuleColor());
   }
   bool HasRowRule() const {
-    // `SpecifiesColumns()` signifies we are in a multicol context. Return false
-    // if we are not in a multicol, grid, or flex context.
-    if (!SpecifiesColumns() && (Display() != EDisplay::kGrid &&
-                                Display() != EDisplay::kFlex)) [[likely]] {
+    if (!IsGapDecorationsContainer()) [[likely]] {
       return false;
     }
 
@@ -1073,6 +1069,13 @@ class ComputedStyle final : public ComputedStyleBase {
       return false;
     }
     return HasColumnRule() || HasRowRule();
+  }
+
+  bool IsGapDecorationsContainer() const {
+    // `SpecifiesColumns()` signifies we are in a multicol context. Return false
+    // if we are not in a multicol, grid, or flex context.
+    return SpecifiesColumns() || IsDisplayFlexibleBox(Display()) ||
+           IsDisplayGridBox(Display());
   }
 
   // Flex utility functions.
@@ -1309,10 +1312,10 @@ class ComputedStyle final : public ComputedStyleBase {
   }
 
   // text-transform utility functions.
-  [[nodiscard]] String ApplyTextTransform(
-      const String&,
-      UChar previous_character = ' ',
-      TextOffsetMap* offset_map = nullptr) const;
+  [[nodiscard]] CORE_EXPORT String
+  ApplyTextTransform(const String&,
+                     UChar previous_character = ' ',
+                     TextOffsetMap* offset_map = nullptr) const;
 
   // Line-height utility functions.
   const Length& SpecifiedLineHeight() const { return LineHeightInternal(); }
@@ -2089,13 +2092,17 @@ class ComputedStyle final : public ComputedStyleBase {
     return HasCurrentOpacityAnimation() ||
            HasCurrentTransformRelatedAnimation() ||
            HasCurrentFilterAnimation() || HasCurrentBackdropFilterAnimation() ||
+           (RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled() &&
+            HasCurrentClipPathAnimation()) ||
            (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
             HasCurrentBackgroundColorAnimation());
   }
   bool ShouldCompositeForCurrentAnimations() const {
     return HasCurrentOpacityAnimation() ||
            HasCurrentTransformRelatedAnimation() ||
-           HasCurrentFilterAnimation() || HasCurrentBackdropFilterAnimation();
+           HasCurrentFilterAnimation() || HasCurrentBackdropFilterAnimation() ||
+           (RuntimeEnabledFeatures::CompositeClipPathAnimationEnabled() &&
+            HasCurrentClipPathAnimation());
   }
   bool IsRunningTransformRelatedAnimationOnCompositor() const {
     return IsRunningTransformAnimationOnCompositor() ||

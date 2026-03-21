@@ -29,6 +29,7 @@
 <translation id="126567311906253476">Google სერვისებში, მაგალითად, Gmail-სა თუ YouTube-ში <ph name="USER_EMAIL" />-ით შესვლისას შეგიძლიათ Chromium-შიც იმავე ანგარიშით შეხვიდეთ</translation>
 <translation id="1290883685122687410">დაყენების შეცდომა: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1315551408014407711">შექმენით ახალი Chromium პროფილი</translation>
+<translation id="132092532143527429">ცადეთ Gemini Chromium-ში</translation>
 <translation id="1324107359134968521">Chromium საჭიროებს Bluetooth-ს, რომ აღმოაჩინოს 
  Bluetooth მოწყობილობები. <ph name="IDS_SERIAL_DEVICE_CHOOSER_AUTHORIZE_BLUETOOTH_LINK" /></translation>
 <translation id="1330562121671411446">ენის ამოცნობა</translation>
@@ -166,7 +167,6 @@
 <translation id="2738871930057338499">ინტერნეტთან დაკავშირება ვერ ხერხდება. HTTP 403 — აკრძალულია. შეამოწმეთ პროქსი-სერვერის კონფიგურაცია.</translation>
 <translation id="2753623023919742414">დააწკაპუნეთ ძიებისთვის</translation>
 <translation id="2768103863314748511">დააყეენთ Chromium PDF ფაილების ნაგულისხმევ მნახველად</translation>
-<translation id="277828055419948999">Chromium-ს შეუძლია რთული ველების ავტომატური შევსება, რომლებსაც სტანდარტული ავტომატური შევსება ვერ უმკლავდება</translation>
 <translation id="2785438272836277133">ეს გაფართოება შეიცავს მავნე პროგრამას და ის არ არის უსაფრთხო. წაშალეთ ის Chromium-იდან, რომ მას აღარ შეეძლოს თქვენი მონაცემების (მათ შორის, პერსონალური ინფორმაციის) ნახვა და შეცვლა თქვენ მიერ მონახულებულ საიტებზე.</translation>
 <translation id="2799223571221894425">ხელახლა გაშვება</translation>
 <translation id="2803971713792056305">თქვენი Chromium</translation>
@@ -242,7 +242,9 @@
 <translation id="3509308970982693815">დახურეთ Chromium-ის ყველა ფანჯარა და ხელახლა სცადეთ.</translation>
 <translation id="3522404737534491619">თქვენი ფანჯრის გასაზიარებლად დაუშვით ეკრანის ჩაწერა Chromium-ისთვის სისტემის პარამეტრებში</translation>
 <translation id="3530103706039034513"><ph name="EXISTING_USER" /> მზად არის შესასვლელად.  ცალკე დათვალიერების გასაგრძელებლად შედით Chromium-ში თქვენს პირად პროფილში <ph name="USER_EMAIL_ADDRESS" />.</translation>
+<translation id="3531741627422851418">QR კოდი Chromium ბრაუზერის მობილურ მოწყობილობებზე ჩამოსატვირთად</translation>
 <translation id="3561853857681580870">თქვენი ეკრანის გასაზიარებლად დაუშვით ეკრანის ჩაწერა Chromium-ისთვის სისტემის პარამეტრებში.</translation>
+<translation id="3588112919289558122">გაძლიერებული დაცვა თიშავს JavaScript-ის ოპტიმიზაციას იმ საიტებისთვის, რომლებსაც Chromium ვერ ამოიცნობს</translation>
 <translation id="3597003331831379823">მაღალი პრივილეგიებით დაყენების გაშვება ვერ მოხერხდა. <ph name="METAINSTALLER_ERROR" /></translation>
 <translation id="3600428265489994557">Chromium-ში შესვლა</translation>
 <translation id="3639635944603682591">ამ პიროვნების დათვალიერების მონაცემები წაიშლება ამ მოწყობილობიდან. მონაცემების აღსადგენად შედით Chromium-ში, როგორც <ph name="USER_EMAIL" />.</translation>
@@ -479,6 +481,7 @@
 <translation id="6327105987658262776">განახლებები ხელმისაწვდომი არ არის.</translation>
 <translation id="6333502561965082103">Chromium-ში სხვა ოპერაცია მიმდინარეობს. გთხოვთ, ცადოთ მოგვიანებით.</translation>
 <translation id="6334986366598267305">ყველა საერთო მოხმარების კომპიუტერზე ადვილი გახდა Google ანგარიშით Chromium-ის გამოყენება.</translation>
+<translation id="6347002662287820329">დააყენეთ Chromium ნაგულისხმევ ბრაუზერად და მიიღეთ მარტივი წვდომა იმ ფუნქციებზე, რომლებსაც იცნობთ, გიყვართ და ენდობით.</translation>
 <translation id="6347933965114150440">Chromium-ის მალსახმობი</translation>
 <translation id="6366160072964553914">Chromium-მა დაბლოკა ეს ჩამოტვირთვა, რადგან ამ ფაილს, როგორც წესი, არ ტვირთავენ ხოლმე და ის, შესაძლოა, სახიფათო იყოს</translation>
 <translation id="6373523479360886564">ნამდვილად გსურთ მოახდინოთ Chromium-ის დეინსტალაცია?</translation>
@@ -588,6 +591,9 @@ Chromium ვერ შეძლებს თქვენი პარამე�
 <translation id="7384121030444253939">ეს გაფართოება აღარ არის მხარდაჭერილი. Chromium გირჩევთ მის ამოშლას.</translation>
 <translation id="7413153308467572558">გააგრძელეთ იქიდან, სადაც გაჩერდით: Chromium აღადგენს თქვენს ჩანართებს ყოველი გადატვირთვის შემდეგ. ამის გამოსართავად გადადით</translation>
 <translation id="7427879960656355200">Chromium-ში პაროლების იმპორტი</translation>
+<translation id="744815265653811511">1. დააწკაპუნეთ <ph name="BUTTON_LABEL" />-ზე ქვემოთ
+2. დააწკაპუნეთ <ph name="BUTTON_2" />ზე Windows-ის პარამეტრებში
+3. დააწკაპუნეთ <ph name="BUTTON_3" />-ზე Windows-ის შეტყობინებაში, რომ ჩაამაგროთ Chromium ამოცანათა ზოლში სწრაფი წვდომისთვის</translation>
 <translation id="7449453770951226939"><ph name="PAGE_TITLE" /> — Chromium Dev</translation>
 <translation id="7450541714075000668">ტექსტი დაკოპირდა</translation>
 <translation id="7451052299415159299">Chromium საჭიროებს თქვენს კამერაზე წვდომის ნებართვას ამ საიტისთვის</translation>
@@ -595,7 +601,6 @@ Chromium ვერ შეძლებს თქვენი პარამე�
 <translation id="7461356015007898716">Chromium-ის მომავალი განახლებების მისაღებად დაგჭირდებათ Windows 10 ან უფრო ახალი ვერსია. ეს კომპიუტერი იყენებს Windows 7-ს.</translation>
 <translation id="7467949745582939695">გსურთ Chromium-ის ხელახლა გაშვება?</translation>
 <translation id="7483335560992089831">შეუძლებელია იმავე Chromium-ის ვერსიის დაყენება, რომელიც ამჟამად გაშვებულია. დახურეთ Chromium და ხელახლა სცადეთ.</translation>
-<translation id="7517403744065880907">თქვენ შეინახავთ და გამოიყენეთ პაროლებსა და სხვა მონაცემებს Google ანგარიშში, როცა Chromium-ში შეხვალთ. <ph name="LEARN_MORE" /></translation>
 <translation id="751935028865900641">საიტები, სავარაუდოდ, არ იმუშავებს მოლოდინისამებრ. Chromium-ის ყველა ფანჯრის დახურვისას სისტემიდან გამოხვალთ საიტების უმეტესობაზე, გამონაკლისია თქვენი Google ანგარიში, თუ მასში შესული ხართ Chromium-იდან.</translation>
 <translation id="753534427205733210">{0,plural, =1{Chromium ხელახლა გაეშვება 1 წუთში}other{Chromium ხელახლა გაეშვება # წუთში}}</translation>
 <translation id="7565444033145385702">თქვენი მონაცემების დაცვის მიზნით, მიეცით საშუალება Chromium-ს გაუუქმოს ნებართვები საიტებს, რომლებზეც ბოლო დროს არ გადასულხართ.</translation>
@@ -604,7 +609,9 @@ Chromium ვერ შეძლებს თქვენი პარამე�
 <translation id="761356813943268536">Chromium იყენებს თქვენს კამერას და მიკროფონს.</translation>
 <translation id="7617377681829253106">Chromium გაუმჯობესდა</translation>
 <translation id="7622753900276619808">ახლა თქვენთვის ხელმისაწვდომია მეტი ფუნქცია Chromium-ში</translation>
+<translation id="7624307931717240213">ინფორმაციას ვიყენებთ ამ სერვისის გასაუმჯობესებლად. იხილეთ კონფიდენციალურობის დებულება და მომსახურების პირობები.</translation>
 <translation id="7649070708921625228">დახმარება</translation>
+<translation id="7650134251917003571">Chromium აპის ჩამოტვირთვა</translation>
 <translation id="7656340475565475526">ნება დართეთ Chromium-ს, დაათვალიეროს თქვენთვის</translation>
 <translation id="7658239707568436148">გაუქმება</translation>
 <translation id="7686590090926151193">Chromium არ არის თქვენი ნაგულისხმევი ბრაუზერი</translation>
@@ -738,7 +745,6 @@ Chromium ვერ შეძლებს თქვენი პარამე�
 <translation id="9183331186620388872">მინიშნება Chromium-ისთვის: Lens-ით ძიება</translation>
 <translation id="9185526690718004400">ხელახლა გაშვება &amp;Chromium-ის გასაახლებლად</translation>
 <translation id="9190841055450128916">Chromium (mDNS-In)</translation>
-<translation id="9206863043651638213">მიიღეთ წვდომა მეტ მონაცემზე Chromium-ში შესვლით</translation>
 <translation id="924957577793602335">მოირგეთ Chromium</translation>
 <translation id="93478295209880648">Chromium-მა შეიძლება არასწორად იმუშაოს, რადგან ის აღარ არის მხარდაჭერილი Windows XP-სა და Windows Vista-ზე</translation>
 <translation id="945522503751344254">შეფასების გაგზავნა</translation>

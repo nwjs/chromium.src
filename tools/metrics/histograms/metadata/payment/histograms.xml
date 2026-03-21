@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="PaymentRequest.AddressEditorTrigerred"
-    enum="PaymentRequestAddressEditorMode" expires_after="2026-06-07">
+    enum="PaymentRequestAddressEditorMode" expires_after="2026-08-09">
   <owner>vykochko@chromium.org</owner>
   <owner>smcgruer@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -35,7 +35,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.CanMakePayment.CallAllowedByPref"
-    enum="Boolean" expires_after="2026-02-22">
+    enum="Boolean" expires_after="2026-10-06">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -61,7 +61,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.Events2" units="bitfield value"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -70,8 +70,26 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="PaymentRequest.GetSecurePaymentConfirmationCapabilities.BrowserBoundKeyHardware"
+    enum="Boolean" expires_after="2027-03-01">
+  <owner>darwinyang@google.com</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Whether a hardware backed browser bound key is available for use when
+    getSecurePaymentConfirmationCapabilities() is called. Recorded at the end of
+    IsBrowserBoundKeyHardwareSupported() before it is returned and collected
+    into a map of capabilities that is returned to the caller. Note that this
+    does not record how often developers want to know if hardware backed browser
+    bound keys are available as this will always be called when
+    getSecurePaymentConfirmationCapabilities() is called. In addition, the
+    results of this metric can also be biased as this may be called multiple
+    times on the same client/device.
+  </summary>
+</histogram>
+
 <histogram name="PaymentRequest.HasEnrolledInstrument.CallAllowedByPref"
-    enum="Boolean" expires_after="2026-03-01">
+    enum="Boolean" expires_after="2026-10-06">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -108,7 +126,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.IsCanMakePaymentAllowedByPref.PaymentRequestConstruction.Once"
-    enum="Boolean" expires_after="2026-04-06">
+    enum="Boolean" expires_after="2026-10-06">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -127,7 +145,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.IsCanMakePaymentAllowedByPref.PaymentRequestConstruction.Once.DisabledReason"
-    enum="CanMakePaymentPreferenceSetter" expires_after="2026-02-22">
+    enum="CanMakePaymentPreferenceSetter" expires_after="2026-10-06">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -145,7 +163,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.IsCanMakePaymentAllowedByPref.Startup"
-    enum="Boolean" expires_after="2026-02-22">
+    enum="Boolean" expires_after="2026-10-06">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -157,7 +175,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.IsCanMakePaymentAllowedByPref.Startup.DisabledReason"
-    enum="CanMakePaymentPreferenceSetter" expires_after="2026-02-22">
+    enum="CanMakePaymentPreferenceSetter" expires_after="2026-10-06">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -179,7 +197,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.PaymentDetailsUpdateService.ChangePaymentMethod"
-    enum="Boolean" expires_after="2026-07-12">
+    enum="Boolean" expires_after="2027-02-12">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -200,7 +218,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.PaymentDetailsUpdateService.ChangeShippingAddress"
-    enum="Boolean" expires_after="2026-03-22">
+    enum="Boolean" expires_after="2027-02-12">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -220,7 +238,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PaymentRequest.PaymentDetailsUpdateService.ChangeShippingOption"
-    enum="Boolean" expires_after="2026-03-22">
+    enum="Boolean" expires_after="2027-02-12">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -240,7 +258,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.PaymentHandlerInstallSuccess"
-    enum="BooleanSuccess" expires_after="2026-03-08">
+    enum="BooleanSuccess" expires_after="2027-03-08">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>
@@ -301,6 +319,26 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyStore.DeviceSupportsHardwareKeysLatency.{DeviceSupportsHardwareKeysResult}"
+    units="ms" expires_after="2027-03-01">
+  <owner>darwinyang@google.com</owner>
+  <owner>chrome-payments-eng@google.com</owner>
+  <summary>
+    Records the latency of fetching whether the device has support for hardware
+    backed browser bound keys. This latency is measured from the moment the
+    check is started in the browser bound key store to when the result is
+    returned. Note that this is only recorded when the value is not cached,
+    which means that it is only recorded on the first check and is not recorded
+    at all if the value was already cached by the time the check is made.
+  </summary>
+  <token key="DeviceSupportsHardwareKeysResult">
+    <variant name="NotSupported"
+        summary="Labeled device does not support hardware keys"/>
+    <variant name="Supported" summary="Labeled device supports hardware keys"/>
+  </token>
+</histogram>
+
+<histogram
     name="PaymentRequest.SecurePaymentConfirmation.BrowserBoundKeyStore.GetKeyLatency.{GetKeyLatencyResult}"
     units="ms" expires_after="2026-11-01">
   <owner>darwinyang@chromium.org</owner>
@@ -347,7 +385,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PaymentRequest.Show.TryShowOutcome"
-    enum="PaymentRequestTryShowOutcome" expires_after="2026-06-21">
+    enum="PaymentRequestTryShowOutcome" expires_after="2026-08-23">
   <owner>smcgruer@chromium.org</owner>
   <owner>chrome-payments-eng@google.com</owner>
   <summary>

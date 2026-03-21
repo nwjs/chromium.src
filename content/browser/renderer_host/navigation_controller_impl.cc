@@ -322,7 +322,10 @@ bool IsValidURLForNavigation(FrameTreeNode* node,
   // for defense-in-depth to ensure that no other places in the codebase
   // accidentally navigate guests to schemes such as WebUI, which is not
   // supported.  See https://crbug.com/1444221.
-  if (node->current_frame_host()->GetSiteInstance()->IsGuest()) {
+  if (node->current_frame_host()
+          ->GetSiteInstance()
+          ->GetSecurityPrincipal()
+          .IsGuest()) {
     auto* cpsp = content::ChildProcessSecurityPolicy::GetInstance();
     if (!cpsp->IsWebSafeScheme(dest_url.GetScheme()) &&
         !dest_url.SchemeIs(url::kAboutScheme)) {
@@ -615,7 +618,6 @@ NavigationControllerImpl::ScopedPendingEntryReentrancyGuard::
   CHECK(!controller->in_navigate_to_pending_entry_);
 
   controller->in_navigate_to_pending_entry_ = true;
-  controller->CheckPotentialNavigationReentrancy();
 
   // It must not be possible to delete the pending NavigationEntry while
   // navigating to it. Grab a reference to delay potential deletion until
@@ -644,8 +646,6 @@ NavigationControllerImpl::ScopedDeferredNavigationStateChangeNotifier::
 
 void NavigationControllerImpl::ScopedDeferredNavigationStateChangeNotifier::
     RequestDeferredNotification() {
-  CHECK(base::FeatureList::IsEnabled(
-      features::kSkipRedundantNavigationStateNotification));
   requested_ = true;
 }
 
@@ -2412,6 +2412,12 @@ void NavigationControllerImpl::RendererDidNavigateToNewEntry(
   bool was_post_commit_error =
       request->browser_initiated_error_navigation_type() ==
       NavigationRequest::BrowserInitiatedErrorNavigationType::kPostCommit;
+  // Record if the new URL matches any existing BFCache entry. We pass the
+  // target index (current + 1 or current for replace) to check for an exact
+  // index match.
+  int target_index = last_committed_entry_index_ +
+                     ((replace_entry || was_post_commit_error) ? 0 : 1);
+  GetBackForwardCache().RecordEntryMatch(params.url, target_index);
 
   InsertOrReplaceEntry(std::move(new_entry), replace_entry,
                        was_post_commit_error, rfh->IsNestedWithinFencedFrame(),
@@ -2546,12 +2552,28 @@ void NavigationControllerImpl::RendererDidNavigateToExistingEntry(
     entry->GetFavicon() = FaviconStatus();
   }
 
+  int new_entry_index = GetIndexOfEntry(entry);
+  if (!request->IsServedFromBackForwardCache()) {
+    // Record if the new URL matches any existing BFCache entry.
+    GetBackForwardCache().RecordEntryMatch(params.url, new_entry_index);
+  }
+  if (new_entry_index != -1 && new_entry_index < last_committed_entry_index_) {
+    // Record the number of forward BFCache entries when we go back.
+    GetBackForwardCache().RecordForwardEntriesCount(new_entry_index);
+    // For multi-step back navigations, also prune any existing cached entries
+    // that are now forward entries.
+    if (!GetBackForwardCache().IsCachingForwardEntriesAllowed() &&
+        last_committed_entry_index_ - new_entry_index > 1) {
+      GetBackForwardCache().PruneForwardEntries(new_entry_index);
+    }
+  }
+
   // Update the last committed index to reflect the committed entry. Do this
   // before calling DiscardNonCommittedEntriesInternal, so that the
   // delegate sees the correct committed index when notified of navigation
   // state changes. (Otherwise CanGoBack may incorrectly return true, as in
   // https://crbug.com/1439948.)
-  last_committed_entry_index_ = GetIndexOfEntry(entry);
+  last_committed_entry_index_ = new_entry_index;
 
   // We should also usually discard the pending entry if it corresponds to a
   // different navigation, since that one is now likely canceled.  In rare
@@ -2883,17 +2905,6 @@ void NavigationControllerImpl::DiscardPendingEntry(bool was_failure) {
   // when the tab is being destroyed for shutdown, since it won't return to
   // NavigateToEntry in that case.)  http://crbug.com/347742.
   CHECK(!in_navigate_to_pending_entry_ || frame_tree_->IsBeingDestroyed());
-  // If `was_failure` is true, it means that the pending entry was discarded by
-  // a `PendingEntryRefDeleted` call within `OnRequestFailedInternal`, in
-  // response to a navigation request failure. This case is not at risk for
-  // re-entrancy when `can_be_in_navigate_to_pending_entry_` is true, because
-  // that code also creates another `PendingEntryRef` that would prevent the
-  // `DiscardPendingEntry` call if the PostTask were skipped. See
-  // https://crbug.com/411855273.
-  if (!was_failure && can_be_in_navigate_to_pending_entry_ &&
-      !frame_tree_->IsBeingDestroyed()) {
-    CheckPotentialNavigationReentrancy();
-  }
 
   if (was_failure && pending_entry_) {
     failed_pending_entry_id_ = pending_entry_->GetUniqueID();
@@ -4513,7 +4524,9 @@ NavigationControllerImpl::CreateNavigationRequestFromLoadParams(
 #else
           false,
 #endif
-          /*permissions_policy_override=*/std::nullopt);
+          /*permissions_policy_override=*/std::nullopt,
+          /*internal_scroll_to_text_fragment=*/
+          params.internal_scroll_to_text_fragment);
 
 #if BUILDFLAG(IS_ANDROID)
   if (ValidateDataURLAsString(params.data_url_as_string)) {
@@ -4695,9 +4708,7 @@ void NavigationControllerImpl::NotifyNavigationEntryCommitted(
   // That function passes in a pointer for `deferred_notifier`, which tells this
   // function to not send the notification immediately. The notification will be
   // sent when RendererDidNavigate returns.
-  if (deferred_notifier &&
-      base::FeatureList::IsEnabled(
-          features::kSkipRedundantNavigationStateNotification)) {
+  if (deferred_notifier) {
     deferred_notifier->RequestDeferredNotification();
   } else {
     delegate_->NotifyNavigationStateChangedFromController(INVALIDATE_TYPE_ALL);
@@ -4873,9 +4884,7 @@ void NavigationControllerImpl::DiscardNonCommittedEntriesInternal(
   // That function passes in a pointer for `deferred_notifier`, which tells this
   // function to not send the notification immediately. The notification will be
   // sent when RendererDidNavigate returns.
-  if (deferred_notifier &&
-      base::FeatureList::IsEnabled(
-          features::kSkipRedundantNavigationStateNotification)) {
+  if (deferred_notifier) {
     deferred_notifier->RequestDeferredNotification();
     return;
   }
@@ -5483,14 +5492,6 @@ void NavigationControllerImpl::DidChangeReferrerPolicy(
   // in the navigation API when the referrer policy changes.
   entry->set_protect_url_in_navigation_api(
       ShouldProtectUrlInNavigationApi(referrer_policy));
-}
-
-void NavigationControllerImpl::CheckPotentialNavigationReentrancy() {
-  if (can_be_in_navigate_to_pending_entry_) {
-    // This DumpWithoutCrashing is an investigation code for
-    // https://crbug.com/396998476.
-    base::debug::DumpWithoutCrashing();
-  }
 }
 
 std::unique_ptr<NavigationRequest>

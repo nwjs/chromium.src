@@ -9,6 +9,7 @@
 
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_group_style.h"
@@ -26,19 +27,16 @@
 
 constexpr int TabGroupUnderline::kStrokeThickness;
 
+// static
+int TabGroupUnderline::GetStrokeInset() {
+  return TabStyle::Get()->GetTabOverlap() -
+         TabGroupStyle::GetTabGroupOverlapAdjustment() + kStrokeThickness;
+}
+
 TabGroupUnderline::TabGroupUnderline(TabGroupViews* tab_group_views,
                                      const tab_groups::TabGroupId& group,
                                      const TabGroupStyle& style)
     : tab_group_views_(tab_group_views), group_(group), style_(style) {}
-
-void TabGroupUnderline::OnPaint(gfx::Canvas* canvas) {
-  SkPath path = style_->GetUnderlinePath(GetLocalBounds());
-  cc::PaintFlags flags;
-  flags.setAntiAlias(true);
-  flags.setColor(tab_group_views_->GetGroupColor());
-  flags.setStyle(cc::PaintFlags::kFill_Style);
-  canvas->DrawPath(path, flags);
-}
 
 void TabGroupUnderline::UpdateBounds(const views::View* const leading_view,
                                      const views::View* const trailing_view) {
@@ -63,6 +61,48 @@ void TabGroupUnderline::UpdateBounds(const views::View* const leading_view,
   SetBoundsRect(tab_group_underline_bounds);
 }
 
+void TabGroupUnderline::MaybeSetVisible(const bool visible) {
+  SetVisible(visible && !style_->TabGroupUnderlineShouldBeHidden());
+}
+
+void TabGroupUnderline::OnPaint(gfx::Canvas* canvas) {
+  SkPath path = style_->GetUnderlinePath(GetLocalBounds());
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setColor(tab_group_views_->GetGroupColor());
+  flags.setStyle(cc::PaintFlags::kFill_Style);
+  canvas->DrawPath(path, flags);
+}
+
+gfx::Insets TabGroupUnderline::GetInsetsForUnderline(
+    const views::View* const sibling_view) const {
+  // Inset normally from a header - this will always be the left boundary of
+  // the group, and may be the right boundary if the group is collapsed.
+  const TabGroupHeader* const header =
+      views::AsViewClass<TabGroupHeader>(sibling_view);
+  if (header) {
+    return gfx::Insets::TLBR(0, TabGroupUnderline::GetStrokeInset(), 0,
+                             TabGroupUnderline::GetStrokeInset());
+  }
+
+  const Tab* const tab = views::AsViewClass<Tab>(sibling_view);
+  DCHECK(tab);
+
+  // Active tabs need the rounded bits of the underline poking out the sides.
+  // This does not apply when kDetachedTabs is enabled, as the tab stroke does
+  // not intersect with the group outline.
+  if (tab->IsActive() &&
+      !base::FeatureList::IsEnabled(features::kDetachedTabs)) {
+    return gfx::Insets::TLBR(0, -kStrokeThickness, 0, -kStrokeThickness);
+  }
+
+  // Inactive tabs are inset like group headers.
+  const int left_inset = TabGroupUnderline::GetStrokeInset();
+  const int right_inset = TabGroupUnderline::GetStrokeInset();
+
+  return gfx::Insets::TLBR(0, left_inset, 0, right_inset);
+}
+
 gfx::Rect TabGroupUnderline::CalculateTabGroupUnderlineBounds(
     const views::View* const underline_view,
     const views::View* const leading_view,
@@ -85,42 +125,6 @@ gfx::Rect TabGroupUnderline::CalculateTabGroupUnderlineBounds(
 
   return gfx::Rect(group_bounds.x(), y - kStrokeThickness, group_bounds.width(),
                    kStrokeThickness);
-}
-
-gfx::Insets TabGroupUnderline::GetInsetsForUnderline(
-    const views::View* const sibling_view) const {
-  // Inset normally from a header - this will always be the left boundary of
-  // the group, and may be the right boundary if the group is collapsed.
-  const TabGroupHeader* const header =
-      views::AsViewClass<TabGroupHeader>(sibling_view);
-  if (header) {
-    return gfx::Insets::TLBR(0, TabGroupUnderline::GetStrokeInset(), 0,
-                             TabGroupUnderline::GetStrokeInset());
-  }
-
-  const Tab* const tab = views::AsViewClass<Tab>(sibling_view);
-  DCHECK(tab);
-
-  // Active tabs need the rounded bits of the underline poking out the sides.
-  if (tab->IsActive()) {
-    return gfx::Insets::TLBR(0, -kStrokeThickness, 0, -kStrokeThickness);
-  }
-
-  // Inactive tabs are inset like group headers.
-  const int left_inset = TabGroupUnderline::GetStrokeInset();
-  const int right_inset = TabGroupUnderline::GetStrokeInset();
-
-  return gfx::Insets::TLBR(0, left_inset, 0, right_inset);
-}
-
-void TabGroupUnderline::MaybeSetVisible(const bool visible) {
-  SetVisible(visible && !style_->TabGroupUnderlineShouldBeHidden());
-}
-
-// static
-int TabGroupUnderline::GetStrokeInset() {
-  return TabStyle::Get()->GetTabOverlap() -
-         TabGroupStyle::GetTabGroupOverlapAdjustment() + kStrokeThickness;
 }
 
 BEGIN_METADATA(TabGroupUnderline)

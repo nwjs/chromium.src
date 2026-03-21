@@ -86,7 +86,7 @@
 #include "chrome/installer/setup/uninstall.h"
 #include "chrome/installer/setup/unpack_archive.h"
 #include "chrome/installer/util/app_command.h"
-#include "chrome/installer/util/conditional_work_item_list.h"
+#include "chrome/installer/util/conditional_work_item.h"
 #include "chrome/installer/util/delete_after_reboot_helper.h"
 #include "chrome/installer/util/delete_old_versions.h"
 #include "chrome/installer/util/delete_tree_work_item.h"
@@ -103,6 +103,7 @@
 #include "chrome/installer/util/l10n_string_util.h"
 #include "chrome/installer/util/logging_installer.h"
 #include "chrome/installer/util/lzma_util.h"
+#include "chrome/installer/util/move_tree_work_item.h"
 #include "chrome/installer/util/self_cleaning_temp_dir.h"
 #include "chrome/installer/util/shell_util.h"
 #include "chrome/installer/util/util_constants.h"
@@ -446,26 +447,35 @@ installer::InstallStatus RenameChromeExecutables(
   }
   std::unique_ptr<WorkItemList> install_list(WorkItem::CreateWorkItemList());
   // Move chrome.exe to old_chrome.exe, then move new_chrome.exe to chrome.exe.
+  // Strict move: `chrome_exe` must not be present following this operation.
   install_list->AddMoveTreeWorkItem(chrome_exe, chrome_old_exe,
-                                    temp_path.path(), WorkItem::ALWAYS_MOVE);
+                                    temp_path.path(),
+                                    WorkItem::MoveTreeOptions{});
+  // Strict move: `chrome_new_exe` must not be present following this operation.
   install_list->AddMoveTreeWorkItem(chrome_new_exe, chrome_exe,
-                                    temp_path.path(), WorkItem::ALWAYS_MOVE);
-  install_list->AddDeleteTreeWorkItem(chrome_new_exe, temp_path.path());
+                                    temp_path.path(),
+                                    WorkItem::MoveTreeOptions{});
 
   // Move chrome_proxy.exe to old_chrome_proxy.exe if it exists (a previous
   // installation may not have included it), then move new_chrome_proxy.exe to
   // chrome_proxy.exe.
-  std::unique_ptr<WorkItemList> existing_proxy_rename_list(
-      WorkItem::CreateConditionalWorkItemList(
-          new ConditionRunIfFileExists(chrome_proxy_exe)));
-  existing_proxy_rename_list->set_log_message("ExistingProxyRenameItemList");
-  existing_proxy_rename_list->AddMoveTreeWorkItem(
-      chrome_proxy_exe, chrome_proxy_old_exe, temp_path.path(),
-      WorkItem::ALWAYS_MOVE);
-  install_list->AddWorkItem(existing_proxy_rename_list.release());
+  // Strict move: `chrome_proxy_exe` must not be present following this
+  // operation.
+  std::unique_ptr<WorkItem> move_proxy_to_old_item(
+      WorkItem::CreateMoveTreeWorkItem(chrome_proxy_exe, chrome_proxy_old_exe,
+                                       temp_path.path(),
+                                       WorkItem::MoveTreeOptions{}));
+  move_proxy_to_old_item->set_log_message("ExistingProxyRenameItem");
+
+  install_list->AddWorkItem(WorkItem::CreateConditionalWorkItem(
+      std::make_unique<ConditionFileExists>(chrome_proxy_exe),
+      std::move(move_proxy_to_old_item), nullptr));
+
+  // Strict move: `chrome_proxy_new_exe` must not be present following this
+  // operation.
   install_list->AddMoveTreeWorkItem(chrome_proxy_new_exe, chrome_proxy_exe,
-                                    temp_path.path(), WorkItem::ALWAYS_MOVE);
-  install_list->AddDeleteTreeWorkItem(chrome_proxy_new_exe, temp_path.path());
+                                    temp_path.path(),
+                                    WorkItem::MoveTreeOptions{});
 
   AddFinalizeUpdateWorkItems(original_state,
                              base::Version(chrome::kChromeVersion),

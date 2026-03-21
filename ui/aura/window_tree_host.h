@@ -393,7 +393,7 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
 
   base::ObserverList<WindowTreeHostObserver,
                      /*check_empty=*/false,
-                     /*allow_reentrancy=*/true>&
+                     base::ObserverListReentrancyPolicy::kAllowReentrancy>&
   observers() {
     return observers_;
   }
@@ -471,9 +471,10 @@ class AURA_EXPORT WindowTreeHost : public ui::ImeKeyEventDispatcher,
   // figures this out, so it's cheaper to store the fact here.
   std::optional<bool> on_current_workspace_;
 
+  // Allow reentrancy because OnHostMoved can be called within OnHostResized.
   base::ObserverList<WindowTreeHostObserver,
                      /*check_empty=*/false,
-                     /*allow_reentrancy=*/true>
+                     base::ObserverListReentrancyPolicy::kAllowReentrancy>
       observers_;
 
   display::ScopedDisplayObserver display_observer_{this};

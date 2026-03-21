@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU Mac Builder",
-              "project": "chromium-m146"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -35,7 +35,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac Retina Release (AMD)",
-              "project": "chromium-m146"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu",
@@ -55,7 +55,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU Mac Builder",
-                "project": "chromium-m146"
+                "project": "chromium"
               }
             }
           }
@@ -65,12 +65,12 @@
         {
           "bucket": "ci",
           "builder": "Mac Retina Release (AMD)",
-          "project": "chromium-m146"
+          "project": "chromium"
         }
       ],
       "mirroring_builder_group_and_names": [
         {
-          "builder": "mac-rel",
+          "builder": "mac-gpu-rel",
           "group": "tryserver.chromium.mac"
         }
       ],
@@ -86,10 +86,10 @@
   },
   "builder_group": "chromium.gpu",
   "gardener_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ],
   "recipe": "chromium",
   "sheriff_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ]
 }

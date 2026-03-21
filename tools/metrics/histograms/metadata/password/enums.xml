@@ -129,6 +129,17 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="ErrorInvalidTabInterface"/>
   <int value="10" label="ErrorDeviceReauthRequired"/>
   <int value="11" label="ErrorDeviceReauthFailed"/>
+  <int value="12" label="SuccessFederated"/>
+  <int value="13" label="ErrorFederatedContinuation"/>
+  <int value="14" label="ErrorFederatedAccountNotLoggedIn"/>
+  <int value="15" label="ErrorFederatedAccountIsSignUp"/>
+  <int value="16" label="ErrorFederatedAccountNotAvailable"/>
+  <int value="17" label="ErrorFederatedIdpReturnedError"/>
+  <int value="18" label="ErrorFederatedIdpNetworkError"/>
+  <int value="19" label="ErrorFederatedTokenRequestAborted"/>
+  <int value="20" label="ErrorFederatedFrameNotActive"/>
+  <int value="21" label="ErrorFederatedExpectedAccountNotPresent"/>
+  <int value="22" label="ErrorFederatedTimeout"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/password_manager/core/browser/actor_login/internal/actor_login_metrics.h:AttemptLoginResult) -->
@@ -316,6 +327,20 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Failed to click button"/>
   <int value="5" label="Form not found"/>
 </enum>
+
+<!-- LINT.IfChange(ChangePasswordFormSubmissionError) -->
+
+<enum name="ChangePasswordFormSubmissionError">
+  <int value="0" label="Failed to fill the form"/>
+  <int value="1" label="Timeout"/>
+  <int value="2" label="Failed to capture page content"/>
+  <int value="3" label="Failed to parse response"/>
+  <int value="4" label="Submit button not found"/>
+  <int value="5" label="Interruption detected (OTP, etc.)"/>
+  <int value="6" label="Failed to click submit"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/password_manager/change_password_form_filling_submission_helper.h) -->
 
 <enum name="CharacterClassPresenceChange">
   <int value="0" label="No change"/>
@@ -1583,19 +1608,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Has password field"/>
 </enum>
 
-<enum name="PasswordsImportDesktopInteractions">
-  <int value="0" label="Import dialog opened from the three-dot menu."/>
-  <int value="1" label="Import dialog opened from the empty passwords list."/>
-  <int value="2" label="Import flow canceled before the file selection."/>
-  <int value="3" label="UPM: Store picker dialog opened."/>
-  <int value="4" label="UPM: Select file launched."/>
-  <int value="5" label="UPM: View passwords clicked after successful import."/>
-  <int value="6" label="Conflicts: Dialog canceled."/>
-  <int value="7" label="Conflicts: Re-auth failed."/>
-  <int value="8" label="Conflicts: Skip button clicked."/>
-  <int value="9" label="Conflicts: Replace button clicked."/>
-</enum>
-
 <enum name="PasswordStoreAndroidBackendAPIError">
   <int value="4" label="SIGN_IN_REQUIRED"/>
   <int value="5" label="INVALID_ACCOUNT"/>
@@ -1844,18 +1856,6 @@ chromium-metrics-reviews@google.com.
     For example, it might be because of 3rd party password managers.
   </int>
   <int value="8" label=":-) User used manual fallback to fill the form"/>
-</enum>
-
-<enum name="SingleUsernameVoteDataAvailability">
-  <summary>
-    Whether two existing single username detection mechanisms (UFF and FPF) have
-    data, overlapping or not.
-  </summary>
-  <int value="0" label="None"/>
-  <int value="1" label="Username First only."/>
-  <int value="2" label="Forgot password only."/>
-  <int value="3" label="Both, but for different forms."/>
-  <int value="4" label="Both, and FPF data contains UFF candidate field."/>
 </enum>
 
 <enum name="StoreAffiliationResult">

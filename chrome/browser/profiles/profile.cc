@@ -274,7 +274,7 @@ Profile* Profile::FromBrowserContext(content::BrowserContext* browser_context) {
   // For code running in a chrome/ environment, it is safe to cast to Profile*
   // because Profile is the only implementation of BrowserContext used. In
   // testing, however, there are several BrowserContext subclasses that are not
-  // Profile subclasses, and we can catch them. http://crbug.com/725276
+  // Profile subclasses, and we can catch them. http://crbug.com/40522064
 #if DCHECK_IS_ON()
   base::AutoLock lock(GetProfileInstancesLock());
   if (!GetProfileInstances().count(browser_context)) {
@@ -496,12 +496,14 @@ void Profile::MaybeSendDestroyedNotification() {
 }
 
 // static
-PrefStore* Profile::CreateExtensionPrefStore(Profile* profile,
-                                             bool incognito_pref_store) {
+scoped_refptr<PrefStore> Profile::CreateExtensionPrefStore(
+    Profile* profile,
+    bool incognito_pref_store) {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (ExtensionPrefValueMap* pref_value_map =
           ExtensionPrefValueMapFactory::GetForBrowserContext(profile)) {
-    return new ExtensionPrefStore(pref_value_map, incognito_pref_store);
+    return base::MakeRefCounted<ExtensionPrefStore>(pref_value_map,
+                                                    incognito_pref_store);
   }
 #endif
   return nullptr;

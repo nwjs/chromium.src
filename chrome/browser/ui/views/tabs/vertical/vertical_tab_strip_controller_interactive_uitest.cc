@@ -29,6 +29,7 @@
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/interaction/interactive_views_test.h"
+#include "ui/views/view_utils.h"
 
 namespace {
 
@@ -102,16 +103,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
           0));
 }
 
-// TODO(crbug.com/466106773): Unable to click middle mouse button on MacOS.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_VerifyClosingTabWithMiddleMouseButton \
-  DISABLED_VerifyClosingTabWithMiddleMouseButton
-#else
-#define MAYBE_VerifyClosingTabWithMiddleMouseButton \
-  VerifyClosingTabWithMiddleMouseButton
-#endif
 IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
-                       MAYBE_VerifyClosingTabWithMiddleMouseButton) {
+                       VerifyClosingTabWithMiddleMouseButton) {
   RunTestSequence(
       // Verify Vertical Tabs is showing.
       WaitForShow(kVerticalTabStripBottomContainerElementId),
@@ -125,10 +118,58 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
       NameDescendantViewByType<VerticalTabView>(kBrowserViewElementId,
                                                 kFirstTabName, 0),
       // Close tab at index 0 w/middle mouse button and verify tab count.
-      MoveMouseTo(kFirstTabName), ClickMouse(ui_controls::MIDDLE),
+      MoveMouseTo(kFirstTabName),
+#if BUILDFLAG(IS_MAC)
+      // Interactive tests on Mac don't support middle click so simulate the
+      // event.
+      WithView(kFirstTabName,
+               [](views::View* view) {
+                 gfx::Point point = view->bounds().CenterPoint();
+                 ui::MouseEvent event(ui::EventType::kMouseReleased, point,
+                                      point, ui::EventTimeForNow(),
+                                      ui::EF_MIDDLE_MOUSE_BUTTON,
+                                      ui::EF_MIDDLE_MOUSE_BUTTON);
+                 view->OnMouseReleased(event);
+               }),
+#else
+      ClickMouse(ui_controls::MIDDLE),
+#endif
       CheckResult([this]() { return browser()->tab_strip_model()->count(); },
                   1),
       WaitForHide(kFirstTabName));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    VerticalTabStripControllerInteractiveUiTest,
+    VerifyNotClosingTabWhenMiddleMouseButtonReleasedElsewhere) {
+  RunTestSequence(
+      // Verify Vertical Tabs is showing.
+      WaitForShow(kVerticalTabStripBottomContainerElementId),
+      // Create a second tab.
+      EnsurePresent(kNewTabButtonElementId),
+      PressButton(kNewTabButtonElementId,
+                  ui::test::InteractionTestUtil::InputType::kDontCare),
+      CheckResult([this]() { return browser()->tab_strip_model()->count(); },
+                  2),
+      // Name views so we can interact with them.
+      NameDescendantViewByType<VerticalTabView>(kBrowserViewElementId,
+                                                kFirstTabName, 0),
+      // Move mouse to tab at index 0.
+      MoveMouseTo(kFirstTabName),
+      // We pass a point outside the view's local bounds so that HitTestPoint()
+      // fails.
+      WithView(kFirstTabName,
+               [](views::View* view) {
+                 gfx::Point off_tab_point(-10, -10);
+                 ui::MouseEvent event(
+                     ui::EventType::kMouseReleased, off_tab_point,
+                     off_tab_point, ui::EventTimeForNow(),
+                     ui::EF_MIDDLE_MOUSE_BUTTON, ui::EF_MIDDLE_MOUSE_BUTTON);
+                 view->OnMouseReleased(event);
+               }),
+      // Verify that the tab count is still 2 (the tab did not close).
+      CheckResult([this]() { return browser()->tab_strip_model()->count(); },
+                  2));
 }
 
 // TODO(crbug.com/469912247): Fails on mac-rel-ready and linux-rel-ready bots.
@@ -350,32 +391,6 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
                   2));
 }
 
-IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
-                       VerifyTabContextMenuText) {
-  RunTestSequence(
-      // Verify Vertical Tabs is showing.
-      WaitForShow(kVerticalTabStripBottomContainerElementId),
-      // Identify Tab by Type (VerticalTabView).
-      NameDescendantViewByType<VerticalTabView>(kBrowserViewElementId,
-                                                kFirstTabName, 0),
-      // Open Tab Context Menu.
-      MoveMouseTo(kFirstTabName),
-      MayInvolveNativeContextMenu(
-          ClickMouse(ui_controls::RIGHT),
-          WaitForShow(TabMenuModel::kAddNewTabAdjacentMenuItem), Do([this]() {
-            // Verify "New Tab Below" text is present.
-            EXPECT_TRUE(CheckMenuHasStringId(IDS_TAB_CXMENU_NEWTABBELOW));
-            // Verify "Close Tabs Below" text is present.
-            EXPECT_TRUE(CheckMenuHasStringId(IDS_TAB_CXMENU_CLOSETABSBELOW));
-          }),
-          // Close menu to avoid the test hanging.
-          Do([this]() {
-            vertical_tab_strip_controller()
-                ->GetTabContextMenuController()
-                ->CloseMenu();
-          })));
-}
-
 class VerticalTabStripControllerTabGroupFocusingInteractiveUiTest
     : public VerticalTabsInteractiveTestMixin<InteractiveBrowserTest> {
  public:
@@ -488,7 +503,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
                 ->vertical_tab_strip_region_view_for_testing()
                 ->GetTabStripView();
         VerticalTabStripView* vertical_tab_strip_view =
-            static_cast<VerticalTabStripView*>(tab_strip_view);
+            views::AsViewClass<VerticalTabStripView>(tab_strip_view);
         vertical_tab_strip_view->unpinned_tabs_scroll_view_for_testing()
             ->ScrollByOffset({0, -100});
       }),
@@ -526,21 +541,4 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
       MoveMouseTo(kFirstTabName),
       WaitForShow(TabHoverCardBubbleView::kHoverCardBubbleElementId));
 }
-
-IN_PROC_BROWSER_TEST_F(VerticalTabStripControllerInteractiveUiTest,
-                       DISABLED_VerticalTabHoverCardSplitView) {
-  TabStripModel* model = browser()->tab_strip_model();
-  chrome::NewTab(browser());
-  model->ActivateTabAt(0);
-  model->AddToNewSplit({1}, {},
-                       split_tabs::SplitTabCreatedSource::kTabContextMenu);
-  RunTestSequence(
-      WaitForShow(kVerticalTabStripBottomContainerElementId),
-      NameDescendantViewByType<VerticalTabView>(kBrowserViewElementId,
-                                                kFirstTabName, 0),
-      MoveMouseTo(kVerticalTabStripBottomContainerElementId),
-      MoveMouseTo(kFirstTabName),
-      WaitForShow(TabHoverCardBubbleView::kHoverCardBubbleElementId));
-}
-
 }  // namespace

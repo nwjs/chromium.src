@@ -24,8 +24,13 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/extension_browser_window_helper.h"
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 namespace {
 using base::android::AttachCurrentThread;
@@ -52,9 +57,15 @@ AndroidBrowserWindow::AndroidBrowserWindow(
       profile_(CHECK_DEREF(profile)),
       session_id_(SessionID::NewUnique()) {
   java_android_browser_window_.Reset(env, java_android_browser_window);
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  extension_browser_window_helper_ =
+      std::make_unique<extensions::ExtensionBrowserWindowHelper>(this, profile);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 
 AndroidBrowserWindow::~AndroidBrowserWindow() {
+  browser_did_close_callback_list_.Notify(this);
   Java_AndroidBrowserWindow_clearNativePtr(AttachCurrentThread(),
                                            java_android_browser_window_);
 }
@@ -104,6 +115,11 @@ const SessionID& AndroidBrowserWindow::GetSessionID() const {
 bool AndroidBrowserWindow::IsDeleteScheduled() const {
   return Java_AndroidBrowserWindow_isDeleteScheduled(
       AttachCurrentThread(), java_android_browser_window_);
+}
+
+base::CallbackListSubscription AndroidBrowserWindow::RegisterBrowserDidClose(
+    BrowserDidCloseCallback callback) {
+  return browser_did_close_callback_list_.Add(std::move(callback));
 }
 
 BrowserWindowInterface::Type AndroidBrowserWindow::GetType() const {

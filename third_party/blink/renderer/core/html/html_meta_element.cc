@@ -80,8 +80,6 @@ void HTMLMetaElement::ParseViewportContentAttribute(
 
   // Tread lightly in this code -- it was specifically designed to mimic Win
   // IE's parsing behavior.
-  unsigned key_begin, key_end;
-  unsigned value_begin, value_end;
 
   String buffer = content.LowerASCII();
   unsigned length = buffer.length();
@@ -92,7 +90,7 @@ void HTMLMetaElement::ParseViewportContentAttribute(
         break;
       i++;
     }
-    key_begin = i;
+    unsigned key_begin = i;
 
     // skip to first separator
     while (!IsSeparator(buffer[i])) {
@@ -101,7 +99,7 @@ void HTMLMetaElement::ParseViewportContentAttribute(
         break;
       i++;
     }
-    key_end = i;
+    unsigned key_end = i;
 
     // skip to first '=', but don't skip past a ',' or the end of the string
     while (buffer[i] != '=') {
@@ -118,7 +116,7 @@ void HTMLMetaElement::ParseViewportContentAttribute(
         break;
       i++;
     }
-    value_begin = i;
+    unsigned value_begin = i;
 
     // skip to first separator
     while (!IsSeparator(buffer[i])) {
@@ -127,13 +125,12 @@ void HTMLMetaElement::ParseViewportContentAttribute(
         break;
       i++;
     }
-    value_end = i;
+    unsigned value_end = i;
 
     SECURITY_DCHECK(i <= length);
 
-    String key_string = buffer.Substring(key_begin, key_end - key_begin);
-    String value_string =
-        buffer.Substring(value_begin, value_end - value_begin);
+    StringView key_string(buffer, key_begin, key_end - key_begin);
+    StringView value_string(buffer, value_begin, value_end - value_begin);
     ProcessViewportKeyValuePair(document, !has_invalid_separator, key_string,
                                 value_string, viewport_meta_zero_values_quirk,
                                 viewport_description);
@@ -164,8 +161,8 @@ static inline float ClampScaleValue(float value) {
 
 float HTMLMetaElement::ParsePositiveNumber(Document* document,
                                            bool report_warnings,
-                                           const String& key_string,
-                                           const String& value_string,
+                                           const StringView& key_string,
+                                           const StringView& value_string,
                                            bool* ok) {
   size_t parsed_length;
   float value = VisitCharacters(value_string, [&](auto chars) {
@@ -187,19 +184,22 @@ float HTMLMetaElement::ParsePositiveNumber(Document* document,
   return value;
 }
 
-Length HTMLMetaElement::ParseViewportValueAsLength(Document* document,
-                                                   bool report_warnings,
-                                                   const String& key_string,
-                                                   const String& value_string) {
+ViewportLength HTMLMetaElement::ParseViewportValueAsLength(
+    Document* document,
+    bool report_warnings,
+    const StringView& key_string,
+    const StringView& value_string) {
   // 1) Non-negative number values are translated to px lengths.
   // 2) Negative number values are translated to auto.
   // 3) device-width and device-height are used as keywords.
   // 4) Other keywords and unknown values translate to auto.
 
-  if (EqualIgnoringASCIICase(value_string, "device-width"))
-    return Length::DeviceWidth();
-  if (EqualIgnoringASCIICase(value_string, "device-height"))
-    return Length::DeviceHeight();
+  if (EqualIgnoringAsciiCase(value_string, "device-width")) {
+    return ViewportLength::DeviceWidth();
+  }
+  if (EqualIgnoringAsciiCase(value_string, "device-height")) {
+    return ViewportLength::DeviceHeight();
+  }
 
   bool ok;
 
@@ -207,24 +207,24 @@ Length HTMLMetaElement::ParseViewportValueAsLength(Document* document,
                                     value_string, &ok);
 
   if (!ok)
-    return Length();  // auto
+    return ViewportLength();  // auto
 
   if (value < 0)
-    return Length();  // auto
+    return ViewportLength();  // auto
 
   value = ClampLengthValue(value);
   if (document && document->GetPage()) {
     value = document->GetPage()->GetChromeClient().WindowToViewportScalar(
         document->GetFrame(), value);
   }
-  return Length::Fixed(value);
+  return ViewportLength::Fixed(value);
 }
 
 float HTMLMetaElement::ParseViewportValueAsZoom(
     Document* document,
     bool report_warnings,
-    const String& key_string,
-    const String& value_string,
+    const StringView& key_string,
+    const StringView& value_string,
     bool& computed_value_matches_parsed_value,
     bool viewport_meta_zero_values_quirk) {
   // 1) Non-negative number values are translated to <number> values.
@@ -234,14 +234,18 @@ float HTMLMetaElement::ParseViewportValueAsZoom(
   // 5) no and unknown values are translated to 0.0
 
   computed_value_matches_parsed_value = false;
-  if (EqualIgnoringASCIICase(value_string, "yes"))
+  if (EqualIgnoringAsciiCase(value_string, "yes")) {
     return 1;
-  if (EqualIgnoringASCIICase(value_string, "no"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "no")) {
     return 0;
-  if (EqualIgnoringASCIICase(value_string, "device-width"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "device-width")) {
     return 10;
-  if (EqualIgnoringASCIICase(value_string, "device-height"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "device-height")) {
     return 10;
+  }
 
   float value =
       ParsePositiveNumber(document, report_warnings, key_string, value_string);
@@ -266,8 +270,8 @@ float HTMLMetaElement::ParseViewportValueAsZoom(
 bool HTMLMetaElement::ParseViewportValueAsUserZoom(
     Document* document,
     bool report_warnings,
-    const String& key_string,
-    const String& value_string,
+    const StringView& key_string,
+    const StringView& value_string,
     bool& computed_value_matches_parsed_value) {
   // yes and no are used as keywords.
   // Numbers >= 1, numbers <= -1, device-width and device-height are mapped to
@@ -275,18 +279,20 @@ bool HTMLMetaElement::ParseViewportValueAsUserZoom(
   // Numbers in the range <-1, 1>, and unknown values, are mapped to no.
 
   computed_value_matches_parsed_value = false;
-  if (EqualIgnoringASCIICase(value_string, "yes")) {
+  if (EqualIgnoringAsciiCase(value_string, "yes")) {
     computed_value_matches_parsed_value = true;
     return true;
   }
-  if (EqualIgnoringASCIICase(value_string, "no")) {
+  if (EqualIgnoringAsciiCase(value_string, "no")) {
     computed_value_matches_parsed_value = true;
     return false;
   }
-  if (EqualIgnoringASCIICase(value_string, "device-width"))
+  if (EqualIgnoringAsciiCase(value_string, "device-width")) {
     return true;
-  if (EqualIgnoringASCIICase(value_string, "device-height"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "device-height")) {
     return true;
+  }
 
   float value =
       ParsePositiveNumber(document, report_warnings, key_string, value_string);
@@ -298,16 +304,20 @@ bool HTMLMetaElement::ParseViewportValueAsUserZoom(
 
 float HTMLMetaElement::ParseViewportValueAsDPI(Document* document,
                                                bool report_warnings,
-                                               const String& key_string,
-                                               const String& value_string) {
-  if (EqualIgnoringASCIICase(value_string, "device-dpi"))
+                                               const StringView& key_string,
+                                               const StringView& value_string) {
+  if (EqualIgnoringAsciiCase(value_string, "device-dpi")) {
     return ViewportDescription::kValueDeviceDPI;
-  if (EqualIgnoringASCIICase(value_string, "low-dpi"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "low-dpi")) {
     return ViewportDescription::kValueLowDPI;
-  if (EqualIgnoringASCIICase(value_string, "medium-dpi"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "medium-dpi")) {
     return ViewportDescription::kValueMediumDPI;
-  if (EqualIgnoringASCIICase(value_string, "high-dpi"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "high-dpi")) {
     return ViewportDescription::kValueHighDPI;
+  }
 
   bool ok;
   float value = ParsePositiveNumber(document, report_warnings, key_string,
@@ -320,13 +330,16 @@ float HTMLMetaElement::ParseViewportValueAsDPI(Document* document,
 
 blink::mojom::ViewportFit HTMLMetaElement::ParseViewportFitValueAsEnum(
     bool& unknown_value,
-    const String& value_string) {
-  if (EqualIgnoringASCIICase(value_string, "auto"))
+    const StringView& value_string) {
+  if (EqualIgnoringAsciiCase(value_string, "auto")) {
     return mojom::ViewportFit::kAuto;
-  if (EqualIgnoringASCIICase(value_string, "contain"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "contain")) {
     return mojom::ViewportFit::kContain;
-  if (EqualIgnoringASCIICase(value_string, "cover"))
+  }
+  if (EqualIgnoringAsciiCase(value_string, "cover")) {
     return mojom::ViewportFit::kCover;
+  }
 
   unknown_value = true;
   return mojom::ViewportFit::kAuto;
@@ -334,13 +347,14 @@ blink::mojom::ViewportFit HTMLMetaElement::ParseViewportFitValueAsEnum(
 
 // static
 std::optional<ui::mojom::blink::VirtualKeyboardMode>
-HTMLMetaElement::ParseVirtualKeyboardValueAsEnum(const String& value) {
-  if (EqualIgnoringASCIICase(value, "resizes-content"))
+HTMLMetaElement::ParseVirtualKeyboardValueAsEnum(const StringView& value) {
+  if (EqualIgnoringAsciiCase(value, "resizes-content")) {
     return ui::mojom::blink::VirtualKeyboardMode::kResizesContent;
-  else if (EqualIgnoringASCIICase(value, "resizes-visual"))
+  } else if (EqualIgnoringAsciiCase(value, "resizes-visual")) {
     return ui::mojom::blink::VirtualKeyboardMode::kResizesVisual;
-  else if (EqualIgnoringASCIICase(value, "overlays-content"))
+  } else if (EqualIgnoringAsciiCase(value, "overlays-content")) {
     return ui::mojom::blink::VirtualKeyboardMode::kOverlaysContent;
+  }
 
   return std::nullopt;
 }
@@ -348,22 +362,22 @@ HTMLMetaElement::ParseVirtualKeyboardValueAsEnum(const String& value) {
 void HTMLMetaElement::ProcessViewportKeyValuePair(
     Document* document,
     bool report_warnings,
-    const String& key_string,
-    const String& value_string,
+    const StringView& key_string,
+    const StringView& value_string,
     bool viewport_meta_zero_values_quirk,
     ViewportDescription& description) {
   if (key_string == "width") {
-    const Length& width = ParseViewportValueAsLength(document, report_warnings,
-                                                     key_string, value_string);
+    const ViewportLength& width = ParseViewportValueAsLength(
+        document, report_warnings, key_string, value_string);
     if (!width.IsAuto()) {
-      description.min_width = Length::ExtendToZoom();
+      description.min_width = ViewportLength::ExtendToZoom();
       description.max_width = width;
     }
   } else if (key_string == "height") {
-    const Length& height = ParseViewportValueAsLength(document, report_warnings,
-                                                      key_string, value_string);
+    const ViewportLength& height = ParseViewportValueAsLength(
+        document, report_warnings, key_string, value_string);
     if (!height.IsAuto()) {
-      description.min_height = Length::ExtendToZoom();
+      description.min_height = ViewportLength::ExtendToZoom();
       description.max_height = height;
     }
   } else if (key_string == "initial-scale") {
@@ -471,8 +485,8 @@ static mojom::ConsoleMessageLevel ViewportErrorMessageLevel(
 
 void HTMLMetaElement::ReportViewportWarning(Document* document,
                                             ViewportErrorCode error_code,
-                                            const String& replacement1,
-                                            const String& replacement2) {
+                                            const StringView& replacement1,
+                                            const StringView& replacement2) {
   if (!document || !document->GetFrame())
     return;
 
@@ -543,22 +557,22 @@ void HTMLMetaElement::NameRemoved(const AtomicString& name_value) {
       FastGetAttribute(html_names::kContentAttr);
   if (content_value.IsNull())
     return;
-  if (EqualIgnoringASCIICase(name_value, "theme-color") &&
+  if (EqualIgnoringAsciiCase(name_value, "theme-color") &&
       GetDocument().GetFrame()) {
     GetDocument().GetFrame()->DidChangeThemeColor(
         /*update_theme_color_cache=*/true);
-  } else if (EqualIgnoringASCIICase(name_value, keywords::kColorScheme)) {
+  } else if (EqualIgnoringAsciiCase(name_value, keywords::kColorScheme)) {
     GetDocument().ColorSchemeMetaChanged();
-  } else if (EqualIgnoringASCIICase(name_value, "supports-reduced-motion")) {
+  } else if (EqualIgnoringAsciiCase(name_value, "supports-reduced-motion")) {
     GetDocument().SupportsReducedMotionMetaChanged();
   } else if (RuntimeEnabledFeatures::AppTitleEnabled(GetExecutionContext()) &&
-             EqualIgnoringASCIICase(name_value, "application-title")) {
+             EqualIgnoringAsciiCase(name_value, "application-title")) {
     GetDocument().UpdateApplicationTitle();
   } else if (RuntimeEnabledFeatures::ResponsiveIframesEnabled() &&
-             EqualIgnoringASCIICase(name_value,
+             EqualIgnoringAsciiCase(name_value,
                                     keywords::kResponsiveEmbeddedSizing)) {
     GetDocument().ResponsiveEmbeddedSizingChanged();
-  } else if (EqualIgnoringASCIICase(name_value, "text-scale")) {
+  } else if (EqualIgnoringAsciiCase(name_value, "text-scale")) {
     GetDocument().TextScaleMetaChanged();
   }
 }
@@ -640,17 +654,17 @@ enum class ContentClassificationOpenGraph {
 ContentClassificationOpenGraph GetContentClassification(
     const AtomicString& open_graph_type) {
   const AtomicString lowercase_type(open_graph_type.LowerASCII());
-  if (lowercase_type.StartsWithIgnoringASCIICase("website")) {
+  if (lowercase_type.StartsWithIgnoringAsciiCase("website")) {
     return ContentClassificationOpenGraph::kWebsite;
-  } else if (lowercase_type.StartsWithIgnoringASCIICase("music")) {
+  } else if (lowercase_type.StartsWithIgnoringAsciiCase("music")) {
     return ContentClassificationOpenGraph::kMusic;
-  } else if (lowercase_type.StartsWithIgnoringASCIICase("video")) {
+  } else if (lowercase_type.StartsWithIgnoringAsciiCase("video")) {
     return ContentClassificationOpenGraph::kVideo;
-  } else if (lowercase_type.StartsWithIgnoringASCIICase("article")) {
+  } else if (lowercase_type.StartsWithIgnoringAsciiCase("article")) {
     return ContentClassificationOpenGraph::kArticle;
-  } else if (lowercase_type.StartsWithIgnoringASCIICase("book")) {
+  } else if (lowercase_type.StartsWithIgnoringAsciiCase("book")) {
     return ContentClassificationOpenGraph::kBook;
-  } else if (lowercase_type.StartsWithIgnoringASCIICase("profile")) {
+  } else if (lowercase_type.StartsWithIgnoringAsciiCase("profile")) {
     return ContentClassificationOpenGraph::kProfile;
   }
   return ContentClassificationOpenGraph::kUnknown;
@@ -665,7 +679,7 @@ void HTMLMetaElement::ProcessContent() {
   const AtomicString& content_value =
       FastGetAttribute(html_names::kContentAttr);
 
-  if (EqualIgnoringASCIICase(property_value, "og:type")) {
+  if (EqualIgnoringAsciiCase(property_value, "og:type")) {
     UMA_HISTOGRAM_ENUMERATION("Content.Classification.OpenGraph",
                               GetContentClassification(content_value));
   }
@@ -675,27 +689,27 @@ void HTMLMetaElement::ProcessContent() {
     return;
 
   if (RuntimeEnabledFeatures::ResponsiveIframesEnabled() &&
-      EqualIgnoringASCIICase(name_value, keywords::kResponsiveEmbeddedSizing)) {
+      EqualIgnoringAsciiCase(name_value, keywords::kResponsiveEmbeddedSizing)) {
     GetDocument().SetResponsiveEmbeddedSizing();
   }
 
-  if (EqualIgnoringASCIICase(name_value, "text-scale")) {
+  if (EqualIgnoringAsciiCase(name_value, "text-scale")) {
     GetDocument().TextScaleMetaChanged();
     return;
   }
 
-  if (EqualIgnoringASCIICase(name_value, "theme-color") &&
+  if (EqualIgnoringAsciiCase(name_value, "theme-color") &&
       GetDocument().GetFrame()) {
     GetDocument().GetFrame()->DidChangeThemeColor(
         /*update_theme_color_cache=*/true);
     return;
   }
-  if (EqualIgnoringASCIICase(name_value, keywords::kColorScheme)) {
+  if (EqualIgnoringAsciiCase(name_value, keywords::kColorScheme)) {
     GetDocument().ColorSchemeMetaChanged();
     return;
   }
 
-  if (EqualIgnoringASCIICase(name_value, "supports-reduced-motion")) {
+  if (EqualIgnoringAsciiCase(name_value, "supports-reduced-motion")) {
     GetDocument().SupportsReducedMotionMetaChanged();
     return;
   }
@@ -705,10 +719,10 @@ void HTMLMetaElement::ProcessContent() {
   if (content_value.IsNull())
     return;
 
-  if (EqualIgnoringASCIICase(name_value, "viewport")) {
+  if (EqualIgnoringAsciiCase(name_value, "viewport")) {
     ProcessViewportContentAttribute(content_value,
                                     ViewportDescription::kViewportMeta);
-  } else if (EqualIgnoringASCIICase(name_value, "referrer") &&
+  } else if (EqualIgnoringAsciiCase(name_value, "referrer") &&
              GetExecutionContext()) {
     UseCounter::Count(&GetDocument(),
                       WebFeature::kHTMLMetaElementReferrerPolicy);
@@ -728,14 +742,14 @@ void HTMLMetaElement::ProcessContent() {
         document_rules->DocumentReferrerPolicyChanged();
       }
     }
-  } else if (EqualIgnoringASCIICase(name_value, "handheldfriendly") &&
-             EqualIgnoringASCIICase(content_value, "true")) {
+  } else if (EqualIgnoringAsciiCase(name_value, "handheldfriendly") &&
+             EqualIgnoringAsciiCase(content_value, "true")) {
     ProcessViewportContentAttribute("width=device-width",
                                     ViewportDescription::kHandheldFriendlyMeta);
-  } else if (EqualIgnoringASCIICase(name_value, "mobileoptimized")) {
+  } else if (EqualIgnoringAsciiCase(name_value, "mobileoptimized")) {
     ProcessViewportContentAttribute("width=device-width, initial-scale=1",
                                     ViewportDescription::kMobileOptimizedMeta);
-  } else if (EqualIgnoringASCIICase(name_value, "monetization")) {
+  } else if (EqualIgnoringAsciiCase(name_value, "monetization")) {
     // TODO(1031476): The Web Monetization specification is an unofficial draft,
     // available at https://webmonetization.org/specification.html
     // For now, only use counters are implemented in Blink.
@@ -744,7 +758,7 @@ void HTMLMetaElement::ProcessContent() {
                         WebFeature::kHTMLMetaElementMonetization);
     }
   } else if (RuntimeEnabledFeatures::AppTitleEnabled(GetExecutionContext()) &&
-             EqualIgnoringASCIICase(name_value, "application-title")) {
+             EqualIgnoringAsciiCase(name_value, "application-title")) {
     UseCounter::Count(&GetDocument(), WebFeature::kWebAppTitle);
     GetDocument().UpdateApplicationTitle();
   }

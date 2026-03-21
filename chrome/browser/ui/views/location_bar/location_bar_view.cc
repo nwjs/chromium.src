@@ -310,6 +310,7 @@ void LocationBarView::Init() {
     chip_controller_ = std::make_unique<ChipController>(
         this, this,
         AddChildViewAt(std::make_unique<PermissionChipView>(
+                           PermissionChipView::Role::kPermissionRequestChip,
                            PermissionChipView::PressedCallback()),
                        0));
   }
@@ -501,7 +502,6 @@ void LocationBarView::Init() {
     // icons and determine a way to handle simultaneous icon animations.
     params.types_enabled.push_back(PageActionIconType::kDiscounts);
     params.types_enabled.push_back(PageActionIconType::kPriceInsights);
-    params.types_enabled.push_back(PageActionIconType::kPriceTracking);
 
     if (optimization_guide::features::ShouldEnableOptimizationGuideIconView()) {
       params.types_enabled.push_back(PageActionIconType::kOptimizationGuide);
@@ -522,6 +522,7 @@ void LocationBarView::Init() {
     params.types_enabled.push_back(
         PageActionIconType::kPaymentsOfferNotification);
     params.types_enabled.push_back(PageActionIconType::kMemorySaver);
+    params.types_enabled.push_back(PageActionIconType::kFederation);
   }
   params.types_enabled.push_back(PageActionIconType::kSaveCard);
   params.types_enabled.push_back(PageActionIconType::kSaveIban);
@@ -687,8 +688,15 @@ void LocationBarView::SelectAll() {
   omnibox_view_->SelectAll(true);
 }
 
-void LocationBarView::FocusLocation(bool is_user_initiated) {
+void LocationBarView::FocusLocation(bool is_user_initiated,
+                                    bool clear_focus_if_failed) {
   omnibox_view_->SetFocus(is_user_initiated);
+  if (clear_focus_if_failed && !omnibox_view_->HasFocus()) {
+    // If none of location bar got focus, then clear focus.
+    views::FocusManager* focus_manager = GetFocusManager();
+    DCHECK(focus_manager);
+    focus_manager->ClearFocus();
+  }
 }
 
 void LocationBarView::Revert() {
@@ -1199,6 +1207,16 @@ void LocationBarView::ResetTabState(WebContents* contents) {
   omnibox_view_->ResetTabState(contents);
 }
 
+bool LocationBarView::ShouldCloseOmniboxPopup(ui::MouseEvent* event) {
+  if (event->type() != ui::EventType::kMousePressed) {
+    return false;
+  }
+
+  auto* const view = static_cast<views::View*>(event->target());
+  CHECK(view);
+  return !Contains(view);
+}
+
 ChipController* LocationBarView::GetChipController() {
   if (base::FeatureList::IsEnabled(
           content_settings::features::kLeftHandSideActivityIndicators)) {
@@ -1224,7 +1242,8 @@ std::optional<bubble_anchor_util::AnchorConfiguration>
 LocationBarView::GetChipAnchor() {
   auto* chip = GetChipController()->chip();
   if (chip->GetVisible()) {
-    return {{chip, chip, views::BubbleBorder::TOP_LEFT}};
+    return {{chip, PermissionChipView::kPermissionRequestChipElementId,
+             views::BubbleBorder::TOP_LEFT}};
   }
   return std::nullopt;
 }
@@ -1245,8 +1264,8 @@ bool LocationBarView::IsDrawn() const {
   return View::IsDrawn();
 }
 
-bool LocationBarView::IsTopLevelFullscreen() const {
-  return GetWidget()->GetTopLevelWidget()->IsFullscreen();
+bool LocationBarView::IsFullscreen() const {
+  return GetWidget()->IsFullscreen();
 }
 
 void LocationBarView::InvalidateLayout() {
@@ -1683,13 +1702,18 @@ void LocationBarView::OnPageInfoBubbleClosed(
     return;
   }
 
-  FocusLocation(false);
+  FocusLocation(/*is_user_initiated=*/false, /*clear_focus_if_failed=*/false);
 }
 
 void LocationBarView::FocusSearch() {
   // This is called by keyboard accelerator, so it's user-initiated.
   omnibox_view_->SetFocus(/*is_user_initiated=*/true);
   omnibox_view_->EnterKeywordModeForDefaultSearchProvider();
+}
+
+void LocationBarView::UpdateFocusBehavior(bool toolbar_visible) {
+  omnibox_view()->SetFocusBehavior(toolbar_visible ? FocusBehavior::ALWAYS
+                                                   : FocusBehavior::NEVER);
 }
 
 void LocationBarView::UpdateContentSettingsIcons() {
@@ -2105,17 +2129,22 @@ void LocationBarView::OnLocationIconPressed(const ui::MouseEvent& event) {
       ui::Clipboard::IsMiddleClickPasteEnabled() &&
       ui::Clipboard::IsSupportedClipboardBuffer(
           ui::ClipboardBuffer::kSelection)) {
-    std::u16string text;
     ui::Clipboard::GetForCurrentThread()->ReadText(
-        ui::ClipboardBuffer::kSelection, /* data_dst = */ nullptr, &text);
-    text = omnibox::SanitizeTextForPaste(text);
-
-    if (!GetOmniboxController()->edit_model()->CanPasteAndGo(text)) {
-      return;
-    }
-
-    GetOmniboxController()->edit_model()->PasteAndGo(text, event.time_stamp());
+        ui::ClipboardBuffer::kSelection, /* data_dst = */ std::nullopt,
+        base::BindOnce(&LocationBarView::OnMiddleClickPaste,
+                       weak_factory_.GetWeakPtr(), event.time_stamp()));
   }
+}
+
+void LocationBarView::OnMiddleClickPaste(base::TimeTicks event_timestamp,
+                                         std::u16string text) {
+  text = omnibox::SanitizeTextForPaste(text);
+
+  if (!GetOmniboxController()->edit_model()->CanPasteAndGo(text)) {
+    return;
+  }
+
+  GetOmniboxController()->edit_model()->PasteAndGo(text, event_timestamp);
 }
 
 void LocationBarView::OnLocationIconDragged(const ui::MouseEvent& event) {
@@ -2166,7 +2195,7 @@ bool LocationBarView::ShowPageInfoDialog() {
           .Build();
   views::BubbleDialogDelegateView* const bubble =
       PageInfoBubbleView::CreatePageInfoBubble(std::move(specification));
-  bubble->SetHighlightedButton(location_icon_view_);
+  bubble->SetHighlightedElement(kLocationIconElementId);
   bubble->GetWidget()->Show();
   return true;
 }

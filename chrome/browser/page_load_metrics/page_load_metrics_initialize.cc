@@ -272,10 +272,8 @@ void PageLoadMetricsEmbedder::RegisterObservers(
     tracker->AddObserver(std::make_unique<BookmarkBarMetricsObserver>());
     tracker->AddObserver(
         std::make_unique<NewTabPageInitiatedPageLoadMetricsObserver>());
-    if (content::PreloadServingMetricsCapsule::IsFeatureEnabled()) {
-      tracker->AddObserver(
-          std::make_unique<PreloadServingMetricsPageLoadMetricsObserver>());
-    }
+    tracker->AddObserver(
+        std::make_unique<PreloadServingMetricsPageLoadMetricsObserver>());
   }
   tracker->AddObserver(
       std::make_unique<OmniboxSuggestionUsedMetricsObserver>());

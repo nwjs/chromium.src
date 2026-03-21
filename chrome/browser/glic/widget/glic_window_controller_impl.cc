@@ -43,6 +43,8 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/chrome_widget_sublevel.h"
@@ -51,8 +53,6 @@
 #include "chrome/browser/ui/views/glic/glic_button_interface.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/tabs/glic/tab_strip_glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/tabs/window_finder.h"
@@ -718,10 +718,6 @@ void GlicWindowControllerImpl::ClientReadyToShow(
   }
 }
 
-void GlicWindowControllerImpl::OnViewChanged(mojom::CurrentView view) {
-  state_change_callback_list_.Notify(IsShowing(), view);
-}
-
 void GlicWindowControllerImpl::ContextAccessIndicatorChanged(bool enabled) {
   glic_service_->SetContextAccessIndicator(enabled && IsShowing());
 }
@@ -971,6 +967,10 @@ bool GlicWindowControllerImpl::ActivateBrowser() {
   }
 
   return false;
+}
+
+void GlicWindowControllerImpl::Zoom(mojom::ZoomAction zoom_action) {
+  host_.Zoom(zoom_action);
 }
 
 void GlicWindowControllerImpl::CloseInstanceWithFrame(
@@ -1305,10 +1305,9 @@ GlicWindowControllerImpl::AddWindowActivationChangedCallback(
 base::CallbackListSubscription
 GlicWindowControllerImpl::AddGlobalShowHideCallback(
     base::RepeatingClosure callback) {
-  return RegisterStateChange(
-      base::BindRepeating([](base::RepeatingClosure callback, bool,
-                             mojom::CurrentView) { callback.Run(); },
-                          std::move(callback)));
+  return RegisterStateChange(base::BindRepeating(
+      [](base::RepeatingClosure callback, bool) { callback.Run(); },
+      std::move(callback)));
 }
 
 void GlicWindowControllerImpl::Preload() {
@@ -1393,6 +1392,9 @@ GlicWindowControllerImpl::AddActiveInstanceChangedCallbackAndNotifyImmediately(
 GlicInstance* GlicWindowControllerImpl::GetActiveInstance() {
   NOTREACHED();
 }
+void GlicWindowControllerImpl::BindTabForTesting(tabs::TabInterface* tab) {
+  NOTREACHED();
+}
 
 void GlicWindowControllerImpl::SetWindowState(State new_state) {
   if (state_ == new_state) {
@@ -1413,8 +1415,7 @@ void GlicWindowControllerImpl::SetWindowState(State new_state) {
     }
   }
 
-  state_change_callback_list_.Notify(IsShowing(),
-                                     host_.GetPrimaryCurrentView());
+  state_change_callback_list_.Notify(IsShowing());
 
   if (IsWindowOpenAndReady()) {
     glic_service_->metrics()->OnGlicWindowOpenAndReady();

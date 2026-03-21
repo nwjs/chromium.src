@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_ASH_VIDEO_CONFERENCE_VIDEO_CONFERENCE_CLIENT_BASE_H_
 #define CHROME_BROWSER_ASH_VIDEO_CONFERENCE_VIDEO_CONFERENCE_CLIENT_BASE_H_
 
+#include "ash/system/video_conference/video_conference_common.h"
 #include "base/memory/raw_ref.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
@@ -19,8 +20,7 @@ class VideoConferenceManagerAsh;
 // Base class for Video Conference Manager clients in Ash-chrome. This class
 // provides a common implementation for clients that interact with the
 // VideoConferenceManagerAsh.
-class VideoConferenceClientBase
-    : public crosapi::mojom::VideoConferenceManagerClient {
+class VideoConferenceClientBase : public VideoConferenceManagerClient {
  protected:
   explicit VideoConferenceClientBase(
       VideoConferenceManagerAsh* video_conference_manager_ash);
@@ -40,13 +40,10 @@ class VideoConferenceClientBase
     bool is_capturing_camera = false;
   };
 
-  // crosapi::mojom::VideoConferenceManagerClient:
-  void GetMediaApps(GetMediaAppsCallback callback) override;
-  void SetSystemMediaDeviceStatus(
-      crosapi::mojom::VideoConferenceMediaDevice device,
-      bool enabled,
-      SetSystemMediaDeviceStatusCallback callback) override;
-  void StopAllScreenShare() override;
+  // VideoConferenceManagerClient:
+  MediaApps GetMediaApps() override;
+  bool SetSystemMediaDeviceStatus(VideoConferenceMediaDevice device,
+                                  bool enabled) override;
 
   // Calculates a new `crosapi::mojom::VideoConferenceMediaUsageStatus` from all
   // current VC apps and notifies the manager if a field has changed.
@@ -74,7 +71,7 @@ class VideoConferenceClientBase
   const base::UnguessableToken client_id_;
 
   // Current status_ aggregated from all apps in `id_to_app_state_`.
-  crosapi::mojom::VideoConferenceMediaUsageStatusPtr status_;
+  VideoConferenceMediaUsageStatus status_;
 
   const raw_ref<VideoConferenceManagerAsh> video_conference_manager_ash_;
 };

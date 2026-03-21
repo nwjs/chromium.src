@@ -9,9 +9,21 @@
 #include "components/tabs/public/tab_interface.h"
 
 TabInterfaceAndroid::TabInterfaceAndroid(TabAndroid* tab_android)
-    : weak_tab_android_(tab_android->GetTabAndroidWeakPtr()) {}
+    : weak_tab_android_(tab_android->GetTabAndroidWeakPtr()) {
+  tab_android->SetTabInterfaceAndroid(base::PassKey<TabInterfaceAndroid>(),
+                                      this);
+}
 
-TabInterfaceAndroid::~TabInterfaceAndroid() = default;
+TabInterfaceAndroid::~TabInterfaceAndroid() {
+  // When `this` is destroyed we should reset the connection to the parent
+  // collection.
+  if (weak_tab_android_) {
+    weak_tab_android_->ResetParentCollection(
+        base::PassKey<TabInterfaceAndroid>());
+    weak_tab_android_->SetTabInterfaceAndroid(
+        base::PassKey<TabInterfaceAndroid>(), nullptr);
+  }
+}
 
 base::WeakPtr<tabs::TabInterface> TabInterfaceAndroid::GetWeakPtr() {
   if (!weak_tab_android_) {
@@ -125,6 +137,15 @@ base::CallbackListSubscription TabInterfaceAndroid::RegisterGroupChanged(
     return base::CallbackListSubscription();
   }
   return weak_tab_android_->RegisterGroupChanged(std::move(callback));
+}
+
+base::CallbackListSubscription TabInterfaceAndroid::RegisterBlockedStateChanged(
+    BlockedStateChangedCallback callback) {
+  if (!weak_tab_android_) {
+    return base::CallbackListSubscription();
+  }
+
+  return weak_tab_android_->RegisterBlockedStateChanged(std::move(callback));
 }
 
 bool TabInterfaceAndroid::CanShowModalUI() const {

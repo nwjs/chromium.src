@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_api/adapters/tab_strip_model_adapter_impl.h"
 
 #include "base/notimplemented.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/adapters/tree_builder/mojo_tree_builder.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/converters/tab_converters.h"
@@ -17,6 +18,13 @@
 #include "content/public/browser/web_contents.h"
 
 namespace tabs_api {
+
+TabStripModelAdapterImpl::TabStripModelAdapterImpl(
+    TabStripModel* tab_strip_model,
+    std::string window_id)
+    : tab_strip_model_(tab_strip_model), window_id_(window_id) {}
+
+TabStripModelAdapterImpl::~TabStripModelAdapterImpl() = default;
 
 void TabStripModelAdapterImpl::AddModelObserver(
     TabStripModelObserver* tab_strip_model_observer) {
@@ -44,11 +52,6 @@ std::vector<tabs::TabHandle> TabStripModelAdapterImpl::GetTabs() const {
     tabs.push_back(tab->GetHandle());
   }
   return tabs;
-}
-
-TabRendererData TabStripModelAdapterImpl::GetTabRendererData(int index) const {
-  return TabRendererData::FromTabInterface(
-      tab_strip_model_->GetTabAtIndex(index));
 }
 
 converters::TabStates TabStripModelAdapterImpl::GetTabStates(
@@ -184,7 +187,7 @@ void TabStripModelAdapterImpl::MoveCollection(const NodeId& id,
 
 tabs_api::mojom::ContainerPtr TabStripModelAdapterImpl::GetTabStripTopology(
     tabs::TabCollection::Handle root) const {
-  return MojoTreeBuilder(tab_strip_model_).Build(root);
+  return MojoTreeBuilder(tab_strip_model_, window_id_).Build(root);
 }
 
 std::optional<const tab_groups::TabGroupId>
@@ -262,12 +265,22 @@ tabs_api::Position TabStripModelAdapterImpl::GetPositionForAbsoluteIndex(
 tabs_api::Path TabStripModelAdapterImpl::GetPathForCollection(
     tabs::TabCollectionHandle collection_handle) const {
   std::vector<tabs_api::NodeId> components;
+  components.push_back(NodeId::FromWindowId(window_id_));
+
+  // Traversal is bottom-up (child -> root), but the path requires a top-down
+  // representation (root -> child).
+  std::vector<tabs_api::NodeId> collection_components;
   const tabs::TabCollection* curr = collection_handle.Get();
   while (curr) {
-    components.push_back(NodeId::FromTabCollectionHandle(curr->GetHandle()));
+    collection_components.push_back(
+        NodeId::FromTabCollectionHandle(curr->GetHandle()));
     curr = curr->GetParentCollection();
   }
-  std::reverse(components.begin(), components.end());
+  std::reverse(collection_components.begin(), collection_components.end());
+  components.insert(components.end(),
+                    std::make_move_iterator(collection_components.begin()),
+                    std::make_move_iterator(collection_components.end()));
+
   return tabs_api::Path(std::move(components));
 }
 
@@ -312,6 +325,10 @@ tabs::TabCollectionHandle
 TabStripModelAdapterImpl::GetUnpinnedTabsCollectionHandle() const {
   return tab_strip_model_->GetUnpinnedTabsCollectionHandle(
       base::PassKey<TabStripModelAdapterImpl>());
+}
+
+std::string TabStripModelAdapterImpl::GetWindowId() const {
+  return window_id_;
 }
 
 }  // namespace tabs_api

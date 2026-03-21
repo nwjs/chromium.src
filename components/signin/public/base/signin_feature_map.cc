@@ -27,6 +27,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kForceHistoryOptInScreen,
     &switches::kSkipCheckForAccountManagementOnSignin,
     &switches::kSyncEnableBookmarksInTransportMode,
+    &switches::kMakeIdentityManagerSourceOfAccounts,
     &switches::kMigrateAccountManagerDelegate,
     &switches::kFullscreenSignInPromoUseDate,
     &switches::kSmartEmailLineBreaking,
@@ -41,6 +42,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kChromeAndroidIdentitySurveyBookmarkPromo,
     &switches::kSigninLevelUpButton,
     &switches::kSigninManagerSeedingFix,
+    &switches::kSupportForcedSigninPolicy,
 };
 
 // static

@@ -20,6 +20,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
@@ -31,6 +32,7 @@
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_anonymization_key.h"
+#include "net/dns/canary_domain_service.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/host_resolver_proc.h"
 #include "net/dns/public/dns_query_type.h"
@@ -300,6 +302,7 @@ class MockHostResolverBase : public HostResolver {
   HostCache* GetHostCache() override;
   void SetRequestContext(URLRequestContext* request_context) override {}
   bool IsHappyEyeballsV3Enabled() const override;
+  std::unique_ptr<CanaryDomainService> CreateCanaryDomainService() override;
 
   // Preloads the cache with what would currently be the result of a request
   // with the given parameters. Returns the net error of the cached result.
@@ -377,6 +380,14 @@ class MockHostResolverBase : public HostResolver {
     return last_request_network_anonymization_key_;
   }
 
+  // Last observed Host, if any. Unlike `request_full_host(last_id())`, can be
+  // used to get information about resolutions that completed synchronously.
+  // Updated on call to either CreateRequest() or
+  // CreateServiceEndpointRequest().
+  const std::optional<Host>& last_observed_host() const {
+    return last_observed_host_;
+  }
+
   // Returns the SecureDnsPolicy of the last call to Resolve() (or
   // std::nullopt if Resolve() hasn't been called yet).
   SecureDnsPolicy last_secure_dns_policy() const {
@@ -403,6 +414,14 @@ class MockHostResolverBase : public HostResolver {
 
   void set_tick_clock(const base::TickClock* tick_clock) {
     tick_clock_ = tick_clock;
+  }
+
+  base::SafeRef<MockHostResolverBase> AsSafeRef() {
+    return weak_ptr_factory_.GetSafeRef();
+  }
+
+  void SetResolveContextForTesting(ResolveContext* resolve_context) {
+    resolve_context_ = resolve_context;
   }
 
  private:
@@ -450,6 +469,9 @@ class MockHostResolverBase : public HostResolver {
   RuleResolver rule_resolver_;
   std::unique_ptr<HostCache> cache_;
 
+  // Most recently resolved host, if any.
+  std::optional<Host> last_observed_host_;
+
   const int initial_cache_invalidation_num_;
   std::map<HostCache::Key, int> cache_invalidation_nums_;
 
@@ -458,6 +480,8 @@ class MockHostResolverBase : public HostResolver {
   size_t next_request_id_ = 1;
 
   raw_ptr<const base::TickClock> tick_clock_;
+
+  raw_ptr<ResolveContext> resolve_context_;
 
   scoped_refptr<State> state_;
 

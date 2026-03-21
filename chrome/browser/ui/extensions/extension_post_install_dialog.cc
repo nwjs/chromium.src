@@ -8,10 +8,10 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/strcat.h"
-#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/extensions/extension_dialog_utils.h"
 #include "chrome/browser/ui/extensions/extension_installed_watcher.h"
@@ -23,6 +23,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/referrer.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/browser/ui_util.h"
 #include "extensions/common/extension.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -43,7 +44,7 @@ void ConfigurePostInstallDialogModel(
     ExtensionPostInstallDialogModel* model,
     base::RepeatingClosure manage_shortcuts_callback) {
   std::u16string extension_name =
-      extensions::util::GetFixupExtensionNameForUIDisplay(
+      extensions::ui_util::GetFixupExtensionNameForUIDisplay(
           model->extension_name());
   base::i18n::AdjustStringForLocaleDirection(&extension_name);
   dialog_model_builder
@@ -68,6 +69,13 @@ void ConfigurePostInstallDialogModel(
     dialog_model_builder.AddParagraph(ui::DialogModelLabel(
         l10n_util::GetStringUTF16(IDS_EXTENSION_INSTALLED_MANAGE_INFO)));
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  dialog_model_builder.AddOkButton(
+      base::DoNothing(),
+      ui::DialogModel::Button::Params().SetLabel(
+          l10n_util::GetStringUTF16(IDS_EXTENSION_INSTALLED_OK_BUTTON)));
+#endif
 }
 
 void OpenExtensionsShortcutsPage(
@@ -130,8 +138,8 @@ void ShowExtensionPostInstallDialog(
       base::BindRepeating(&ExtensionPostInstallDialog::LinkClicked,
                           base::Unretained(weak_delegate));
 
-  extensions::ConfigurePostInstallDialogModel(
-      dialog_model_builder, weak_delegate->model(), manage_shortcuts_callback);
+  ConfigurePostInstallDialogModel(dialog_model_builder, weak_delegate->model(),
+                                  manage_shortcuts_callback);
 
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
   // Add a sync or sign in promo in the footer if it should be shown.

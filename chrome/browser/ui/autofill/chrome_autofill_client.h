@@ -43,10 +43,13 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/autofill/autofill_snackbar_controller_impl.h"
-#else  // BUILDFLAG(IS_ANDROID)
+#else                                         // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/actor/actor_task.h"  // nogncheck
 #include "chrome/browser/ui/autofill/autofill_field_promo_controller.h"
+#include "components/autofill/core/browser/form_predictions_tracker.h"
 #endif  // BUILDFLAG(IS_ANDROID)
+
+class ToastController;
 
 namespace optimization_guide {
 class RemoteModelExecutor;
@@ -134,6 +137,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() final;
   AutofillComposeDelegate* GetComposeDelegate() final;
   AutofillPlusAddressDelegate* GetPlusAddressDelegate() final;
+  accessibility_annotator::AccessibilityQueryService*
+  GetAccessibilityQueryService() override;
   PasswordManagerDelegate* GetPasswordManagerDelegate(
       const FieldGlobalId& field_id) final;
   void GetAiPageContent(GetAiPageContentCallback callback) final;
@@ -201,7 +206,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
   bool IsAutofillEnabled() const final;
   bool IsAutofillProfileEnabled() const final;
   bool IsAutocompleteEnabled() const final;
-  bool IsWalletStorageEnabled() const final;
+  bool IsWalletPublicPassStorageEnabled() const final;
   bool IsPasswordManagerEnabled() const final;
   bool IsContextSecure() const final;
   LogManager* GetCurrentLogManager() final;
@@ -217,7 +222,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
   // The AutofillMessageController is used to show native Android messages via
   // the messages API.
   AutofillMessageController* GetAutofillMessageController();
-#endif
+#endif  // BUILDFLAG(IS_ANDROID)
+
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator(
       std::string histogram) final;
   bool ShowAutofillFieldIphForFeature(const FormFieldData& field,
@@ -241,6 +247,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
       EntityImportPromptResultCallback prompt_result_callback) final;
   void CloseEntityImportBubble() final;
   void ShowAutofillAiLocalSaveNotification() final;
+  void ShowAutofillAiFailureNotification(std::u16string message) final;
   void ShowEmailVerifiedToast() final;
 
   // TODO(crbug.com/407666146): Create a test API.
@@ -269,7 +276,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
     autofill_snackbar_controller_impl_ =
         std::move(autofill_snackbar_controller_impl);
   }
-#endif
+#endif  // BUILDFLAG(IS_ANDROID)
 #endif  // defined(UNIT_TEST)
 
   // ContentAutofillClient:
@@ -284,6 +291,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
   OtpFieldDetector* GetOtpFieldDetector() override;
   OtpPhishGuardDelegate* GetOtpPhishGuardDelegate() override;
 
+  FormPredictionsTracker* GetFormPredictionsTracker() override;
+
   one_time_tokens::OneTimeTokenService* GetOneTimeTokenService() const final;
 
  protected:
@@ -292,6 +301,10 @@ class ChromeAutofillClient : public ContentAutofillClient {
  private:
   Profile* GetProfile() const;
   tabs::TabInterface* GetTabInterface();
+
+  // Returns the ToastController for the current tab, if it exists.
+  ToastController* GetToastController();
+
   bool SupportsConsentlessExecution(const url::Origin& origin);
   void ShowAutofillSuggestionsImpl(
       SuggestionUiSessionId session_id,
@@ -365,6 +378,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
   // differently. There can be at most one actor on a given tab. If there is no
   // actor interacting with the current tab it is `std::nullopt`.
   std::optional<actor::TaskId> active_actor_task_;
+
+  std::unique_ptr<FormPredictionsTracker> form_predictions_tracker_;
 #endif  // BUILDFLAG(IS_ANDROID)
 
   SEQUENCE_CHECKER(sequence_checker_);

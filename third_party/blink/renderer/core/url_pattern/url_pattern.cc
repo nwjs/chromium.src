@@ -79,14 +79,14 @@ bool IsProtocolDefaultPort(const String& protocol, const String& port) {
   if (protocol.empty() || port.empty())
     return false;
 
-  bool port_ok = false;
-  int port_number = CharactersToInt(port, NumberParsingOptions(), &port_ok);
-  if (!port_ok)
+  std::optional<int32_t> port_number = StringToInt(port, {});
+  if (!port_number) {
     return false;
+  }
 
   StringUtf8Adaptor protocol_utf8(protocol);
   int default_port = url::DefaultPortForScheme(protocol_utf8.AsStringView());
-  return default_port != url::PORT_UNSPECIFIED && default_port == port_number;
+  return default_port != url::PORT_UNSPECIFIED && default_port == *port_number;
 }
 
 // Base URL values that include pattern string characters should not blow
@@ -231,7 +231,7 @@ void ApplyInit(const URLPatternInit* init,
       // relative pathname and just treat the init pathname as an absolute
       // value.
       String base_path = EscapeBaseURLString(base_url.GetPath(), type);
-      auto slash_index = base_path.ReverseFind("/");
+      auto slash_index = base_path.rfind('/');
       if (slash_index != kNotFound) {
         // Extract the baseURL path up to and including the first slash.  Append
         // the relative init pathname to it.

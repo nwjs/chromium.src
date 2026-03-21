@@ -13,6 +13,7 @@
 #include "extensions/common/mojom/message_port.mojom-shared.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
 #include "mojo/public/cpp/bindings/union_traits.h"
+#include "third_party/blink/public/common/messaging/cloneable_message_mojom_traits.h"
 
 namespace mojo {
 
@@ -30,13 +31,14 @@ struct UnionTraits<extensions::mojom::MessageDataDataView,
     return std::get<std::string>(data);
   }
 
-  static bool IsStructuredClone(const extensions::MessageData& data) {
-    return std::holds_alternative<extensions::StructuredCloneMessageWireData>(
-        data);
+  static bool IsStructuredMessage(const extensions::MessageData& data) {
+    return std::holds_alternative<extensions::StructuredCloneMessageData>(data);
   }
 
-  static extensions::StructuredCloneMessageWireData structured_clone(
-      const extensions::MessageData& data);
+  static extensions::StructuredCloneMessageData& structured_message(
+      extensions::MessageData& data) {
+    return std::get<extensions::StructuredCloneMessageData>(data);
+  }
 
   static bool Read(extensions::mojom::MessageDataDataView data,
                    extensions::MessageData* out);
@@ -44,14 +46,8 @@ struct UnionTraits<extensions::mojom::MessageDataDataView,
 
 template <>
 struct StructTraits<extensions::mojom::MessageDataView, extensions::Message> {
-  static const extensions::MessageData& data(
-      const extensions::Message& message) {
+  static extensions::MessageData& data(extensions::Message& message) {
     return message.message_data();
-  }
-
-  static extensions::mojom::SerializationFormat format(
-      const extensions::Message& message) {
-    return message.format();
   }
 
   static bool user_gesture(const extensions::Message& message) {

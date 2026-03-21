@@ -164,6 +164,8 @@ void FormatAllocationSourcesForTracing(
       allocation_sources[GpuPeakMemoryAllocationSource::SHARED_IMAGE_STUB]);
   dict->SetInteger("SKIA",
                    allocation_sources[GpuPeakMemoryAllocationSource::SKIA]);
+  dict->SetInteger("WEBNN",
+                   allocation_sources[GpuPeakMemoryAllocationSource::WEBNN]);
 }
 
 void SetCrashKeyTimeDelta(base::debug::CrashKeyString* key,
@@ -280,6 +282,9 @@ GpuChannelManager::GpuPeakMemoryMonitor::StopTrackingTracedValue(
       case GpuPeakMemoryAllocationSource::SKIA:
         dict->SetInteger("SKIA", diff);
         break;
+      case GpuPeakMemoryAllocationSource::WEBNN:
+        dict->SetInteger("WEBNN", diff);
+        break;
     }
   }
 
@@ -336,7 +341,6 @@ GpuChannelManager::GpuChannelManager(
     GpuProcessShmCount* use_shader_cache_shm_count,
     scoped_refptr<gl::GLSurface> default_offscreen_surface,
     viz::VulkanContextProvider* vulkan_context_provider,
-    viz::MetalContextProvider* metal_context_provider,
     DawnContextProvider* dawn_context_provider,
     webgpu::DawnCachingInterfaceFactory* dawn_caching_interface_factory,
     const SharedContextState::GrContextOptionsProvider*
@@ -363,7 +367,6 @@ GpuChannelManager::GpuChannelManager(
           this),
       dawn_caching_interface_factory_(dawn_caching_interface_factory),
       vulkan_context_provider_(vulkan_context_provider),
-      metal_context_provider_(metal_context_provider),
       dawn_context_provider_(dawn_context_provider),
       use_persistent_cache_for_ganesh_(
           base::FeatureList::IsEnabled(features::kGpuPersistentCache)),
@@ -951,16 +954,13 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
       base::BindOnce(&GpuChannelManager::OnContextLost, base::Unretained(this),
                      context_lost_count_ + 1),
       gpu_preferences_.gr_context_type, vulkan_context_provider_,
-      metal_context_provider_, dawn_context_provider_, peak_memory_monitor_,
-      /*direct_rendering_display_compositor_enabled=*/
+      dawn_context_provider_, peak_memory_monitor_,
       features::IsDrDcEnabled(gpu_feature_info_),
       /*created_on_compositor_gpu_thread=*/false, gr_context_options_provider_);
 
   // Initialize GL context, so Vulkan and GL interop can work properly.
-  auto feature_info = base::MakeRefCounted<gles2::FeatureInfo>(
-      gpu_driver_bug_workarounds(), gpu_feature_info());
-  if (!shared_context_state->InitializeGL(gpu_preferences_,
-                                          feature_info.get())) {
+  if (!shared_context_state->InitializeGL(
+          gpu_preferences_, gpu_driver_bug_workarounds(), gpu_feature_info())) {
     LOG(ERROR) << "ContextResult::kFatalFailure: Failed to Initialize GL for "
                   " SharedContextState";
     *result = ContextResult::kFatalFailure;
@@ -969,7 +969,8 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
 
   // Log crash reports when GL errors are generated.
   if (gl::GetGLImplementation() == gl::kGLImplementationEGLANGLE &&
-      enable_angle_validation && feature_info->feature_flags().khr_debug) {
+      enable_angle_validation &&
+      shared_context_state->feature_info()->feature_flags().khr_debug) {
     // Limit the total number of gl error crash reports to 1 per GPU
     // process.
     static int remaining_gl_error_reports = 1;

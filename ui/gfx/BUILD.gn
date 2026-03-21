@@ -431,8 +431,6 @@ component("color_space") {
     "color_space.cc",
     "color_space.h",
     "color_space_export.h",
-    "color_transform.cc",
-    "color_transform.h",
     "display_color_spaces.cc",
     "display_color_spaces.h",
     "hdr_metadata.cc",
@@ -779,6 +777,7 @@ test("gfx_unittests") {
       "font_fallback_mac_unittest.cc",
       "image/image_mac_unittest.mm",
       "mac/coordinate_conversion_unittest.mm",
+      "mac/display_icc_profiles_unittest.cc",
       "mac/io_surface_unittest.cc",
       "mac/menu_text_elider_mac_unittest.mm",
       "platform_font_mac_unittest.mm",
@@ -826,7 +825,6 @@ test("gfx_unittests") {
       "color_analysis_unittest.cc",
       "color_conversions_unittest.cc",
       "color_space_unittest.cc",
-      "color_transform_unittest.cc",
       "color_utils_unittest.cc",
       "delegated_ink_unittest.cc",
       "font_fallback_unittest.cc",
@@ -1009,16 +1007,6 @@ fuzzer_test("color_analysis_fuzzer") {
   sources = [ "color_analysis_fuzzer.cc" ]
 
   deps = [ ":gfx" ]
-}
-
-fuzzer_test("color_transform_fuzzer") {
-  sources = [ "color_transform_fuzzer.cc" ]
-
-  dict = "//testing/libfuzzer/fuzzers/dicts/icc.dict"
-
-  deps = [ ":gfx" ]
-
-  libfuzzer_options = [ "max_len=4194304" ]
 }
 
 fuzzer_test("render_text_fuzzer") {

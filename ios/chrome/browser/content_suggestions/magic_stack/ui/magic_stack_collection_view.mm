@@ -21,7 +21,7 @@
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_module_container.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/placeholder_config.h"
 #import "ios/chrome/browser/content_suggestions/public/content_suggestions_constants.h"
-#import "ios/chrome/browser/content_suggestions/shop_card/ui/shop_card_item.h"
+#import "ios/chrome/browser/content_suggestions/shop_card/ui/shop_card_config.h"
 #import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 
@@ -65,9 +65,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
 
   self.view = _collectionView;
 
-  NSArray<UITrait>* traits = TraitCollectionSetForTraits(
-      @[ UITraitPreferredContentSizeCategory.class ]);
-  [self registerForTraitChanges:traits
+  [self registerForTraitChanges:@[ UITraitPreferredContentSizeCategory.class ]
                      withAction:@selector(updateCardHeightOnTraitChange)];
 }
 
@@ -147,7 +145,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
       [snapshot indexOfSectionIdentifier:kMagicStackSectionIdentifier];
 
   if ([self.diffableDataSource indexPathForItemIdentifier:item] &&
-      [item isKindOfClass:[ShopCardItem class]]) {
+      [item isKindOfClass:[ShopCardConfig class]]) {
     // TODO(crbug.com/446386562) resolve duplicate insertions of ShopCard then
     // change this to a CHECK.
     base::debug::DumpWithoutCrashing();
@@ -259,6 +257,11 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
     return;
   }
   MagicStackSnapshot* snapshot = [self.diffableDataSource snapshot];
+  // Make sure `item` is the same memory pointer as the old item since UIKit
+  // only considers them as identifiers, so it will just pass the original item
+  // "identifier" into the cellProvider block expecting the logic to fetch the
+  // latest data there.
+  // https://developer.apple.com/documentation/uikit/updating-collection-views-using-diffable-data-sources?language=objc
   [snapshot reconfigureItemsWithIdentifiers:@[ item ]];
   [self.diffableDataSource applySnapshot:snapshot animatingDifferences:NO];
 }

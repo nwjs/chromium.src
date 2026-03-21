@@ -52,8 +52,8 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "components/commerce/core/commerce_feature_list.h"
 #include "components/password_manager/core/common/password_manager_features.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
@@ -83,8 +83,7 @@ class AppMenuBrowserTest : public UiBrowserTest {
     // disruptive notification revocation (or other SH feature).
     scoped_feature_list_.InitWithFeatures(
         {}, /*disabled_features=*/{
-            features::kSafetyHubDisruptiveNotificationRevocation,
-            commerce::kProductSpecifications});
+            features::kSafetyHubDisruptiveNotificationRevocation});
   }
 
   // UiBrowserTest:
@@ -265,7 +264,13 @@ IN_PROC_BROWSER_TEST_F(AppMenuBrowserTest,
   ShowAndVerifyUi();
 }
 
-IN_PROC_BROWSER_TEST_F(AppMenuBrowserTest, InvokeUi_main_guest) {
+// TODO(crbug.com/484789570): Flaky on Windows 10 x64 builds.
+#if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_X86_64)
+#define MAYBE_InvokeUi_main_guest DISABLED_InvokeUi_main_guest
+#else
+#define MAYBE_InvokeUi_main_guest InvokeUi_main_guest
+#endif
+IN_PROC_BROWSER_TEST_F(AppMenuBrowserTest, MAYBE_InvokeUi_main_guest) {
 // TODO(crbug.com/40899974): ChromeOS specific profile logic still needs to be
 // updated, setup this test for a Guest user session with appropriate command
 // line switches afterwards.

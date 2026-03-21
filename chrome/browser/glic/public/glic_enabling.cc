@@ -8,11 +8,13 @@
 
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/browser_management_service.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
+#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_user_status_code.h"
 #include "chrome/browser/glic/glic_user_status_fetcher.h"
@@ -66,7 +68,7 @@ namespace glic {
 
 // Comma separated list of countries to enable GLIC, by default, if country
 // filtering is enabled.
-constexpr char kDefaultEnabledCountries[] = "us,ca";
+constexpr char kDefaultEnabledCountries[] = "us";
 
 // Feature flag kGlicLocaleFiltering controls whether locale filtering is
 // applied client side. Two finch params are used to control this, both are a
@@ -93,24 +95,6 @@ signin::Tribool CanUseGeminiInChrome(AccountCapabilities& capabilities) {
 #endif
 }
 
-bool HasGoogleInternalProfile() {
-  ProfileManager* profile_manager = g_browser_process->profile_manager();
-  if (!profile_manager) {
-    return false;
-  }
-  std::vector<Profile*> profiles = profile_manager->GetLoadedProfiles();
-  for (Profile* profile : profiles) {
-    auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
-    if (!identity_manager) {
-      continue;
-    }
-    if (IsPrimaryAccountGoogleInternal(*identity_manager)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 std::vector<std::string> GetFieldTrialParamAsSplitString(
     const base::Feature& feature,
     const std::string& param_name,
@@ -121,38 +105,70 @@ std::vector<std::string> GetFieldTrialParamAsSplitString(
                            base::SPLIT_WANT_NONEMPTY);
 }
 
-std::optional<bool> GetCountryEnablement(
-    GlicGlobalEnabling::Delegate& delegate) {
+bool GetCountryEnablement(GlicGlobalEnabling::Delegate& delegate) {
   if (!base::FeatureList::IsEnabled(features::kGlicCountryFiltering)) {
-    return std::nullopt;
+    base::UmaHistogramEnumeration(
+        "Glic.CountryFilteringResult",
+        GlicFilteringResult::kAllowedFilteringDisabled);
+    return true;
   }
-  std::vector<std::string> enabled_countries = GetFieldTrialParamAsSplitString(
-      features::kGlicCountryFiltering, "enabled_countries",
-      kDefaultEnabledCountries);
+  const std::vector<std::string> enabled_countries =
+      GetFieldTrialParamAsSplitString(features::kGlicCountryFiltering,
+                                      "enabled_countries",
+                                      kDefaultEnabledCountries);
 
-  std::vector<std::string> disabled_countries = GetFieldTrialParamAsSplitString(
-      features::kGlicCountryFiltering, "disabled_countries", "");
+  const std::vector<std::string> disabled_countries =
+      GetFieldTrialParamAsSplitString(features::kGlicCountryFiltering,
+                                      "disabled_countries", "");
 
-  std::string country_code = delegate.GetCountryCode();
-  auto country_matches = [&](const std::string& c) {
-    return base::EqualsCaseInsensitiveASCII(c, country_code);
+  const bool use_session_country = base::FeatureList::IsEnabled(
+      features::kGlicUseSessionCountryForFiltering);
+
+  const std::string permanent_country_code = delegate.GetPermanentCountryCode();
+  auto permanent_country_matches = [&](const std::string& c) {
+    return base::EqualsCaseInsensitiveASCII(c, permanent_country_code);
   };
 
-  if (std::ranges::any_of(disabled_countries, country_matches)) {
+  const std::string session_country_code = delegate.GetSessionCountryCode();
+  auto session_country_matches = [&](const std::string& c) {
+    return base::EqualsCaseInsensitiveASCII(c, session_country_code);
+  };
+
+  if (std::ranges::any_of(disabled_countries, permanent_country_matches) ||
+      (use_session_country &&
+       std::ranges::any_of(disabled_countries, session_country_matches))) {
+    base::UmaHistogramEnumeration("Glic.CountryFilteringResult",
+                                  GlicFilteringResult::kBlockedInExclusionList);
     return false;
   }
 
   if (enabled_countries.size() == 1 && enabled_countries[0] == "*") {
+    base::UmaHistogramEnumeration(
+        "Glic.CountryFilteringResult",
+        GlicFilteringResult::kAllowedWildcardInclusion);
     return true;
   }
 
-  return std::ranges::any_of(enabled_countries, country_matches);
+  if (std::ranges::any_of(enabled_countries, permanent_country_matches) ||
+      (use_session_country &&
+       std::ranges::any_of(enabled_countries, session_country_matches))) {
+    base::UmaHistogramEnumeration("Glic.CountryFilteringResult",
+                                  GlicFilteringResult::kAllowedInInclusionList);
+    return true;
+  }
+
+  base::UmaHistogramEnumeration(
+      "Glic.CountryFilteringResult",
+      GlicFilteringResult::kBlockedNotInInclusionList);
+  return false;
 }
 
-std::optional<bool> GetLocaleEnablement(
-    GlicGlobalEnabling::Delegate& delegate) {
+bool GetLocaleEnablement(GlicGlobalEnabling::Delegate& delegate) {
   if (!base::FeatureList::IsEnabled(features::kGlicLocaleFiltering)) {
-    return std::nullopt;
+    base::UmaHistogramEnumeration(
+        "Glic.LocaleFilteringResult",
+        GlicFilteringResult::kAllowedFilteringDisabled);
+    return true;
   }
   auto normalize_locale = [&](const std::string& locale) {
     std::string out;
@@ -173,14 +189,28 @@ std::optional<bool> GetLocaleEnablement(
   };
 
   if (std::ranges::any_of(disabled_locales, matches_locale)) {
+    base::UmaHistogramEnumeration("Glic.LocaleFilteringResult",
+                                  GlicFilteringResult::kBlockedInExclusionList);
     return false;
   }
 
   if (enabled_locales.size() == 1 && enabled_locales[0] == "*") {
+    base::UmaHistogramEnumeration(
+        "Glic.LocaleFilteringResult",
+        GlicFilteringResult::kAllowedWildcardInclusion);
     return true;
   }
 
-  return std::ranges::any_of(enabled_locales, matches_locale);
+  if (std::ranges::any_of(enabled_locales, matches_locale)) {
+    base::UmaHistogramEnumeration("Glic.LocaleFilteringResult",
+                                  GlicFilteringResult::kAllowedInInclusionList);
+    return true;
+  }
+
+  base::UmaHistogramEnumeration(
+      "Glic.LocaleFilteringResult",
+      GlicFilteringResult::kBlockedNotInInclusionList);
+  return false;
 }
 
 bool g_bypass_enablement_checks_for_testing = false;
@@ -192,12 +222,24 @@ void GlicEnabling::SetBypassEnablementChecksForTesting(bool bypass) {
   g_bypass_enablement_checks_for_testing = bypass;
 }
 
-std::string GlicGlobalEnabling::Delegate::GetCountryCode() {
-  std::string country_code =
+std::string GlicGlobalEnabling::Delegate::GetPermanentCountryCode() {
+  std::string permanent_country_code =
       base::ToLowerASCII(variations::GetCurrentCountryCode(
           g_browser_process->variations_service()));
-  DLOG_IF(WARNING, country_code.empty()) << "Couldn't get country info.";
-  return country_code;
+  DLOG_IF(WARNING, permanent_country_code.empty())
+      << "Couldn't get permanent country info.";
+  return permanent_country_code;
+}
+
+std::string GlicGlobalEnabling::Delegate::GetSessionCountryCode() {
+  std::string latest_country;
+  if (g_browser_process->variations_service()) {
+    latest_country = base::ToLowerASCII(
+        g_browser_process->variations_service()->GetLatestCountry());
+  }
+  DLOG_IF(WARNING, latest_country.empty())
+      << "Couldn't get latest country info.";
+  return latest_country;
 }
 
 std::string GlicGlobalEnabling::Delegate::GetLocale() {
@@ -299,6 +341,10 @@ GlicEnabling::ProfileEnablement GlicEnabling::EnablementForProfile(
     result.live_disallowed =
         primary_account.capabilities.can_use_model_execution_features() !=
         signin::Tribool::kTrue;
+
+    result.share_image_disallowed =
+        primary_account.capabilities.can_use_model_execution_features() !=
+        signin::Tribool::kTrue;
   }
 
   if (profile->GetPrefs()->GetInteger(::prefs::kGeminiSettings) !=
@@ -341,6 +387,9 @@ GlicGlobalEnabling::GlicGlobalEnabling(Delegate& delegate) {
 GlicGlobalEnabling::~GlicGlobalEnabling() = default;
 
 bool GlicGlobalEnabling::IsEnabledByFlags() {
+  if (g_bypass_enablement_checks_for_testing) {
+    return true;
+  }
   // It is important that this value not change at runtime in production. Any
   // future updates to this function must maintain that property.
   bool is_enabled = base::FeatureList::IsEnabled(features::kGlic) &&
@@ -516,64 +565,9 @@ bool GlicEnabling::IsMultiInstanceEnabledByFlags() {
 }
 
 bool GlicEnabling::IsShareImageEnabledForProfile(Profile* profile) {
-  if (!IsEnabledForProfile(profile) ||
-      !base::FeatureList::IsEnabled(features::kGlicShareImage) ||
-      // TODO(b:482429737): Live requires the same capability needed for share
-      // image. In future, this should be a separate bit on the
-      // ProfileEnablement struct.
-      !EnablementForProfile(profile).EligibleForLive()) {
-    return false;
-  }
-
-  if (base::FeatureList::IsEnabled(features::kGlicShareImageEnterprise)) {
-    return true;
-  }
-
-  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
-  if (!identity_manager) {
-    return false;
-  }
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kGlicDev) &&
-      HasGoogleInternalProfile()) {
-    return true;
-  }
-
-  auto* browser_management_service =
-      policy::ManagementServiceFactory::GetForProfile(profile);
-  const bool is_managed =
-      browser_management_service && browser_management_service->IsManaged();
-  if (is_managed) {
-    return false;
-  }
-
-  // LINT.IfChange(GlicCachedUserStatusScope)
-
-  // See GlicUserStatusFetcher for details on when we update the cached value
-  // and when we skip updating.
-  if (base::FeatureList::IsEnabled(features::kGlicUserStatusCheck) &&
-      GlicUserStatusFetcher::GetCachedUserStatus(profile).has_value()) {
-    return false;
-  }
-
-  // LINT.ThenChange(//chrome/browser/glic/glic_user_status_fetcher.cc:GlicCachedUserStatusScope)
-
-  auto account_managed_status_finder = signin::AccountManagedStatusFinder(
-      identity_manager,
-      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
-      base::DoNothing());
-
-  switch (account_managed_status_finder.GetOutcome()) {
-    case signin::AccountManagedStatusFinderOutcome::kConsumerGmail:
-    case signin::AccountManagedStatusFinderOutcome::kConsumerWellKnown:
-    case signin::AccountManagedStatusFinderOutcome::kConsumerNotWellKnown:
-      return true;
-    case signin::AccountManagedStatusFinderOutcome::kPending:
-    case signin::AccountManagedStatusFinderOutcome::kEnterpriseGoogleDotCom:
-    case signin::AccountManagedStatusFinderOutcome::kEnterprise:
-    case signin::AccountManagedStatusFinderOutcome::kError:
-    case signin::AccountManagedStatusFinderOutcome::kTimeout:
-      return false;
-  }
+  auto enablement = EnablementForProfile(profile);
+  return enablement.IsEnabled() && enablement.EligibleForShareImage() &&
+         base::FeatureList::IsEnabled(features::kGlicShareImage);
 }
 
 bool GlicEnabling::IsMultiInstanceEnabled() {

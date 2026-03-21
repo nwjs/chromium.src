@@ -46,6 +46,8 @@
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/https_upgrades/model/https_upgrade_service_factory.h"
+#import "ios/chrome/browser/intelligence/actuation/model/tools/click_tool_java_script_feature.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
 #import "ios/chrome/browser/link_to_text/model/link_to_text_java_script_feature.h"
 #import "ios/chrome/browser/ntp/model/browser_policy_new_tab_page_rewriter.h"
@@ -76,12 +78,13 @@
 #import "ios/chrome/browser/supervised_user/model/supervised_user_interstitial_java_script_feature.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_service_factory.h"
 #import "ios/chrome/browser/supervised_user/model/supervised_user_url_filter_tab_helper.h"
+#import "ios/chrome/browser/unified_consent/model/url_keyed_data_collection_consent_helper_factory_ios.h"
+#import "ios/chrome/browser/unified_consent/model/url_keyed_data_collection_consent_helper_ios.h"
 #import "ios/chrome/browser/web/model/browser_about_rewriter.h"
 #import "ios/chrome/browser/web/model/choose_file/choose_file_java_script_feature.h"
 #import "ios/chrome/browser/web/model/choose_file/choose_file_tab_helper.h"
 #import "ios/chrome/browser/web/model/chrome_main_parts.h"
 #import "ios/chrome/browser/web/model/error_page_util.h"
-#import "ios/chrome/browser/web/model/features.h"
 #import "ios/chrome/browser/web/model/font_size/font_size_java_script_feature.h"
 #import "ios/chrome/browser/web/model/image_fetch/image_fetch_java_script_feature.h"
 #import "ios/chrome/browser/web/model/java_script_console/java_script_console_feature.h"
@@ -90,6 +93,7 @@
 #import "ios/chrome/browser/web/model/web_performance_metrics/web_performance_metrics_java_script_feature.h"
 #import "ios/chrome/browser/web_selection/model/web_selection_java_script_feature.h"
 #import "ios/chrome/common/channel_info.h"
+#import "ios/chrome/common/crash_report/crash_helper.h"
 #import "ios/components/security_interstitials/https_only_mode/feature.h"
 #import "ios/components/security_interstitials/https_only_mode/https_only_mode_blocking_page.h"
 #import "ios/components/security_interstitials/https_only_mode/https_only_mode_container.h"
@@ -107,6 +111,7 @@
 #import "ios/components/ui_util/dynamic_type_util.h"
 #import "ios/components/webui/web_ui_url_constants.h"
 #import "ios/net/protocol_handler_util.h"
+#import "ios/public/provider/chrome/browser/fullscreen/fullscreen_api.h"
 #import "ios/public/provider/chrome/browser/url_rewriters/url_rewriters_api.h"
 #import "ios/web/common/features.h"
 #import "ios/web/common/user_agent.h"
@@ -441,6 +446,10 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
   features.push_back(ChooseFileJavaScriptFeature::GetInstance());
   features.push_back(PageContextExtractorJavaScriptFeature::GetInstance());
 
+  if (base::FeatureList::IsEnabled(kActuationTools)) {
+    features.push_back(ClickToolJavaScriptFeature::GetInstance());
+  }
+
   features.push_back(
       SupervisedUserInterstitialJavaScriptFeature::GetInstance());
 
@@ -641,7 +650,8 @@ void ChromeWebClient::BuildEditMenu(web::WebState* web_state,
 
 bool ChromeWebClient::CanRunOpenPanel(web::WebState* source) const
     API_AVAILABLE(ios(18.4)) {
-  return base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu);
+  return base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu) &&
+         ChooseFileTabHelper::FromWebState(source) != nullptr;
 }
 
 void ChromeWebClient::RunOpenPanel(
@@ -654,4 +664,24 @@ void ChromeWebClient::RunOpenPanel(
   ChooseFileTabHelper* tab_helper = ChooseFileTabHelper::FromWebState(source);
   CHECK(tab_helper);
   tab_helper->RunOpenPanel(parameters, frame, std::move(completion));
+}
+
+web::JSErrorReportLoggingLevel ChromeWebClient::GetJSErrorReportLoggingLevel(
+    web::BrowserState* browser_state) const {
+  if (!crash_helper::common::UserEnabledUploading()) {
+    return web::JSErrorReportLoggingLevel::NONE;
+  }
+
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
+  UrlKeyedDataCollectionConsentHelperIOS* consent_helper =
+      UrlKeyedDataCollectionConsentHelperFactoryIOS::GetForProfile(profile);
+  if (consent_helper->IsEnabled()) {
+    return web::JSErrorReportLoggingLevel::FULL;
+  }
+
+  return web::JSErrorReportLoggingLevel::REPORT_WITHOUT_URL;
+}
+
+bool ChromeWebClient::IsSmoothScrollingSupported() const {
+  return ios::provider::IsFullscreenSmoothScrollingSupported();
 }

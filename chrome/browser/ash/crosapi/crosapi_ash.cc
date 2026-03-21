@@ -17,7 +17,6 @@
 #include "chrome/browser/ash/crosapi/document_scan_ash.h"
 #include "chrome/browser/ash/crosapi/local_printer_ash.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_factory.h"
-#include "chrome/browser/ash/printing/print_preview/print_preview_webcontents_adapter_ash.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
@@ -26,7 +25,6 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
-#include "chromeos/ash/components/telemetry_extension/diagnostics/diagnostics_service_ash.h"
 #include "chromeos/ash/components/telemetry_extension/management/telemetry_management_service_ash.h"
 #include "chromeos/ash/components/telemetry_extension/routines/telemetry_diagnostic_routine_service_ash.h"
 #include "chromeos/ash/components/telemetry_extension/telemetry/probe_service_ash.h"
@@ -75,17 +73,13 @@ Profile* GetAshProfile() {
 }  // namespace
 
 CrosapiAsh::CrosapiAsh()
-    : diagnostics_service_ash_(std::make_unique<ash::DiagnosticsServiceAsh>()),
-      document_scan_ash_(std::make_unique<DocumentScanAsh>()),
+    : document_scan_ash_(std::make_unique<DocumentScanAsh>()),
       local_printer_ash_(std::make_unique<LocalPrinterAsh>()),
       telemetry_diagnostic_routine_service_ash_(
           std::make_unique<ash::TelemetryDiagnosticsRoutineServiceAsh>()),
       telemetry_management_service_ash_(
           std::make_unique<ash::TelemetryManagementServiceAsh>()),
-      probe_service_ash_(std::make_unique<ash::ProbeServiceAsh>()),
-      print_preview_webcontents_adapter_ash_(
-          std::make_unique<
-              ash::printing::PrintPreviewWebcontentsAdapterAsh>()) {
+      probe_service_ash_(std::make_unique<ash::ProbeServiceAsh>()) {
   receiver_set_.set_disconnect_handler(base::BindRepeating(
       &CrosapiAsh::OnDisconnected, weak_factory_.GetWeakPtr()));
 }
@@ -126,11 +120,6 @@ void CrosapiAsh::BindCfmServiceContext(
 void CrosapiAsh::BindCrosDisplayConfigController(
     mojo::PendingReceiver<mojom::CrosDisplayConfigController> receiver) {
   ash::BindCrosDisplayConfigController(std::move(receiver));
-}
-
-void CrosapiAsh::BindDiagnosticsService(
-    mojo::PendingReceiver<mojom::DiagnosticsService> receiver) {
-  diagnostics_service_ash_->BindReceiver(std::move(receiver));
 }
 
 void CrosapiAsh::BindDocumentScan(

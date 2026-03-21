@@ -53,8 +53,6 @@ using UkmFieldInfoAfterSubmissionType =
     ukm::builders::Autofill2_FieldInfoAfterSubmission;
 using UkmFormSummaryType = ukm::builders::Autofill2_FormSummary;
 using UkmFocusedComplexFormType = ukm::builders::Autofill2_FocusedComplexForm;
-using UkmSubmittedFormWithExperimentalFieldsType =
-    ukm::builders::Autofill2_SubmittedFormWithExperimentalFields;
 
 std::string SerializeAndEncode(const AutofillQueryResponse& response) {
   std::string unencoded_response_string;
@@ -141,9 +139,9 @@ TEST_F(FormInteractionsUkmLoggerTest, TypeOfEditedAutofilledFieldsUkmLogging) {
                            "buddy@gmail.com", FormControlType::kInputText),
        CreateTestFormField("Phone", "phone", "2345678901",
                            FormControlType::kInputTelephone)});
-  test_api(form).field(0).set_is_autofilled(true);
-  test_api(form).field(1).set_is_autofilled(true);
-  test_api(form).field(2).set_is_autofilled(true);
+  test_api(form).field(0).set_is_autofilled_according_to_renderer(true);
+  test_api(form).field(1).set_is_autofilled_according_to_renderer(true);
+  test_api(form).field(2).set_is_autofilled_according_to_renderer(true);
 
   std::vector<FieldType> heuristic_types = {NAME_FULL, EMAIL_ADDRESS,
                                             PHONE_HOME_CITY_AND_NUMBER};
@@ -152,6 +150,11 @@ TEST_F(FormInteractionsUkmLoggerTest, TypeOfEditedAutofilledFieldsUkmLogging) {
                                          PHONE_HOME_CITY_AND_NUMBER};
 
   autofill_manager().AddSeenForm(form, heuristic_types, server_types);
+  FormStructure& form_structure =
+      *test_api(autofill_manager()).FindCachedFormById(form.global_id());
+  for (const std::unique_ptr<AutofillField>& field : form_structure.fields()) {
+    field->AddFieldModifier(FieldModifier::kAutofill);
+  }
 
   EXPECT_THAT(GetEventUrls(test_ukm_recorder(), UkmFormEventType::kEntryName),
               Each(form.main_frame_origin().GetURL()));
@@ -1601,67 +1604,6 @@ TEST_P(LogFocusedComplexFormAtFormRemoveTest, TestEmittedUKM) {
   EXPECT_THAT(
       GetUkmEvents(test_ukm_recorder(), UkmFocusedComplexFormType::kEntryName),
       UkmEventsAre(expected_events));
-}
-
-TEST_F(FieldLogUkmMetricTest,
-       LogAutofillFormWithExperimentalFieldsCountAtFormRemove) {
-  base::FieldTrialParams feature_parameters{
-      {features::kAutofillUKMExperimentalFieldsBucket0.name, "label1"},
-      {features::kAutofillUKMExperimentalFieldsBucket4.name, "field2"},
-  };
-  base::test::ScopedFeatureList scoped_features;
-  scoped_features.InitWithFeaturesAndParameters(
-      /*enabled_features=*/{{features::kAutofillUKMExperimentalFields,
-                             feature_parameters}},
-      /*disabled_features=*/{});
-  FormData form = test::GetFormData(test::FormDescription{
-      .fields = {
-          // This matches bucket 0, has a value, has typing -> gets reported.
-          {.label = u"label1", .name_attribute = u"field1", .value = u"foo"},
-          // This matches bucket 4, has a value, has typing -> get reported.
-          {.label = u"", .name_attribute = u"field2", .value = u"foo"},
-          // This matches bucket 4, has a value, has typing -> get reported.
-          {.label = u"", .id_attribute = u"field2", .value = u"foo"},
-          // This matches bucket 0, HAS NO VALUE, has typing
-          // -> does NOT get reported.
-          {.label = u"label1", .name_attribute = u"field3"},
-          // This MATCHES NO BUCKET, has a value, has typing leading to empty
-          // string.
-          // -> does NOT get reported.
-          {.label = u"label2", .name_attribute = u"field4", .value = u"foo"},
-          // This matches bucket 0, has a value, HAS NO TYPING
-          // -> does not gets reported.
-          {.label = u"label1", .name_attribute = u"field1", .value = u"foo"},
-      }});
-
-  FormStructure form_structure(form);
-  form_structure.field(0)->AppendLogEventIfNotRepeated(
-      TypingFieldLogEvent{.has_value_after_typing = OptionalBoolean::kTrue});
-  form_structure.field(1)->AppendLogEventIfNotRepeated(
-      TypingFieldLogEvent{.has_value_after_typing = OptionalBoolean::kTrue});
-  form_structure.field(2)->AppendLogEventIfNotRepeated(
-      TypingFieldLogEvent{.has_value_after_typing = OptionalBoolean::kTrue});
-  // Typing leads to empty string:
-  form_structure.field(3)->AppendLogEventIfNotRepeated(
-      TypingFieldLogEvent{.has_value_after_typing = OptionalBoolean::kFalse});
-  form_structure.field(4)->AppendLogEventIfNotRepeated(
-      TypingFieldLogEvent{.has_value_after_typing = OptionalBoolean::kTrue});
-  // No typing on field 5.
-
-  FormInteractionsUkmLogger logger(&autofill_client());
-  logger.LogAutofillFormWithExperimentalFieldsCountAtFormRemove(
-      autofill_driver().GetPageUkmSourceId(), form_structure);
-
-  using USFWEFT = UkmSubmittedFormWithExperimentalFieldsType;
-  std::vector<UkmMetricNameAndValue> expected;
-  expected.emplace_back(USFWEFT::kFormSignatureName,
-                        Collapse(CalculateFormSignature(form)).value());
-  expected.emplace_back(USFWEFT::kFormSessionIdentifierName,
-                        FormGlobalIdToHash64Bit(form.global_id()));
-  expected.emplace_back(USFWEFT::kNumberOfNonEmptyExperimentalFields0Name, 1);
-  expected.emplace_back(USFWEFT::kNumberOfNonEmptyExperimentalFields4Name, 2);
-  EXPECT_THAT(GetUkmEvents(test_ukm_recorder(), USFWEFT::kEntryName),
-              UkmEventsAre({expected}));
 }
 
 }  // namespace

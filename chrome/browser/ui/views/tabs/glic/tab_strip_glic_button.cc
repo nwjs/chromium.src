@@ -44,12 +44,9 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_utils.h"
 
 namespace glic {
-
-// TODO(crbug.com/461326322): Remove this flag when crbug.com/461326322 is
-// resolved.
-BASE_FEATURE(kGlicButtonHideLabelOnTaskNudge, base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -289,7 +286,8 @@ TabStripGlicButton::TabStripGlicButton(
 
   UpdateIcon();
   OnLabelVisibilityChanged();
-  auto* image_view = static_cast<views::ImageView*>(image_container_view());
+  auto* image_view =
+      views::AsViewClass<views::ImageView>(image_container_view());
   image_view->SetImageSize({kIconSize, kIconSize});
   image_view->SetPaintToLayer();
   image_view->layer()->SetFillsBoundsOpaquely(false);
@@ -335,13 +333,15 @@ void TabStripGlicButton::SetNudgeLabel(std::string label) {
   // Store the new label text until the right moment in the animation to update
   // the view.
   pending_text_ = base::UTF8ToUTF16(label);
+
+  if (width_state_ == WidthState::kNudge) {
+    end_width_ = CalculateExpandedWidth();
+    SetText(*pending_text_);
+    PreferredSizeChanged();
+  }
 }
 
 void TabStripGlicButton::Expand() {
-  if (!base::FeatureList::IsEnabled(kGlicButtonHideLabelOnTaskNudge)) {
-    return;
-  }
-
   // Update state.
   if (width_state_ != WidthState::kCollapsed) {
     return;
@@ -373,10 +373,6 @@ void TabStripGlicButton::Expand() {
 }
 
 void TabStripGlicButton::Collapse() {
-  if (!base::FeatureList::IsEnabled(kGlicButtonHideLabelOnTaskNudge)) {
-    return;
-  }
-
   WidthState old_width_state = width_state_;
   if (width_state_ == WidthState::kCollapsed) {
     return;
@@ -727,7 +723,7 @@ void TabStripGlicButton::ShowNudge() {
   views::AnimationBuilder()
       .OnEnded(base::BindOnce(&TabStripGlicButton::ApplyTextAndFadeIn,
                               weak_ptr_factory_.GetWeakPtr(),
-                              std::move(pending_text_),
+                              /*text=*/std::nullopt,
                               /*delay=*/DurationMs(0), kNudgeFadeInDuration))
       .Once()
       .At(kNudgeFadeInStart - kLabelFadeOutDuration)
@@ -781,7 +777,9 @@ void TabStripGlicButton::HideNudge() {
 void TabStripGlicButton::ApplyTextAndFadeIn(std::optional<std::u16string> text,
                                             base::TimeDelta delay,
                                             base::TimeDelta duration) {
-  if (text) {
+  if (width_state_ == WidthState::kNudge && pending_text_) {
+    SetText(*pending_text_);
+  } else if (text) {
     SetText(*text);
   }
 

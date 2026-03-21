@@ -89,7 +89,8 @@ BOOL ShouldTriggerIPHForURLVisits(history::QueryURLAndVisitsResult result) {
 GURL GetValidUrl(NSString* urlString) {
   GURL fixedUpURL = url_formatter::FixupURL(base::SysNSStringToUTF8(urlString),
                                             std::string());
-  if (fixedUpURL.IsStandard() || fixedUpURL.SchemeIs("chrome")) {
+  if ((fixedUpURL.IsStandard() || fixedUpURL.SchemeIs("chrome")) &&
+      fixedUpURL.is_valid()) {
     return fixedUpURL;
   }
   return GURL();
@@ -113,11 +114,10 @@ GURL GetValidUrl(NSString* urlString) {
   BOOL _incognitoAvailable;
   BOOL _recordedPageImpression;
   raw_ptr<history::HistoryService> _historyService;
-  raw_ptr<PrefService, DanglingUntriaged> _prefService;
+  raw_ptr<PrefService> _prefService;
   PrefChangeRegistrar _prefChangeRegistrar;
-  raw_ptr<UrlLoadingBrowserAgent, DanglingUntriaged> _URLLoadingBrowserAgent;
-  raw_ptr<ChromeAccountManagerService, DanglingUntriaged>
-      _accountManagerService;
+  raw_ptr<UrlLoadingBrowserAgent> _URLLoadingBrowserAgent;
+  raw_ptr<ChromeAccountManagerService> _accountManagerService;
   raw_ptr<feature_engagement::Tracker> _engagementTracker;
   LayoutGuideCenter* _layoutGuideCenter;
   // Tracker for cancellable tasks initiated by the mediator.
@@ -175,12 +175,15 @@ GURL GetValidUrl(NSString* urlString) {
 
 - (void)disconnect {
   _cancelableTaskTracker.TryCancelAll();
-  _historyService = nullptr;
-  _engagementTracker = nullptr;
-  _prefChangeRegistrar.RemoveAll();
   _mostVisitedBridge.reset();
   _mostVisitedSites.reset();
   _mostVisitedAttributesProvider = nil;
+  _historyService = nullptr;
+  _engagementTracker = nullptr;
+  _accountManagerService = nullptr;
+  _URLLoadingBrowserAgent = nullptr;
+  _prefChangeRegistrar.RemoveAll();
+  _prefService = nullptr;
 }
 
 + (NSUInteger)maxSitesShown {

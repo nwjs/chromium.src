@@ -50,11 +50,10 @@ bool DrawVideoFrameIntoResourceProvider(
 
   media::PaintCanvasVideoRenderer::PaintParams params;
   params.dest_rect = gfx::RectF(resource_provider->Size());
-  resource_provider->ExternalCanvasDrawHelper(
-      [&](MemoryManagedPaintCanvas& canvas) {
-        video_renderer->Paint(frame.get(), &canvas, media_flags, params,
-                              raster_context_provider);
-      });
+  resource_provider->ExternalCanvasDrawHelper([&](cc::PaintCanvas& canvas) {
+    video_renderer->Paint(frame.get(), &canvas, media_flags, params,
+                          raster_context_provider);
+  });
   return true;
 }
 
@@ -430,16 +429,14 @@ ExternalTexture CreateExternalTexture(
   }
 
   // High bit depth formats should also use F16, but do not yet.
-  auto sk_color_type = kN32_SkColorType;
+  auto format = GetN32FormatForCanvas();
   if (media_video_frame->format() == media::PIXEL_FORMAT_RGBAF16) {
-    sk_color_type = kRGBA_F16_SkColorType;
+    format = viz::SinglePlaneFormat::kRGBA_F16;
   }
 
   std::unique_ptr<RecyclableCanvasResource> recyclable_canvas_resource =
       device->GetDawnControlClient()->GetOrCreateCanvasResource(
-          SkImageInfo::Make(natural_size.width(), natural_size.height(),
-                            sk_color_type, kPremul_SkAlphaType,
-                            resource_color_space.ToSkColorSpace()));
+          format, natural_size, resource_color_space, kPremul_SkAlphaType);
   if (!recyclable_canvas_resource) {
     return external_texture;
   }
@@ -453,9 +450,7 @@ ExternalTexture CreateExternalTexture(
 
   if (use_copy_to_shared_image) {
     gpu::SyncToken sync_token;
-    auto client_si =
-        resource_provider->GetBackingClientSharedImageForExternalWrite(
-            gpu::SharedImageUsageSet(), sync_token);
+    auto client_si = resource_provider->BeginExternalWrite(sync_token);
 
     // The returned sync token is from the SharedGpuContext.
     sync_token = video_renderer->CopyVideoFrameToSharedImage(

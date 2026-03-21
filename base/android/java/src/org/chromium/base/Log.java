@@ -21,6 +21,7 @@ import java.util.Locale;
  * <p>Usage documentation: {@code //docs/android_logging.md}.
  */
 @NullMarked
+@SuppressWarnings("NoAndroidLog")
 public class Log {
     /** Convenience property, same as {@link android.util.Log#ASSERT}. */
     public static final int ASSERT = android.util.Log.ASSERT;
@@ -101,6 +102,11 @@ public class Log {
         }
     }
 
+    /** Log the exception. */
+    public static void v(String tag, Throwable t) {
+        v(tag, "", t);
+    }
+
     /**
      * Sends a {@link android.util.Log#DEBUG} log message.
      *
@@ -124,15 +130,20 @@ public class Log {
         }
     }
 
+    /** Log the exception. */
+    public static void d(String tag, Throwable t) {
+        d(tag, "", t);
+    }
+
     /**
      * Sends an {@link android.util.Log#INFO} log message.
      *
-     * @param tag Used to identify the source of a log message. Might be modified in the output
-     *            (see {@link #normalizeTag(String)})
+     * @param tag Used to identify the source of a log message. Might be modified in the output (see
+     *     {@link #normalizeTag(String)})
      * @param messageTemplate The message you would like logged. It is to be specified as a format
-     *                        string.
+     *     string.
      * @param args Arguments referenced by the format specifiers in the format string. If the last
-     *             one is a {@link Throwable}, its trace will be printed.
+     *     one is a {@link Throwable}, its trace will be printed.
      */
     public static void i(String tag, String messageTemplate, @Nullable Object... args) {
         Throwable tr = getThrowableToLog(args);
@@ -151,9 +162,15 @@ public class Log {
     // * String.format() will be converted into StringBuilder when possible
     //   * Which also removes auto-boxing of primitives.
     @AlwaysInline
+    public static void i(String tag, Throwable t) {
+        android.util.Log.i(normalizeTag(tag), "", t);
+    }
+
+    @AlwaysInline
     public static void i(String tag, String message) {
         android.util.Log.i(normalizeTag(tag), message);
     }
+
     @AlwaysInline
     public static void i(String tag, String message, Throwable t) {
         android.util.Log.i(normalizeTag(tag), message, t);
@@ -343,9 +360,15 @@ public class Log {
     // * String.format() will be converted into StringBuilder when possible
     //   * Which also removes auto-boxing of primitives.
     @AlwaysInline
+    public static void w(String tag, Throwable t) {
+        android.util.Log.w(normalizeTag(tag), "", t);
+    }
+
+    @AlwaysInline
     public static void w(String tag, String message) {
         android.util.Log.w(normalizeTag(tag), message);
     }
+
     @AlwaysInline
     public static void w(String tag, String message, Throwable t) {
         android.util.Log.w(normalizeTag(tag), message, t);
@@ -534,9 +557,15 @@ public class Log {
     // * String.format() will be converted into StringBuilder when possible
     //   * Which also removes auto-boxing of primitives.
     @AlwaysInline
+    public static void e(String tag, Throwable t) {
+        android.util.Log.e(normalizeTag(tag), "", t);
+    }
+
+    @AlwaysInline
     public static void e(String tag, String message) {
         android.util.Log.e(normalizeTag(tag), message);
     }
+
     @AlwaysInline
     public static void e(String tag, String message, Throwable t) {
         android.util.Log.e(normalizeTag(tag), message, t);
@@ -729,6 +758,11 @@ public class Log {
     // * String.format() will be converted into StringBuilder when possible
     //   * Which also removes auto-boxing of primitives.
     @AlwaysInline
+    public static void wtf(String tag, Throwable t) {
+        android.util.Log.wtf(normalizeTag(tag), "", t);
+    }
+
+    @AlwaysInline
     public static void wtf(String tag, String message) {
         android.util.Log.wtf(normalizeTag(tag), message);
     }
@@ -894,6 +928,21 @@ public class Log {
                 String.format(
                         Locale.US, messageTemplate, param1, param2, param3, param4, param5, param6),
                 t);
+    }
+
+    /**
+     * Low-level logging call.
+     *
+     * @see android.util.Log#println(int, String, String)
+     *
+     * @param priority The priority/type of this log message (e.g. {@link #DEBUG}, {@link #INFO}).
+     * @param tag Used to identify the source of a log message. Might be modified in the output
+     *     (see {@link #normalizeTag(String)})
+     * @param message The message you would like logged.
+     */
+    @AlwaysInline
+    public static void println(int priority, String tag, String message) {
+        android.util.Log.println(priority, normalizeTag(tag), message);
     }
 
     /** Handy function to get a loggable stack trace from a Throwable. */

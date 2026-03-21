@@ -240,7 +240,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccessCodeCast.Session.FreezeCount" units="instances"
-    expires_after="2026-06-12">
+    expires_after="2026-08-23">
   <owner>bzielinski@google.com</owner>
   <owner>cros-edu-eng@google.com</owner>
   <summary>
@@ -376,7 +376,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccessCodeCast.Ui.TabSwitcherUsageType"
-    enum="AccessCodeCastUiTabSwitcherUsage" expires_after="2026-06-12">
+    enum="AccessCodeCastUiTabSwitcherUsage" expires_after="2026-08-23">
   <owner>ahmedmoussa@google.com</owner>
   <owner>muyaoxu@google.com</owner>
   <owner>openscreen-eng@google.com</owner>
@@ -391,7 +391,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccessCodeCast.Ui.TabSwitchingCount" units="count"
-    expires_after="2026-06-12">
+    expires_after="2026-08-23">
   <owner>ahmedmoussa@google.com</owner>
   <owner>muyaoxu@google.com</owner>
   <owner>openscreen-eng@google.com</owner>
@@ -3042,7 +3042,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ClientHints.AcceptCHFrame" enum="AcceptCHFrameRestart"
-    expires_after="2026-06-14">
+    expires_after="2026-08-16">
   <owner>victortan@chromium.org</owner>
   <owner>miketaylr@chromium.org</owner>
   <owner>katabolism-finch@google.com</owner>
@@ -3055,7 +3055,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ClientHints.CriticalCHRestart" enum="CriticalCHRestart"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>victortan@chromium.org</owner>
   <owner>miketaylr@chromium.org</owner>
   <owner>katabolism-finch@google.com</owner>
@@ -3065,7 +3065,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ClientHints.FetchLatency{OperationType}" units="microseconds"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>victortan@chromium.org</owner>
   <owner>miketaylr@chromium.org</owner>
   <owner>katabolism-finch@google.com</owner>
@@ -3085,7 +3085,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ClientHints.StoreLatency" units="ms"
-    expires_after="2026-04-12">
+    expires_after="2026-10-12">
   <owner>victortan@chromium.org</owner>
   <owner>miketaylr@chromium.org</owner>
   <owner>katabolism-finch@google.com</owner>
@@ -3096,7 +3096,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ClientHints.UpdateEventCount" units="count"
-    expires_after="2026-04-12">
+    expires_after="2026-10-12">
   <owner>victortan@chromium.org</owner>
   <owner>katabolism-finch@google.com</owner>
   <summary>
@@ -3106,7 +3106,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ClientHints.UpdateSize" units="count"
-    expires_after="2026-04-12">
+    expires_after="2026-10-12">
   <owner>victortan@chromium.org</owner>
   <owner>katabolism-finch@google.com</owner>
   <summary>
@@ -3151,12 +3151,52 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ComponentUpdater.InstallResult" enum="ComponentManagerError"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>wanghaifan@google.com</owner>
   <owner>cros-demo-mode-eng@google.com</owner>
   <owner>src/components/component_updater/OWNERS</owner>
   <summary>
     Chrome OS only. The installation result of the cros component manager.
+  </summary>
+</histogram>
+
+<histogram name="ComponentUpdater.TranslateKit.LanguagePack.UpdateError"
+    enum="UpdateClientErrors" expires_after="2026-12-31">
+  <owner>paugomez@chromium.org</owner>
+  <owner>danft@chromium.org</owner>
+  <owner>mardelpi@chromium.org</owner>
+  <summary>
+    The error code for a failed on-demand update of a Translate Kit language
+    pack component. Recorded when a user action requires an on-device
+    translation for a language pair for which the language pack is not yet
+    installed.
+  </summary>
+</histogram>
+
+<histogram name="ComponentUpdater.TranslateKit.MountError"
+    enum="UpdateClientErrors" expires_after="2026-12-31">
+  <owner>paugomez@chromium.org</owner>
+  <owner>danft@chromium.org</owner>
+  <owner>mardelpi@chromium.org</owner>
+  <summary>
+    Chrome OS only. The error code for a failed mount of the Translate Kit
+    component. This is recorded when the component is installed but mounting it
+    via the ImageLoaderClient fails. Can occur as part of the component
+    installation process the first time a user needs on device translation and
+    the component is not yet installed.
+  </summary>
+</histogram>
+
+<histogram name="ComponentUpdater.TranslateKit.UpdateError"
+    enum="UpdateClientErrors" expires_after="2026-12-31">
+  <owner>paugomez@chromium.org</owner>
+  <owner>danft@chromium.org</owner>
+  <owner>mardelpi@chromium.org</owner>
+  <summary>
+    The error code for a failed on-demand update of the Translate Kit component.
+    Recorded when an on-demand update of the main TranslateKit component fails.
+    This is a one time event indirectly triggered by a user action. (not
+    periodic or on startup)
   </summary>
 </histogram>
 
@@ -3175,7 +3215,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ComponentUpdater.UpdateCompleteTime" units="ms"
-    expires_after="2026-05-31">
+    expires_after="2026-08-16">
   <owner>sorin@chromium.org</owner>
   <owner>src/components/component_updater/OWNERS</owner>
   <summary>
@@ -3631,7 +3671,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Eche.Connection.Result" enum="BooleanSuccess"
-    expires_after="2026-05-30">
+    expires_after="2026-08-30">
   <owner>crisrael@google.com</owner>
   <owner>exo-core-eng@google.com</owner>
   <owner>chromeos-cross-device-eng@google.com</owner>
@@ -4200,7 +4240,6 @@ chromium-metrics-reviews@google.com.
   <token key="SurveyName">
     <variant name="BeforeFirstRunDesktopRefreshSurvey"/>
     <variant name="PerformanceControlsPPMSurvey"/>
-    <variant name="PrivacySandboxSentimentSurvey"/>
   </token>
 </histogram>
 
@@ -4285,7 +4324,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Feedback.RequestSource" enum="FeedbackSource"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>afakhry@chromium.org</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>Records the source that requested showing the feedback app.</summary>
@@ -4315,7 +4354,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Feedback.TrustSafetySentiment.TriggerOccurred"
-    enum="TrustSafetySentimentFeatureArea" expires_after="2026-06-28">
+    enum="TrustSafetySentimentFeatureArea" expires_after="2026-08-30">
   <owner>sauski@google.com</owner>
   <owner>chrome-hats-eng@google.com</owner>
   <summary>
@@ -4354,7 +4393,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FetchKeepAlive.RequestOutliveDuration" units="ms"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>mych@chromium.org</owner>
   <owner>chrome-bfcache@google.com</owner>
   <summary>
@@ -4394,7 +4433,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="FetchKeepAlive.Requests2.{RequestState}.IsContextDetached.{Process}"
-    enum="Boolean" expires_after="2026-06-28">
+    enum="Boolean" expires_after="2026-08-30">
   <owner>mych@chromium.org</owner>
   <owner>chrome-bfcache@google.com</owner>
   <summary>
@@ -4509,7 +4548,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FirstPartySets.Database.InitStatus"
-    enum="FirstPartySetsDatabaseInitStatus" expires_after="2026-06-28">
+    enum="FirstPartySetsDatabaseInitStatus" expires_after="2026-08-30">
   <owner>shuuran@google.com</owner>
   <owner>kaustubhag@google.com</owner>
   <summary>
@@ -4648,7 +4687,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="FirstRun.Sentinel.Created" enum="FirstRunSentinelResult"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -4791,7 +4830,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Gamepad.KnownGamepadConnectedWithId"
-    enum="GamepadVendorProduct" expires_after="2026-06-28">
+    enum="GamepadVendorProduct" expires_after="2026-08-30">
   <owner>mattreynolds@chromium.org</owner>
   <owner>deviceapi-team@google.com</owner>
   <summary>
@@ -4892,7 +4931,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Hwsec.Attestation.PrepareDuration" units="ms"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>chingkang@chromium.org</owner>
   <owner>cros-hwsec-userland-eng+uma@google.com</owner>
   <summary>The duration of preparation for enrollment in attestation.</summary>
@@ -4962,15 +5001,16 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ImportantFile.FileReplaceResult{ImportantFileClients}"
-    enum="ImportantFileReplaceResult" expires_after="2026-06-28">
+    enum="ImportantFileReplaceResult" expires_after="2026-08-30">
   <owner>etienneb@chromium.org</owner>
   <owner>joenotcharles@google.com</owner>
   <summary>
     The result when ImportantFileWriter moves the temporary file to its final
     location. Recorded on every write with ImportantFileWriter. If retries were
     needed, the retry count is recorded in ImportantFile.FileReplaceRetryCount2.
+
+    {ImportantFileClients}
   </summary>
-  <token key="ImportantFileClients" variants="ImportantFileClients"/>
 </histogram>
 
 <histogram name="ImportantFile.FileReplaceRetryCount" units="attempt count"
@@ -4987,17 +5027,18 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ImportantFile.FileReplaceRetryCount2{ImportantFileClients}"
-    units="attempt count" expires_after="2026-06-28">
+    units="attempt count" expires_after="2026-08-30">
   <owner>etienneb@chromium.org</owner>
   <owner>joenotcharles@google.com</owner>
   <summary>
     The number of retries needed for ImportantFileWriter to move the temporary
     file to its final location, succeed or fail. The success or failure of the
-    operation is recorded in ImportantFile.FileReplaceesult. Unlike
+    operation is recorded in ImportantFile.FileReplaceResult. Unlike
     ImportantFile.FileReplaceRetryCount, this is only logged if a retry is
     needed.
+
+    {ImportantFileClients}
   </summary>
-  <token key="ImportantFileClients" variants="ImportantFileClients"/>
 </histogram>
 
 <histogram name="ImportantFile.SerializationDuration{ImportantFileClients}"
@@ -5010,8 +5051,24 @@ chromium-metrics-reviews@google.com.
     preferences). For users of ImportantFileWriter that leverage background
     serialization (e.g. bookmarks), it excludes the time spent on the background
     thread, and only logs the time spent on the foreground thread.
+
+    {ImportantFileClients}
   </summary>
-  <token key="ImportantFileClients" variants="ImportantFileClients"/>
+</histogram>
+
+<histogram name="ImportantFile.SerializationSize{ImportantFileClients}"
+    units="bytes" expires_after="2026-07-26">
+  <owner>asvitkine@chromium.org</owner>
+  <owner>chrome-metrics-team@google.com</owner>
+  <summary>
+    Size of the serialized data to be written into an important file. Recorded
+    when the file is written.
+
+    Note: As client suffixes are added the volume of the unsufixed variant will
+    decline. This needs to be taken into account when analyzing overall counts.
+
+    {ImportantFileClients}
+  </summary>
 </histogram>
 
 <histogram name="ImportantFile.WriteDuration{ImportantFileClients}" units="ms"
@@ -5024,8 +5081,9 @@ chromium-metrics-reviews@google.com.
 
     Note: As client suffixes are added the volume of the unsufixed variant will
     decline. This needs to be taken into account when analyzing overall counts.
+
+    {ImportantFileClients}
   </summary>
-  <token key="ImportantFileClients" variants="ImportantFileClients"/>
 </histogram>
 
 <histogram name="Incognito.ClearBrowsingDataDialog.ActionType"
@@ -5382,7 +5440,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Mojo.EndToEndLatencyUs.{ThreadName}" units="microseconds"
-    expires_after="2026-06-14">
+    expires_after="2026-08-16">
   <owner>lizeb@chromium.org</owner>
   <owner>rockot@google.com</owner>
   <owner>mthiesse@chromium.org</owner>
@@ -5454,7 +5512,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MPArch.ChildProcessLaunchSubsequent" units="ms"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>pasko@chromium.org</owner>
   <owner>yfriedman@chromium.org</owner>
   <summary>
@@ -5462,21 +5520,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="MultiProfile.UsersPerSessionIncremental" units="units"
-    expires_after="2026-07-26">
-  <owner>antrim@chromium.org</owner>
-  <summary>
-    The number of users simultaneously signed into a multiprofile session on
-    Chrome OS. This is recorded whenever a user gets added to the session. To
-    get the correct count, all following counts must be subtracted. Example: If
-    100 single user, 20 two user and 5 three user sessions, there were
-    100-20-5=75 single user sessions, 100-80=20 dual user sessions and so on.
-    Warning: this histogram was expired from 2022-04-10 till 2023-07-10.
-  </summary>
-</histogram>
-
 <histogram name="NativeSmbFileShare.AuthenticationMethod"
-    enum="NativeSmbFileShare_AuthMethod" expires_after="2026-06-07">
+    enum="NativeSmbFileShare_AuthMethod" expires_after="2026-08-09">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/chrome/browser/ash/smb_client/OWNERS</owner>
   <summary>
@@ -5516,7 +5561,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="NQE.Duration.{MethodName}" units="ms"
-    expires_after="2026-06-25">
+    expires_after="2026-08-30">
   <owner>suzukikeita@chromium.org</owner>
   <owner>blink-network-stack@google.com</owner>
   <summary>
@@ -5805,346 +5850,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="OSCrypt.AppBoundEncryption.SupportLevel"
-    enum="AppBoundEncryptionSupportLevel" expires_after="2026-07-05">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The status of the current level of support for App-Bound encryption. This is
-    logged once during browser startup on Windows only.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.AppBoundProvider.Decrypt.ResultCode" enum="Hresult"
-    expires_after="2026-07-26">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The result code of the application-bound Decrypt operation. This is logged
-    once during browser startup on a background thread for supported Windows
-    installs only, for a client that is decrypting a previously encrypted stored
-    key, when the App-Bound encryption provider is enabled.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.AppBoundProvider.Decrypt.ResultLastError"
-    enum="WinGetLastError" expires_after="2026-07-05">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The GetLastError code for a failed application-bound Decrypt operation. This
-    is logged once during browser startup on a background thread for supported
-    Windows installs only, if the call to Decrypt failed, for a client that is
-    decrypting a previously encrypted stored key, when the App-Bound encryption
-    provider is enabled.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.AppBoundProvider.Encrypt.ResultCode" enum="Hresult"
-    expires_after="2026-07-26">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The result code of the application-bound Encrypt operation with path
-    validation. This is logged once during browser startup on a background
-    thread for supported Windows installs only, for a client that is
-    initializing a new local state or a previously failing client, when the
-    App-Bound encryption provider is enabled.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.AppBoundProvider.Encrypt.ResultLastError"
-    enum="WinGetLastError" expires_after="2026-05-03">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The GetLastError code for a failed application-bound Encrypt operation with
-    path validation. This is logged once during browser startup on a background
-    thread for supported Windows installs only, if the call to Encrypt failed,
-    for a client that is initializing a new local state or a previously failing
-    client, when the App-Bound encryption provider is enabled.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.AppBoundProvider.KeyRetrieval.Status"
-    enum="OSCryptAppBoundKeyRetrievalStatus" expires_after="2026-07-05">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The result of the App-Bound OSCrypt Async Key Provider reading the key from
-    persistent storage while being initialized. This is recorded once during
-    browser startup if the App-Bound Key Provider is enabled, on Windows only.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Async.DecryptionFallbackToSync" enum="Boolean"
-    expires_after="2026-06-15">
-  <owner>wfh@chromium.org</owner>
-  <owner>thomasanderson@chromium.org</owner>
-  <summary>
-    Whether or not a fallback to OSCrypt Sync occured in a decryption call to an
-    OSCrypt Async Encryptor. This histogram is recorded every time a data
-    decryption happens and only reports true if the Encryptor was unable to
-    decrypt the data, a fallback to OSCrypt Sync therefore happened, and OSCrypt
-    Sync was able to successfully decrypt the data. It reports false otherwise.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Async.EncryptionFallbackToSync" enum="Boolean"
-    expires_after="2026-06-15">
-  <owner>wfh@chromium.org</owner>
-  <owner>thomasanderson@chromium.org</owner>
-  <summary>
-    Whether or not a fallback to OSCrypt Sync occured in a encryption call to an
-    OSCrypt Async Encryptor. This histogram is recorded every time a data
-    encryption happens and only reports true if the Encryptor contained no valid
-    key for encryption, a fallback to OSCrypt Sync therefore happened, and
-    OSCrypt Sync successfully encrypted the data. It reports false otherwise.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.AsyncInitialization.Time" units="ms"
-    expires_after="2026-07-19">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The amount of time, in ms, that it takes for OSCrypt Async to complete the
-    attempt to initialize the keyring during browser process initialization.
-    Recorded once per browser start, if the OSCrypt Async completes the
-    initialization attempt before the browser shuts down.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.BackendUsage" enum="LinuxPasswordStoreUsage"
-    expires_after="2026-06-07">
-  <owner>vasilii@chromium.org</owner>
-  <owner>mamir@chromium.org</owner>
-  <summary>
-    The backend selected for this user and whether it was initialised
-    successfully.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.DPAPIProvider.Status" enum="OSCryptDPAPIKeyStatus"
-    expires_after="2026-07-26">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The result of the DPAPI OSCrypt Async Key Provider reading the OSCrypt Sync
-    DPAPI key from pref store when being initialized. This is recorded once
-    during browser startup if the DPAPI Key Provider is enabled, on Windows
-    only.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.EncryptionPrefixVersion"
-    enum="EncryptionPrefixVersion" expires_after="2026-06-28">
-  <owner>wfh@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    The version prefix of encrypted data. This metric is reported by OSCrypt
-    Sync when attempting to decrypt a non-empty value on non-Windows platforms.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.EncryptorKeyCount{EncryptorKeyType}" units="key count"
-    expires_after="2026-07-05">
-  <owner>wfh@chromium.org</owner>
-  <owner>chrome-platform-security-core@google.com</owner>
-  <summary>
-    Logged whenever the OSCrypt Async instance has been created after a call to
-    GetInstance. This counts the {EncryptorKeyType} key(s) in the keyring.
-  </summary>
-  <token key="EncryptorKeyType">
-    <variant name="" summary="total possible"/>
-    <variant name=".Available" summary="available"/>
-    <variant name=".PermanentlyUnavailable" summary="permanently unavailable"/>
-    <variant name=".TemporarilyUnavailable" summary="temporarily unavailable"/>
-  </token>
-</histogram>
-
-<histogram name="OSCrypt.FreedesktopSecretKeyProvider.InitStatus"
-    enum="FreedesktopSecretKeyProviderInitStatus" expires_after="2025-12-17">
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    The broad outcome of the org.freedesktop.secrets OSCrypt Async Key Provider
-    initialization, recorded once during browser startup (Linux only).
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.FreedesktopSecretKeyProvider.{InitStatus}.ErrorDetail"
-    enum="FreedesktopSecretKeyProviderErrorDetail" expires_after="2026-06-28">
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    The detailed error cause for each InitStatus for the org.freedesktop.secrets
-    OSCrypt Async Key Provider initialization, recorded once during browser
-    startup in case of failure (Linux only).
-  </summary>
-  <token key="InitStatus">
-    <variant name="CreateCollectionFailed"/>
-    <variant name="CreateItemFailed"/>
-    <variant name="EmptySecret"/>
-    <variant name="GetSecretFailed"/>
-    <variant name="GnomeKeyringDeadlock"/>
-    <variant name="NoService"/>
-    <variant name="ReadAliasFailed"/>
-    <variant name="SearchItemsFailed"/>
-    <variant name="SessionFailure"/>
-    <variant name="UnlockFailed"/>
-  </token>
-</histogram>
-
-<histogram name="OSCrypt.Linux.DecryptedWithEmptyKey" enum="Boolean"
-    expires_after="2026-06-30">
-  <owner>thestig@chromium.org</owner>
-  <owner>wfh@chromium.org</owner>
-  <summary>
-    True, iff the data was not decryptable with the stored encryption key, but
-    was decryptable with a key generated from an empty string. This is emitted
-    every time OSCrypt attempts to decrypt a value.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Mac.FindGenericPasswordError"
-    enum="MacSecurityFrameworkOSStatus" expires_after="2026-06-07">
-  <owner>avi@chromium.org</owner>
-  <owner>lgrey@chromium.org</owner>
-  <owner>markrowe@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    Once per launch of Mac Chrome, OSCrypt retrieves the &quot;safe
-    storage&quot; item from the Keychain. If an error occurs during this
-    retrieval, the OSCrypt.Mac.FindGenericPasswordResult histogram will have a
-    kErrorOccurred enum recorded, and this histogram will have the actual error
-    code returned by SecItemCopyMatching/SecKeychainFindGenericPassword
-    recorded. In all other cases (either the &quot;safe storage&quot; item was
-    found or it was not found but there was no error), this metric is not
-    recorded.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Mac.FindGenericPasswordResult"
-    enum="FindGenericPasswordResult" expires_after="2026-06-07">
-  <owner>avi@chromium.org</owner>
-  <owner>lgrey@chromium.org</owner>
-  <owner>markrowe@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    Once per launch of Mac Chrome, OSCrypt retrieves the &quot;safe
-    storage&quot; item from the Keychain. This metric is logged for every such
-    retrieval, recording an enum of whether the item was found, not found, or an
-    error occurred. In the case of an error occurring, the actual error returned
-    by the API will be recorded in OSCrypt.Mac.FindGenericPasswordError.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Mac.SuccessAfterPreviousError"
-    enum="MacSecurityFrameworkOSStatus" expires_after="2026-06-07">
-  <owner>thestig@chromium.org</owner>
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>wfh@chromium.org</owner>
-  <summary>
-    Logged when a Keychain operation successfully retrieves or adds a password
-    after a previous operation in the same browser lifetime resulted in an
-    error. The logged value is the OSStatus of the *previous* error. This helps
-    track which errors are transient and can be successfully recovered from.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.SecretPortalKeyProvider.GotToken" enum="Boolean"
-    expires_after="2025-11-30">
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    True if a token was received from the service. The token is passed back to
-    the service on subsequent usage to ensure the same secret will be returned.
-    Emitted only on Linux when the desktop portal has emitted the request
-    completed signal after user interaction is finished.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.SecretPortalKeyProvider.InitStatus"
-    enum="SecretPortalKeyProviderInitStatus" expires_after="2025-11-30">
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    The result of the org.freedesktop.portal.Secret OSCrypt Async Key Provider
-    initialization. This is recorded once during browser startup if
-    SecretPortalKeyProvider enabled, on Linux only.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.SecretPortalKeyProvider.NewInitFailure"
-    enum="SecretPortalKeyProviderInitStatus" expires_after="2025-11-30">
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>thestig@chromium.org</owner>
-  <summary>
-    The result of the org.freedesktop.portal.Secret OSCrypt Async Key Provider
-    initialization if the previous initialization succeeded and the current
-    initialization failed, and the previous desktop matches the current desktop.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Win.Decrypt.Result" enum="BooleanSuccess"
-    expires_after="2026-07-05">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    Whether or not the DPAPI Decrypt call to decrypt the OSCrypt key succeeeded.
-    This is logged once during browser startup on Windows.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Win.Decrypt.Time" units="ms"
-    expires_after="2023-11-12">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The amount of time, in ms, that it takes to perform a DPAPI Decrypt call.
-    This is logged once during browser startup on Windows.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Win.Encrypt.Result" enum="BooleanSuccess"
-    expires_after="2026-03-01">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    Whether or not the DPAPI Encrypt call to encrypt the OSCrypt key succeeeded.
-    This is logged once during browser startup on Windows, if there is no stored
-    key and a new one has to be generated. This data will therefore be biased
-    towards newer clients. See OSCrypt.Win.Decrypt.Result which contains
-    unbiased data.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Win.Encrypt.Time" units="ms"
-    expires_after="2023-11-12">
-  <owner>wfh@chromium.org</owner>
-  <owner>nparker@chromium.org</owner>
-  <summary>
-    The amount of time, in ms, that it takes to perform a DPAPI Encrypt call.
-    This is logged once during browser startup on Windows, if there is no stored
-    key and a new one has to be generated. This data will therefore be biased
-    towards newer clients. See OSCrypt.Win.Decrypt.Time which contains unbiased
-    data.
-  </summary>
-</histogram>
-
-<histogram name="OSCrypt.Win.KeyDecryptionError" enum="WinGetLastError"
-    expires_after="2026-07-26">
-  <owner>wfh@chromium.org</owner>
-  <owner>forshaw@chromium.org</owner>
-  <summary>
-    The Windows GetLastError after a failure from calling into DPAPI to decrypt
-    the main key for the os_crypt library on Windows. This is recorded during
-    the OSCrypt::Init each time the decryption fails. Note that this metric was
-    not recorded between 2021-08 (M91) and 2024-07 (M128).
-  </summary>
-</histogram>
-
 <histogram name="OSX.ConfirmToQuit" enum="ConfirmToQuit" expires_after="M125">
   <owner>mark@chromium.org</owner>
   <summary>Usage statistics for the confirm to quit feature.</summary>
@@ -6371,7 +6076,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PageImageService.Backend.OptimizationGuide.Result{ClientId}"
-    enum="PageImageServiceResult" expires_after="2026-06-21">
+    enum="PageImageServiceResult" expires_after="2026-08-23">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-journeys@google.com</owner>
   <component>1456757</component>
@@ -6614,7 +6319,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Process.Sandbox.DllBlocked" enum="WinTroublesomeDllName"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>ajgo@chromium.org</owner>
   <owner>wfh@chromium.org</owner>
   <summary>
@@ -6703,7 +6408,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PushMessaging.DeliveryStatus" enum="PushEventStatus"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>peter@chromium.org</owner>
   <owner>knollr@chromium.org</owner>
   <summary>
@@ -6739,7 +6444,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="PushMessaging.PushSubscriptionChangeForNotificationPermissionChangeFired"
-    units="count" expires_after="2026-06-21">
+    units="count" expires_after="2026-08-23">
   <owner>peter@chromium.org</owner>
   <owner>antoniosartori@chromium.org</owner>
   <summary>
@@ -6819,18 +6524,8 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="ReadingList.ContextMenu" enum="ReadingListContextMenuActions"
-    expires_after="2026-03-11">
-  <owner>gambard@chromium.org</owner>
-  <owner>bling-team@google.com</owner>
-  <summary>
-    The action chosen by the user after displaying the reading list context
-    menu.
-  </summary>
-</histogram>
-
 <histogram name="ReadingList.Download.Failures" units="count"
-    expires_after="2026-03-05">
+    expires_after="2027-03-11">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>
@@ -6839,14 +6534,14 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ReadingList.Download.Status" enum="ReadingListDownloadStatus"
-    expires_after="2026-03-05">
+    expires_after="2027-03-11">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>Final status of the download of a reading list entry.</summary>
 </histogram>
 
 <histogram name="ReadingList.FirstReadAgeOnDeletion" units="hours"
-    expires_after="2026-03-05">
+    expires_after="2027-03-11">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>
@@ -6863,21 +6558,11 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ReadingList.Read.AgeOnDeletion" units="hours"
-    expires_after="2026-03-11">
+    expires_after="2027-03-11">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>
     Time since the creation of the read reading list entry getting deleted.
-  </summary>
-</histogram>
-
-<histogram name="ReadingList.Read.AgeOnFirstRead" units="hours"
-    expires_after="2026-02-11">
-  <owner>thegreenfrog@chromium.org</owner>
-  <owner>olivierrobin@google.com</owner>
-  <summary>
-    Time since the creation of the read reading list entry being read for the
-    first time.
   </summary>
 </histogram>
 
@@ -6898,7 +6583,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ReadingList.Unread.Number" units="count"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
   <summary>Number of unread entries in reading list.</summary>
@@ -6916,7 +6601,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ReadingList.WebUI.LoadCompletedTime" units="ms"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>corising@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -7122,7 +6807,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ReportingAndNEL.UnresponsiveRenderer.CrashReportOutcome"
-    enum="CrashRepHandlingOutcome" expires_after="2026-06-28">
+    enum="CrashRepHandlingOutcome" expires_after="2026-08-30">
   <owner>iclelland@chromium.org</owner>
   <owner>issackjohn@microsoft.com</owner>
   <owner>src/net/reporting/OWNERS</owner>
@@ -7188,7 +6873,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SB2.RemoteCall.CanCheckUrl" enum="BooleanCanCheckUrl"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>vakh@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -7456,7 +7141,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="Shutdown.OtherExit.Time2" units="ms"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>etienneb@chromium.org</owner>
   <owner>gab@chromium.org</owner>
   <summary>
@@ -7691,7 +7376,7 @@ useful for Chirp alerts (go/crca-alerts). -->
 </histogram>
 
 <histogram name="SiteIsolatedCodeCache.DataSize" units="bytes"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>olivierli@chromium.org</owner>
   <owner>leszeks@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
@@ -7757,7 +7442,6 @@ useful for Chirp alerts (go/crca-alerts). -->
 
 <histogram name="SiteIsolatedCodeCache.JS.WebUI.Behaviour"
     enum="SiteIsolatedCodeCacheJSBehaviour" expires_after="2025-07-01">
-  <owner>temao@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <summary>
     The behaviour of site isolated WebUI JS code cache recorded for each cache
@@ -8474,7 +8158,7 @@ should be kept until we use this API.  -->
 </histogram>
 
 <histogram name="Tracing.Background.ReadTraceDuration" units="ms"
-    expires_after="2026-06-21">
+    expires_after="2026-08-23">
   <owner>etiennep@chromium.org</owner>
   <owner>chrometto-team@google.com</owner>
   <summary>
@@ -8484,7 +8168,7 @@ should be kept until we use this API.  -->
 </histogram>
 
 <histogram name="Tracing.Background.Scenario.Trigger.{Type}"
-    enum="BackgroundTracingTriggerNameHash" expires_after="2026-06-21">
+    enum="BackgroundTracingTriggerNameHash" expires_after="2026-08-23">
   <owner>etiennep@chromium.org</owner>
   <owner>chrometto-team@google.com</owner>
   <summary>
@@ -8501,7 +8185,7 @@ should be kept until we use this API.  -->
 </histogram>
 
 <histogram name="Tracing.Background.Scenario.{Event}"
-    enum="BackgroundTracingScenarioNameHash" expires_after="2026-06-21">
+    enum="BackgroundTracingScenarioNameHash" expires_after="2026-08-23">
   <owner>etiennep@chromium.org</owner>
   <owner>chrometto-team@google.com</owner>
   <summary>
@@ -8540,7 +8224,7 @@ should be kept until we use this API.  -->
 </histogram>
 
 <histogram name="Tracing.ElevatedTracingService.LaunchResult.{Stage}"
-    enum="Hresult" expires_after="2026-06-07">
+    enum="Hresult" expires_after="2026-08-09">
   <owner>etiennep@chromium.org</owner>
   <owner>grt@chromium.org</owner>
   <summary>
@@ -8622,41 +8306,10 @@ should be kept until we use this API.  -->
   </summary>
 </histogram>
 
-<histogram name="UpdateClient.Component.UpdateCheckResult"
-    enum="UpdateClientUpdateCheckResult" expires_after="2026-03-29">
-  <owner>noahrose@google.com</owner>
-  <owner>sorin@chromium.org</owner>
-  <owner>waffles@chromium.org</owner>
-  <summary>
-    The result of a component update check. Recorded once per component per
-    update check.
-  </summary>
-</histogram>
-
-<histogram name="UpdateClient.Component.Updated" enum="Boolean"
-    expires_after="2026-08-02">
-  <owner>noahrose@google.com</owner>
-  <owner>sorin@chromium.org</owner>
-  <owner>waffles@chromium.org</owner>
-  <summary>Records when the update client has updated a component.</summary>
-</histogram>
-
-<histogram name="UpdateClient.CrxDownloader.DownloadCompleteSuccess"
-    enum="Boolean" expires_after="2026-07-25">
-  <owner>noahrose@google.com</owner>
-  <owner>sorin@chromium.org</owner>
-  <owner>waffles@chromium.org</owner>
-  <summary>
-    Whether a download completed with an error or not. Recorded once for every
-    completed download.
-  </summary>
-</histogram>
-
 <histogram name="UpdateClient.DownloadTime2{AppID}" units="ms"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>noahrose@google.com</owner>
   <owner>sorin@chromium.org</owner>
-  <owner>waffles@chromium.org</owner>
   <summary>
     Measures the time it takes to complete a download for {AppID}. Counted only
     for successful downloads.
@@ -8669,10 +8322,9 @@ should be kept until we use this API.  -->
 </histogram>
 
 <histogram name="UpdateClient.UnzipTime{AppID}" units="ms"
-    expires_after="2026-05-31">
+    expires_after="2026-08-30">
   <owner>noahrose@google.com</owner>
   <owner>sorin@chromium.org</owner>
-  <owner>waffles@chromium.org</owner>
   <summary>
     Measures the time it takes to unzip a component for {AppID}. Counted only
     for successful unzips.
@@ -8997,7 +8649,7 @@ regressions. -->
 </histogram>
 
 <histogram name="WebContentsObserver.{Method}{FrameType}" units="ms"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>cduvall@chromium.org</owner>
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
@@ -9039,7 +8691,7 @@ regressions. -->
 </histogram>
 
 <histogram name="WebFont.CacheHit" enum="WebFontCacheHit"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>hajimehoshi@chromium.org</owner>
   <owner>kenjibaheux@chromium.org</owner>
   <owner>kouhei@chromium.org</owner>
@@ -9131,7 +8783,7 @@ regressions. -->
 </histogram>
 
 <histogram name="WebUsb.DetachKernelDriverOutcome"
-    enum="DetachKernelDriverOutcome" expires_after="2026-06-15">
+    enum="DetachKernelDriverOutcome" expires_after="2026-08-16">
   <owner>ovn@google.com</owner>
   <owner>lt-web-apps-team@google.com</owner>
   <summary>

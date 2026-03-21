@@ -37,14 +37,6 @@ using signin::PrimaryAccountChangeEvent;
 
 namespace {
 
-// Registers that the sign in occurred with an explicit user action.
-// Affected by all signin sources except when signing in to Chrome caused by a
-// web sign in or by an unknown source.
-// Note: This value is currently not
-// expected to be used and is logged for potential usages in the future.
-const char kExplicitBrowserSigninWithoutFeatureEnabled[] =
-    "signin.explicit_browser_signin";
-
 enum class InitializePrefState {
   kWithPrimaryAccountId_NotConsentedForSync = 0,
   kWithPrimaryAccountId_ConsentedForSync = 1,
@@ -251,7 +243,6 @@ PrimaryAccountManager::PrimaryAccountManager(
   // level are loaded.
   CHECK(primary_account_.has_value());
 
-  bool migrated_sync_user_to_explicit_sign_in = false;
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   if (!prefs->GetBoolean(prefs::kExplicitBrowserSignin) &&
       HasPrimaryAccount(signin::ConsentLevel::kSync)) {
@@ -259,12 +250,8 @@ PrimaryAccountManager::PrimaryAccountManager(
     // sign-in as the user has explicitly signed in to the browser when they
     // opted in to sync.
     scoped_pref_commit.SetBoolean(prefs::kExplicitBrowserSignin, true);
-    migrated_sync_user_to_explicit_sign_in = true;
   }
 #endif
-
-  base::UmaHistogramBoolean("Signin.ExplicitSigninMigration.FromSync",
-                            migrated_sync_user_to_explicit_sign_in);
 
   // `prefs::kPrefsThemesSearchEnginesAccountStorageEnabled` is set for sync
   // users and new signed in users. It is not cleared on sign out.
@@ -324,8 +311,6 @@ void PrimaryAccountManager::RegisterProfilePrefs(PrefRegistrySimple* registry) {
                                 /*SyncToSigninMigrationType::kUnknown=*/0);
   registry->RegisterBooleanPref(prefs::kSigninAllowed, true);
   registry->RegisterBooleanPref(prefs::kSignedInWithCredentialProvider, false);
-  registry->RegisterBooleanPref(kExplicitBrowserSigninWithoutFeatureEnabled,
-                                false);
   registry->RegisterBooleanPref(prefs::kExplicitBrowserSignin, false);
   registry->RegisterBooleanPref(
       prefs::kPrefsThemesSearchEnginesAccountStorageEnabled, false);
@@ -706,7 +691,6 @@ void PrimaryAccountManager::SetExplicitBrowserSigninPrefs(
     case PrimaryAccountChangeEvent::Type::kNone:
       break;
     case PrimaryAccountChangeEvent::Type::kCleared:
-      scoped_pref_commit.ClearPref(kExplicitBrowserSigninWithoutFeatureEnabled);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
       scoped_pref_commit.ClearPref(prefs::kExplicitBrowserSignin);
 #endif
@@ -724,28 +708,11 @@ void PrimaryAccountManager::SetExplicitBrowserSigninPrefs(
             prefs::kPrimaryAccountSetAfterSigninMigration, true);
       }
 
-      bool is_implicit_signin =
-          access_point == signin_metrics::AccessPoint::kUnknown ||
-          access_point == signin_metrics::AccessPoint::kWebSignin;
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
-      if (base::FeatureList::IsEnabled(
-              switches::kWebSigninLeadsToImplicitlySignedInState)) {
-        // To allow easier testing, consider the following access points as
-        // implicit sign-in.
-        is_implicit_signin =
-            is_implicit_signin ||
-            access_point ==
-                signin_metrics::AccessPoint::kChromeSigninInterceptBubble ||
-            access_point ==
-                signin_metrics::AccessPoint::kSigninChoiceRemembered;
-      }
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-      if (is_implicit_signin) {
-        scoped_pref_commit.ClearPref(
-            kExplicitBrowserSigninWithoutFeatureEnabled);
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+      if (access_point == signin_metrics::AccessPoint::kWebSignin) {
+        // TODO(crbug.com/475822503): Delete this code once Dice migration is
+        // complete.
         scoped_pref_commit.ClearPref(prefs::kExplicitBrowserSignin);
-#endif
         // Reset explicit sign-in prefs for the relevant data types.
         scoped_pref_commit.SetBoolean(
             prefs::kPrefsThemesSearchEnginesAccountStorageEnabled, false);
@@ -755,13 +722,10 @@ void PrimaryAccountManager::SetExplicitBrowserSigninPrefs(
             .SetBookmarksExplicitBrowserSignin(current_gaia_id, false);
         break;
       }
-      // All others access points are explicit sign ins except the Web
-      // Signin event.
-      scoped_pref_commit.SetBoolean(kExplicitBrowserSigninWithoutFeatureEnabled,
-                                    true);
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+
       scoped_pref_commit.SetBoolean(prefs::kExplicitBrowserSignin, true);
 #endif
+
       if (base::FeatureList::IsEnabled(
               switches::kEnablePreferencesAccountStorage)) {
         scoped_pref_commit.SetBoolean(
@@ -792,10 +756,14 @@ void PrimaryAccountManager::SetExplicitBrowserSigninPrefs(
               .SetExtensionsExplicitBrowserSignin(current_gaia_id, true);
         }
       }
-      if (access_point == signin_metrics::AccessPoint::kBookmarkBubble &&
-          base::FeatureList::IsEnabled(
-              switches::kSyncEnableBookmarksInTransportMode)) {
-        // Record an explicit signin for bookmarks for this account only.
+      if (base::FeatureList::IsEnabled(
+              switches::kSyncEnableBookmarksInTransportMode) &&
+          (access_point == signin_metrics::AccessPoint::kBookmarkBubble ||
+           syncer::kExplicitSigninForBookmarks.Get())) {
+        // Record an explicit signin for bookmarks for this account only. This
+        // should happen for every new sign in if `kExplicitSigninForBookmarks`
+        // is enabled, as this pref will be used to determine whether users are
+        // eligible for account storage or not.
         SigninPrefs(*client_->GetPrefs())
             .SetBookmarksExplicitBrowserSignin(current_gaia_id, true);
       }

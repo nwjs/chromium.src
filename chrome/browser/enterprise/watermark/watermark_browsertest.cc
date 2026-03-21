@@ -24,7 +24,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/webui/watermark/watermark_page_handler.h"
 #include "chrome/browser/ui/webui/watermark/watermark_ui.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -83,11 +82,6 @@ class WatermarkBrowserTest
     : public UiBrowserTest,
       public testing::WithParamInterface<WatermarkTextParams> {
  public:
-  WatermarkBrowserTest() {
-    scoped_feature_list_.InitAndDisableFeature(
-        enterprise_data_protection::kEnableSinglePageAppDataProtection);
-  }
-
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(embedded_test_server()->Start());

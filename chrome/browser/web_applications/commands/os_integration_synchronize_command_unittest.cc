@@ -33,7 +33,6 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_registry_update.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
-#include "chrome/common/chrome_features.h"
 #include "components/services/app_service/public/cpp/protocol_handler_info.h"
 #include "components/sync/base/time.h"
 #include "components/webapps/browser/install_result_code.h"
@@ -493,9 +492,9 @@ TEST_F(OsIntegrationSynchronizeCommandTest, NoOsStateForMigratingApps) {
   install_info->user_display_mode =
       web_app::mojom::UserDisplayMode::kStandalone;
 
-  web_app::proto::WebAppMigrationSource source;
-  source.set_manifest_id("https://migration.example.com/start.html");
-  install_info->migration_sources.push_back(std::move(source));
+  install_info->migration_sources.emplace_back(
+      webapps::ManifestId(GURL("https://migration.example.com/start.html")),
+      MigrationBehavior::kSuggest);
 
   WebAppInstallParams params;
   params.install_state = proto::InstallState::SUGGESTED_FROM_MIGRATION;

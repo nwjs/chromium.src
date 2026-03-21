@@ -65,6 +65,17 @@ TEST(FacilitatedPaymentsMetricsTest, LogPixCodeCopied) {
                                       /*expected_bucket_count=*/1);
 }
 
+TEST(FacilitatedPaymentsMetricsTest, LogPixCodeCopiedInIframe) {
+  base::HistogramTester histogram_tester;
+
+  LogPixCodeCopiedInIframe();
+
+  histogram_tester.ExpectUniqueSample(
+      "FacilitatedPayments.Pix.PixCodeCopied.Iframe",
+      /*sample=*/true,
+      /*expected_bucket_count=*/1);
+}
+
 TEST(FacilitatedPaymentsMetricsTest, LogEwalletPaymentLinkDetected) {
   base::HistogramTester histogram_tester;
 
@@ -238,6 +249,25 @@ TEST(FacilitatedPaymentsMetricsTest, LogPixTransactionResultAndLatency) {
                       GetPurchaseActionResultString(result), ".Latency"}),
         /*sample=*/10,
         /*expected_count=*/1);
+  }
+}
+
+TEST(FacilitatedPaymentsMetricsTest, LogPixTransactionResultPerFrameType) {
+  for (PurchaseActionResult result :
+       {PurchaseActionResult::kResultOk, PurchaseActionResult::kCouldNotInvoke,
+        PurchaseActionResult::kResultCanceled}) {
+    for (bool pix_code_is_in_iframe : {true, false}) {
+      base::HistogramTester histogram_tester;
+
+      LogPixTransactionResultPerFrameType(pix_code_is_in_iframe, result);
+
+      histogram_tester.ExpectUniqueSample(
+          base::StrCat({"FacilitatedPayments.Pix.Transaction",
+                        pix_code_is_in_iframe ? ".Iframe" : ".MainFrame", ".",
+                        GetPurchaseActionResultString(result)}),
+          /*sample=*/true,
+          /*expected_bucket_count=*/1);
+    }
   }
 }
 

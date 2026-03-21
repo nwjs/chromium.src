@@ -62,23 +62,27 @@ class AutofillProfileComparatorTest : public testing::Test {
 
   AutofillProfile CreateProfileWithEmail(const char* email) {
     AutofillProfile profile(kLegacyHierarchyCountryCode);
-    test::SetProfileInfo(&profile, "", "", "", email, "", "", "", "", "", "",
-                         "", "");
+    test::SetProfileInfo(
+        &profile,
+        test::SetProfileInfoOptionsBuilder().with_email(email).Build());
     return profile;
   }
 
   AutofillProfile CreateProfileWithCompanyName(const char* company_name,
                                                const char* country_code = "") {
     AutofillProfile profile(kLegacyHierarchyCountryCode);
-    test::SetProfileInfo(&profile, "", "", "", "", company_name, "", "", "", "",
-                         "", country_code, "");
+    test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
+                                       .with_company(company_name)
+                                       .with_country(country_code)
+                                       .Build());
     return profile;
   }
 
   AutofillProfile CreateProfileWithPhoneNumber(const char* phone_number) {
     AutofillProfile profile(kLegacyHierarchyCountryCode);
-    test::SetProfileInfo(&profile, "", "", "", "", "", "", "", "", "", "", "",
-                         phone_number);
+    test::SetProfileInfo(
+        &profile,
+        test::SetProfileInfoOptionsBuilder().with_phone(phone_number).Build());
     return profile;
   }
 
@@ -89,8 +93,14 @@ class AutofillProfileComparatorTest : public testing::Test {
                                            const char* zip,
                                            const char* country) {
     AutofillProfile profile(AddressCountryCode{country});
-    test::SetProfileInfo(&profile, "", "", "", "", "", line1, line2, city,
-                         state, zip, country, "");
+    test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
+                                       .with_address1(line1)
+                                       .with_address2(line2)
+                                       .with_city(city)
+                                       .with_state(state)
+                                       .with_zipcode(zip)
+                                       .with_country(country)
+                                       .Build());
     return profile;
   }
 
@@ -413,9 +423,22 @@ TEST_F(AutofillProfileComparatorTest, HaveMergeableAddresses) {
 
 TEST_F(AutofillProfileComparatorTest, AreMergeable) {
   AutofillProfile p(AddressCountryCode("US"));
-  test::SetProfileInfo(&p, "Marion", "Mitchell", "Morrison", "marion@me.xyz",
-                       "Fox", "123 Zoo St.", "Unit 5", "Hollywood", "CA",
-                       "91601", "US", "+1 (234) 567-8910", /*finalize=*/false);
+  test::SetProfileInfo(&p,
+                       test::SetProfileInfoOptionsBuilder()
+                           .with_first_name("Marion")
+                           .with_middle_name("Mitchell")
+                           .with_last_name("Morrison")
+                           .with_email("marion@me.xyz")
+                           .with_company("Fox")
+                           .with_address1("123 Zoo St.")
+                           .with_address2("Unit 5")
+                           .with_city("Hollywood")
+                           .with_state("CA")
+                           .with_zipcode("91601")
+                           .with_country("US")
+                           .with_phone("+1 (234) 567-8910")
+                           .Build(),
+                       /*finalize=*/false);
 
   AutofillProfile mergeable =
       CopyAndModify(p, {{NAME_FIRST, u"MÁRÍÕÑ"},
@@ -448,6 +471,36 @@ TEST_F(AutofillProfileComparatorTest, AreMergeable) {
   EXPECT_FALSE(comparator_.AreMergeable(p, not_mergeable_by_company_name));
   EXPECT_FALSE(comparator_.AreMergeable(p, not_mergeable_by_address));
   EXPECT_FALSE(comparator_.AreMergeable(p, not_mergeable_by_phone_number));
+}
+
+TEST_F(AutofillProfileComparatorTest, AreMergeable_EmptyValuePlaceholders) {
+  base::test::ScopedFeatureList feature_list(
+      features::kAutofillIntroduceGlobalEmptyValueRewriterRules);
+
+  AutofillProfile p1(AddressCountryCode("US"));
+  test::SetProfileInfo(&p1, test::SetProfileInfoOptionsBuilder()
+                                .with_first_name("Marion")
+                                .with_last_name("Morrison")
+                                .with_address1("Main str 123, apt 10")
+                                .with_city("Hollywood")
+                                .with_state("CA")
+                                .with_zipcode("12345")
+                                .Build());
+
+  AutofillProfile p2 = CopyAndModify(p1, {{ADDRESS_HOME_STATE, u"n/a"}});
+
+  AutofillProfile p3 =
+      CopyAndModify(p1, {{ADDRESS_HOME_ZIP, u"not applicable"}});
+
+  AutofillProfile p4 =
+      CopyAndModify(p1, {{ADDRESS_HOME_LINE1, u"Main str 123, NULL"}});
+
+  // State "CA" vs "n/a" -> mergeable.
+  EXPECT_TRUE(comparator_.AreMergeable(p1, p2));
+  // Zip "12345" vs "not applicable" -> mergeable.
+  EXPECT_TRUE(comparator_.AreMergeable(p1, p3));
+  // Address line "Main str 123, apt 10" vs "Main str 123, NULL" -> mergeable.
+  EXPECT_TRUE(comparator_.AreMergeable(p1, p4));
 }
 
 TEST_F(AutofillProfileComparatorTest, MergeEmailAddresses) {
@@ -789,9 +842,20 @@ TEST_F(AutofillProfileComparatorTest, CheckStatesMergability) {
 TEST_F(AutofillProfileComparatorTest,
        ProfilesHaveDifferentSettingsVisibleValues) {
   AutofillProfile existing_profile(AddressCountryCode("US"));
-  test::SetProfileInfo(&existing_profile, "firstName", "middleName", "lastName",
-                       "mail@mail.com", "company", "line1", "line2", "city",
-                       "state", "zip", "US", "phone");
+  test::SetProfileInfo(&existing_profile, test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("firstName")
+                                              .with_middle_name("middleName")
+                                              .with_last_name("lastName")
+                                              .with_email("mail@mail.com")
+                                              .with_company("company")
+                                              .with_address1("line1")
+                                              .with_address2("line2")
+                                              .with_city("city")
+                                              .with_state("state")
+                                              .with_zipcode("zip")
+                                              .with_country("US")
+                                              .with_phone("phone")
+                                              .Build());
 
   // A profile compared with itself cannot have different settings visible
   // values.
@@ -837,9 +901,20 @@ TEST_F(AutofillProfileComparatorTest,
   base::test::ScopedFeatureList scoped_feature_list{
       features::kAutofillSupportPhoneticNameForJP};
   AutofillProfile existing_profile(AddressCountryCode("JP"));
-  test::SetProfileInfo(&existing_profile, "firstName", "middleName", "lastName",
-                       "mail@mail.com", "company", "line1", "line2", "city",
-                       "state", "zip", "JP", "phone");
+  test::SetProfileInfo(&existing_profile, test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("firstName")
+                                              .with_middle_name("middleName")
+                                              .with_last_name("lastName")
+                                              .with_email("mail@mail.com")
+                                              .with_company("company")
+                                              .with_address1("line1")
+                                              .with_address2("line2")
+                                              .with_city("city")
+                                              .with_state("state")
+                                              .with_zipcode("zip")
+                                              .with_country("JP")
+                                              .with_phone("phone")
+                                              .Build());
   existing_profile.SetRawInfo(ALTERNATIVE_GIVEN_NAME, u"あおい");
   existing_profile.SetRawInfo(ALTERNATIVE_FAMILY_NAME, u"やまもと");
   existing_profile.FinalizeAfterImport();
@@ -856,9 +931,20 @@ TEST_F(AutofillProfileComparatorTest,
 
 TEST_F(AutofillProfileComparatorTest, GetProfileDifference) {
   AutofillProfile existing_profile(AddressCountryCode("US"));
-  test::SetProfileInfo(&existing_profile, "firstName", "middleName", "lastName",
-                       "mail@mail.com", "company", "line1", "line2", "city",
-                       "state", "zip", "US", "phone");
+  test::SetProfileInfo(&existing_profile, test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("firstName")
+                                              .with_middle_name("middleName")
+                                              .with_last_name("lastName")
+                                              .with_email("mail@mail.com")
+                                              .with_company("company")
+                                              .with_address1("line1")
+                                              .with_address2("line2")
+                                              .with_city("city")
+                                              .with_state("state")
+                                              .with_zipcode("zip")
+                                              .with_country("US")
+                                              .with_phone("phone")
+                                              .Build());
 
   // Change the zip code of the second profile.
   AutofillProfile second_existing_profile = existing_profile;
@@ -884,14 +970,38 @@ TEST_F(AutofillProfileComparatorTest, GetDifferentCountriesProfileDifference) {
   base::test::ScopedFeatureList feature_list{
       features::kAutofillSupportPhoneticNameForJP};
   AutofillProfile existing_profile(AddressCountryCode("US"));
-  test::SetProfileInfo(&existing_profile, "firstName", "middleName", "lastName",
-                       "mail@mail.com", "company", "line1", "line2", "city",
-                       "state", "zip", "US", "phone");
+  test::SetProfileInfo(&existing_profile, test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("firstName")
+                                              .with_middle_name("middleName")
+                                              .with_last_name("lastName")
+                                              .with_email("mail@mail.com")
+                                              .with_company("company")
+                                              .with_address1("line1")
+                                              .with_address2("line2")
+                                              .with_city("city")
+                                              .with_state("state")
+                                              .with_zipcode("zip")
+                                              .with_country("US")
+                                              .with_phone("phone")
+                                              .Build());
 
   AutofillProfile second_existing_profile(AddressCountryCode("JP"));
-  test::SetProfileInfo(&second_existing_profile, "firstName", "middleName",
-                       "lastName", "mail@mail.com", "company", "line1", "line2",
-                       "city", "state", "zip", "JP", "phone");
+  test::SetProfileInfo(&second_existing_profile,
+                       test::SetProfileInfoOptionsBuilder()
+                           .with_first_name("firstName")
+                           .with_middle_name("middleName")
+                           .with_last_name("lastName")
+                           .with_email("mail@mail.com")
+                           .with_company("company")
+                           .with_address1("line1")
+                           .with_address2("line2")
+                           .with_city("city")
+                           .with_state("state")
+                           .with_zipcode("zip")
+                           .with_country("JP")
+                           .with_phone("phone")
+                           .Build());
+
   second_existing_profile.SetRawInfo(ALTERNATIVE_GIVEN_NAME,
                                      u"alternativeGivenName");
   second_existing_profile.SetRawInfo(ALTERNATIVE_FAMILY_NAME,
@@ -917,9 +1027,20 @@ TEST_F(AutofillProfileComparatorTest, GetDifferentCountriesProfileDifference) {
 
 TEST_F(AutofillProfileComparatorTest, GetSettingsVisibleProfileDifference) {
   AutofillProfile existing_profile(AddressCountryCode("US"));
-  test::SetProfileInfo(&existing_profile, "firstName", "middleName", "lastName",
-                       "mail@mail.com", "company", "line1", "line2", "city",
-                       "state", "zip", "US", "phone");
+  test::SetProfileInfo(&existing_profile, test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("firstName")
+                                              .with_middle_name("middleName")
+                                              .with_last_name("lastName")
+                                              .with_email("mail@mail.com")
+                                              .with_company("company")
+                                              .with_address1("line1")
+                                              .with_address2("line2")
+                                              .with_city("city")
+                                              .with_state("state")
+                                              .with_zipcode("zip")
+                                              .with_country("US")
+                                              .with_phone("phone")
+                                              .Build());
 
   // Make a copy of the existing profile.
   AutofillProfile second_existing_profile = existing_profile;

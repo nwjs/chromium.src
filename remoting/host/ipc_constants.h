@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "base/files/file_path.h"
+#include "base/strings/cstring_view.h"
 #include "build/buildflag.h"
 #include "mojo/public/cpp/platform/named_platform_channel.h"
 

@@ -23,7 +23,7 @@ const char kGroupGraphiteDawnVulkan[] = "GraphiteDawnVulkan";
 const char kGroupGraphiteDawnMetal[] = "GraphiteDawnMetal";
 const char kGroupGraphiteDawnD3D11[] = "GraphiteDawnD3D11";
 const char kGroupGraphiteDawnD3D12[] = "GraphiteDawnD3D12";
-const char kGroupGraphiteMetal[] = "GraphiteMetal";
+const char kGroupGraphiteDawnOpenGLES[] = "GraphiteDawnOpenGLES";
 
 }  // namespace
 
@@ -81,8 +81,8 @@ const char* ChromeBrowserMainExtraPartsGpu::GetSkiaBackendName() const {
       return kGroupGraphiteDawnD3D11;
     case gpu::SkiaBackendType::kGraphiteDawnD3D12:
       return kGroupGraphiteDawnD3D12;
-    case gpu::SkiaBackendType::kGraphiteMetal:
-      return kGroupGraphiteMetal;
+    case gpu::SkiaBackendType::kGraphiteDawnOpenGLES:
+      return kGroupGraphiteDawnOpenGLES;
     case gpu::SkiaBackendType::kUnknown:
       return nullptr;
   }

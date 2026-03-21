@@ -1795,19 +1795,7 @@ targets.tests.gtest_test(
     name = "media_unittests_skia_graphite_dawn",
     args = [
         "--test-launcher-bot-mode",
-        "--enable-features=SkiaGraphite",
-        "--skia-graphite-backend=dawn",
-        "--use-gpu-in-tests",
-    ],
-    binary = "media_unittests",
-)
-
-targets.tests.gtest_test(
-    name = "media_unittests_skia_graphite_metal",
-    args = [
-        "--test-launcher-bot-mode",
-        "--enable-features=SkiaGraphite",
-        "--skia-graphite-backend=metal",
+        "--enable-skia-graphite",
         "--use-gpu-in-tests",
     ],
     binary = "media_unittests",
@@ -2004,6 +1992,31 @@ targets.tests.isolated_script_test(
         "--backends=cpu",
     ],
     binary = "ondevice_model_benchmark_tests",
+)
+
+# TODO(b:484388901): Enable GPU backedn testing when the issue is fixed.
+# targets.tests.isolated_script_test(
+#     name = "litert_e2e_tests_gpu",
+#     mixins = [
+#         "has_native_resultdb_integration",
+#     ],
+#     args = [
+#         "--benchmark_binary_dir=./",
+#         "--backends=gpu",
+#     ],
+#     binary = "litert_e2e_tests",
+# )
+
+targets.tests.isolated_script_test(
+    name = "litert_e2e_tests_cpu",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+    args = [
+        "--benchmark_binary_dir=./",
+        "--backends=cpu",
+    ],
+    binary = "litert_e2e_tests",
 )
 
 targets.tests.isolated_script_test(
@@ -3432,18 +3445,6 @@ targets.tests.gtest_test(
 )
 
 targets.tests.gtest_test(
-    name = "webview_cts_tests_bfcache_mutations",
-    mixins = [
-        "webview_cts_archive",
-    ],
-    args = [
-        "--use-apk-under-test-flags-file",
-        "--enable-features=WebViewBackForwardCache",
-    ],
-    binary = "webview_cts_tests",
-)
-
-targets.tests.gtest_test(
     name = "webview_cts_tests_no_field_trial",
     mixins = [
         "webview_cts_archive",
@@ -3466,6 +3467,18 @@ targets.tests.gtest_test(
     mixins = [
         "webview_cts_archive",
     ],
+)
+
+targets.tests.gtest_test(
+    name = "webview_64_cts_tests_bfcache_mutations",
+    mixins = [
+        "webview_cts_archive",
+    ],
+    args = [
+        "--use-apk-under-test-flags-file",
+        "--enable-features=WebViewBackForwardCache",
+    ],
+    binary = "webview_64_cts_tests",
 )
 
 targets.tests.gtest_test(

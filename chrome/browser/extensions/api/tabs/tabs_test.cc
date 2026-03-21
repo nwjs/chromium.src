@@ -86,7 +86,6 @@
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/resource_coordinator/time.h"
@@ -1033,7 +1032,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, ExtensionAPICannotNavigateDevtools) {
 }
 
 #if BUILDFLAG(IS_MAC)
-// https://crbug.com/836327
+// https://crbug.com/41385204
 #define MAYBE_AcceptState DISABLED_AcceptState
 #else
 #define MAYBE_AcceptState AcceptState
@@ -1503,7 +1502,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTestWithApps, NoTabsAppWindow) {
   CloseAppWindow(app_window);
 }
 
-// Crashes on Mac/Win only.  http://crbug.com/708996
+// Crashes on Mac/Win only.  http://crbug.com/40514319
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_FilteredEvents DISABLED_FilteredEvents
 #else
@@ -1720,15 +1719,21 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardedProperty) {
   }
 }
 
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
 // Tests chrome.tabs.discard(tabId).
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithId) {
-  // Create an additional tab.
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL(url::kAboutBlankURL),
-      WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  // Create an additional tab and navigate to `url::kAboutBlankURL`.
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
   content::WebContents* web_contents =
       GetTabListInterface()->GetTab(1)->GetContents();
+  content::WaitForLoadStop(web_contents);
+  EXPECT_FALSE(web_contents->WasDiscarded());
+
+  // Activate the first tab since the second one will be discarded and active
+  // tabs cannot be discarded on Android.
+  GetTabListInterface()->ActivateTab(
+      GetTabListInterface()->GetTab(0)->GetHandle());
 
   // Set up the function with an extension.
   scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
@@ -1741,12 +1746,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithId) {
       utils::ToDict(utils::RunFunctionAndReturnSingleResult(
           discard.get(), base::StringPrintf("[%u]", tab_id), profile()));
 
-  // Confirms that TabManager sees the tab as discarded.
+  // Confirm that the tab was discarded.
   web_contents = GetTabListInterface()->GetTab(1)->GetContents();
-  EXPECT_EQ(resource_coordinator::TabLifecycleUnitExternal::FromWebContents(
-                web_contents)
-                ->GetTabState(),
-            ::mojom::LifecycleUnitState::DISCARDED);
+  EXPECT_TRUE(web_contents->WasDiscarded());
 
   // Make sure the returned tab is the one discarded and its discarded state is
   // correct.
@@ -1768,10 +1770,11 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithId) {
 // Tests chrome.tabs.discard(invalidId).
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithInvalidId) {
   // Create an additional tab.
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL(url::kAboutBlankURL),
-      WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
+  content::WebContents* web_contents =
+      GetTabListInterface()->GetTab(1)->GetContents();
+  content::WaitForLoadStop(web_contents);
+  EXPECT_FALSE(web_contents->WasDiscarded());
 
   // Set up the function with an extension.
   scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
@@ -1789,25 +1792,32 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithInvalidId) {
   std::string error = utils::RunFunctionAndReturnError(
       discard.get(), base::StringPrintf("[%u]", tab_invalid_id), profile());
 
-  // State should still be `ACTIVE` as no tab was discarded.
-  EXPECT_EQ(resource_coordinator::TabLifecycleUnitExternal::FromWebContents(
-                GetTabListInterface()->GetTab(1)->GetContents())
-                ->GetTabState(),
-            ::mojom::LifecycleUnitState::ACTIVE);
+  // The tab should not be discarded.
+  EXPECT_FALSE(GetTabListInterface()->GetTab(1)->GetContents()->WasDiscarded());
 
   // Check error message.
   EXPECT_TRUE(base::MatchPattern(error, ExtensionTabUtil::kTabNotFoundError));
 }
 
+// TODO(crbug.com/487907630): Flaky on macos
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_DiscardWithoutId DISABLED_DiscardWithoutId
+#else
+#define MAYBE_DiscardWithoutId DiscardWithoutId
+#endif
 // Tests chrome.tabs.discard().
-IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithoutId) {
+IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, MAYBE_DiscardWithoutId) {
   // Create an additional tab.
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL(url::kAboutBlankURL),
-      WindowOpenDisposition::NEW_BACKGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  GetTabListInterface()->OpenTab(GURL(url::kAboutBlankURL), -1);
   content::WebContents* web_contents =
       GetTabListInterface()->GetTab(1)->GetContents();
+  content::WaitForLoadStop(web_contents);
+  EXPECT_FALSE(web_contents->WasDiscarded());
+
+  // Activate the first created tab to make the second one the least recently
+  // used and therefore the one that should be discarded.
+  GetTabListInterface()->ActivateTab(
+      GetTabListInterface()->GetTab(0)->GetHandle());
 
   // Set up the function with an extension.
   scoped_refptr<const Extension> extension = ExtensionBuilder("Test").Build();
@@ -1818,12 +1828,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithoutId) {
   const base::DictValue result = utils::ToDict(
       utils::RunFunctionAndReturnSingleResult(discard.get(), "[]", profile()));
 
-  // Confirms that TabManager sees the tab as discarded.
+  // Confirm that the tab was discarded.
   web_contents = GetTabListInterface()->GetTab(1)->GetContents();
-  EXPECT_EQ(resource_coordinator::TabLifecycleUnitExternal::FromWebContents(
-                web_contents)
-                ->GetTabState(),
-            ::mojom::LifecycleUnitState::DISCARDED);
+  EXPECT_TRUE(web_contents->WasDiscarded());
 
   // Make sure the returned tab is the one discarded and its discarded state is
   // correct.
@@ -1833,6 +1840,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, DiscardWithoutId) {
   // The result should be scrubbed.
   EXPECT_FALSE(result.contains("url"));
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, TestGroupDetachedAndReInserted) {
   // Create the `TabsEventRouter`, which is required to get a tab update event.
@@ -2537,7 +2546,7 @@ class ExtensionApiPdfTest : public base::test::WithFeatureOverride,
   bool UseOopif() const override { return GetParam(); }
 };
 
-// Regression test for crbug.com/660498.
+// Regression test for crbug.com/40085816.
 IN_PROC_BROWSER_TEST_P(ExtensionApiPdfTest, TemporaryAddressSpoof) {
   content::WebContents* first_web_contents = GetActiveWebContents();
   ASSERT_TRUE(first_web_contents);
@@ -2591,7 +2600,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionApiPdfTest, TemporaryAddressSpoof) {
   EXPECT_EQ(url, second_web_contents->GetVisibleURL());
 
   // Wait for the TestNavigationManager-monitored navigation to complete to
-  // avoid a race during browser teardown (see crbug.com/882213).
+  // avoid a race during browser teardown (see crbug.com/41412718).
   ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
 }
 
@@ -2601,9 +2610,9 @@ INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(ExtensionApiPdfTest);
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 // Tests how chrome.windows.create behaves when setSelfAsOpener parameter is
-// used.  setSelfAsOpener was introduced as a fix for https://crbug.com/713888
-// and https://crbug.com/718489.  This is a (slightly morphed) regression test
-// for https://crbug.com/597750.
+// used. setSelfAsOpener was introduced as a fix for https://crbug.com/40516654
+// and https://crbug.com/40518908. This is a (slightly morphed) regression test
+// for https://crbug.com/40462301.
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_WithOpener) {
   const extensions::Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("../simple_with_file"));
@@ -2617,13 +2626,26 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_WithOpener) {
   // Execute chrome.windows.create and store the new tab in |new_contents|.
   content::WebContents* new_contents = nullptr;
   {
-    content::WebContentsAddedObserver observer;
+    content::TestNavigationObserver nav_observer(extension_url);
+    nav_observer.StartWatchingNewWebContents();
     std::string script = base::StringPrintf(
         R"( window.name = 'old-contents';
-            chrome.windows.create({url: '%s', setSelfAsOpener: true}); )",
+            new Promise(resolve => {
+              chrome.windows.create(
+                {url: '%s', setSelfAsOpener: true}, (win) => {
+                resolve(win.tabs[0].id);
+              });
+            }); )",
         extension_url.spec().c_str());
-    ASSERT_TRUE(content::ExecJs(old_contents, script));
-    new_contents = observer.GetWebContents();
+    // We need to get the tabId from the callback because simply waiting for a
+    // new WebContents via WebContentsAddedObserver is flaky when InitialWebUI
+    // is enabled (which creates multiple WebContents). We also wait for the
+    // specific extension URL to load to avoid races with initial intermediate
+    // page loads.
+    int tab_id = content::EvalJs(old_contents, script).ExtractInt();
+    EXPECT_TRUE(
+        ExtensionTabUtil::GetTabById(tab_id, profile(), true, &new_contents));
+    nav_observer.Wait();
     ASSERT_TRUE(content::WaitForLoadStop(new_contents));
   }
 
@@ -2673,8 +2695,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_WithOpener) {
 }
 
 // Tests how chrome.windows.create behaves when setSelfAsOpener parameter is not
-// used.  setSelfAsOpener was introduced as a fix for https://crbug.com/713888
-// and https://crbug.com/718489.
+// used. setSelfAsOpener was introduced as a fix for https://crbug.com/40516654
+// and https://crbug.com/40518908.
 IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_NoOpener) {
   const Extension* extension =
       LoadExtension(test_data_dir_.AppendASCII("../simple_with_file"));
@@ -2688,13 +2710,22 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_NoOpener) {
   // Execute chrome.windows.create and store the new tab in |new_contents|.
   content::WebContents* new_contents = nullptr;
   {
-    content::WebContentsAddedObserver observer;
+    content::TestNavigationObserver nav_observer(extension_url);
+    nav_observer.StartWatchingNewWebContents();
     std::string script = base::StringPrintf(
         R"( window.name = 'old-contents';
-            chrome.windows.create({url: '%s'}); )",
+            new Promise(resolve => {
+              chrome.windows.create({url: '%s'}, (win) => {
+                resolve(win.tabs[0].id);
+              });
+            }); )",
         extension_url.spec().c_str());
-    ASSERT_TRUE(content::ExecJs(old_contents, script));
-    new_contents = observer.GetWebContents();
+    // We need to get the tabId from the callback to accept the case where
+    // multiple WebContents are created.
+    int tab_id = content::EvalJs(old_contents, script).ExtractInt();
+    EXPECT_TRUE(
+        ExtensionTabUtil::GetTabById(tab_id, profile(), true, &new_contents));
+    nav_observer.Wait();
     ASSERT_TRUE(content::WaitForLoadStop(new_contents));
   }
 
@@ -2707,8 +2738,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_NoOpener) {
   // Verify that the |new_contents| doesn't have |window.opener| set.
   EXPECT_EQ(false, EvalJs(new_contents, "!!window.opener"));
 
-  // TODO(lukasza): http://crbug.com/786411: Verify that |new_contents| can NOT
-  // find |old_contents| using window.open/name.  This is currently broken,
+  // TODO(lukasza): http://crbug.com/40550544: Verify that |new_contents| can
+  // NOT find |old_contents| using window.open/name.  This is currently broken,
   // because browsing instance boundaries are pierced for all extension frames
   // (we hope this can be limited to background pages / contents).
 }
@@ -2759,7 +2790,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_OpenerAndOrigin) {
       {extension_url_str, std::nullopt, extension_origin_str},
   });
 
-  auto run_test_case = [&web_contents](const TestCase& test_case) {
+  Profile* profile = this->profile();
+  auto run_test_case = [&web_contents, profile](const TestCase& test_case) {
     std::string maybe_specify_set_self_as_opener;
     if (test_case.set_self_as_opener) {
       maybe_specify_set_self_as_opener =
@@ -2767,14 +2799,21 @@ IN_PROC_BROWSER_TEST_F(ExtensionTabsTest, WindowsCreate_OpenerAndOrigin) {
                              base::ToString(*test_case.set_self_as_opener));
     }
     std::string script = base::StringPrintf(
-        R"( chrome.windows.create({url: '%s'%s}); )", test_case.url.c_str(),
-        maybe_specify_set_self_as_opener.c_str());
+        R"( new Promise(resolve => {
+              chrome.windows.create({url: '%s'%s}, (win) => {
+                resolve(win.tabs[0].id);
+              });
+            }); )",
+        test_case.url.c_str(), maybe_specify_set_self_as_opener.c_str());
 
     content::WebContents* new_contents = nullptr;
     {
-      content::WebContentsAddedObserver observer;
-      ASSERT_TRUE(content::ExecJs(web_contents, script));
-      new_contents = observer.GetWebContents();
+      content::TestNavigationObserver nav_observer(GURL(test_case.url));
+      nav_observer.StartWatchingNewWebContents();
+      int tab_id = content::EvalJs(web_contents, script).ExtractInt();
+      EXPECT_TRUE(
+          ExtensionTabUtil::GetTabById(tab_id, profile, true, &new_contents));
+      nav_observer.Wait();
     }
     ASSERT_TRUE(new_contents);
     ASSERT_TRUE(content::WaitForLoadStop(new_contents));

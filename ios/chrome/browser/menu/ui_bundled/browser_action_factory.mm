@@ -8,7 +8,7 @@
 #import "components/open_from_clipboard/clipboard_recent_content.h"
 #import "components/prefs/pref_service.h"
 #import "components/search_engines/template_url_service.h"
-#import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/menu/ui_bundled/action_factory+protected.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
@@ -289,8 +289,8 @@
 }
 
 - (UIAction*)actionToStartVoiceSearch {
-  id<SceneCommands> handler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+  id<BrowserCoordinatorCommands> handler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), BrowserCoordinatorCommands);
   return [self
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_TOOLS_MENU_VOICE_SEARCH)
                 image:DefaultSymbolWithPointSize(kMicrophoneSymbol,
@@ -495,6 +495,19 @@
                           type:MenuActionType::AIPrototyping
                          block:^{
                            [handler openAIMenu];
+                         }];
+}
+
+- (UIAction*)actionToOpenAIMode {
+  CHECK(IsAIMCobrowseDebugEntrypointEnabled());
+  id<SceneCommands> handler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+  return [self actionWithTitle:@"Open AIM prototype"
+                         image:DefaultSymbolWithPointSize(
+                                   kSparklesSymbol, kSymbolActionPointSize)
+                          type:MenuActionType::AIPrototyping
+                         block:^{
+                           [handler showAssistant];
                          }];
 }
 

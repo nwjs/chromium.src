@@ -643,8 +643,8 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
   [AutofillAppInterface clearMockReauthenticationModule];
 }
 
-// Tests that the fix on the is_user_edited bit in the parsed form fields is
-// effective in the case the user has edited the input field for real.
+// Tests that the fix on the is_user_edited_deprecated bit in the parsed form
+// fields is effective in the case the user has edited the input field for real.
 - (void)testFillCreditCardFieldsOnForm_WithUserEditedFix_UserEdited {
   // Fill using another test. The CVC number won't be filled because a local
   // card is used.
@@ -678,8 +678,9 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
       @"Autofill.PerfectFilling.CreditCards verification failed");
 }
 
-// Tests that the fix on the is_user_edited bit in the parsed form fields is
-// effective in the case the user didn't edit the fields that weren't filled.
+// Tests that the fix on the is_user_edited_deprecated bit in the parsed form
+// fields is effective in the case the user didn't edit the fields that weren't
+// filled.
 - (void)testFillCreditCardFieldsOnForm_WithUserEditedFix_NotUserEdited {
   // Fill using another test. The CVC number won't be filled because a local
   // card is used.
@@ -1027,7 +1028,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
     EARL_GREY_TEST_SKIPPED(
         @"Skipped for iPhone (the manual fill button has no title on iPhone)");
   }
-  if (@available(iOS 19.0, *)) {
+  if (@available(iOS 26.0, *)) {
     // TODO(crbug.com/427699033): Re-enable test on iOS 26.
     // Fails because it assumes a window will be compact after creating a new
     // window.

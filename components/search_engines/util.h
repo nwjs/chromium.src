@@ -17,6 +17,7 @@
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/lens/lens_overlay_mime_type.h"
 #include "components/search_engines/keyword_web_data_service.h"
+#include "components/search_engines/template_url_prepopulate_data_resolver.h"
 #include "components/search_engines/template_url_service.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "third_party/omnibox_proto/model_mode.pb.h"
@@ -46,20 +47,35 @@ TemplateURL* FindURLByPrepopulateID(
 
 enum class TemplateURLMergeOption {
   kDefault,
+
+  // Stick to properties from the reference `data_to_update`,  user-modified
+  // fields and `safe_for_autoreplace` from `original_turl` are not
+  // preserved.
   kOverwriteUserEdits,
+
+  // Merge prepopulated entries with non-identical `prepopulate_id`, to carry
+  // over user modifications on pre-migration, `original_turl` data and merge it
+  // into the post-migration `data_to_update`.
+  kSplitPrepopulatedEntry,
+
+  // Flow-specific behaviour: When merging `original_turl` data from profile
+  // prefs with prepopulated `data_to_update`, certain properties are affected
+  // in the differently from other modes to stay consistent with the legacy
+  // implementation.
+  // TODO(crbug.com/446637115): Investigate removing this divergence.
+  kSettingAsDefaultProvider,
 };
 
-// Modifies `url_to_update` so that it contains user-modified fields from
-// `original_turl`. Both URLs must have the same `prepopulate_id` or
-// `starter_pack_id`. If `merge_option` is set to kOverWriteUserEdits,
-// user-modified fields and `safe_for_autoreplace` are not preserved.
+// Modifies `data_to_update` so that it contains usage-related data from
+// `original_turl`. Both `TemplateURLData` must have the matching
+// `prepopulate_id` or `starter_pack_id`.
 //
-// WARNING: Changing merge_option from the default value will result in loss of
-// user data. It should be set to kDefault unless in very specific circumstances
-// where a reset to defaults is required.
+// WARNING: Changing merge_option from the default value can result in loss of
+// user data. It should be set to kDefault unless in very specific
+// circumstances. See `TemplateURLMergeOption` docs for details.
 void MergeIntoEngineData(
-    const TemplateURL* original_turl,
-    TemplateURLData* url_to_update,
+    const TemplateURLData& original_turl,
+    TemplateURLData& data_to_update,
     TemplateURLMergeOption merge_option = TemplateURLMergeOption::kDefault);
 
 // CreateActionsFromCurrentPrepopulateData() and
@@ -106,6 +122,7 @@ void MergeEnginesFromPrepopulateData(
     std::vector<std::unique_ptr<TemplateURLData>>* prepopulated_urls,
     TemplateURLService::OwnedTemplateURLVector* template_urls,
     TemplateURL* default_search_provider,
+    const TemplateURLPrepopulateData::Resolver& template_url_data_resolver,
     std::set<std::string>* removed_keyword_guids);
 
 // Given the user's current URLs and the current set of prepopulated URLs,
@@ -117,7 +134,8 @@ void MergeEnginesFromPrepopulateData(
 ActionsFromCurrentData CreateActionsFromCurrentPrepopulateData(
     std::vector<std::unique_ptr<TemplateURLData>>* prepopulated_urls,
     const TemplateURLService::OwnedTemplateURLVector& existing_urls,
-    const TemplateURL* default_search_provider);
+    const TemplateURL* default_search_provider,
+    const TemplateURLPrepopulateData::Resolver& template_url_data_resolver);
 
 // MergeEnginesFromStarterPackData merges search engines from the built-in
 // `template_url_starter_pack_data` class into `template_urls`. Calls
@@ -225,6 +243,38 @@ TemplateURLService::OwnedTemplateURLVector::iterator FindTemplateURL(
 
 // Returns whether the provided `url` leads to the AIM web page.
 bool IsAimURL(const GURL& url);
+
+// Returns whether the provided `url` leads to the AIM Zero State web page.
+bool IsAimZeroStateURL(const GURL& url);
+
+// TODO(crbug.com/488962351): Consider moving validation logic to
+// template_url.cc or template_url_service.cc.
+// Returns true if |name_input| is a valid search engine name to use.
+bool IsSearchEngineNameValidToUse(const std::u16string& name_input);
+
+// Returns true if |keyword_input| is a valid search engine keyword to use. The
+// keyword is valid if it is non-empty and does not conflict with an existing
+// entry. NOTE: this is just the keyword, not the title and url.
+// |existing_url| is the TemplateURL currently being edited, or null if adding a
+// new one.
+bool IsSearchEngineKeywordValidToUse(const std::u16string& keyword_input,
+                                     const TemplateURLService* service,
+                                     const TemplateURL* existing_url);
+
+// Returns true if |url_input| is a valid search engine URL to use.The URL is
+// valid if it contains no search terms and is a valid url, or if it contains a
+// search term and replacing that search term with a character results in a
+// valid url.
+// |existing_url| is the TemplateURL currently being edited, or null if adding a
+// new one.
+bool IsSearchEngineURLValidToUse(const std::string& url_input,
+                                 const TemplateURLService* service,
+                                 const TemplateURL* existing_url);
+
+// Fixes up and returns the URL. The returned URL is suitable for use by
+// TemplateURL.
+std::string GetFixedUpSearchEngineUrl(const std::string& url_input,
+                                      const SearchTermsData& search_terms_data);
 
 // Retrieves the URL for the AIM web page.
 // `aim_entrypoint` (aep) is required as it identifies the source of the

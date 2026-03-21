@@ -668,7 +668,7 @@ TEST_F(AILanguageModelTest, QuotaOverflowOnPromptInput) {
   std::string long_prompt(kTestMaxTokens / 3, 'a');
   AITestUtils::TestStreamingResponder responder;
   session->Prompt(MakeInput(long_prompt), nullptr, responder.BindRemote());
-  responder.WaitForQuotaOverflow();
+  responder.WaitForContextOverflow();
   EXPECT_TRUE(responder.WaitForCompletion());
   // Response should include input/output of previous prompt with the original
   // long prompt not present.
@@ -687,7 +687,7 @@ TEST_F(AILanguageModelTest, QuotaOverflowOnAppend) {
   std::string long_prompt(kTestMaxTokens / 3, 'a');
   AITestUtils::TestStreamingResponder responder;
   session->Append(MakeInput(long_prompt), responder.BindRemote());
-  responder.WaitForQuotaOverflow();
+  responder.WaitForContextOverflow();
   EXPECT_TRUE(responder.WaitForCompletion());
 
   EXPECT_THAT(Prompt(*session, MakeInput("foo")),
@@ -713,7 +713,7 @@ TEST_F(AILanguageModelTest, QuotaOverflowOnOutput) {
 
   AITestUtils::TestStreamingResponder responder;
   session->Prompt(MakeInput("foo"), nullptr, responder.BindRemote());
-  responder.WaitForQuotaOverflow();
+  responder.WaitForContextOverflow();
   EXPECT_TRUE(responder.WaitForCompletion());
   EXPECT_THAT(responder.responses(), ElementsAre(long_response));
 
@@ -871,8 +871,8 @@ INSTANTIATE_TEST_SUITE_P(
     AILanguageModelTestWithLanguageParams,
     ::testing::Values(LanguageParams{"en,es,ja", {"en"}, false},
                       LanguageParams{"*", {"en"}, false},
-                      LanguageParams{"*", {"fr"}, true},
-                      LanguageParams{"", {"en"}, true},
+                      LanguageParams{"*", {"fr"}, false},
+                      LanguageParams{"", {"en"}, false},
                       LanguageParams{"", {"fr"}, true},
                       LanguageParams{"es,ja", {"es"}, false},
                       LanguageParams{"en,es,ja", {"ja"}, false},
@@ -1052,7 +1052,7 @@ TEST_F(AILanguageModelTest, MeasureInputUsage) {
   auto session = CreateSession();
   base::test::TestFuture<std::optional<uint32_t>> measure_future;
   session->MeasureInputUsage(MakeInput("foo"), measure_future.GetCallback());
-  EXPECT_EQ(measure_future.Get(), std::string("UfooEM").size());
+  EXPECT_EQ(measure_future.Get(), std::string("UfooE").size());
 }
 
 TEST_F(AILanguageModelTest, TextSafetyInitialPrompts) {
@@ -1252,7 +1252,7 @@ TEST_F(AILanguageModelTest, CrashRecoveryMeasureInputUsage) {
 
   base::test::TestFuture<std::optional<uint32_t>> measure_future;
   session->MeasureInputUsage(MakeInput("foo"), measure_future.GetCallback());
-  EXPECT_EQ(measure_future.Get(), std::string("UfooEM").size());
+  EXPECT_EQ(measure_future.Get(), std::string("UfooE").size());
 }
 
 TEST_F(AILanguageModelTest, CanCreate_WaitsForEligibility) {

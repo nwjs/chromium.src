@@ -18,6 +18,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/manifest.h"
+#include "extensions/common/manifest_handlers/externally_connectable.h"
 #include "extensions/common/manifest_handlers/web_accessible_resources_info.h"
 #include "extensions/common/mojom/message_port.mojom-shared.h"
 #include "extensions/renderer/api/messaging/message_target.h"
@@ -27,6 +28,7 @@
 #include "extensions/renderer/bindings/js_runner.h"
 #include "extensions/renderer/extension_frame_helper.h"
 #include "extensions/renderer/get_script_context.h"
+#include "extensions/renderer/renderer_extension_registry.h"
 #include "extensions/renderer/script_context.h"
 #include "extensions/renderer/v8_helpers.h"
 #include "gin/converter.h"
@@ -49,7 +51,7 @@ void GetExtensionId(v8::Local<v8::Name> property_name,
   v8::Isolate* isolate = info.GetIsolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context =
-      info.HolderV2()->GetCreationContextChecked(isolate);
+      info.Holder()->GetCreationContextChecked(isolate);
 
   ScriptContext* script_context = GetScriptContextFromV8Context(context);
   // This could potentially be invoked after the script context is removed
@@ -67,7 +69,7 @@ void GetDynamicId(v8::Local<v8::Name> property_name,
   v8::Isolate* isolate = info.GetIsolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context =
-      info.HolderV2()->GetCreationContextChecked(isolate);
+      info.Holder()->GetCreationContextChecked(isolate);
 
   ScriptContext* script_context = GetScriptContextFromV8Context(context);
   // This could potentially be invoked after the script context is removed
@@ -171,6 +173,52 @@ GURL UrlFromPathAndId(const std::string& id, const std::string& path) {
   std::string url = base::StrCat(
       {kExtensionScheme, url::kStandardSchemeSeparator, id, maybe_slash, path});
   return GURL(url);
+}
+
+// Returns the serialization format to use for the given target extension.
+// The decision logic is as follows:
+// 1. If the sender is an extension, the sender's extension serialization
+//    preference is used to determine the format.
+// 2. If the target extension is not installed, returns JSON.
+// 3. If the target extension is installed but not externally connectable from
+//    the current context, returns JSON.
+// 4. If the target extension is installed and externally connectable, the
+//    target extension is used to determine the format.
+//
+//  Note: #2 and #3 are purposefully the same to prevent senders like
+//  untrusted web pages from discovering what extensions are installed by
+//  changing their message content.
+//  TODO(crbug.com/40321352): Consider in the above cases if we should instead
+//  not serialize the message at all and return an error. For the
+//  purposes of minimizing changes to messaging outside of structured clone
+//  serialization we're returning JSON for now.
+mojom::SerializationFormat GetSerializationFormat(
+    ScriptContext* script_context,
+    const std::string& target_id,
+    mojom::ChannelType channel_type) {
+  if (const Extension* sender_extension = script_context->extension()) {
+    return messaging_util::GetSerializationFormat(sender_extension,
+                                                  channel_type);
+  }
+
+  const Extension* installed_target_extension =
+      RendererExtensionRegistry::Get()->GetByID(target_id);
+  if (!installed_target_extension) {
+    // Extension not installed.
+    return mojom::SerializationFormat::kJson;
+  }
+
+  ExternallyConnectableInfo* info =
+      ExternallyConnectableInfo::Get(installed_target_extension);
+  if (!info || !info->matches.MatchesURL(script_context->url())) {
+    // Extension installed, but not externally connectable from context.
+    return mojom::SerializationFormat::kJson;
+  }
+
+  // Extension installed and externally connectable from context so use the
+  // target extension's serialization format.
+  return messaging_util::GetSerializationFormat(installed_target_extension,
+                                                channel_type);
 }
 
 }  // namespace
@@ -340,11 +388,9 @@ RequestResult RuntimeHooksDelegate::HandleSendMessage(
 
   v8::Local<v8::Value> v8_message = arguments[1];
   mojom::ChannelType channel_type = mojom::ChannelType::kSendMessage;
-  std::unique_ptr<Message> message = messaging_util::MessageFromV8(
+  std::optional<Message> message = messaging_util::MessageFromV8(
       v8_context, v8_message,
-      messaging_util::GetSerializationFormat(script_context->extension(),
-                                             channel_type),
-      &error);
+      GetSerializationFormat(script_context, target_id, channel_type), &error);
   if (!message) {
     RequestResult result(RequestResult::INVALID_INVOCATION);
     result.error = std::move(error);
@@ -362,7 +408,7 @@ RequestResult RuntimeHooksDelegate::HandleSendMessage(
 
   v8::Local<v8::Promise> promise = messaging_service_->SendOneTimeMessage(
       script_context, MessageTarget::ForExtension(target_id), channel_type,
-      *message, parse_result.async_type, response_callback);
+      std::move(*message), parse_result.async_type, response_callback);
   DCHECK_EQ(parse_result.async_type == binding::AsyncResponseType::kPromise,
             !promise.IsEmpty())
       << "SendOneTimeMessage should only return a Promise for promise based "
@@ -389,7 +435,7 @@ RequestResult RuntimeHooksDelegate::HandleSendNativeMessage(
   std::string error;
 
   mojom::ChannelType channel_type = mojom::ChannelType::kNative;
-  std::unique_ptr<Message> message = messaging_util::MessageFromV8(
+  std::optional<Message> message = messaging_util::MessageFromV8(
       script_context->v8_context(), v8_message,
       messaging_util::GetSerializationFormat(script_context->extension(),
                                              channel_type),
@@ -406,7 +452,8 @@ RequestResult RuntimeHooksDelegate::HandleSendNativeMessage(
 
   v8::Local<v8::Promise> promise = messaging_service_->SendOneTimeMessage(
       script_context, MessageTarget::ForNativeApp(application_name),
-      channel_type, *message, parse_result.async_type, response_callback);
+      channel_type, std::move(*message), parse_result.async_type,
+      response_callback);
   DCHECK_EQ(parse_result.async_type == binding::AsyncResponseType::kPromise,
             !promise.IsEmpty())
       << "SendOneTimeMessage should only return a Promise for promise based "
@@ -446,8 +493,8 @@ RequestResult RuntimeHooksDelegate::HandleConnect(
   GinPort* port = messaging_service_->Connect(
       script_context, MessageTarget::ForExtension(target_id),
       options.channel_name,
-      messaging_util::GetSerializationFormat(script_context->extension(),
-                                             mojom::ChannelType::kConnect));
+      GetSerializationFormat(script_context, target_id,
+                             mojom::ChannelType::kConnect));
   DCHECK(port);
   DCHECK_EQ(binding::AsyncResponseType::kNone, parse_result.async_type);
 

@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Записването спря. Таблото за управление на играта не може да се използва в режим на таблет.</translation>
 <translation id="1024364763893396229">Запазете устройството си <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Батериите на писалката са изтощени</translation>
-<translation id="1036073649888683237">За да управлявате известията, отворете настройките</translation>
 <translation id="1036348656032585052">Изключване</translation>
 <translation id="1037492556044956303">Добавихте <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Показване на предложения</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Инсталиране на приложението</translation>
 <translation id="2482878487686419369">Известия</translation>
 <translation id="2484513351006226581">Натиснете <ph name="KEYBOARD_SHORTCUT" /> за превключване на клавиатурната подредба.</translation>
+<translation id="2485422356828889247">Деинсталиране</translation>
 <translation id="2486214324139475545">Визуализация на <ph name="DESK_NAME" />. Активен работен кът.</translation>
 <translation id="2486405091093637109">Разделителната способност на <ph name="DISPLAY_NAME" /> бе променена на <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Ако не потвърдите, предишните настройки ще бъдат възстановени след <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Присъединяване</translation>

@@ -15,7 +15,6 @@
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/ash/experiences/arc/arc_features.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/ash/experiences/arc/session/connection_holder.h"
 #include "components/prefs/scoped_user_pref_update.h"
@@ -173,12 +172,8 @@ ArcPackageSyncableService::MergeDataAndStartSyncing(
 
     if (!local_package_set.contains(package_name)) {
       pending_install_items_[package_name] = std::move(sync_item);
-      if (base::FeatureList::IsEnabled(arc::kSyncInstallPriority)) {
-        prefs_->GetInstallPriorityHandler()->InstallSyncedPacakge(
-            package_name, arc::mojom::InstallPriority::kLow);
-      } else {
-        InstallPendingPackage(package_name, arc::mojom::InstallPriority::kLow);
-      }
+      prefs_->GetInstallPriorityHandler()->InstallSyncedPacakge(
+          package_name, arc::mojom::InstallPriority::kLow);
       num_expected_apps++;
     } else {
       // TODO(lgcheng@) may need to handle update exsiting package here.
@@ -303,9 +298,7 @@ void ArcPackageSyncableService::InstallPendingPackage(
   package.last_backup_android_id = pending_item->last_backup_android_id;
   package.last_backup_time = pending_item->last_backup_time;
   package.sync = true;
-  if (base::FeatureList::IsEnabled(arc::kSyncInstallPriority)) {
-    package.priority = priority;
-  }
+  package.priority = priority;
   instance->InstallPackage(package.Clone());
 }
 
@@ -449,12 +442,8 @@ bool ArcPackageSyncableService::ProcessSyncItemSpecifics(
   std::unique_ptr<ArcSyncItem> sync_item(
       CreateSyncItemFromSyncSpecifics(specifics));
   pending_install_items_[package_name] = std::move(sync_item);
-  if (base::FeatureList::IsEnabled(arc::kSyncInstallPriority)) {
-    prefs_->GetInstallPriorityHandler()->InstallSyncedPacakge(
-        package_name, arc::mojom::InstallPriority::kLow);
-  } else {
-    InstallPendingPackage(package_name, arc::mojom::InstallPriority::kLow);
-  }
+  prefs_->GetInstallPriorityHandler()->InstallSyncedPacakge(
+      package_name, arc::mojom::InstallPriority::kLow);
   return true;
 }
 
@@ -502,7 +491,7 @@ void ArcPackageSyncableService::UninstallPackage(const ArcSyncItem* sync_item) {
   // Make a copy of the package name string instead of handing out a reference
   // to |sync_item->package_name|. The reason is that |sync_item| may get
   // destroyed as a result of this call, making any references to it invalid.
-  // See crbug.com/970063.
+  // See crbug.com/41462644.
   std::string package_name = sync_item->package_name;
   instance->UninstallPackage(package_name);
 }

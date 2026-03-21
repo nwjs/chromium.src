@@ -119,6 +119,9 @@ bool HitTestClippedOutByBorderShape(const LayoutBox& box,
                                     const PhysicalOffset& border_box_location) {
   PhysicalRect border_rect = box.PhysicalBorderBoxRect();
   border_rect.Move(border_box_location);
+  if (box.ShouldApplyOverflowClipMargin()) {
+    border_rect.Expand(box.BorderOutsetsForClipping());
+  }
   Path hit_shape =
       ComputeBorderShapeOuterPath(box.StyleRef(), border_rect, &box);
   return !hit_test_location.Intersects(hit_shape);
@@ -519,9 +522,7 @@ PositionWithAffinity LayoutReplaced::PositionForPoint(
     return PositionBeforeThis();  // coordinates are above
 
   if (block_direction_position >= bottom) {
-    return RuntimeEnabledFeatures::ReplacedElementCursorPositioningFixEnabled()
-               ? PositionAfterThis()
-               : PositionBeforeThis();  // coordinates are below
+    return PositionAfterThis();  // coordinates are below
   }
 
   if (GetNode()) {

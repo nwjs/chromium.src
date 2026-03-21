@@ -20,7 +20,6 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
-#include "components/variations/scoped_variations_ids_provider.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/preloading/prefetch/mock_prefetch_service_delegate.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
@@ -752,11 +751,14 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
       uint32_t expected_total_body_size) {
     network::TestURLLoaderFactory::PendingRequest* request =
         test_url_loader_factory_.GetPendingRequest(0);
-    ASSERT_FALSE(producer_handle_for_gurl_.count(request->request.url));
+    // Takes a copy of `url` because `request` can be cancelled during
+    // `SendHeadOfResponseAndWait`.
+    GURL url = request->request.url;
+    ASSERT_FALSE(producer_handle_for_gurl_.count(url));
     ASSERT_TRUE(request);
     SendHeadOfResponseAndWait(http_status, mime_type, use_prefetch_proxy,
                               headers, expected_total_body_size, request);
-    ASSERT_TRUE(producer_handle_for_gurl_.count(request->request.url));
+    ASSERT_TRUE(producer_handle_for_gurl_.count(url));
   }
 
   void SendHeadOfResponseForUrlAndWait(
@@ -889,10 +891,6 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
       return nullptr;
     }
     return serving_page_metrics_container->GetWeakPtr();
-  }
-
-  blink::DocumentToken MainDocumentToken() {
-    return static_cast<RenderFrameHostImpl*>(main_rfh())->GetDocumentToken();
   }
 
   void GetPrefetchToServe(
@@ -1092,7 +1090,7 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
     EXPECT_TRUE(serving_handle.HasPrefetchStatus());
     EXPECT_EQ(serving_handle.GetPrefetchStatus(),
               PrefetchStatus::kPrefetchSuccessful);
-    EXPECT_EQ(serving_handle.GetServableStateForTesting(base::TimeDelta::Max()),
+    EXPECT_EQ(serving_handle.GetMatchResolverAction().ToServableState(),
               PrefetchServableState::kServable);
     ASSERT_TRUE(serving_handle.GetPrefetchContainer()->GetNonRedirectHead());
     EXPECT_TRUE(serving_handle.GetPrefetchContainer()
@@ -1244,9 +1242,6 @@ class PrefetchServiceTestBase : public PrefetchingMetricsTestBase {
   std::map<GURL, mojo::ScopedDataPipeProducerHandle> producer_handle_for_gurl_;
 
   std::vector<PrefetchRequestHandler> request_handler_keep_alive_;
-
-  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
-      variations::VariationsIdsProvider::Mode::kIgnoreSignedInState};
 };
 
 class PrefetchServiceTest
@@ -3209,7 +3204,7 @@ TEST_P(PrefetchServiceTest, DISABLED_CHROMEOS(StreamingURLLoaderSuccessCase)) {
   EXPECT_TRUE(serving_handle.HasPrefetchStatus());
   EXPECT_EQ(serving_handle.GetPrefetchStatus(),
             PrefetchStatus::kPrefetchNotFinishedInTime);
-  EXPECT_EQ(serving_handle.GetServableStateForTesting(base::TimeDelta::Max()),
+  EXPECT_EQ(serving_handle.GetMatchResolverAction().ToServableState(),
             PrefetchServableState::kServable);
   EXPECT_TRUE(serving_handle.GetPrefetchContainer()->GetNonRedirectHead());
   EXPECT_TRUE(serving_handle.GetPrefetchContainer()
@@ -4224,8 +4219,8 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
 
   histogram_tester.ExpectUniqueSample(
       "PrefetchProxy.Prefetch.Mainframe.RespCode", net::HTTP_OK, 1);
-  histogram_tester.ExpectTotalCount("PrefetchProxy.Prefetch.Mainframe.NetError",
-                                    0);
+  histogram_tester.ExpectUniqueSample(
+      "PrefetchProxy.Prefetch.Mainframe.NetError", -net::ERR_ABORTED, 1);
   histogram_tester.ExpectTotalCount(
       "PrefetchProxy.Prefetch.Mainframe.BodyLength", 0);
   histogram_tester.ExpectUniqueSample(
@@ -4239,7 +4234,8 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
   EXPECT_EQ(referring_page_metrics->prefetch_eligible_count, 1);
   EXPECT_EQ(referring_page_metrics->prefetch_successful_count, 0);
 
-  ExpectServingMetrics(PrefetchStatus::kPrefetchNotUsedCookiesChanged);
+  ExpectServingMetrics(PrefetchStatus::kPrefetchNotUsedCookiesChanged,
+                       /*prefetch_header_latency=*/true);
 
   ExpectCorrectUkmLogs({.outcome = PreloadingTriggeringOutcome::kFailure,
                         .failure = ToPreloadingFailureReason(
@@ -4784,7 +4780,7 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
       "PrefetchProxy.Prefetch.Mainframe.RespCode", net::HTTP_OK, 1);
   // We cancel the streaming of this prefetch because we know we cannot use it.
   histogram_tester.ExpectUniqueSample(
-      "PrefetchProxy.Prefetch.Mainframe.NetError", net::OK, 0);
+      "PrefetchProxy.Prefetch.Mainframe.NetError", -net::ERR_ABORTED, 1);
   histogram_tester.ExpectUniqueSample(
       "PrefetchProxy.Prefetch.Mainframe.BodyLength", std::size(kHTMLBody), 0);
   histogram_tester.ExpectUniqueSample(
@@ -4800,9 +4796,11 @@ TEST_P(PrefetchServiceAlwaysBlockUntilHeadTest,
   EXPECT_EQ(referring_page_metrics->prefetch_successful_count, 0);
 
   // Serving page metrics prefetch_header_latency is logged at response
-  // complete. Since we cancel streaming the response, this should not be set.
+  // complete. While we cancel streaming the response, `prefetch_header_latency`
+  // is recorded because the cancellation is implemented as an aborted
+  // completion.
   ExpectServingMetrics(PrefetchStatus::kPrefetchNotUsedCookiesChanged,
-                       /*prefetch_header_latency=*/false,
+                       /*prefetch_header_latency=*/true,
                        /*required_private_prefetch_proxy=*/false);
 }
 
@@ -6857,7 +6855,6 @@ std::vector<Event> CalculateOutputEventSequence(
   bool prefetch_completed = false;
   bool determined_head_issued = false;
   bool prefetch_container_destroyed = false;
-  bool during_redirect_eligibility_check = false;
   for (const Event event : input_event_sequence) {
     output_event_sequence.push_back(event);
 
@@ -6884,8 +6881,6 @@ std::vector<Event> CalculateOutputEventSequence(
           // eligibility check results are ignored (e.g. doesn't crash).
           break;
         }
-        CHECK(during_redirect_eligibility_check);
-        during_redirect_eligibility_check = false;
         if (event == Event::kRedirectEligibilityCheckCompleteFailure) {
           // We reach `PrefetchResponseReader::kFailedRedirect`, so we
           // currently issue `OnDeterminedHead()` observer call here.
@@ -6908,8 +6903,6 @@ std::vector<Event> CalculateOutputEventSequence(
       case Event::kPrefetchURLLoaderOnReceiveRedirect:
       case Event::kPrefetchURLLoaderOnReceiveRedirectCrossSite:
         CHECK(!prefetch_completed);
-        CHECK(!during_redirect_eligibility_check);
-        during_redirect_eligibility_check = true;
         break;
 
       case Event::kPrefetchURLLoaderOnReceiveResponseSuccess:
@@ -6936,36 +6929,11 @@ std::vector<Event> CalculateOutputEventSequence(
 
         // Otherwise, it's unexpected disconnection and should be considered as
         // a failure and the observer should be notified of the failure.
-        if (!base::FeatureList::IsEnabled(
-                features::kPrefetchGracefulNotification)) {
-          prefetch_completed = true;
-
-          if (!during_redirect_eligibility_check) {
-            // TODO(https://crbug.com/400761083): However, currently no
-            // notifications are made if not during redirect eligibility check.
-            // Fix this.
-            break;
-          }
-
-          if (!determined_head_issued) {
-            determined_head_issued = true;
-            output_event_sequence.push_back(Event::kObserverOnDeterminedHead);
-          }
-
-          // TODO(https://crbug.com/400761083): Disconnection during redirect
-          // eligibility check should be handled in the same way as
-          // `kPrefetchURLLoaderOnCompleteFailure` case below (because it should
-          // be handled as a general error), but currently we don't issue
-          // `PrefetchCompletedOrFailed()` observer call. Fix this.
-          break;
-        }
-
         [[fallthrough]];
 
       case Event::kPrefetchURLLoaderOnCompleteFailure:
         CHECK(!prefetch_completed);
         prefetch_completed = true;
-        during_redirect_eligibility_check = false;
         if (!determined_head_issued) {
           determined_head_issued = true;
           output_event_sequence.push_back(Event::kObserverOnDeterminedHead);
@@ -6985,20 +6953,6 @@ std::vector<Event> CalculateOutputEventSequence(
       case Event::kResetPrefetchContainer:
         prefetch_container_destroyed = true;
         output_event_sequence.push_back(Event::kObserverOnWillBeDestroyed);
-
-        if (!base::FeatureList::IsEnabled(
-                features::kPrefetchGracefulNotification) &&
-            !prefetch_completed && during_redirect_eligibility_check) {
-          // TODO(https://crbug.com/400761083): Currently we issue
-          // `OnDeterminedHead()` upon `PrefetchStreamingURLLoader` cancellation
-          // during redirect eligibility check. Fix this, i.e. no observer call
-          // should be made after `OnWillBeDestroyed()` observer call. Note
-          // that, at the time of redirect eligibility check, serving must be
-          // not yet started, and thus the cancellation always occurs.
-          CHECK(!determined_head_issued);
-          determined_head_issued = true;
-          output_event_sequence.push_back(Event::kObserverOnDeterminedHead);
-        }
         break;
 
       case Event::kObserverOnWillBeDestroyed:
@@ -7303,8 +7257,7 @@ class RecordingPrefetchContainerObserver final
   }
   void OnPrefetchCompletedOrFailed(
       const PrefetchContainer& prefetch_container,
-      const network::URLLoaderCompletionStatus& completion_status,
-      const std::optional<int>& response_code) override {
+      const network::URLLoaderCompletionStatus& completion_status) override {
     CHECK(prefetch_container.GetLoadState() ==
               PrefetchContainer::LoadState::kCompleted ||
           prefetch_container.GetLoadState() ==
@@ -7344,7 +7297,6 @@ TEST_P(PrefetchServiceEventTest, ActualObserverCallbacks) {
   const bool use_prefetch_proxy = true;
 
   const auto& input_event_sequence = std::get<1>(GetParam());
-  bool on_complete_failure_called = false;
 
   for (const Event event : input_event_sequence) {
     observer.AddEvent(event);
@@ -7363,17 +7315,7 @@ TEST_P(PrefetchServiceEventTest, ActualObserverCallbacks) {
         auto eligibility = is_eligible
                                ? PreloadingEligibility::kEligible
                                : PreloadingEligibility::kHostIsNonUnique;
-        if (!base::FeatureList::IsEnabled(
-                features::kPrefetchGracefulNotification) &&
-            !is_eligible && on_complete_failure_called) {
-          // TODO(https://crbug.com/433114485): Eligibility check is not
-          // cancelled on unexpected failed completion and causes crashes. Fix
-          // this.
-          EXPECT_DEATH_IF_SUPPORTED(
-              eligibility_check_callback_future->Take().Run(eligibility), "");
-        } else {
-          eligibility_check_callback_future->Take().Run(eligibility);
-        }
+        eligibility_check_callback_future->Take().Run(eligibility);
         // Wait for the remaining eligiblity check and subsequent network
         // request to settle.
         task_environment()->RunUntilIdle();
@@ -7404,7 +7346,6 @@ TEST_P(PrefetchServiceEventTest, ActualObserverCallbacks) {
         break;
 
       case Event::kPrefetchURLLoaderOnCompleteFailure:
-        on_complete_failure_called = true;
         CompleteResponseAndWait(net::ERR_FAILED, std::size(kHTMLBody));
         break;
 
@@ -7494,9 +7435,8 @@ TEST_P(
 
   // Now `PrefetchServableState` should be `kNotServable` since we don't
   // have a non-redirect response but `PrefetchStreamingURLLoader` is gone.
-  EXPECT_EQ(
-      prefetch_container->GetServableStateForTesting(base::TimeDelta::Max()),
-      PrefetchServableState::kNotServable);
+  EXPECT_EQ(prefetch_container->GetMatchResolverAction().ToServableState(),
+            PrefetchServableState::kNotServable);
 
   // Start a navigation. The prefetch should not be served.
   std::unique_ptr<NavigationResult> navigation_result =
@@ -8051,9 +7991,8 @@ class PrefetchServiceAddPrefetchContainerTest
     attempt->SetSpeculationEagerness(prefetch_type.GetEagerness());
 
     auto prefetch_request = PrefetchRequest::CreateRendererInitiated(
-        static_cast<content::RenderFrameHostImpl&>(*main_rfh()), document_token,
-        prefetch_url, std::move(prefetch_type), blink::mojom::Referrer(),
-        std::make_optional(SpeculationRulesTags()),
+        *main_rfhi(), document_token, prefetch_url, std::move(prefetch_type),
+        blink::mojom::Referrer(), std::make_optional(SpeculationRulesTags()),
         /*no_vary_search_hint=*/std::nullopt,
         /*priority=*/std::nullopt,
         /*prefetch_document_manager=*/nullptr,
@@ -8099,7 +8038,7 @@ TEST_P(PrefetchServiceAddPrefetchContainerTest, PreserveOldIfOldIsStarted) {
       document_token, GURL("https://example.com"), PreloadingType::kPrefetch);
   PreloadingAttempt* attempt1 = prefetch_container1->request().attempt();
   prefetch_container1->SimulatePrefetchEligibleForTest();
-  prefetch_service().StartSinglePrefetchForTesting(prefetch_container1);
+  prefetch_service().StartSinglePrefetchForTesting(*prefetch_container1);
 
   auto prefetch_container2 = CreateSpeculationRulesPrefetchContainer(
       document_token, GURL("https://example.com"), PreloadingType::kPrefetch);
@@ -8203,10 +8142,6 @@ TEST_P(PrefetchServiceAddPrefetchContainerTest,
 // - The second one ended.
 // - `PrefetchScheduler` starts the last one.
 TEST_P(PrefetchServiceTest, PrefetchScheduler_RunsTwoConcurrentPrefetches) {
-  if (!UsePrefetchScheduler()) {
-    GTEST_SKIP() << "Assume PrefetchScheduler";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeaturesAndParameters(
       {{features::kPrefetchSchedulerTesting,
@@ -8268,12 +8203,6 @@ TEST_P(PrefetchServiceTest, PrefetchScheduler_RunsTwoConcurrentPrefetches) {
 // - A prefetch is triggered with high priority.
 // - `PrefetchScheduler` starts the later one.
 TEST_P(PrefetchServiceTest, PrefetchScheduler_Prioritize) {
-  if (!(UsePrefetchScheduler() &&
-        features::kPrefetchSchedulerProgressSyncBestEffort.Get())) {
-    GTEST_SKIP() << "Assume PrefetchScheduler and "
-                    "PrefetchSchedulerProgressSyncBestEffort";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeaturesAndParameters(
       {{features::kPrefetchSchedulerTesting,
@@ -8339,66 +8268,6 @@ TEST_P(PrefetchServiceTest, PrefetchScheduler_Prioritize) {
             PrefetchContainer::LoadState::kStarted);
 }
 
-// Tests prioritizing behavior.
-//
-// Scenario:
-//
-// - A prefetch is triggered.
-// - A prefetch is triggered with high priority.
-// - `PrefetchScheduler` starts the later one.
-TEST_P(PrefetchServiceTest, PrefetchScheduler_Prioritize_Async) {
-  if (!(UsePrefetchScheduler() &&
-        !features::kPrefetchSchedulerProgressSyncBestEffort.Get())) {
-    GTEST_SKIP() << "Assume PrefetchScheduler and not "
-                    "PrefetchSchedulerProgressSyncBestEffort";
-  }
-
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      {{features::kPrefetchSchedulerTesting,
-        {{"kPrefetchSchedulerTestingActiveSetSizeLimitForBase", "1"},
-         {"kPrefetchSchedulerTestingActiveSetSizeLimitForBurst", "1"}}}},
-      {});
-
-  NavigateAndCommit(GURL("https://example.com"));
-  MakePrefetchService(
-      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>(
-          /*num_on_prefetch_likely_calls=*/0));
-
-  prefetch_service()
-      .GetPrefetchSchedulerForTesting()
-      .SetCalculatePriorityForTesting(
-          base::BindRepeating([](const PrefetchContainer& prefetch_container) {
-            if (prefetch_container.GetURL().possibly_invalid_spec().ends_with(
-                    "?prioritize=1")) {
-              return PrefetchSchedulerPriority::kHighTest;
-            }
-
-            return PrefetchSchedulerPriority::kBase;
-          }));
-
-  const auto url_1 = GURL("https://example.com/one");
-  const auto url_2 = GURL("https://example.com/two?prioritize=1");
-  auto handle_1 =
-      MakePrefetchFromBrowserContext(url_1, std::nullopt, {}, nullptr);
-  auto handle_2 =
-      MakePrefetchFromBrowserContext(url_2, std::nullopt, {}, nullptr);
-  task_environment()->RunUntilIdle();
-
-  base::WeakPtr<PrefetchContainer> prefetch_container1, prefetch_container2;
-  std::tie(std::ignore, prefetch_container1) =
-      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
-          PrefetchKey(std::nullopt, url_1))[0];
-  std::tie(std::ignore, prefetch_container2) =
-      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
-          PrefetchKey(std::nullopt, url_2))[0];
-
-  ASSERT_EQ(prefetch_container1->GetLoadState(),
-            PrefetchContainer::LoadState::kEligible);
-  ASSERT_EQ(prefetch_container2->GetLoadState(),
-            PrefetchContainer::LoadState::kStarted);
-}
-
 // Tests bursting behavior.
 //
 // Scenario:
@@ -8410,10 +8279,6 @@ TEST_P(PrefetchServiceTest, PrefetchScheduler_Prioritize_Async) {
 // - The third one ended.
 // - `PrefetchScheduler` starts the fourth one.
 TEST_P(PrefetchServiceTest, PrefetchScheduler_Burst) {
-  if (!UsePrefetchScheduler()) {
-    GTEST_SKIP() << "Assume PrefetchScheduler";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeaturesAndParameters(
       {
@@ -8512,12 +8377,6 @@ TEST_P(PrefetchServiceTest, PrefetchScheduler_Burst) {
 // - `PrefetchScheduler` doesn't start the second one as
 //   `ActiveSetSizeLimitForBase` is 1.
 TEST_P(PrefetchServiceTest, PrefetchScheduler_BurstTakesPriority) {
-  if (!(UsePrefetchScheduler() &&
-        features::kPrefetchSchedulerProgressSyncBestEffort.Get())) {
-    GTEST_SKIP() << "Assume PrefetchScheduler and "
-                    "PrefetchSchedulerProgressSyncBestEffort";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeaturesAndParameters(
       {
@@ -8599,100 +8458,6 @@ TEST_P(PrefetchServiceTest, PrefetchScheduler_BurstTakesPriority) {
   // Resolve `PrefetchScheduler::ProgressAsync()`.
   task_environment()->RunUntilIdle();
 
-  ASSERT_EQ(prefetch_container2->GetLoadState(),
-            PrefetchContainer::LoadState::kEligible);
-  ASSERT_EQ(prefetch_container4->GetLoadState(),
-            PrefetchContainer::LoadState::kStarted);
-}
-
-// Tests bursting behavior.
-//
-// Scenario:
-//
-// - Two prefetches are triggered.
-// - Two prefetches are triggered with burst.
-// - `PrefetchScheduler` starts the third and fourth one.
-// - The third one ended.
-// - `PrefetchScheduler` doesn't start the first/second one as
-//   `ActiveSetSizeLimitForBase` is 1.
-TEST_P(PrefetchServiceTest, PrefetchScheduler_BurstTakesPriority_Async) {
-  if (!(UsePrefetchScheduler() &&
-        !features::kPrefetchSchedulerProgressSyncBestEffort.Get())) {
-    GTEST_SKIP() << "Assume PrefetchScheduler and not "
-                    "PrefetchSchedulerProgressSyncBestEffort";
-  }
-
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      {
-          {features::kPrefetchSchedulerTesting,
-           {{"kPrefetchSchedulerTestingActiveSetSizeLimitForBase", "1"},
-            {"kPrefetchSchedulerTestingActiveSetSizeLimitForBurst", "2"}}},
-      },
-      {});
-
-  NavigateAndCommit(GURL("https://example.com"));
-  MakePrefetchService(
-      std::make_unique<testing::NiceMock<MockPrefetchServiceDelegate>>(
-          /*num_on_prefetch_likely_calls=*/0));
-
-  prefetch_service()
-      .GetPrefetchSchedulerForTesting()
-      .SetCalculatePriorityForTesting(
-          base::BindRepeating([](const PrefetchContainer& prefetch_container) {
-            if (prefetch_container.GetURL().possibly_invalid_spec().ends_with(
-                    "?burst=1")) {
-              return PrefetchSchedulerPriority::kBurstTest;
-            }
-
-            return PrefetchSchedulerPriority::kBase;
-          }));
-
-  const auto url_1 = GURL("https://example.com/one");
-  const auto url_2 = GURL("https://example.com/two");
-  const auto url_3 = GURL("https://example.com/three?burst=1");
-  const auto url_4 = GURL("https://example.com/four?burst=1");
-  auto handle_1 =
-      MakePrefetchFromBrowserContext(url_1, std::nullopt, {}, nullptr);
-  auto handle_2 =
-      MakePrefetchFromBrowserContext(url_2, std::nullopt, {}, nullptr);
-  auto handle_3 =
-      MakePrefetchFromBrowserContext(url_3, std::nullopt, {}, nullptr);
-  auto handle_4 =
-      MakePrefetchFromBrowserContext(url_4, std::nullopt, {}, nullptr);
-  task_environment()->RunUntilIdle();
-
-  base::WeakPtr<PrefetchContainer> prefetch_container1, prefetch_container2,
-      prefetch_container3, prefetch_container4;
-  std::tie(std::ignore, prefetch_container1) =
-      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
-          PrefetchKey(std::nullopt, url_1))[0];
-  std::tie(std::ignore, prefetch_container2) =
-      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
-          PrefetchKey(std::nullopt, url_2))[0];
-  std::tie(std::ignore, prefetch_container3) =
-      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
-          PrefetchKey(std::nullopt, url_3))[0];
-  std::tie(std::ignore, prefetch_container4) =
-      prefetch_service().GetAllForUrlWithoutRefAndQueryForTesting(
-          PrefetchKey(std::nullopt, url_4))[0];
-
-  ASSERT_EQ(prefetch_container1->GetLoadState(),
-            PrefetchContainer::LoadState::kEligible);
-  ASSERT_EQ(prefetch_container2->GetLoadState(),
-            PrefetchContainer::LoadState::kEligible);
-  ASSERT_EQ(prefetch_container3->GetLoadState(),
-            PrefetchContainer::LoadState::kStarted);
-  ASSERT_EQ(prefetch_container4->GetLoadState(),
-            PrefetchContainer::LoadState::kStarted);
-
-  handle_3.reset();
-  EXPECT_FALSE(prefetch_container3);
-  // Resolve `PrefetchScheduler::ProgressAsync()`.
-  task_environment()->RunUntilIdle();
-
-  ASSERT_EQ(prefetch_container1->GetLoadState(),
-            PrefetchContainer::LoadState::kEligible);
   ASSERT_EQ(prefetch_container2->GetLoadState(),
             PrefetchContainer::LoadState::kEligible);
   ASSERT_EQ(prefetch_container4->GetLoadState(),

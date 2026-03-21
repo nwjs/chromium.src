@@ -11,16 +11,11 @@
 
 namespace blink {
 
-class MemoryManagedPaintCanvas;
-
 // This is an interface abstracting a class that can draw to a snapshot.
 class PLATFORM_EXPORT CanvasSnapshotProvider {
  public:
   virtual ~CanvasSnapshotProvider() = default;
 
-  virtual scoped_refptr<StaticBitmapImage> DoExternalDrawAndSnapshot(
-      base::FunctionRef<void(MemoryManagedPaintCanvas&)> draw_callback,
-      ImageOrientation orientation) = 0;
   virtual bool IsAccelerated() const = 0;
   virtual gfx::Size Size() const = 0;
   virtual viz::SharedImageFormat GetSharedImageFormat() const = 0;
@@ -49,6 +44,18 @@ class PLATFORM_EXPORT CanvasSnapshotProvider {
                format == viz::SinglePlaneFormat::kBGRA_8888) ||
               (provider.GetSharedImageFormat() ==
                    viz::SinglePlaneFormat::kBGRA_8888 &&
+               format == viz::SinglePlaneFormat::kRGBA_8888));
+    }
+
+    bool Matches(const CanvasSnapshotProvider::Info& info) const {
+      return info.size == size && info.alpha_type == alpha_type &&
+             info.color_space == color_space &&
+             // TODO(crbug.com/40767377): Restore strict format checks once the
+             // CanvasResourceProvider no longer swaps BGRA/RGBA sometimes.
+             (info.format == format ||
+              (info.format == viz::SinglePlaneFormat::kRGBA_8888 &&
+               format == viz::SinglePlaneFormat::kBGRA_8888) ||
+              (info.format == viz::SinglePlaneFormat::kBGRA_8888 &&
                format == viz::SinglePlaneFormat::kRGBA_8888));
     }
   };

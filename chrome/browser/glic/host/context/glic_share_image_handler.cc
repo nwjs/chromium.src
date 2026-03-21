@@ -208,7 +208,9 @@ void GlicShareImageHandler::OnReceivedImage(
 
   FetchPageContext(tab, *options,
                    base::BindOnce(&GlicShareImageHandler::OnReceivedTabContext,
-                                  weak_ptr_factory_.GetWeakPtr()));
+                                  weak_ptr_factory_.GetWeakPtr()),
+                   /*progress_listener=*/nullptr,
+                   /*is_screenshot_annotated=*/false);
 }
 
 void GlicShareImageHandler::OnReceivedTabContext(
@@ -412,6 +414,7 @@ void GlicShareImageHandler::OnPastePolicyCheckComplete(
 
   if (!IsClientReady(*tab)) {
     ShareComplete(ShareImageResult::kFailedClientUnreadied);
+    return;
   }
 
   ShareComplete(ShareImageResult::kSuccess);

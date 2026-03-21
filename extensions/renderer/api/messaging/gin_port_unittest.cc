@@ -41,7 +41,7 @@ class TestPortDelegate : public GinPort::Delegate {
 
   void PostMessageToPort(v8::Local<v8::Context> context,
                          const PortId& port_id,
-                         std::unique_ptr<Message> message) override {
+                         Message message) override {
     last_port_id_ = port_id;
     last_message_ = std::move(message);
   }
@@ -53,11 +53,13 @@ class TestPortDelegate : public GinPort::Delegate {
   }
 
   const std::optional<PortId>& last_port_id() const { return last_port_id_; }
-  const Message* last_message() const { return last_message_.get(); }
+  const Message* last_message() const {
+    return last_message_ ? &(*last_message_) : nullptr;
+  }
 
  private:
   std::optional<PortId> last_port_id_;
-  std::unique_ptr<Message> last_message_;
+  std::optional<Message> last_message_;
 };
 
 class GinPortTest : public APIBindingTest {
@@ -154,9 +156,8 @@ TEST_F(GinPortTest, TestDispatchMessage) {
   v8::Local<v8::Value> args[] = {port_obj};
   RunFunctionOnGlobal(test_function, context, std::size(args), args);
 
-  port->DispatchOnMessage(
-      context,
-      Message(R"({"foo":42})", mojom::SerializationFormat::kJson, false));
+  Message message(R"({"foo":42})", /*user_gesture=*/false);
+  port->DispatchOnMessage(context, std::move(message));
 
   EXPECT_EQ("true", GetStringPropertyFromObject(context->Global(), context,
                                                 "messageValid"));
@@ -208,9 +209,8 @@ TEST_F(GinPortTest, TestPostMessage) {
     // Simple message; should succeed.
     const char kFunction[] =
         "(function(port) { port.postMessage({data: [42]}); })";
-    test_post_message(
-        kFunction, port_id,
-        Message(R"({"data":[42]})", mojom::SerializationFormat::kJson, false));
+    test_post_message(kFunction, port_id,
+                      Message(R"({"data":[42]})", /*user_gesture=*/false));
 
     // TODO(mustaq): We need a test with Message.user_gesture == true.
   }
@@ -218,9 +218,8 @@ TEST_F(GinPortTest, TestPostMessage) {
   {
     // Simple non-object message; should succeed.
     const char kFunction[] = "(function(port) { port.postMessage('hello'); })";
-    test_post_message(
-        kFunction, port_id,
-        Message(R"("hello")", mojom::SerializationFormat::kJson, false));
+    test_post_message(kFunction, port_id,
+                      Message(R"("hello")", /*user_gesture=*/false));
   }
 
   {
@@ -228,18 +227,16 @@ TEST_F(GinPortTest, TestPostMessage) {
     // stringify result "undefined"); should succeed.
     const char kFunction[] =
         "(function(port) { port.postMessage('undefined'); })";
-    test_post_message(
-        kFunction, port_id,
-        Message(R"("undefined")", mojom::SerializationFormat::kJson, false));
+    test_post_message(kFunction, port_id,
+                      Message(R"("undefined")", /*user_gesture=*/false));
   }
 
   {
     // We change undefined to null; see comment in gin_port.cc.
     const char kFunction[] =
         "(function(port) { port.postMessage(undefined); })";
-    test_post_message(
-        kFunction, port_id,
-        Message("null", mojom::SerializationFormat::kJson, false));
+    test_post_message(kFunction, port_id,
+                      Message("null", /*user_gesture=*/false));
   }
 
   {
@@ -324,7 +321,7 @@ TEST_F(GinPortTest, TestJSDisconnect) {
 }
 
 // Tests that a call of disconnect() from the listener of the onDisconnect event
-// is rejected. Regression test for crbug.com/932347.
+// is rejected. Regression test for crbug.com/40614089.
 TEST_F(GinPortTest, JSDisconnectFromOnDisconnect) {
   v8::HandleScope handle_scope(isolate());
   v8::Local<v8::Context> context = MainContext();
@@ -352,7 +349,7 @@ TEST_F(GinPortTest, JSDisconnectFromOnDisconnect) {
 }
 
 // Tests that a call of postMessage() from the listener of the onDisconnect
-// event is rejected. Regression test for crbug.com/932347.
+// event is rejected. Regression test for crbug.com/40614089.
 TEST_F(GinPortTest, JSPostMessageFromOnDisconnect) {
   v8::HandleScope handle_scope(isolate());
   v8::Local<v8::Context> context = MainContext();

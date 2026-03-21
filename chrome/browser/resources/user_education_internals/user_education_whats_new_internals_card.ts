@@ -42,17 +42,21 @@ export class UserEducationWhatsNewInternalsCardElement extends CrLitElement {
     };
   }
 
-  accessor item: WhatsNewModuleDemoPageInfo|WhatsNewEditionDemoPageInfo|null =
-      null;
-  accessor type: 'module'|'edition'|null = null;
+  accessor item: WhatsNewModuleDemoPageInfo|WhatsNewEditionDemoPageInfo = {
+    displayTitle: '',
+    moduleName: '',
+    hasBrowserCommand: false,
+    isFeatureEnabled: false,
+    queuePosition: 0,
+  };
+  accessor type: 'module'|'edition' = 'module';
   protected accessor dataExpanded_: boolean = false;
 
-  protected clearData_() {
+  protected onClearDataClick_() {
     if (confirm(
             'Clear all What\'s New data?\n' +
             'This affects module order and edition use data.')) {
-      this.dispatchEvent(new CustomEvent(
-          CLEAR_WHATS_NEW_DATA_EVENT, {bubbles: true, composed: true}));
+      this.fire(CLEAR_WHATS_NEW_DATA_EVENT);
     }
   }
 

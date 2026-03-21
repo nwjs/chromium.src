@@ -9,11 +9,17 @@ import androidx.annotation.IntDef;
 import org.chromium.base.CallbackUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.tabmodel.PersistentStoreMigrationManager.StoreType;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/** This class handles saving and loading tab state from the persistent storage. */
+/**
+ * This class handles saving and loading tab state from the persistent storage.
+ *
+ * <p>Implementations must also provide the ability to clear their data when an associated {@link
+ * TabPersistentStore} instance is not available.
+ */
 @NullMarked
 public interface TabPersistentStore {
     /** Alerted at various stages of operation. */
@@ -41,6 +47,13 @@ public interface TabPersistentStore {
 
         /** To be called when the TabState from another instance has been merged. */
         default void onStateMerged() {}
+
+        /**
+         * To be called when the active tab has been loaded.
+         *
+         * @param incognito Whether the active tab is incognito.
+         */
+        default void onActiveTabLoaded(boolean incognito) {}
 
         /**
          * Called when the metadata file has been saved out asynchronously. This currently does not
@@ -157,6 +170,12 @@ public interface TabPersistentStore {
      */
     void clearState();
 
+    /**
+     * Clear the persisted data for the window this store represents. Should only be implemented if
+     * a store does us an associated {@link TabPersistencePolicy} for cleaning.
+     */
+    default void clearCurrentWindow() {}
+
     /** Cleans up any resources used by the TabPersistentStore. */
     void destroy();
 
@@ -201,4 +220,8 @@ public interface TabPersistentStore {
      * @param observer The {@link TabPersistentStoreObserver} to remove.
      */
     void removeObserver(TabPersistentStoreObserver observer);
+
+    /** Returns the type of store this instance represents. */
+    @StoreType
+    int getStoreType();
 }

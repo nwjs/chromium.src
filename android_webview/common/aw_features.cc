@@ -68,6 +68,13 @@ BASE_FEATURE(kWebViewLatchedCookiePolicy, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebViewMixedContentAutoupgrades,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the provisional cookie store is properly closed before the
+// Network Service opens the database, fixing race conditions that can cause
+// cookie loss and CHECK failures when cookies are set before WebView is fully
+// initialized.
+BASE_FEATURE(kWebViewNonBlockingCookieStoreHandoff,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // A Feature used for WebView variations tests. Not used in production. Please
 // do not clean up this stale feature: we intentionally keep this feature flag
 // around for testing purposes.
@@ -121,6 +128,12 @@ BASE_FEATURE(kWebViewPrefetchNativeLibrary, base::FEATURE_ENABLED_BY_DEFAULT);
 // A parameter to trigger the prefetch from the renderer instead of the browser.
 const base::FeatureParam<bool> kWebViewPrefetchFromRenderer{
     &kWebViewPrefetchNativeLibrary, "WebViewPrefetchFromRenderer", true};
+
+// This enables to start main resource prefetch request from off the main thread
+// for WebView Prefetch API. See crbug.com/452406598, crbug.com//452389538 for
+// more details.
+BASE_FEATURE(kWebViewPrefetchOffTheMainThread,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This enables WebView's hyperlink context menu.
 BASE_FEATURE(kWebViewHyperlinkContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -296,4 +309,13 @@ BASE_FEATURE(kWebViewTestNonembeddedLowEntropySource,
 BASE_FEATURE(kWebViewUseNonembeddedLowEntropySource,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, the default user agent string is fetched more quickly without
+// waiting for chromium startup to complete.
+BASE_FEATURE(kWebViewFasterGetDefaultUserAgent,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, navigation headers will be saved and restored as part
+// of saved state for WebView.
+BASE_FEATURE(kWebViewSaveStateIncludeHeaders,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace android_webview::features

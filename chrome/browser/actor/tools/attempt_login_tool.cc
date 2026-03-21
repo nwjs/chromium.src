@@ -18,7 +18,6 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/actor.mojom-shared.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor_webui.mojom.h"
@@ -29,6 +28,12 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/gfx/image/image.h"
 #include "url/gurl.h"
+
+// TODO(crbug.com/482430429): Reconsider the use of BrowserWindowInterface on
+// Android.
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#endif
 
 namespace actor {
 
@@ -60,6 +65,7 @@ mojom::ActionResultCode LoginResultToActorResult(
     case actor_login::LoginStatusResult::kSuccessUsernameAndPasswordFilled:
     case actor_login::LoginStatusResult::kSuccessUsernameFilled:
     case actor_login::LoginStatusResult::kSuccessPasswordFilled:
+    case actor_login::LoginStatusResult::kSuccessFederated:
       return mojom::ActionResultCode::kOk;
     case actor_login::LoginStatusResult::kErrorNoSigninForm:
       return mojom::ActionResultCode::kLoginNotLoginPage;
@@ -71,6 +77,20 @@ mojom::ActionResultCode LoginResultToActorResult(
       return mojom::ActionResultCode::kLoginDeviceReauthRequired;
     case actor_login::LoginStatusResult::kErrorDeviceReauthFailed:
       return mojom::ActionResultCode::kLoginDeviceReauthFailed;
+    case actor_login::LoginStatusResult::kErrorFederatedContinuation:
+      // TODO(crbug.com/481685277): handle the continuation case.
+    case actor_login::LoginStatusResult::kErrorFederatedAccountNotLoggedIn:
+    case actor_login::LoginStatusResult::kErrorFederatedAccountIsSignUp:
+    case actor_login::LoginStatusResult::kErrorFederatedAccountNotAvailable:
+    case actor_login::LoginStatusResult::kErrorFederatedIdpReturnedError:
+    case actor_login::LoginStatusResult::kErrorFederatedIdpNetworkError:
+    case actor_login::LoginStatusResult::kErrorFederatedTokenRequestAborted:
+    case actor_login::LoginStatusResult::kErrorFederatedFrameNotActive:
+    case actor_login::LoginStatusResult::
+        kErrorFederatedExpectedAccountNotPresent:
+    case actor_login::LoginStatusResult::kErrorFederatedTimeout:
+      // TODO(crbug.com/477507796): Handle federated login errors.
+      return mojom::ActionResultCode::kLoginFillingNotAllowed;
   }
 }
 
@@ -251,8 +271,15 @@ void AttemptLoginTool::FetchIcons() {
 
   base::flat_set<GURL> unique_sites;
   for (const auto& cred : credentials_) {
-    if (!cred.source_site_or_app.empty()) {
+    if (cred.source_site_or_app.empty()) {
+      continue;
+    }
+    if (cred.type == actor_login::CredentialType::kPassword) {
       unique_sites.insert(GURL(cred.source_site_or_app));
+    } else if (cred.federation_detail &&
+               !cred.federation_detail->brand_icon.IsEmpty()) {
+      fetched_icons_[base::UTF16ToUTF8(cred.source_site_or_app)] =
+          cred.federation_detail->brand_icon;
     }
   }
 
@@ -447,6 +474,9 @@ void AttemptLoginTool::ObserveTabToAwaitFocus() {
       &AttemptLoginTool::OnWillDetach, base::Unretained(this)));
   tab_did_activate_subscription_ = tab->RegisterDidActivate(base::BindRepeating(
       &AttemptLoginTool::HandleTabActivatedChange, base::Unretained(this)));
+// TODO(crbug.com/482430429): Reconsider the use of BrowserWindowInterface on
+// Android.
+#if !BUILDFLAG(IS_ANDROID)
   BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
   // TODO(mcnee): Should we update the window subscription if the tab is moved?
   // The tab would probably be focused first which would cause us to stop
@@ -455,6 +485,7 @@ void AttemptLoginTool::ObserveTabToAwaitFocus() {
       browser_window->RegisterDidBecomeActive(
           base::BindRepeating(&AttemptLoginTool::HandleWindowActivatedChange,
                               base::Unretained(this)));
+#endif
 }
 
 void AttemptLoginTool::StopObservingTab() {
@@ -470,15 +501,23 @@ void AttemptLoginTool::MaybeRetryCredentialNeedingFocus() {
 
   tabs::TabInterface* tab = tab_handle_.Get();
   CHECK(tab);
-  BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
 
   // Note that this is more specific than the conditions checked in
   // `ActorLoginDelegateImpl::IsTaskInFocus`, but for simplicity we check for
   // the specific tab being activated, since the task nudge will take the user
   // there anyway.
-  if (!browser_window->IsActive() || !tab->IsActivated()) {
+  if (!tab->IsActivated()) {
     return;
   }
+
+  // TODO(crbug.com/482430429): Reconsider the use of BrowserWindowInterface on
+  // Android.
+#if !BUILDFLAG(IS_ANDROID)
+  BrowserWindowInterface* browser_window = tab->GetBrowserWindowInterface();
+  if (!browser_window->IsActive()) {
+    return;
+  }
+#endif
 
   StopObservingTab();
   tool_delegate().UninterruptFromTool();

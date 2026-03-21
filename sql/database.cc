@@ -375,12 +375,14 @@ void Database::OnWalDataCommit(base::cstring_view db_name, int pages) {
   } else if (pages >= kDefaultWalAutoCheckpoint) {
     // Perform the default behavior of checkpointing if more than 1000 pages are
     // in the log.
-    (void)WalCheckpointImpl(db_name, /*is_auto_checkpoint=*/true);
+    (void)WalCheckpointImpl(db_name, /*is_auto_checkpoint=*/true,
+                            /*truncate=*/false);
   }
 }
 
 int Database::WalCheckpointImpl(base::cstring_view db_name,
-                                bool is_auto_checkpoint) {
+                                bool is_auto_checkpoint,
+                                bool truncate) {
   // The number of frames in the write-ahead log after the checkpoint completes.
   int log_frame_count = 0;
 
@@ -401,10 +403,11 @@ int Database::WalCheckpointImpl(base::cstring_view db_name,
   InitScopedBlockingCall(FROM_HERE, &scoped_blocking_call);
 
   base::ElapsedTimer timer;
-  const int result =
-      sqlite3_wal_checkpoint_v2(db_, db_name.c_str(), SQLITE_CHECKPOINT_PASSIVE,
-                                /*pnLog=*/&log_frame_count,
-                                /*pnCkpt=*/&checkpointed_frame_count);
+  const int result = sqlite3_wal_checkpoint_v2(
+      db_, db_name.c_str(),
+      truncate ? SQLITE_CHECKPOINT_TRUNCATE : SQLITE_CHECKPOINT_PASSIVE,
+      /*pnLog=*/&log_frame_count,
+      /*pnCkpt=*/&checkpointed_frame_count);
   RecordTimingHistogram(is_auto_checkpoint
                             ? "Sql.Database.AutoCheckpoint.Time."
                             : "Sql.Database.ManualCheckpoint.Time.",
@@ -414,9 +417,11 @@ int Database::WalCheckpointImpl(base::cstring_view db_name,
   scoped_blocking_call.reset();
 
   // Expected result codes, among others:
-  // - SQLITE_BUSY if the lock could not be acquired. Not possible if the
-  //   database is in exclusive mode.
-  // - SQLITE_LOCKED if a transaction is open.
+  // - SQLITE_BUSY if the lock could not be acquired due to use by another
+  //   connection. Not possible if the database is in exclusive mode.
+  // - SQLITE_LOCKED if a b-tree transaction is open, i.e. the database is in
+  //   use by *this* connection, which can be due to an active database
+  //   transaction, prepared statement, or open blob handle.
   // - SQLITE_READONLY if the db is in read-only mode.
   UmaHistogramSqliteResult(
       base::StrCat({"Sql.Database.", (is_auto_checkpoint ? "Auto" : "Manual"),
@@ -747,6 +752,10 @@ void Database::Close() {
 // large transactions.
 void Database::ReleaseCacheMemoryIfNeeded(bool implicit_change_performed) {
   if (base::FeatureList::IsEnabled(kInhibitSQLReleaseCacheMemoryIfNeeded)) {
+    return;
+  }
+
+  if (!options_.release_memory_after_writes_) {
     return;
   }
 
@@ -1101,7 +1110,6 @@ bool Database::RazeInternal() {
 
   Database null_db(
       DatabaseOptions()
-          .set_exclusive_locking(true)
           .set_page_size(options_.page_size_)
           .set_enable_views_discouraged(options_.enable_views_discouraged_),
       "RazeNullDB");
@@ -1340,6 +1348,16 @@ bool Database::Delete(const base::FilePath& path) {
   vfs->xAccess(vfs, path_str.c_str(), SQLITE_ACCESS_EXISTS, &path_exists);
 
   return !journal_exists && !wal_exists && !path_exists;
+}
+
+bool Database::CloseAndDelete() {
+  CHECK(is_open());
+  if (UseWALMode()) {
+    sqlite3_db_config(db_, SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, 1, nullptr);
+  }
+  const base::FilePath path = DbPath();
+  Close();
+  return Delete(path);
 }
 
 bool Database::BeginTransaction(InternalApiToken) {
@@ -2679,11 +2697,11 @@ bool Database::UseWALMode() const {
 #endif  // BUILDFLAG(IS_FUCHSIA)
 }
 
-bool Database::CheckpointDatabase() {
+bool Database::CheckpointDatabase(bool truncate) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   return WalCheckpointImpl(kSqliteMainDatabaseName,
-                           /*is_auto_checkpoint=*/false) == SQLITE_OK;
+                           /*is_auto_checkpoint=*/false, truncate) == SQLITE_OK;
 }
 
 }  // namespace sql

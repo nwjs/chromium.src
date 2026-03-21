@@ -243,9 +243,8 @@ class WTF_EXPORT StringImpl {
     return hash_and_flags_.load(std::memory_order_relaxed) & kIsStatic;
   }
 
-  bool ContainsOnlyASCIIOrEmpty() const;
-
-  bool IsLowerASCII() const;
+  bool ContainsOnlyAsciiOrEmpty() const;
+  bool ContainsNoAsciiUpper() const;
 
   // The high bits of 'hash' are always empty, but we prefer to store our
   // flags in the low bits because it makes them slightly more efficient to
@@ -426,12 +425,6 @@ class WTF_EXPORT StringImpl {
 
   bool ContainsOnlyWhitespaceOrEmpty();
 
-  int64_t ToInt64(NumberParsingOptions, bool* ok) const;
-  uint64_t ToUInt64(NumberParsingOptions, bool* ok) const;
-
-  wtf_size_t HexToUIntStrict(bool* ok);
-  uint64_t HexToUInt64Strict(bool* ok);
-
   scoped_refptr<StringImpl> LowerASCII();
   scoped_refptr<StringImpl> UpperASCII();
 
@@ -478,7 +471,7 @@ class WTF_EXPORT StringImpl {
   // platform features.  See crbug.com/40476285.
   wtf_size_t DeprecatedFindIgnoringCase(const StringView&,
                                         wtf_size_t index = 0) const;
-  wtf_size_t FindIgnoringASCIICase(const StringView&,
+  wtf_size_t FindIgnoringAsciiCase(const StringView&,
                                    wtf_size_t index = 0) const;
 
   wtf_size_t ReverseFind(UChar, wtf_size_t index = UINT_MAX) const;
@@ -491,7 +484,7 @@ class WTF_EXPORT StringImpl {
   // platform features.  See crbug.com/40476285.
   bool DeprecatedStartsWithIgnoringCase(const StringView&) const;
   bool StartsWithIgnoringCaseAndAccents(const StringView&) const;
-  bool StartsWithIgnoringASCIICase(const StringView&) const;
+  bool StartsWithIgnoringAsciiCase(const StringView&) const;
 
   bool EndsWith(UChar) const;
   bool EndsWith(const StringView&) const;
@@ -499,7 +492,7 @@ class WTF_EXPORT StringImpl {
   // match to ASCII characters. This function is rarely used to implement web
   // platform features.  See crbug.com/40476285.
   bool DeprecatedEndsWithIgnoringCase(const StringView&) const;
-  bool EndsWithIgnoringASCIICase(const StringView&) const;
+  bool EndsWithIgnoringAsciiCase(const StringView&) const;
 
   // Replace parts of the string.
   scoped_refptr<StringImpl> Replace(UChar pattern, UChar replacement);
@@ -713,7 +706,7 @@ inline bool Equal(const StringImpl* a, base::span<const char> b) {
 }
 WTF_EXPORT bool EqualNonNull(const StringImpl* a, const StringImpl* b);
 
-ALWAYS_INLINE bool StringImpl::ContainsOnlyASCIIOrEmpty() const {
+ALWAYS_INLINE bool StringImpl::ContainsOnlyAsciiOrEmpty() const {
   uint32_t flags = hash_and_flags_.load(std::memory_order_relaxed);
   if (flags & kAsciiPropertyCheckDone)
     return flags & kContainsOnlyAscii;
@@ -727,7 +720,7 @@ ALWAYS_INLINE size_t StringImpl::GetAllocatedSize() const {
   return size;
 }
 
-ALWAYS_INLINE bool StringImpl::IsLowerASCII() const {
+ALWAYS_INLINE bool StringImpl::ContainsNoAsciiUpper() const {
   uint32_t flags = hash_and_flags_.load(std::memory_order_relaxed);
   if (flags & kAsciiPropertyCheckDone)
     return flags & kIsLowerAscii;
@@ -737,7 +730,7 @@ ALWAYS_INLINE bool StringImpl::IsLowerASCII() const {
 // Unicode aware case insensitive string matching. Non-ASCII characters might
 // match to ASCII characters. These functions are rarely used to implement web
 // platform features.
-// These functions are deprecated. Use EqualIgnoringASCIICase(), or introduce
+// These functions are deprecated. Use EqualIgnoringAsciiCase(), or introduce
 // EqualIgnoringUnicodeCase(). See crbug.com/627682
 WTF_EXPORT bool DeprecatedEqualIgnoringCase(base::span<const LChar>,
                                             base::span<const LChar>);
@@ -753,7 +746,7 @@ WTF_EXPORT bool DeprecatedEqualIgnoringCase(base::span<const UChar>,
 WTF_EXPORT bool EqualIgnoringNullity(StringImpl*, StringImpl*);
 
 template <typename CharacterTypeA, typename CharacterTypeB>
-inline bool EqualIgnoringASCIICase(base::span<const CharacterTypeA> a,
+inline bool EqualIgnoringAsciiCase(base::span<const CharacterTypeA> a,
                                    base::span<const CharacterTypeB> b) {
   CHECK_EQ(a.size(), b.size());
   size_t length = a.size();
@@ -770,7 +763,7 @@ inline bool EqualIgnoringASCIICase(base::span<const CharacterTypeA> a,
 }
 
 #if HWY_TARGET != HWY_SCALAR
-ALWAYS_INLINE bool SimdEqualIgnoringASCIICase(base::span<const LChar> a,
+ALWAYS_INLINE bool SimdEqualIgnoringAsciiCase(base::span<const LChar> a,
                                               base::span<const LChar> b) {
   namespace hw = hwy::HWY_NAMESPACE;
   constexpr hw::FixedTag<uint8_t, 16> d;
@@ -804,7 +797,7 @@ ALWAYS_INLINE bool SimdEqualIgnoringASCIICase(base::span<const LChar> a,
   return true;
 }
 
-ALWAYS_INLINE bool SimdEqualIgnoringASCIICase(base::span<const UChar> a,
+ALWAYS_INLINE bool SimdEqualIgnoringAsciiCase(base::span<const UChar> a,
                                               base::span<const LChar> b) {
   namespace hw = hwy::HWY_NAMESPACE;
   constexpr hw::FixedTag<uint16_t, 8> d16;
@@ -842,7 +835,7 @@ ALWAYS_INLINE bool SimdEqualIgnoringASCIICase(base::span<const UChar> a,
   return true;
 }
 
-ALWAYS_INLINE bool SimdEqualIgnoringASCIICase(base::span<const UChar> a,
+ALWAYS_INLINE bool SimdEqualIgnoringAsciiCase(base::span<const UChar> a,
                                               base::span<const UChar> b) {
   namespace hw = hwy::HWY_NAMESPACE;
   constexpr hw::FixedTag<uint16_t, 8> d;
@@ -877,38 +870,38 @@ ALWAYS_INLINE bool SimdEqualIgnoringASCIICase(base::span<const UChar> a,
 }
 #endif  // HWY_TARGET != HWY_SCALAR
 
-ALWAYS_INLINE bool EqualIgnoringASCIICase(base::span<const LChar> a,
+ALWAYS_INLINE bool EqualIgnoringAsciiCase(base::span<const LChar> a,
                                           base::span<const LChar> b) {
   CHECK_EQ(a.size(), b.size());
 #if HWY_TARGET != HWY_SCALAR
-  return SimdEqualIgnoringASCIICase(a, b);
+  return SimdEqualIgnoringAsciiCase(a, b);
 #else
-  return EqualIgnoringASCIICase<LChar, LChar>(a, b);
+  return EqualIgnoringAsciiCase<LChar, LChar>(a, b);
 #endif  // HWY_TARGET != HWY_SCALAR
 }
 
-ALWAYS_INLINE bool EqualIgnoringASCIICase(base::span<const UChar> a,
+ALWAYS_INLINE bool EqualIgnoringAsciiCase(base::span<const UChar> a,
                                           base::span<const LChar> b) {
   CHECK_EQ(a.size(), b.size());
 #if HWY_TARGET != HWY_SCALAR
-  return SimdEqualIgnoringASCIICase(a, b);
+  return SimdEqualIgnoringAsciiCase(a, b);
 #else
-  return EqualIgnoringASCIICase<UChar, LChar>(a, b);
+  return EqualIgnoringAsciiCase<UChar, LChar>(a, b);
 #endif  // HWY_TARGET != HWY_SCALAR
 }
 
-ALWAYS_INLINE bool EqualIgnoringASCIICase(base::span<const LChar> a,
+ALWAYS_INLINE bool EqualIgnoringAsciiCase(base::span<const LChar> a,
                                           base::span<const UChar> b) {
-  return EqualIgnoringASCIICase(b, a);
+  return EqualIgnoringAsciiCase(b, a);
 }
 
-ALWAYS_INLINE bool EqualIgnoringASCIICase(base::span<const UChar> a,
+ALWAYS_INLINE bool EqualIgnoringAsciiCase(base::span<const UChar> a,
                                           base::span<const UChar> b) {
   CHECK_EQ(a.size(), b.size());
 #if HWY_TARGET != HWY_SCALAR
-  return SimdEqualIgnoringASCIICase(a, b);
+  return SimdEqualIgnoringAsciiCase(a, b);
 #else
-  return EqualIgnoringASCIICase<UChar, UChar>(a, b);
+  return EqualIgnoringAsciiCase<UChar, UChar>(a, b);
 #endif  // HWY_TARGET != HWY_SCALAR
 }
 
@@ -1096,9 +1089,9 @@ inline void StringImpl::AppendTo(BufferType& result,
   if (!number_of_characters_to_copy)
     return;
   if (Is8Bit())
-    result.AppendSpan(Span8().subspan(start, number_of_characters_to_copy));
+    result.append_range(Span8().subspan(start, number_of_characters_to_copy));
   else
-    result.AppendSpan(Span16().subspan(start, number_of_characters_to_copy));
+    result.append_range(Span16().subspan(start, number_of_characters_to_copy));
 }
 
 template <typename T>

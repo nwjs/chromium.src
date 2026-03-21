@@ -11,7 +11,6 @@
 #import "base/logging.h"
 #import "base/no_destructor.h"
 #import "base/strings/sys_string_conversions.h"
-#import "ios/components/enterprise/data_controls/features.h"
 #import "ios/web/annotations/annotations_java_script_feature.h"
 #import "ios/web/common/annotations_utils.h"
 #import "ios/web/common/features.h"
@@ -56,8 +55,13 @@ GetScriptErrorMessageHandlerJavaScriptFeature() {
         //     {error_message}
         //     {api}:{line_number}
         //     {stack}
+        //     {crash_keys}
         //     {url}
         //     {kMainFrameDescription|kIframeDescription}
+        std::string crash_keys_str;
+        for (const auto [key, value] : error_details.crash_keys) {
+          crash_keys_str += "\n " + key + ": " + value;
+        }
         const char* frame_description = error_details.is_main_frame
                                             ? kMainFrameDescription
                                             : kIframeDescription;
@@ -65,7 +69,10 @@ GetScriptErrorMessageHandlerJavaScriptFeature() {
                     << error_details.message << "\n"
                     << error_details.api << ":" << error_details.line_number
                     << "\n  " << error_details.stack << "\n  "
-                    << error_details.url.spec() << "\n  " << frame_description;
+                    << "Crash Keys:"
+                    << (crash_keys_str.empty() ? "None" : crash_keys_str)
+                    << "\n  " << error_details.url.spec() << "\n  "
+                    << frame_description;
         if (base::FeatureList::IsEnabled(features::kAssertOnJavaScriptErrors)) {
           CHECK(false) << "JavaScript error occurred with "
                           "kAssertOnJavaScriptErrors enabled.";
@@ -92,12 +99,8 @@ std::vector<JavaScriptFeature*> GetBuiltInJavaScriptFeatures(
       GetScriptErrorMessageHandlerJavaScriptFeature(),
       NavigationJavaScriptFeature::GetInstance(),
       WebUIMessagingJavaScriptFeature::GetInstance(),
-      AnnotationsJavaScriptFeature::GetInstance()};
-
-  if (base::FeatureList::IsEnabled(
-          data_controls::kEnableClipboardDataControlsIOS)) {
-    features.push_back(ClipboardJavaScriptFeature::GetInstance());
-  }
+      AnnotationsJavaScriptFeature::GetInstance(),
+      ClipboardJavaScriptFeature::GetInstance()};
 
   auto frames_manager_features = WebFramesManagerJavaScriptFeature::
       AllContentWorldFeaturesFromBrowserState(browser_state);

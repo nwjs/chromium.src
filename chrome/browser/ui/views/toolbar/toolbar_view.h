@@ -59,6 +59,7 @@ class PinnedToolbarActionsContainer;
 class ToolbarButton;
 class AvatarToolbarButtonBrowserTest;
 class ToolbarController;
+class ToolbarDivider;
 class OverflowButton;
 class PerformanceInterventionButton;
 
@@ -68,7 +69,10 @@ class FlexLayout;
 
 namespace glic {
 class ToolbarGlicButton;
+class ToolbarGlicActorTaskIcon;
 }  // namespace glic
+
+class GlicAndActorButtonsContainer;
 
 // The Browser Window's toolbar.
 class ToolbarView : public views::AccessiblePaneView,
@@ -90,7 +94,6 @@ class ToolbarView : public views::AccessiblePaneView,
                 // bar, used for popups.
     kCustomTab  // Custom tab bar, used in PWAs when a location
                 // needs to be displayed.
-                // TODO(crbug.com/474406675): Rename to WebApp or TabbedPWA.
   };
 
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kToolbarElementId);
@@ -249,8 +252,7 @@ class ToolbarView : public views::AccessiblePaneView,
   gfx::Rect GetFindBarBoundingBox(int contents_bottom) override;
   void FocusToolbar() override;
   views::AccessiblePaneView* GetAsAccessiblePaneView() override;
-  views::View* GetAnchorView(
-      std::optional<actions::ActionId> action_id) override;
+  views::View* GetAnchorView(std::optional<actions::ActionId> action_id);
   views::BubbleAnchor GetBubbleAnchor(
       std::optional<actions::ActionId> action_id) override;
   void ZoomChangedForActiveTab(bool can_show_bubble) override;
@@ -289,7 +291,10 @@ class ToolbarView : public views::AccessiblePaneView,
   void OnVerticalTabStripModeChanged(
       tabs::VerticalTabStripStateController* controller);
 
-#if BUILDFLAG(ENABLE_GLIC)
+  void SetForwardButtonVisibility(bool visible);
+
+  gfx::Size GetBackForwardButtonSize(bool minimum_size = false) const;
+
   std::unique_ptr<glic::ToolbarGlicButton> CreateGlicButton();
   void OnGlicButtonClicked();
   void OnGlicButtonDismissed();
@@ -298,7 +303,12 @@ class ToolbarView : public views::AccessiblePaneView,
   void OnGlicButtonAnimationEnded();
   void ExecuteHideToolbarNudge(glic::ToolbarGlicButton* button);
   void UpdateGlicButtonVisibility();
-#endif
+
+  std::unique_ptr<glic::ToolbarGlicActorTaskIcon> CreateGlicActorTaskIcon();
+  void OnGlicActorTaskIconClicked();
+  std::unique_ptr<GlicAndActorButtonsContainer>
+  CreateGlicActorButtonContainer();
+  void UpdateGlicActorButtonContainerBorders();
 
   gfx::SlideAnimation size_animation_{this};
 
@@ -313,9 +323,11 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<SplitTabsToolbarButton> split_tabs_ = nullptr;
   raw_ptr<CustomTabBarView> custom_tab_bar_ = nullptr;
   raw_ptr<LocationBarView> location_bar_view_ = nullptr;
+
+  // An alias for `location_bar_view_` or `toolbar_webview_->GetLocationBar()`.
   raw_ptr<LocationBar> location_bar_ = nullptr;
   raw_ptr<ExtensionsToolbarDesktop> extensions_container_ = nullptr;
-  raw_ptr<views::View> toolbar_divider_ = nullptr;
+  raw_ptr<ToolbarDivider> toolbar_divider_ = nullptr;
   raw_ptr<BatterySaverButton> battery_saver_button_ = nullptr;
   raw_ptr<PerformanceInterventionButton> performance_intervention_button_ =
       nullptr;
@@ -327,7 +339,9 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<views::View> new_tab_button_ = nullptr;
   raw_ptr<PinnedActionToolbarButton> tab_search_button_ = nullptr;
 
+  raw_ptr<GlicAndActorButtonsContainer> glic_actor_button_container_ = nullptr;
   raw_ptr<glic::ToolbarGlicButton> glic_button_ = nullptr;
+  raw_ptr<glic::ToolbarGlicActorTaskIcon> glic_actor_task_icon_ = nullptr;
 
   const raw_ptr<Browser> browser_;
   const raw_ptr<BrowserView> browser_view_;

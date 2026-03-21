@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/check.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/timer/elapsed_timer.h"
 #include "net/disk_cache/sql/cache_entry_key.h"
@@ -16,25 +17,30 @@ namespace disk_cache {
 
 namespace {
 
-// Wraps an operation to record its queuing time in a UMA histogram.
+// Wraps an operation to record its queuing time in a UMA histogram, and
+// decrements the pending task count when the operation actually starts running.
 base::OnceCallback<
     void(std::unique_ptr<ExclusiveOperationCoordinator::OperationHandle>)>
-WrapWithUmaQueuingTime(
+WrapOperation(
     base::OnceCallback<
         void(std::unique_ptr<ExclusiveOperationCoordinator::OperationHandle>)>
         operation,
+    base::ScopedClosureRunner maybe_decrement_pending_task_count,
     const std::string_view histogram_name) {
   return base::BindOnce(
       [](base::OnceCallback<void(
              std::unique_ptr<ExclusiveOperationCoordinator::OperationHandle>)>
              operation,
+         base::ScopedClosureRunner maybe_decrement_pending_task_count,
          const std::string_view histogram_name, base::ElapsedTimer timer,
          std::unique_ptr<ExclusiveOperationCoordinator::OperationHandle>
              handle) {
         base::UmaHistogramMicrosecondsTimes(histogram_name, timer.Elapsed());
+        maybe_decrement_pending_task_count.RunAndReset();
         std::move(operation).Run(std::move(handle));
       },
-      std::move(operation), histogram_name, base::ElapsedTimer());
+      std::move(operation), std::move(maybe_decrement_pending_task_count),
+      histogram_name, base::ElapsedTimer());
 }
 
 }  // namespace
@@ -51,24 +57,32 @@ ExclusiveOperationCoordinator::OperationHandle::~OperationHandle() {
   }
 }
 
-ExclusiveOperationCoordinator::ExclusiveOperationCoordinator() = default;
+ExclusiveOperationCoordinator::ExclusiveOperationCoordinator()
+    : has_pending_task_(
+          base::MakeRefCounted<base::RefCountedData<std::atomic_bool>>(
+              std::in_place,
+              false)) {}
 ExclusiveOperationCoordinator::~ExclusiveOperationCoordinator() = default;
 
 void ExclusiveOperationCoordinator::PostOrRunExclusiveOperation(
-    OperationCallback operation) {
+    OperationCallback operation,
+    bool low_priority) {
   CHECK(operation);
-  operation = WrapWithUmaQueuingTime(
-      std::move(operation), "Net.SqlDiskCache.ExclusiveOperationDelay");
+  operation = WrapOperation(std::move(operation),
+                            MaybeIncrementPendingTaskCount(low_priority),
+                            "Net.SqlDiskCache.ExclusiveOperationDelay");
   queue_.emplace(std::move(operation));
   TryToRunNextOperation(std::nullopt);
 }
 
 void ExclusiveOperationCoordinator::PostOrRunNormalOperation(
     const CacheEntryKey& key,
-    OperationCallback operation) {
+    OperationCallback operation,
+    bool low_priority) {
   CHECK(operation);
-  operation = WrapWithUmaQueuingTime(std::move(operation),
-                                     "Net.SqlDiskCache.NormalOperationDelay");
+  operation = WrapOperation(std::move(operation),
+                            MaybeIncrementPendingTaskCount(low_priority),
+                            "Net.SqlDiskCache.NormalOperationDelay");
   // If there is no queue, or the back of the queue is an exclusive operation,
   // add a new `NormalOperationsQueueMap` to the back of the queue.
   if (queue_.empty() ||
@@ -176,6 +190,29 @@ void ExclusiveOperationCoordinator::TryToRunNextOperation(
   // Run the collected operations.
   for (auto& runnable_op : runnable_ops) {
     std::move(runnable_op).Run();
+  }
+}
+
+base::ScopedClosureRunner
+ExclusiveOperationCoordinator::MaybeIncrementPendingTaskCount(
+    bool low_priority) {
+  if (low_priority) {
+    return base::ScopedClosureRunner();
+  }
+  pending_task_count_++;
+  if (pending_task_count_ == 1) {
+    has_pending_task_->data.store(true, std::memory_order_relaxed);
+  }
+  return base::ScopedClosureRunner(
+      base::BindOnce(&ExclusiveOperationCoordinator::DecrementPendingTaskCount,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void ExclusiveOperationCoordinator::DecrementPendingTaskCount() {
+  pending_task_count_--;
+  CHECK_GE(pending_task_count_, 0);
+  if (pending_task_count_ == 0) {
+    has_pending_task_->data.store(false, std::memory_order_relaxed);
   }
 }
 

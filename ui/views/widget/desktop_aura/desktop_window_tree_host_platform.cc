@@ -43,6 +43,7 @@
 #include "ui/views/corewm/tooltip_controller.h"
 #include "ui/views/widget/desktop_aura/desktop_drag_drop_client_ozone.h"
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
+#include "ui/views/widget/widget_activation_delegate.h"
 #include "ui/views/widget/widget_aura_utils.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/native_frame_view.h"
@@ -440,7 +441,7 @@ void DesktopWindowTreeHostPlatform::Show(ui::mojom::WindowShowState show_state,
                                          const gfx::Rect& restore_bounds) {
   OnAcceleratedWidgetMadeVisible(true);
   if (compositor()) {
-    SetVisible(true);
+    compositor()->SetVisible(true);
   }
 
   platform_window()->Show(DetermineInactivity(show_state));
@@ -462,6 +463,10 @@ void DesktopWindowTreeHostPlatform::Show(ui::mojom::WindowShowState show_state,
       break;
     default:
       break;
+  }
+
+  if (WidgetActivationDelegate::Get()) {
+    WidgetActivationDelegate::Get()->MaybeActivate(GetWidget(), false);
   }
 
   if (native_widget_delegate_->CanActivate()) {
@@ -487,6 +492,10 @@ void DesktopWindowTreeHostPlatform::Show(ui::mojom::WindowShowState show_state,
   if (!GetContentWindow()->IsVisible()) {
     GetContentWindow()->Show();
   }
+
+  // Notify visibility change after both platform_window and content_window are
+  // visible, so that Widget::IsVisible() returns true during the callback.
+  native_widget_delegate_->OnNativeWidgetVisibilityChanged(true);
 }
 
 bool DesktopWindowTreeHostPlatform::IsVisible() const {
@@ -611,15 +620,26 @@ void DesktopWindowTreeHostPlatform::SetParent(gfx::AcceleratedWidget parent) {
 }
 
 void DesktopWindowTreeHostPlatform::Activate() {
+  if (WidgetActivationDelegate::Get()) {
+    WidgetActivationDelegate::Get()->MaybeActivate(GetWidget(),
+                                                   /*activate=*/true);
+  }
   platform_window()->Activate();
 }
 
 void DesktopWindowTreeHostPlatform::Deactivate() {
-  ReleaseCapture();
-  platform_window()->Deactivate();
+  if (WidgetActivationDelegate::Get()) {
+    WidgetActivationDelegate::Get()->Deactivate(GetWidget());
+  } else {
+    ReleaseCapture();
+    platform_window()->Deactivate();
+  }
 }
 
 bool DesktopWindowTreeHostPlatform::IsActive() const {
+  if (WidgetActivationDelegate::Get()) {
+    return WidgetActivationDelegate::Get()->IsActive(GetWidget());
+  }
   return is_active_;
 }
 
@@ -1031,6 +1051,10 @@ bool DesktopWindowTreeHostPlatform::OnRotateFocus(
 }
 
 void DesktopWindowTreeHostPlatform::OnActivationChanged(bool active) {
+  if (WidgetActivationDelegate::Get()) {
+    return;
+  }
+
   if (active) {
     auto widget = GetAcceleratedWidget();
     open_windows().remove(widget);

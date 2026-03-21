@@ -34,9 +34,6 @@ DEFINE_ELEMENT_IDENTIFIER_VALUE(
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kSettingsOverriddenDialogNewSettingButtonId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kSettingsOverriddenDialogSaveButtonId);
 
-namespace {
-constexpr int kDialogHeaderIconSize = 20;
-
 // Model delegate that notifies the `controller_` when a click event occurs in
 // the settings overridden dialog.
 class SettingsOverriddenDialogDelegate : public ui::DialogModelDelegate {
@@ -44,6 +41,10 @@ class SettingsOverriddenDialogDelegate : public ui::DialogModelDelegate {
   explicit SettingsOverriddenDialogDelegate(
       std::unique_ptr<SettingsOverriddenDialogController> controller)
       : controller_(std::move(controller)) {}
+
+  static base::PassKey<SettingsOverriddenDialogDelegate> GetPassKey() {
+    return {};
+  }
 
   void OnDialogAccepted() {
     HandleDialogResult(DialogResult::kChangeSettingsBack);
@@ -97,6 +98,9 @@ class SettingsOverriddenDialogDelegate : public ui::DialogModelDelegate {
   // which will be locked in when the dialog's Save button is clicked.
   std::optional<DialogResult> selected_setting_;
 };
+
+namespace {
+constexpr int kDialogHeaderIconSize = 20;
 
 void BuildSettingsOverriddenDialog(
     ui::DialogModel::Builder& dialog_builder,
@@ -155,8 +159,14 @@ void BuildExplicitChoiceDialog(
       .SetDialogDestroyingCallback(
           base::BindOnce(&SettingsOverriddenDialogDelegate::OnDialogDestroyed,
                          base::Unretained(dialog_delegate)))
-      .SetInitiallyFocusedField(kSettingsOverriddenDialogSaveButtonId)
-      .OverrideShowCloseButton(false);
+      .SetInitiallyFocusedField(kSettingsOverriddenDialogSaveButtonId);
+
+  const bool is_escapable =
+      extensions_features::kSearchEngineExplicitChoiceDialogEscapable.Get();
+  if (!is_escapable) {
+    dialog_builder.OverrideShowCloseButton(false).DisableCloseOnEscape(
+        SettingsOverriddenDialogDelegate::GetPassKey());
+  }
 
   // Helper to bind the selection callback to a specific result.
   auto create_selection_callback = [&](DialogResult result) {
@@ -166,7 +176,7 @@ void BuildExplicitChoiceDialog(
   };
 
   extensions::AddExplicitChoiceRadioButtons(
-      dialog_builder, show_params.previous_setting.value(),
+      dialog_builder, show_params.message, show_params.previous_setting.value(),
       kSettingsOverriddenDialogPreviousSettingButtonId,
       create_selection_callback(DialogResult::kChangeSettingsBack),
       show_params.new_setting.value(),

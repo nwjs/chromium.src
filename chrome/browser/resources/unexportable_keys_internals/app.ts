@@ -67,8 +67,8 @@ export class UnexportableKeysInternalsAppElement extends CrLitElement {
   ];
 
   protected accessor unexportableKeysInfo_: UnexportableKeyInfo[] = [];
-  protected accessor sortColumn_: SortKey = 'wrappedKey';
-  protected accessor sortReverse_: boolean = false;
+  protected accessor sortColumn_: SortKey = 'creationTime';
+  protected accessor sortReverse_: boolean = true;
 
   private browserProxy_: UnexportableKeysInternalsBrowserProxy =
       UnexportableKeysInternalsBrowserProxyImpl.getInstance();
@@ -106,7 +106,7 @@ export class UnexportableKeysInternalsAppElement extends CrLitElement {
     this.sortKeys_();
   }
 
-  protected onSortKeyDown_(e: KeyboardEvent) {
+  protected onSortKeydown_(e: KeyboardEvent) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       this.onSortClick_(e);

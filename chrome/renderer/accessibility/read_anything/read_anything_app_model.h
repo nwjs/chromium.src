@@ -287,24 +287,35 @@ class ReadAnythingAppModel {
     color_theme_ = color_theme;
   }
 
-  read_anything::mojom::LineFocus line_focus() const { return line_focus_; }
-  void set_line_focus(read_anything::mojom::LineFocus line_focus) {
-    line_focus_ = line_focus;
+  read_anything::mojom::LineFocus last_non_disabled_line_focus() const {
+    return last_non_disabled_line_focus_;
+  }
+  void set_last_non_disabled_line_focus(
+      read_anything::mojom::LineFocus last_non_disabled_line_focus) {
+    last_non_disabled_line_focus_ = last_non_disabled_line_focus;
+  }
+
+  bool line_focus_enabled() const { return line_focus_enabled_; }
+  void set_line_focus_enabled(bool line_focus_enabled) {
+    line_focus_enabled_ = line_focus_enabled;
   }
 
   // Sometimes iframes can return selection objects that have a valid id but
   // aren't in the tree.
   bool has_selection() const {
-    return start_.is_valid() && GetAXNode(start_.id);
+    return start_.is_valid() && end_.is_valid() && GetAXNode(start_.id) &&
+           GetAXNode(end_.id);
   }
   ui::AXNodeID start_node_id() const { return start_.id; }
   ui::AXNodeID end_node_id() const { return end_.id; }
   int start_offset() const { return start_.offset; }
   int end_offset() const { return end_.offset; }
 
-  bool distillation_in_progress() const { return distillation_in_progress_; }
-  void set_distillation_in_progress(bool distillation_in_progress) {
-    distillation_in_progress_ = distillation_in_progress;
+  bool screen2x_distiller_running() const {
+    return screen2x_distiller_running_;
+  }
+  void set_screen2x_distiller_running(bool screen2x_distiller_running) {
+    screen2x_distiller_running_ = screen2x_distiller_running;
   }
 
   bool should_extract_anchors_from_tree_for_readability() const {
@@ -412,7 +423,8 @@ class ReadAnythingAppModel {
       bool links_enabled,
       bool images_enabled,
       read_anything::mojom::Colors color,
-      read_anything::mojom::LineFocus line_focus);
+      read_anything::mojom::LineFocus last_non_disabled_line_focus,
+      bool line_focus_enabled);
 
   void OnScroll(bool on_selection, bool from_reading_mode) const;
 
@@ -604,7 +616,7 @@ class ReadAnythingAppModel {
   // Distillation is slow and happens out-of-process when Screen2x is running.
   // This boolean marks when distillation is in progress to avoid sending
   // new distillation requests during that time.
-  bool distillation_in_progress_ = false;
+  bool screen2x_distiller_running_ = false;
 
   // A mapping of a tree ID to a queue of pending updates on the active AXTree,
   // which will be unserialized once distillation completes.
@@ -647,8 +659,9 @@ class ReadAnythingAppModel {
   read_anything::mojom::Colors color_theme_ =
       read_anything::mojom::Colors::kDefaultValue;
 
-  read_anything::mojom::LineFocus line_focus_ =
-      read_anything::mojom::LineFocus::kDefaultValue;
+  read_anything::mojom::LineFocus last_non_disabled_line_focus_ =
+      read_anything::mojom::LineFocus::kMediumStaticWindow;
+  bool line_focus_enabled_ = false;
 
   // Invariant: Either both endpoints are `!is_valid()`, or they are both valid
   // and non-equal.

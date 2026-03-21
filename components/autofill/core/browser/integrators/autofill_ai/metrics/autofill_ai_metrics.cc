@@ -113,6 +113,8 @@ std::string_view EntityTypeToMetricsString(EntityType type) {
       return "RedressNumber";
     case EntityTypeName::kFlightReservation:
       return "FlightReservation";
+    case EntityTypeName::kOrder:
+      return "Order";
   }
   NOTREACHED();
 }
@@ -126,6 +128,8 @@ std::string_view EntityRecordTypeToMetricsString(
       return "Local";
     case EntityInstance::RecordType::kServerWallet:
       return "ServerWallet";
+    case EntityInstance::RecordType::kAccessibilityAnnotator:
+      return "AccessibilityAnnotator";
   }
   NOTREACHED();
 }

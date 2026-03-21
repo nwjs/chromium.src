@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.omnibox.fusebox;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -30,18 +32,17 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ContextUtils;
-import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxAttachmentRecyclerViewAdapter.FuseboxAttachmentType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentButtonType;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.contextual_search.ContextUploadStatus;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.content_public.browser.RenderWidgetHostView;
 import org.chromium.content_public.browser.WebContents;
 
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(BaseRobolectricTestRunner.class)
@@ -49,7 +50,6 @@ public class FuseboxAttachmentModelListUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ComposeboxQueryControllerBridge mComposeboxQueryControllerBridge;
-    @Mock private TabModelSelector mTabModelSelector;
     @Mock private FuseboxAttachmentModelList.FuseboxAttachmentChangeListener mListener;
 
     private Resources mResources;
@@ -68,9 +68,7 @@ public class FuseboxAttachmentModelListUnitTest {
     @Before
     public void setUp() {
         OmniboxFeatures.sMultiattachmentFusebox.setForTesting(true);
-        mFuseboxAttachmentModelList =
-                new FuseboxAttachmentModelList(
-                        ObservableSuppliers.createNonNull(mTabModelSelector));
+        mFuseboxAttachmentModelList = new FuseboxAttachmentModelList();
         mFuseboxAttachmentModelList.setComposeboxQueryControllerBridge(
                 mComposeboxQueryControllerBridge);
         verify(mComposeboxQueryControllerBridge).setFileUploadObserver(mFuseboxAttachmentModelList);
@@ -79,7 +77,11 @@ public class FuseboxAttachmentModelListUnitTest {
     }
 
     private FuseboxAttachment createTabAttachment(Tab tab) {
-        return FuseboxAttachment.forTab(tab, mResources, FuseboxAttachmentButtonType.TAB_PICKER);
+        return FuseboxAttachment.forTab(
+                tab,
+                /* bypassTabCache= */ false,
+                mResources,
+                FuseboxAttachmentButtonType.TAB_PICKER);
     }
 
     private FuseboxAttachment createTabAttachment(int tabId, String token) {
@@ -406,7 +408,7 @@ public class FuseboxAttachmentModelListUnitTest {
     public void testMaxAttachments() {
         when(mComposeboxQueryControllerBridge.addFile(anyString(), anyString(), any()))
                 .thenReturn("pretokenized-token", "uploaded-token");
-        for (int i = 0; i < FuseboxAttachmentModelList.MAX_ATTACHMENTS; i++) {
+        for (int i = 0; i < FuseboxAttachmentModelList.getMaxAttachments(); i++) {
             FuseboxAttachment attachment = createTestAttachment("pretokenized");
             assertTrue(mFuseboxAttachmentModelList.add(attachment));
         }
@@ -457,7 +459,6 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(webContents).when(tab).getWebContents();
         doReturn(renderWidgetHostView).when(webContents).getRenderWidgetHostView();
         when(mComposeboxQueryControllerBridge.addTabContext(tab)).thenReturn("token");
-        doReturn(tab).when(mTabModelSelector).getCurrentTab();
 
         FuseboxAttachment tabAttachment = createTabAttachment(tab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -477,7 +478,6 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(webContents).when(tab).getWebContents();
         doReturn(renderWidgetHostView).when(webContents).getRenderWidgetHostView();
         when(mComposeboxQueryControllerBridge.addTabContext(tab)).thenReturn("token");
-        doReturn(null).when(mTabModelSelector).getCurrentTab();
 
         FuseboxAttachment tabAttachment = createTabAttachment(tab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -497,7 +497,6 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(renderWidgetHostView).when(webContents).getRenderWidgetHostView();
         when(mComposeboxQueryControllerBridge.addTabContext(tab)).thenReturn("token2");
         when(mComposeboxQueryControllerBridge.addTabContextFromCache(1)).thenReturn("");
-        doReturn(null).when(mTabModelSelector).getCurrentTab();
 
         FuseboxAttachment tabAttachment = createTabAttachment(tab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -515,7 +514,6 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(webContents).when(tab).getWebContents();
         doReturn(renderWidgetHostView).when(webContents).getRenderWidgetHostView();
         when(mComposeboxQueryControllerBridge.addTabContextFromCache(1)).thenReturn("token");
-        doReturn(null).when(mTabModelSelector).getCurrentTab();
 
         FuseboxAttachment tabAttachment = createTabAttachment(tab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -654,5 +652,19 @@ public class FuseboxAttachmentModelListUnitTest {
             mFuseboxAttachmentModelList.add(attachment);
             mFuseboxAttachmentModelList.remove(attachment, /* isFailure= */ false);
         }
+    }
+
+    @Test
+    public void testRemoveTabsNotInSet() {
+        mFuseboxAttachmentModelList.add(createTabAttachment(/* tabId= */ 1, "tab-token-1"));
+        mFuseboxAttachmentModelList.add(createTabAttachment(/* tabId= */ 2, "tab-token-1"));
+        mFuseboxAttachmentModelList.add(createTabAttachment(/* tabId= */ 3, "tab-token-1"));
+        assertThat(mFuseboxAttachmentModelList.getAttachedTabIds()).containsExactly(1, 2, 3);
+
+        mFuseboxAttachmentModelList.removeTabsNotInSet(Set.of(1, 3, 5));
+        assertThat(mFuseboxAttachmentModelList.getAttachedTabIds()).containsExactly(1, 3);
+
+        mFuseboxAttachmentModelList.removeTabsNotInSet(Set.of());
+        assertThat(mFuseboxAttachmentModelList.getAttachedTabIds()).isEmpty();
     }
 }

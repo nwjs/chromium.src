@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/i18n/number_formatting.h"
 #include "base/i18n/rtl.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
@@ -21,6 +22,8 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/actor/ui/actor_ui_metrics.h"
+#include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -46,6 +49,8 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/tab_search_feature.h"
+#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/glic_actor_task_icon_manager_factory.h"
 #include "chrome/browser/ui/tabs/glic_nudge_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_prefs.h"
@@ -64,10 +69,12 @@
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/custom_corners_background.h"
+#include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/global_media_controls/media_toolbar_button_contextual_menu.h"
 #include "chrome/browser/ui/views/global_media_controls/media_toolbar_button_view.h"
 #include "chrome/browser/ui/views/location_bar/intent_chip_button.h"
 #include "chrome/browser/ui/views/location_bar/star_view.h"
+#include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
@@ -84,18 +91,22 @@
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
 #include "chrome/browser/ui/views/toolbar/home_button.h"
+#include "chrome/browser/ui/views/toolbar/live_toolbar_background.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/split_tabs_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_controller.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_divider.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_glic_actor_task_icon.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_glic_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_icon_container_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_back_forward_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/views/zoom/zoom_view_controller.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/web_applications/link_capturing_features.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
@@ -103,6 +114,7 @@
 #include "chrome/grit/theme_resources.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/send_tab_to_self/features.h"
@@ -110,7 +122,6 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "media/base/media_switches.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -138,6 +149,7 @@
 #include "ui/views/layout/proposed_layout.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/tooltip_manager.h"
 #include "ui/views/widget/widget.h"
 
@@ -156,6 +168,97 @@ DEFINE_UI_CLASS_PROPERTY_KEY(bool, kActionItemUnderlineIndicatorKey, false)
 
 namespace {
 
+// Intermediate data for determining whether a point should be considered in the
+// caption are when the toolbar is the top element in the browser.
+struct CaptionHitTestData {
+  raw_ptr<const views::View> at = nullptr;
+  bool is_direct_hit = false;
+  raw_ptr<const views::View> before = nullptr;
+  int before_dist = 0;
+  raw_ptr<const views::View> after = nullptr;
+  int after_dist = 0;
+};
+
+// Calculates the `CaptionHitTestData` (`data`) starting at `view` for `point`,
+// which should be in `view`'s local coordinates. Bails out immediately if a
+// View is hit; may traverse into icon containers.
+void CalculateIsPositionInWindowCaption(CaptionHitTestData& data,
+                                        const views::View* view,
+                                        const gfx::Point& point) {
+  for (auto& child : view->children()) {
+    if (!child->GetVisible()) {
+      continue;
+    }
+    const gfx::Rect bounds = child->bounds();
+
+    if (views::IsViewClass<ToolbarIconContainerView>(child) ||
+        views::IsViewClass<page_actions::PageActionContainerView>(child)) {
+      // Traverse into known icon containers.
+      const auto in_child =
+          views::View::ConvertPointToTarget(view, child, point);
+      CalculateIsPositionInWindowCaption(data, child, in_child);
+    } else if (bounds.x() <= point.x() && bounds.right() >= point.x()) {
+      // This point is in/above/below the child.
+      data.at = child;
+      data.is_direct_hit = bounds.Contains(point);
+    } else {
+      // See if the view is the closest before or after the target point in the
+      // layout.
+      if (bounds.right() < point.x()) {
+        const int dist = point.x() - bounds.right();
+        if (!data.before || data.before_dist > dist) {
+          data.before = child;
+          data.before_dist = dist;
+        }
+      } else if (bounds.x() > point.x()) {
+        const int dist = bounds.x() - point.x();
+        if (!data.after || data.after_dist > dist) {
+          data.after = child;
+          data.after_dist = dist;
+        }
+      }
+    }
+
+    // If a view was hit at any level, stop processing.
+    if (data.at) {
+      break;
+    }
+  }
+}
+
+// Returns whether `point` should be treated as part of the caption area in
+// `view`, which should be the topmost view in the browser.
+bool IsPositionInWindowCaption(const views::View* view,
+                               const gfx::Point& point) {
+  CaptionHitTestData data;
+  CalculateIsPositionInWindowCaption(data, view, point);
+
+  const bool is_above_centerline =
+      point.y() <= view->GetLocalBounds().CenterPoint().y();
+  const auto is_separator = [](const views::View* view) {
+    return views::IsViewClass<views::Separator>(view) ||
+           views::IsViewClass<ToolbarDivider>(view);
+  };
+
+  // If the point is in a view, then it's not in the caption unless the view is
+  // a separator. If the point is at a view but not in it, then it is caption if
+  // the point is centerline; otherwise it's not.
+  if (data.at) {
+    return is_separator(data.at) ||
+           (!data.is_direct_hit && is_above_centerline);
+  }
+
+  // If the point is not in a view but it is next to a separator or the edge of
+  // the toolbar, it is caption.
+  if (!data.before || is_separator(data.before) || !data.after ||
+      is_separator(data.after)) {
+    return true;
+  }
+
+  // All remaining points (between non-separator views) are caption if they are
+  // above centerline.
+  return is_above_centerline;
+}
 // Gets the display mode for a given browser.
 ToolbarView::DisplayMode GetDisplayMode(Browser* browser) {
   // Checked in this order because even tabbed PWAs use the CUSTOM_TAB
@@ -210,6 +313,12 @@ ToolbarView::ToolbarView(Browser* browser, BrowserView* browser_view)
   GetViewAccessibility().SetRole(ax::mojom::Role::kToolbar);
 
   if (display_mode_ == DisplayMode::kNormal) {
+    if (base::FeatureList::IsEnabled(features::kGlassToolbar)) {
+      auto background =
+          std::make_unique<LiveToolbarBackground>(browser_view_, this);
+      SetBackground(std::move(background));
+    }
+
     for (const auto& view_and_command : GetViewCommandMap()) {
       chrome::AddCommandObserver(browser_, view_and_command.second, this);
     }
@@ -239,23 +348,38 @@ void ToolbarView::Init() {
   aura::WindowOcclusionTracker::ScopedPause pause_occlusion;
 #endif
 
-  auto location_bar = std::make_unique<LocationBarView>(
-      browser_, browser_->profile(), browser_->command_controller(), this,
-      display_mode_ != DisplayMode::kNormal);
+  std::unique_ptr<LocationBarView> location_bar_view;
+  std::unique_ptr<WebUILocationBar> webui_location_bar;
+  if (features::IsWebUILocationBarEnabled() &&
+      /* TODO(http://crbug.com/470042732): Figure out where we fit in other
+       * modes. When doing this, we have to be careful of floating DevTools ---
+       * that secretly has a hidden toolbar in location mode.*/
+      display_mode_ == DisplayMode::kNormal) {
+    webui_location_bar = std::make_unique<WebUILocationBar>(browser_, this);
+  } else {
+    location_bar_view = std::make_unique<LocationBarView>(
+        browser_, browser_->profile(), browser_->command_controller(), this,
+        display_mode_ != DisplayMode::kNormal);
+  }
+
   // Make sure the toolbar shows by default.
   size_animation_.Reset(1);
 
   if (display_mode_ != DisplayMode::kNormal) {
-    location_bar_view_ = AddChildView(std::move(location_bar));
-    location_bar_view_->Init();
+    CHECK(location_bar_view)
+        << "Alternate location bar impls need to handle this.";
+    location_bar_view_ = AddChildView(std::move(location_bar_view));
     location_bar_ = location_bar_view_;
+    location_bar_view_->Init();
   }
 
   if (display_mode_ == DisplayMode::kNormal) {
-    SetBackground(std::make_unique<CustomCornersBackground>(
-        *this, *browser_view_,
-        /*primary_color=*/CustomCornersBackground::ToolbarTheme(),
-        /*corner_color=*/CustomCornersBackground::FrameTheme()));
+    if (!base::FeatureList::IsEnabled(features::kGlassToolbar)) {
+      SetBackground(std::make_unique<CustomCornersBackground>(
+          *this, *browser_view_,
+          /*primary_color=*/CustomCornersBackground::ToolbarTheme(),
+          /*corner_color=*/CustomCornersBackground::FrameTheme()));
+    }
   } else if (display_mode_ == DisplayMode::kCustomTab) {
     custom_tab_bar_ =
         AddChildView(std::make_unique<CustomTabBarView>(browser_view_, this));
@@ -267,7 +391,9 @@ void ToolbarView::Init() {
     // in popups.
     pinned_toolbar_actions_container_ = AddChildView(
         std::make_unique<PinnedToolbarActionsContainer>(browser_view_, this));
-    SetBackground(views::CreateSolidBackground(kColorLocationBarBackground));
+    if (!base::FeatureList::IsEnabled(features::kGlassToolbar)) {
+      SetBackground(views::CreateSolidBackground(kColorLocationBarBackground));
+    }
     SetLayoutManager(std::make_unique<views::FlexLayout>())
         ->SetOrientation(views::LayoutOrientation::kHorizontal)
         .SetCrossAxisAlignment(views::LayoutAlignment::kCenter)
@@ -276,13 +402,13 @@ void ToolbarView::Init() {
                         views::LayoutOrientation::kHorizontal,
                         views::MinimumFlexSizeRule::kPreferredSnapToZero))
         .SetFlexAllocationOrder(views::FlexAllocationOrder::kReverse);
-    CHECK(location_bar_view_)
-        << "Alternate location bar impls need to handle this.";
-    location_bar_view_->SetProperty(
-        views::kFlexBehaviorKey,
-        views::FlexSpecification(views::LayoutOrientation::kHorizontal,
-                                 views::MinimumFlexSizeRule::kScaleToZero,
-                                 views::MaximumFlexSizeRule::kUnbounded));
+    if (location_bar_view_) {
+      location_bar_view_->SetProperty(
+          views::kFlexBehaviorKey,
+          views::FlexSpecification(views::LayoutOrientation::kHorizontal,
+                                   views::MinimumFlexSizeRule::kScaleToZero,
+                                   views::MaximumFlexSizeRule::kUnbounded));
+    }
     initialized_ = true;
     return;
   }
@@ -296,36 +422,37 @@ void ToolbarView::Init() {
   PrefService* const prefs = browser_->profile()->GetPrefs();
 
   std::unique_ptr<ExtensionsToolbarDesktop> extensions_container;
-  std::unique_ptr<views::View> toolbar_divider;
+  std::unique_ptr<ToolbarDivider> toolbar_divider;
 
   // Do not create the extensions or browser actions container if it is a guest
   // profile (only regular and incognito profiles host extensions).
   if (!browser_->profile()->IsGuestSession()) {
     extensions_container = std::make_unique<ExtensionsToolbarDesktop>(browser_);
 
-    toolbar_divider = std::make_unique<views::View>();
+    toolbar_divider = std::make_unique<ToolbarDivider>();
   }
 
   std::unique_ptr<MediaToolbarButtonView> media_button;
-  if (base::FeatureList::IsEnabled(media::kGlobalMediaControls)) {
-    media_button = std::make_unique<MediaToolbarButtonView>(
-        browser_view_,
-        std::make_unique<MediaToolbarButtonContextualMenu>(browser_));
-  }
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  media_button = std::make_unique<MediaToolbarButtonView>(
+      browser_view_,
+      std::make_unique<MediaToolbarButtonContextualMenu>(browser_));
+#endif
 
   // Always add children in order from left to right, for accessibility.
-
-  back_ = AddChildView(std::make_unique<BackForwardButton>(
-      BackForwardButton::Direction::kBack,
-      base::BindRepeating(callback, browser_, IDC_BACK), browser_));
-
-  forward_ = AddChildView(std::make_unique<BackForwardButton>(
-      BackForwardButton::Direction::kForward,
-      base::BindRepeating(callback, browser_, IDC_FORWARD), browser_));
+  if (!features::IsWebUIBackForwardButtonEnabled()) {
+    back_ = AddChildView(std::make_unique<BackForwardButton>(
+        BackForwardButton::Direction::kBack,
+        base::BindRepeating(callback, browser_, IDC_BACK), browser_));
+    forward_ = AddChildView(std::make_unique<BackForwardButton>(
+        BackForwardButton::Direction::kForward,
+        base::BindRepeating(callback, browser_, IDC_FORWARD), browser_));
+  }
 
   if (features::IsWebUIToolbarEnabled()) {
     toolbar_webview_ = AddChildView(std::make_unique<WebUIToolbarWebView>(
-        browser_, browser_->command_controller()));
+        browser_, browser_->command_controller(),
+        std::move(webui_location_bar)));
   }
 
   if (!features::IsWebUIReloadButtonEnabled()) {
@@ -352,8 +479,12 @@ void ToolbarView::Init() {
     AddChildView(std::make_unique<ContextualTasksButton>(browser_));
   }
 
-  location_bar_view_ = AddChildView(std::move(location_bar));
-  location_bar_ = location_bar_view_;
+  if (location_bar_view) {
+    location_bar_view_ = AddChildView(std::move(location_bar_view));
+    location_bar_ = location_bar_view_;
+  } else {
+    location_bar_ = toolbar_webview_->GetLocationBar();
+  }
 
   if (extensions_container) {
     extensions_container_ = AddChildView(std::move(extensions_container));
@@ -364,18 +495,13 @@ void ToolbarView::Init() {
 
   if (toolbar_divider) {
     toolbar_divider_ = AddChildView(std::move(toolbar_divider));
-    toolbar_divider_->SetPreferredSize(
-        gfx::Size(GetLayoutConstant(LayoutConstant::kToolbarDividerWidth),
-                  GetLayoutConstant(LayoutConstant::kToolbarDividerHeight)));
-    toolbar_divider_->SetBackground(views::CreateRoundedRectBackground(
-        kColorToolbarExtensionSeparatorEnabled,
-        GetLayoutConstant(LayoutConstant::kToolbarDividerCornerRadius)));
   }
 
   pinned_toolbar_actions_container_ = AddChildView(
       std::make_unique<PinnedToolbarActionsContainer>(browser_view_, this));
 
-  if (features::HasTabSearchToolbarButton()) {
+  if (!base::FeatureList::IsEnabled(tabs::kHorizontalTabStripComboButton) &&
+      features::HasTabSearchToolbarButton()) {
     tab_search_button_ =
         pinned_toolbar_actions_container()->CreatePermanentButtonFor(
             kActionTabSearch);
@@ -416,10 +542,18 @@ void ToolbarView::Init() {
     media_button_ = AddChildView(std::move(media_button));
   }
 
-#if BUILDFLAG(ENABLE_GLIC)
   if (glic::GlicEnabling::IsProfileEligible(browser_view_->GetProfile())) {
     auto* vertical_tab_strip_state_controller =
         tabs::VerticalTabStripStateController::From(browser_view_->browser());
+    if (base::FeatureList::IsEnabled(features::kGlicActorUi) &&
+        features::kGlicActorUiTaskIcon.Get()) {
+      glic_actor_button_container_ =
+          AddChildView(CreateGlicActorButtonContainer());
+      glic_actor_task_icon_ =
+          glic_actor_button_container_->AddChildView(CreateGlicActorTaskIcon());
+      glic_actor_button_container_->SetVisible(false);
+    }
+
     glic_button_ = AddChildView(CreateGlicButton());
     if (vertical_tab_strip_state_controller) {
       vertical_tab_subscription_ =
@@ -431,7 +565,6 @@ void ToolbarView::Init() {
     }
     UpdateGlicButtonVisibility();
   }
-#endif  // BUILDFLAG(ENABLE_GLIC)
 
   avatar_ = AddChildView(std::make_unique<AvatarToolbarButton>(browser_view_));
   bool show_avatar_toolbar_button = true;
@@ -491,6 +624,8 @@ void ToolbarView::Init() {
 
   if (location_bar_view_) {
     location_bar_view_->Init();
+  } else {
+    toolbar_webview_->GetLocationBar()->Init(toolbar_webview_.get());
   }
 
   show_forward_button_.Init(
@@ -498,7 +633,7 @@ void ToolbarView::Init() {
       base::BindRepeating(&ToolbarView::OnShowForwardButtonChanged,
                           base::Unretained(this)));
 
-  forward_->SetVisible(show_forward_button_.GetValue());
+  SetForwardButtonVisibility(show_forward_button_.GetValue());
 
   show_home_button_.Init(
       prefs::kShowHomeButton, prefs,
@@ -527,7 +662,45 @@ void ToolbarView::OnVerticalTabStripModeChanged(
   UpdateGlicButtonVisibility();
 }
 
-#if BUILDFLAG(ENABLE_GLIC)
+std::unique_ptr<GlicAndActorButtonsContainer>
+ToolbarView::CreateGlicActorButtonContainer() {
+  auto glic_actor_button_container =
+      std::make_unique<GlicAndActorButtonsContainer>();
+
+  // Should be hidden until a task starts.
+  glic_actor_button_container->SetVisible(false);
+
+  return glic_actor_button_container;
+}
+
+std::unique_ptr<glic::ToolbarGlicActorTaskIcon>
+ToolbarView::CreateGlicActorTaskIcon() {
+  std::unique_ptr<glic::ToolbarGlicActorTaskIcon> glic_actor_task_icon =
+      std::make_unique<glic::ToolbarGlicActorTaskIcon>(
+          browser_view_->browser(),
+          base::BindRepeating(&ToolbarView::OnGlicActorTaskIconClicked,
+                              base::Unretained(this)));
+
+  glic_actor_task_icon->SetProperty(views::kCrossAxisAlignmentKey,
+                                    views::LayoutAlignment::kCenter);
+
+  return glic_actor_task_icon;
+}
+
+void ToolbarView::OnGlicActorTaskIconClicked() {
+  Profile* const profile = browser_view_->GetProfile();
+  auto* icon_manager =
+      tabs::GlicActorTaskIconManagerFactory::GetForProfile(profile);
+  CHECK(icon_manager);
+
+  ActorTaskListBubbleController* controller =
+      ActorTaskListBubbleController::From(browser_view_->browser());
+  controller->ShowBubble(glic_actor_task_icon_);
+
+  auto current_task_nudge_state = icon_manager->GetCurrentActorTaskNudgeState();
+  actor::ui::LogGlobalTaskIndicatorClick(current_task_nudge_state);
+}
+
 std::unique_ptr<glic::ToolbarGlicButton> ToolbarView::CreateGlicButton() {
   glic::GlicKeyedService* service =
       glic::GlicKeyedService::Get(browser_view_->GetProfile());
@@ -670,7 +843,6 @@ void ToolbarView::SetGlicPanelIsOpen(bool open) {
 
   glic_button_->SetGlicPanelIsOpen(open);
 }
-#endif  // ENABLE_GLIC
 
 void ToolbarView::AnimationEnded(const gfx::Animation* animation) {
   if (animation->GetCurrentValue() == 0) {
@@ -812,22 +984,7 @@ void ToolbarView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
 
 bool ToolbarView::IsPositionInWindowCaption(
     const gfx::Point& test_point) const {
-  // Only points above the centerline are considered candidates for the caption
-  // area.
-  if (test_point.y() > GetLocalBounds().CenterPoint().y()) {
-    return false;
-  }
-
-  // Check each visible child to see if the point is in the child.
-  for (auto& child : children()) {
-    if (child->GetVisible() && !views::IsViewClass<views::Separator>(child) &&
-        child->bounds().Contains(test_point)) {
-      return false;
-    }
-  }
-
-  // If it's not in a child, the point is in the caption area.
-  return true;
+  return ::IsPositionInWindowCaption(this, test_point);
 }
 
 views::Button* ToolbarView::GetChromeLabsButton() const {
@@ -872,6 +1029,13 @@ ToolbarView::GetContentSettingBubbleModelDelegate() {
 
 void ToolbarView::EnabledStateChangedForCommand(int id, bool enabled) {
   DCHECK(display_mode_ == DisplayMode::kNormal);
+
+  if ((id == IDC_BACK || id == IDC_FORWARD) &&
+      features::IsWebUIBackForwardButtonEnabled()) {
+    toolbar_webview_->SetBackForwardEnabled(id, enabled);
+    return;
+  }
+
   const std::array<views::Button*, 5> kButtons{back_, forward_, reload_, home_,
                                                avatar_};
   auto it = std::ranges::find_if(
@@ -913,7 +1077,7 @@ gfx::Size ToolbarView::CalculatePreferredSize(
       // on some installations.
       if (layout_manager_ && location_bar_->IsVisible()) {
         const int max_height = std::max(location_bar_->PreferredSize().height(),
-                                        back_->GetPreferredSize().height()) +
+                                        GetBackForwardButtonSize().height()) +
                                layout_manager_->interior_margin().height();
         size.SetToMin({size.width(), max_height});
       }
@@ -940,9 +1104,10 @@ gfx::Size ToolbarView::GetMinimumSize() const {
       // TODO(crbug.com/40663413): Figure out why the height reports incorrectly
       // on some installations.
       if (layout_manager_ && location_bar_->IsVisible()) {
-        const int max_height = std::max(location_bar_->MinimumSize().height(),
-                                        back_->GetMinimumSize().height()) +
-                               layout_manager_->interior_margin().height();
+        const int max_height =
+            std::max(location_bar_->MinimumSize().height(),
+                     GetBackForwardButtonSize(/*minimum_size=*/true).height()) +
+            layout_manager_->interior_margin().height();
         size.SetToMin({size.width(), max_height});
       }
       // Overflow button must be part of minimum size calculation.
@@ -1044,9 +1209,8 @@ views::View* ToolbarView::GetDefaultFocusableChild() {
 void ToolbarView::InitLayout() {
   const int default_margin =
       GetLayoutConstant(LayoutConstant::kToolbarIconDefaultMargin);
-  // TODO(dfried): rename this constant.
   const int location_bar_margin =
-      GetLayoutConstant(LayoutConstant::kToolbarStandardSpacing);
+      GetLayoutConstant(LayoutConstant::kLocationBarMargin);
 
   // Shift previously flex-able elements' order by `kOrderOffset`.
   // This will cause them to be the first ones to drop out or shrink to minimum.
@@ -1073,6 +1237,10 @@ void ToolbarView::InitLayout() {
                                     location_bar_flex_rule);
     location_bar_view_->SetProperty(views::kMarginsKey,
                                     gfx::Insets::VH(0, location_bar_margin));
+  } else {
+    // If the location bar is part of a WebView, make that stretchable.
+    toolbar_webview_->SetProperty(views::kFlexBehaviorKey,
+                                  location_bar_flex_rule);
   }
 
   if (extensions_container_) {
@@ -1157,7 +1325,12 @@ void ToolbarView::LayoutCommon() {
   const bool extend_buttons_to_edge =
       browser_->window() &&
       (browser_->window()->IsMaximized() || browser_->window()->IsFullscreen());
-  back_->SetLeadingMargin(extend_buttons_to_edge ? interior_margin.left() : 0);
+  const int margin = extend_buttons_to_edge ? interior_margin.left() : 0;
+  if (features::IsWebUIBackForwardButtonEnabled()) {
+    toolbar_webview_->SetBackButtonLeadingMargin(margin);
+  } else {
+    back_->SetLeadingMargin(margin);
+  }
   app_menu_button_->SetTrailingMargin(
       extend_buttons_to_edge ? interior_margin.right() : 0);
 
@@ -1214,6 +1387,10 @@ views::View* ToolbarView::GetDefaultExtensionDialogAnchorView() {
 
 PageActionIconView* ToolbarView::GetPageActionIconView(
     PageActionIconType type) {
+  if (!location_bar_view_) {
+    // Only new-style page actions with `webui_location_bar_`.
+    return nullptr;
+  }
   return location_bar_view()->page_action_icon_controller()->GetIconView(type);
 }
 
@@ -1276,6 +1453,14 @@ views::View* ToolbarView::GetAnchorView(
 views::BubbleAnchor ToolbarView::GetBubbleAnchor(
     std::optional<actions::ActionId> action_id) {
   if (views::View* view = GetAnchorView(action_id)) {
+    // In app windows the location bar view may exist but not be drawn. Avoid
+    // anchoring bubbles to a non-drawn view (e.g. on Ozone/Wayland) and always
+    // return a valid view anchor by falling back to the contents view.
+    if (!view->IsDrawn() && browser_view_) {
+      auto* top_container = browser_view_->top_container();
+      CHECK(top_container);
+      return top_container;
+    }
     return view;
   }
   return nullptr;
@@ -1370,7 +1555,7 @@ void ToolbarView::LoadImages() {
 }
 
 void ToolbarView::OnShowForwardButtonChanged() {
-  forward_->SetVisible(show_forward_button_.GetValue());
+  SetForwardButtonVisibility(show_forward_button_.GetValue());
   InvalidateLayout();
 }
 
@@ -1388,7 +1573,7 @@ void ToolbarView::OnTouchUiChanged() {
     const int default_margin =
         GetLayoutConstant(LayoutConstant::kToolbarElementPadding);
     const int location_bar_margin =
-        GetLayoutConstant(LayoutConstant::kToolbarStandardSpacing);
+        GetLayoutConstant(LayoutConstant::kLocationBarMargin);
     layout_manager_->SetDefault(views::kMarginsKey,
                                 gfx::Insets::VH(0, default_margin));
     if (location_bar_view_) {
@@ -1399,6 +1584,22 @@ void ToolbarView::OnTouchUiChanged() {
     LoadImages();
     PreferredSizeChanged();
   }
+}
+
+void ToolbarView::SetForwardButtonVisibility(bool visible) {
+  if (features::IsWebUIBackForwardButtonEnabled()) {
+    toolbar_webview_->SetForwardVisible(visible);
+  } else {
+    forward_->SetVisible(visible);
+  }
+}
+
+gfx::Size ToolbarView::GetBackForwardButtonSize(bool minimum_size) const {
+  if (back_) {
+    return minimum_size ? back_->GetMinimumSize() : back_->GetPreferredSize();
+  }
+  const int size = GetLayoutConstant(LayoutConstant::kToolbarButtonHeight);
+  return gfx::Size(size, size);
 }
 
 BEGIN_METADATA(ToolbarView)

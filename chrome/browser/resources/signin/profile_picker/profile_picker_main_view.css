@@ -45,7 +45,7 @@
   text-align: center;
 }
 
-#picker-logo {
+#pickerLogo {
   height: var(--picker-logo-height);
 }
 
@@ -163,7 +163,15 @@ cr-icon[icon='profiles:add'] {
   margin-inline-end: var(--footer-spacing);
 }
 
-:host([is-open-all-profiles-button-experiment-enabled_]) #askOnStartup {
+:host([is-open-all-profiles-button-experiment-enabled_]:not([is-refreshed-ui_]))
+  #askOnStartup {
+  margin-inline-end: auto;
+  margin-inline-start: var(--footer-spacing);
+}
+
+:host([is-open-all-profiles-button-experiment-enabled_])
+  #ask-on-startup-container {
+  justify-content: flex-start;
   margin-inline-end: auto;
   margin-inline-start: var(--footer-spacing);
 }
@@ -178,9 +186,22 @@ cr-checkbox {
   padding-inline-start: 5px;
 }
 
+#ask-on-startup-container {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  margin-inline-end: var(--footer-spacing);
+  margin-inline-start: auto;
+}
+
 @media (prefers-color-scheme: dark) {
   :host {
     --profile-item-background: var(--google-grey-900);
+  }
+
+  :host([is-refreshed-ui_]) {
+    --profile-item-background: var(--cr-fallback-color-surface5);
   }
 
   .profile-item,

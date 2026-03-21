@@ -108,11 +108,6 @@ enum class PopoverHideResult {
   kForcedOpenByInspector,
 };
 
-enum class PopoverTriggerSupport {
-  kNone,
-  kSupported,
-};
-
 class CORE_EXPORT HTMLElement : public Element {
   DEFINE_WRAPPERTYPEINFO();
 
@@ -129,7 +124,7 @@ class CORE_EXPORT HTMLElement : public Element {
   String title() const final;
 
   void setInnerText(const String&);
-  V8UnionStringLegacyNullToEmptyStringOrTrustedScript* innerTextForBinding();
+  String innerTextForBinding();
   virtual void setInnerTextForBinding(
       const V8UnionStringLegacyNullToEmptyStringOrTrustedScript*
           string_or_trusted_script,
@@ -204,7 +199,7 @@ class CORE_EXPORT HTMLElement : public Element {
   virtual bool IsHTMLFrameSetElement() const { return false; }
   // TODO(crbug.com/443013457): Remove these 2 methods when the
   // permission/usermedia trials are over.
-  virtual bool IsHTMLPermissionElement() const { return false; }
+  virtual bool IsHTMLCapabilityElementBase() const { return false; }
   virtual bool IsHTMLUserMediaElement() const { return false; }
   virtual bool IsHTMLUnknownElement() const { return false; }
   virtual bool IsPluginElement() const { return false; }
@@ -254,9 +249,6 @@ class CORE_EXPORT HTMLElement : public Element {
   ElementInternals* attachInternals(ExceptionState& exception_state);
   virtual FormAssociated* ToFormAssociatedOrNull() { return nullptr; }
   bool IsFormAssociatedCustomElement() const;
-
-  // Returns true if the elementInternals.type is set to "button".
-  bool IsCustomButton() const;
 
   void UpdateDescendantDirectionality(TextDirection direction);
   void UpdateDirectionalityAfterInputTypeChange(const AtomicString& old_value,
@@ -347,8 +339,6 @@ class CORE_EXPORT HTMLElement : public Element {
       HidePopoverTransitionBehavior,
       HeapVector<Member<HTMLElement>>* popovers_held_open_by_inspector =
           nullptr);
-
-  virtual PopoverTriggerSupport SupportsPopoverTriggering() const;
 
   void SetImplicitAnchor(Element* element);
   Element* implicitAnchor() const;

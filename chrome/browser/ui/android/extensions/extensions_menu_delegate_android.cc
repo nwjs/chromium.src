@@ -5,16 +5,62 @@
 #include "chrome/browser/ui/android/extensions/extensions_menu_delegate_android.h"
 
 #include "base/android/jni_string.h"
+#include "base/check_op.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/android/extensions/extension_action_delegate_android.h"
+#include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/browser/permissions_manager.h"
 #include "ui/gfx/android/java_bitmap.h"
 #include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_rep.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/browser/ui/android/extensions/jni_headers/ExtensionsMenuBridge_jni.h"
+#include "chrome/browser/ui/android/extensions/jni_headers/ExtensionsMenuTypes_jni.h"
+
+namespace {
+
+// TODO(crbug.com/471016915): Placeholder size. Replace with size provided from
+// Java.
+constexpr gfx::Size kActionIconSize = gfx::Size(40, 40);
+
+base::android::ScopedJavaLocalRef<jobject> ConvertToJavaBitmap(
+    const ui::ImageModel& image_model) {
+  if (image_model.IsEmpty() || !image_model.IsImage()) {
+    return nullptr;
+  }
+
+  gfx::ImageSkia image_skia = image_model.GetImage().AsImageSkia();
+
+  float icon_scale_factor = 1.0f;
+  const gfx::ImageSkiaRep& rep =
+      image_skia.GetRepresentation(icon_scale_factor);
+  const SkBitmap& bitmap = rep.GetBitmap();
+
+  if (bitmap.isNull()) {
+    return nullptr;
+  }
+
+  return gfx::ConvertToJavaBitmap(bitmap);
+}
+
+// Returns a Java ExtensionsMenuTypes.ControlState object.
+base::android::ScopedJavaLocalRef<jobject> CreateJavaControlState(
+    JNIEnv* env,
+    const ExtensionsMenuViewModel::ControlState& state) {
+  auto state_icon_bitmap = ConvertToJavaBitmap(state.icon);
+  return extensions::Java_ControlState_Constructor(
+      env, static_cast<int>(state.status), state.text, state.accessible_name,
+      state.tooltip_text, state.is_on, state_icon_bitmap);
+}
+
+}  // namespace
 
 namespace extensions {
+
+using base::android::ScopedJavaLocalRef;
+using PermissionsManager = extensions::PermissionsManager;
 
 ExtensionsMenuDelegateAndroid::ExtensionsMenuDelegateAndroid(
     BrowserWindowInterface* browser,
@@ -32,17 +78,51 @@ void ExtensionsMenuDelegateAndroid::Destroy(JNIEnv* env) {
   delete this;
 }
 
-std::vector<std::string> ExtensionsMenuDelegateAndroid::GetActions(
-    JNIEnv* env) {
-  // TODO(crbug.com/473213114): Returning a flattened list of strings is a
-  // workaround until we introduce a proper type to hold action information.
-  std::vector<std::string> actions_list;
-  for (const auto& action_model : menu_model_->action_models()) {
-    actions_list.push_back(action_model->GetId());
-    actions_list.push_back(base::UTF16ToUTF8(action_model->GetActionName()));
+base::android::ScopedJavaLocalRef<jobject>
+ExtensionsMenuDelegateAndroid::GetActionIcon(JNIEnv* env, int action_index) {
+  ui::ImageModel icon_model =
+      menu_model_->GetActionIcon(action_index, kActionIconSize);
+  return ConvertToJavaBitmap(icon_model);
+}
+
+base::android::ScopedJavaLocalRef<jobject>
+ExtensionsMenuDelegateAndroid::GetMenuEntry(JNIEnv* env, int action_index) {
+  const auto& action_models = menu_model_->action_models();
+  CHECK_GE(action_index, 0);
+  CHECK_LT(static_cast<size_t>(action_index), action_models.size());
+
+  const auto& action_model = action_models[action_index];
+  extensions::ExtensionId id = action_model->GetId();
+  ExtensionsMenuViewModel::MenuEntryState state =
+      menu_model_->GetMenuEntryState(id, kActionIconSize);
+
+  return Java_MenuEntryState_Constructor(
+      env, id, CreateJavaControlState(env, state.action_button),
+      CreateJavaControlState(env, state.context_menu_button));
+}
+
+std::vector<base::android::ScopedJavaLocalRef<jobject>>
+ExtensionsMenuDelegateAndroid::GetMenuEntries(JNIEnv* env) {
+  std::vector<base::android::ScopedJavaLocalRef<jobject>> java_entries;
+
+  for (size_t i = 0; i < menu_model_->action_models().size(); ++i) {
+    java_entries.push_back(GetMenuEntry(env, i));
   }
 
-  return actions_list;
+  return java_entries;
+}
+
+base::android::ScopedJavaLocalRef<jobject>
+ExtensionsMenuDelegateAndroid::GetSiteSettings(JNIEnv* env) {
+  ExtensionsMenuViewModel::SiteSettingsState site_settings_state =
+      menu_model_->GetSiteSettingsState();
+
+  base::android::ScopedJavaLocalRef<jobject> j_toggle_state =
+      CreateJavaControlState(env, site_settings_state.toggle);
+
+  return extensions::Java_SiteSettingsState_Constructor(
+      env, site_settings_state.label, site_settings_state.has_tooltip,
+      j_toggle_state);
 }
 
 bool ExtensionsMenuDelegateAndroid::IsReady(JNIEnv* env) {
@@ -60,24 +140,36 @@ ExtensionsMenuDelegateAndroid::CreateActionViewModel(
 }
 
 void ExtensionsMenuDelegateAndroid::OnPageNavigation() {
-  // TODO(crbug.com/473213114)
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onModelChanged(env, java_object_);
 }
 
 void ExtensionsMenuDelegateAndroid::OnActionAdded(
     ExtensionActionViewModel* action_model,
     int index) {
-  // TODO(crbug.com/473213114)
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onActionAdded(env, java_object_, index);
 }
 
 void ExtensionsMenuDelegateAndroid::OnActionRemoved(
     const ToolbarActionsModel::ActionId& action_id,
     int index) {
-  // TODO(crbug.com/473213114)
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onActionRemoved(env, java_object_, index);
 }
 
 void ExtensionsMenuDelegateAndroid::OnActionUpdated(
-    const ToolbarActionsModel::ActionId& action_id) {
-  // TODO(crbug.com/473213114)
+    const ToolbarActionsModel::ActionId& action_id,
+    int index) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onActionUpdated(env, java_object_, index);
+}
+
+void ExtensionsMenuDelegateAndroid::OnActionIconUpdated(
+    const ToolbarActionsModel::ActionId& action_id,
+    int index) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_ExtensionsMenuBridge_onActionIconUpdated(env, java_object_, index);
 }
 
 void ExtensionsMenuDelegateAndroid::OnActionsInitialized() {
@@ -125,10 +217,16 @@ void ExtensionsMenuDelegateAndroid::CloseBubble() {
   // TODO(crbug.com/473213115)
 }
 
+void ExtensionsMenuDelegateAndroid::OnActionButtonClicked(
+    const extensions::ExtensionId& extension_id) {
+  // TODO(crbug.com/473213115)
+}
+
 void ExtensionsMenuDelegateAndroid::OnAllowExtensionClicked(
     const extensions::ExtensionId& extension_id) {
   // TODO(crbug.com/473213115)
 }
+
 void ExtensionsMenuDelegateAndroid::OnDismissExtensionClicked(
     const extensions::ExtensionId& extension_id) {
   // TODO(crbug.com/473213115)
@@ -154,7 +252,10 @@ void ExtensionsMenuDelegateAndroid::OnSiteAccessSelected(
 
 void ExtensionsMenuDelegateAndroid::OnSiteSettingsToggleButtonPressed(
     bool is_on) {
-  // TODO(crbug.com/473213115)
+  PermissionsManager::UserSiteSetting site_setting =
+      is_on ? PermissionsManager::UserSiteSetting::kCustomizeByExtension
+            : PermissionsManager::UserSiteSetting::kBlockAllExtensions;
+  menu_model_->UpdateSiteSetting(site_setting);
 }
 
 void ExtensionsMenuDelegateAndroid::OnReloadPageButtonClicked() {
@@ -168,6 +269,12 @@ void ExtensionsMenuDelegateAndroid::OpenMainPage() {
 void ExtensionsMenuDelegateAndroid::OpenSitePermissionsPage(
     const extensions::ExtensionId& extension_id) {
   // TODO(crbug.com/473213115)
+}
+
+void ExtensionsMenuDelegateAndroid::OnSiteSettingsToggleChanged(
+    JNIEnv* env,
+    bool is_checked) {
+  OnSiteSettingsToggleButtonPressed(is_checked);
 }
 
 static int64_t JNI_ExtensionsMenuBridge_Init(

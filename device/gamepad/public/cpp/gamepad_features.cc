@@ -29,8 +29,8 @@ BASE_FEATURE(kEnableGamepadMultitouch, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableSimulatedGamepadDataFetcher,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables gamepad raw input change events.
-BASE_FEATURE(kGamepadRawInputChangeEvent, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables `OnGamepadRawInputChanged` for the `GamepadConsumer` interface.
+BASE_FEATURE(kGamepadRawInputChangeEvent, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN)
 // Ignores PlayStation 5 gamepads (DualSense, DualSense Edge) in
@@ -48,6 +48,10 @@ BASE_FEATURE(kAllowlistHidrawGamepads, base::FEATURE_ENABLED_BY_DEFAULT);
 #if BUILDFLAG(IS_APPLE)
 // Enable Xbox gamepad support in GameControllerDataFetcherMac
 BASE_FEATURE(kXboxUseGameControllerDataFetcherMac,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// Enable PlayStation gamepad support in
+// GameControllerDataFetcherMac
+BASE_FEATURE(kPlayStationUseGameControllerDataFetcherMac,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_APPLE)
 

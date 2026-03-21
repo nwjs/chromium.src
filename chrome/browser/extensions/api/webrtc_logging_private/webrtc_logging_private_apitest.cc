@@ -25,7 +25,6 @@
 #include "chrome/browser/media/webrtc/webrtc_event_log_manager_common.h"
 #include "chrome/browser/media/webrtc/webrtc_log_uploader.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
@@ -627,7 +626,7 @@ IN_PROC_BROWSER_TEST_F(WebrtcLoggingPrivateApiTest,
                        TestStartStopAudioDebugRecordings) {
   // TODO(guidou): These tests are missing verification of the actual AEC dump
   // data. This will be fixed with a separate browser test.
-  // See crbug.com/569957.
+  // See crbug.com/41228932.
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kEnableAudioDebugRecordingsFromExtension);
   ASSERT_TRUE(StartAudioDebugRecordings(0));

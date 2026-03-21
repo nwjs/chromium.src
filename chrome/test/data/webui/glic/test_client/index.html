@@ -575,6 +575,15 @@ found in the LICENSE file.
       <select id="selectCredential"></select>
       <button id="credentialOnce">Allow once</button>
       <button id="credentialAlways">Allow always</button>
+      <div>
+        <p>Credential details:</p>
+        <p>username: <span id="selectedCredentialUsername"></span></p>
+        <p>sourceSiteOrApp: <span id="selectedCredentialSource"></span></p>
+        <p>requestOrigin: <span id="selectedCredentialRequestOrigin"></span></p>
+        <p>icon: <img id="selectedCredentialIcon"></img></p>
+        <p>type: <span id="selectedCredentialType"></span></p>
+        <p>accountPicture: <img id="selectedCredentialAccountPicture"></img></p>
+      </div>
     </div>
   </div>
   <div class="section" id="autofillSuggestionsDialogSection">
@@ -612,20 +621,18 @@ found in the LICENSE file.
     </div>
   </div>
   <div class="section">
-    <h1>View Change</h1>
-    <select id="viewChangedCurrentView">
-      <!-- options will be populated by view.ts -->
-    </select>
-    <button id="viewChangedBtn">View Changed</button>
-    <input type="checkbox" id="viewChangedAutomaticallyAccept" checked />
-    <label for="viewChangedAutomaticallyAccept">Automatically accept requested changes</label>
-  </div>
-  <div class="section">
     <h1>MQLS Client ID</h1>
     <button id="mqlsClientIdBtn">Get and log ID</button>
   </div>
   <div class="section">
+    <h1>Invocation Log</h1>
+    <button id="clearInvocationLog">Clear</button>
+    <div id="invocationLog" style="max-height: 200px; overflow-y: auto; white-space: pre-wrap; font-family: monospace;"></div>
+  </div>
+  <div class="section">
     <h1>Skills</h1>
+    <ul id="skillsList">
+    </ul>
     <div>
       <label>Skill ID: <input id="skillIdInput" type="text" /></label>
     </div>
@@ -651,6 +658,11 @@ found in the LICENSE file.
     <button id="registerConversationBtn">Register Conversation</button>
     <br />
     <label>Current Conversation ID: <input id="conversationId" type="text" readonly /></label>
+  </div>
+  <div class="section">
+    <h1>Stress</h1>
+    <button id="stressTestEngageBtn">Engage</button>
+    <button id="stressTestEngageRetainBtn">Engage with retaining memory</button>
   </div>
   <br />
   <div id="status"></div>

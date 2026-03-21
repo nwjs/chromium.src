@@ -1484,6 +1484,7 @@ void LocalFrameMojoHandler::UpdatePrerenderURL(
   CHECK(SecurityOrigin::Create(matched_url)
             ->IsSameOriginWith(
                 &*GetDocument()->GetExecutionContext()->GetSecurityOrigin()));
+  TRACE_EVENT("navigation", "LocalFrameMojoHandler::UpdatePrerenderURL");
   auto* params = MakeGarbageCollected<NavigateEventDispatchParams>(
       matched_url, NavigateEventType::kPrerenderNoVarySearchActivation,
       WebFrameLoadType::kReplaceCurrentItem);
@@ -1503,6 +1504,8 @@ void LocalFrameMojoHandler::UpdatePrerenderURL(
           kPrerenderNoVarySearchActivation,
       /*data=*/nullptr, WebFrameLoadType::kReplaceCurrentItem,
       FirePopstate::kNo,
+      /*should_skip_screenshot=*/true, params->involvement,
+      params->interaction_id,
       /*is_browser_initiated=*/true);
   std::move(callback).Run();
 }

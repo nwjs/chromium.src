@@ -82,6 +82,7 @@ class SharingMessageSpecifics;
 class SyncCycleCompletedEventInfo;
 class SyncEntity;
 class TabNavigation;
+class ThemeIosSpecifics;
 class ThemeSpecifics;
 class TimeRangeDirective;
 class TypedUrlSpecifics;
@@ -306,6 +307,9 @@ base::Value SyncCycleCompletedEventInfoToValue(
     const sync_pb::SyncCycleCompletedEventInfo& proto);
 
 base::Value TabNavigationToValue(const sync_pb::TabNavigation& tab_navigation);
+
+base::Value ThemeIosSpecificsToValue(
+    const sync_pb::ThemeIosSpecifics& theme_ios_specifics);
 
 base::Value ThemeSpecificsToValue(
     const sync_pb::ThemeSpecifics& theme_specifics);

@@ -181,6 +181,8 @@ RequestTypeForUma PermissionUtil::GetUmaValueForRequestType(
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
     case RequestType::kNotifications:
       return RequestTypeForUma::PERMISSION_NOTIFICATIONS;
+    case RequestType::kSensors:
+      return RequestTypeForUma::PERMISSION_SENSORS;
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
     case RequestType::kProtectedMediaIdentifier:
       return RequestTypeForUma::PERMISSION_PROTECTED_MEDIA_IDENTIFIER;
@@ -389,9 +391,9 @@ bool PermissionUtil::IsLowPriorityPermissionRequest(
 
 bool PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
     PermissionPrompt::Delegate* delegate) {
-  if (!base::FeatureList::IsEnabled(blink::features::kPermissionElement) &&
-      !base::FeatureList::IsEnabled(blink::features::kGeolocationElement) &&
-      !base::FeatureList::IsEnabled(blink::features::kUserMediaElement)) {
+  if (!base::FeatureList::IsEnabled(blink::features::kGeolocationElement) &&
+      !base::FeatureList::IsEnabled(blink::features::kUserMediaElement) &&
+      !base::FeatureList::IsEnabled(blink::features::kWebAppInstallation)) {
     return false;
   }
 

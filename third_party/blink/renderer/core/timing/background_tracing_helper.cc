@@ -98,7 +98,7 @@ BackgroundTracingHelper::BackgroundTracingHelper(ExecutionContext* context) {
   // Get the hash of the domain in an encoded format (friendly for converting to
   // ASCII, and matching the format in which URLs will be encoded prior to
   // hashing in the Finch list).
-  String this_site = EncodeWithURLEscapeSequences(origin->Domain());
+  String this_site = EncodeWithUrlEscapeSequences(origin->Domain());
   std::string this_site_ascii = this_site.Ascii();
   uint32_t this_site_hash = MD5Hash32(this_site_ascii);
 
@@ -221,12 +221,7 @@ BackgroundTracingHelper::SplitMarkNameAndId(StringView mark_name) {
   }
   auto suffix = StringView(mark_name, sequence_number_pos + 1);
   mark_name = StringView(mark_name, 0, sequence_number_pos);
-  bool result = false;
-  int seq_num = CharactersToInt(suffix, NumberParsingOptions(), &result);
-  if (!result) {
-    return std::make_pair(mark_name, std::nullopt);
-  }
-  return std::make_pair(mark_name, seq_num);
+  return std::make_pair(mark_name, StringToUint(suffix, {}));
 }
 
 // static

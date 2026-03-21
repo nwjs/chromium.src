@@ -84,10 +84,10 @@ CSSValueList* ConsumeFontFaceUnicodeRange(CSSParserTokenStream& stream) {
 bool IsSupportedFontFormat(String font_format) {
   return css_parsing_utils::IsSupportedKeywordFormat(
              css_parsing_utils::FontFormatToId(font_format)) ||
-         EqualIgnoringASCIICase(font_format, "woff-variations") ||
-         EqualIgnoringASCIICase(font_format, "truetype-variations") ||
-         EqualIgnoringASCIICase(font_format, "opentype-variations") ||
-         EqualIgnoringASCIICase(font_format, "woff2-variations");
+         EqualIgnoringAsciiCase(font_format, "woff-variations") ||
+         EqualIgnoringAsciiCase(font_format, "truetype-variations") ||
+         EqualIgnoringAsciiCase(font_format, "opentype-variations") ||
+         EqualIgnoringAsciiCase(font_format, "woff2-variations");
 }
 
 CSSFontFaceSrcValue::FontTechnology ValueIDToTechnology(CSSValueID valueID) {
@@ -290,7 +290,9 @@ CSSValue* ConsumeDescriptor(StyleRule::RuleType rule_type,
     case StyleRule::kViewTransition:
       return Parser::ParseAtViewTransitionDescriptor(id, stream, context);
     case StyleRule::kFunction:
-      return Parser::ParseAtFunctionDescriptor(id, stream, context);
+    case StyleRule::kMixin:
+      return Parser::ParseAtFunctionOrMixinDescriptor(rule_type, id, stream,
+                                                      context);
     case StyleRule::kRoute:
       return Parser::ParseAtRouteDescriptor(id, stream, context);
     case StyleRule::kCharset:
@@ -313,7 +315,7 @@ CSSValue* ConsumeDescriptor(StyleRule::RuleType rule_type,
     case StyleRule::kScope:
     case StyleRule::kSupports:
     case StyleRule::kStartingStyle:
-    case StyleRule::kMixin:
+    case StyleRule::kResult:
     case StyleRule::kApplyMixin:
     case StyleRule::kContents:
     case StyleRule::kPositionTry:
@@ -525,7 +527,7 @@ CSSValue* AtRuleDescriptorParser::ParseAtViewTransitionDescriptor(
             CSSParserLocalContext::CreateWithoutPropertyForAtRules();
         CSSCustomIdentValue* ident = css_parsing_utils::ConsumeCustomIdent(
             stream, context, local_context);
-        if (!ident || ident->Value().StartsWith("-ua-")) {
+        if (!ident || ident->Value().starts_with("-ua-")) {
           return nullptr;
         }
         types->Append(*ident);
@@ -543,11 +545,15 @@ CSSValue* AtRuleDescriptorParser::ParseAtViewTransitionDescriptor(
   return parsed_value;
 }
 
-CSSValue* AtRuleDescriptorParser::ParseAtFunctionDescriptor(
+CSSValue* AtRuleDescriptorParser::ParseAtFunctionOrMixinDescriptor(
+    StyleRule::RuleType rule_type,
     AtRuleDescriptorID id,
     CSSParserTokenStream& stream,
     const CSSParserContext& context) {
   if (id != AtRuleDescriptorID::Result && id != AtRuleDescriptorID::Variable) {
+    return nullptr;
+  }
+  if (id == AtRuleDescriptorID::Result && rule_type == StyleRule::kMixin) {
     return nullptr;
   }
 
@@ -613,7 +619,7 @@ bool AtRuleDescriptorParser::ParseDescriptorValue(
                              ? CSSPropertyName(variable_name)
                              : CSSPropertyName(equivalent_property_id);
   parsed_descriptors.push_back(CSSPropertyValue(name, *result));
-  context.Count(context.Mode(), equivalent_property_id);
+  context.Count(equivalent_property_id);
   return true;
 }
 

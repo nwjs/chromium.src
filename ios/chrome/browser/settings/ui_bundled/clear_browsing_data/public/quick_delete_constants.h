@@ -19,9 +19,14 @@ extern NSString* const kQuickDeleteBrowsingDataButtonIdentifier;
 // The accessibility identifier for the footer string.
 extern NSString* const kQuickDeleteFooterIdentifier;
 
-// The accessibility identifier for the confirm button in the quick delete
-// browsing data page.
+// TODO(crbug.com/487269108): Delete the constant below once the feature flag
+// `kPasswordRemovalFromDeleteBrowsingData` is enabled. The accessibility
+// identifier for the `Confirm` button in the quick delete browsing data page.
 extern NSString* const kQuickDeleteBrowsingDataConfirmButtonIdentifier;
+
+// The accessibility identifier for the done button in the quick delete browsing
+// data page.
+extern NSString* const kQuickDeleteBrowsingDataDoneButtonIdentifier;
 
 // The accessibility identifier for the history cell in the quick delete
 // browsing data page.
@@ -49,6 +54,22 @@ extern NSString* const kQuickDeleteBrowsingDataFooterIdentifier;
 // The accessibility identifier for the "Manage other data" cell in the quick
 // delete browsing data page.
 extern NSString* const kQuickDeleteManageOtherDataCellIdentifier;
+
+// The accessibility identifier for the passwords and passkeys cell in the quick
+// delete other data page.
+extern NSString* const kQuickDeleteOtherDataPasswordsAndPasskeysIdentifier;
+
+// The accessibility identifier for the search history cell in the quick delete
+// other data page.
+extern NSString* const kQuickDeleteOtherDataSearchHistoryIdentifier;
+
+// The accessibility identifier for the "my activity" cell in the quick delete
+// other data page.
+extern NSString* const kQuickDeleteOtherDataMyActivityIdentifier;
+
+// The accessibility identifier for the footer string in the quick delete other
+// data page.
+extern NSString* const kQuickDeleteOtherDataFooterIdentifier;
 
 /* UMA histogram values for My Activity Navigiation.
  * Note: this should stay in sync with

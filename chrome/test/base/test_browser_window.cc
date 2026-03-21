@@ -9,9 +9,9 @@
 #include "base/feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
@@ -52,6 +52,11 @@ OmniboxController* TestBrowserWindow::TestLocationBar::GetOmniboxController() {
   return nullptr;
 }
 
+bool TestBrowserWindow::TestLocationBar::ShouldCloseOmniboxPopup(
+    ui::MouseEvent* event) {
+  return false;
+}
+
 ChipController* TestBrowserWindow::TestLocationBar::GetChipController() {
   return nullptr;
 }
@@ -82,6 +87,10 @@ Browser* TestBrowserWindow::TestLocationBar::GetBrowser() {
   return nullptr;
 }
 
+bool TestBrowserWindow::TestLocationBar::IsInitialized() const {
+  return true;
+}
+
 bool TestBrowserWindow::TestLocationBar::IsVisible() const {
   return true;
 }
@@ -90,7 +99,7 @@ bool TestBrowserWindow::TestLocationBar::IsDrawn() const {
   return true;
 }
 
-bool TestBrowserWindow::TestLocationBar::IsTopLevelFullscreen() const {
+bool TestBrowserWindow::TestLocationBar::IsFullscreen() const {
   return false;
 }
 
@@ -120,7 +129,8 @@ TestBrowserWindow::TestBrowserWindow() {
   // TestBrowserWindow will always be instantiated before its Browser.
   // TODO(crbug.com/413168662): This can be removed once Browser is updated to
   // always own its BrowserWindow.
-  browser_list_observer_.Observe(BrowserList::GetInstance());
+  browser_collection_observation_.Observe(
+      GlobalBrowserCollection::GetInstance());
 }
 
 TestBrowserWindow::~TestBrowserWindow() {
@@ -313,7 +323,7 @@ bool TestBrowserWindow::IsLocationBarVisible() const {
   return false;
 }
 
-bool TestBrowserWindow::IsBorderlessModeEnabled() const {
+bool TestBrowserWindow::IsUnframedModeEnabled() const {
   return false;
 }
 
@@ -438,9 +448,10 @@ void TestBrowserWindow::SetIsTabModalPopupDeprecated(
   is_tab_modal_popup_deprecated_ = is_tab_modal_popup_deprecated;
 }
 
-void TestBrowserWindow::OnBrowserAdded(Browser* browser) {
-  if (browser->create_params().window == this) {
-    browser_ = browser;
-    browser_list_observer_.Reset();
+void TestBrowserWindow::OnBrowserCreated(BrowserWindowInterface* browser) {
+  Browser* current_browser = browser->GetBrowserForMigrationOnly();
+  if (current_browser->create_params().window == this) {
+    browser_ = current_browser;
+    browser_collection_observation_.Reset();
   }
 }

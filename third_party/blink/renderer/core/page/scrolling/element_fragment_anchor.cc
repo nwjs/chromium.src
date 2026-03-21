@@ -27,7 +27,7 @@ namespace {
 // TODO(bokan): Move this into FragmentDirective after
 // https://crrev.com/c/3216206 lands.
 String RemoveFragmentDirectives(const String& url_fragment) {
-  wtf_size_t directive_delimiter_ix = url_fragment.Find(":~:");
+  wtf_size_t directive_delimiter_ix = url_fragment.find(":~:");
   if (directive_delimiter_ix == kNotFound)
     return url_fragment;
 
@@ -61,7 +61,7 @@ ElementFragmentAnchor* ElementFragmentAnchor::TryCreate(const KURL& url,
 
   if (doc.IsSVGDocument()) {
     if (auto* svg = DynamicTo<SVGSVGElement>(doc.documentElement())) {
-      String decoded = DecodeURLEscapeSequences(fragment, DecodeURLMode::kUTF8);
+      String decoded = DecodeUrlEscapeSequences(fragment, DecodeUrlMode::kUtf8);
       svg->SetViewSpec(svg->ParseViewSpec(decoded, target));
     }
   }

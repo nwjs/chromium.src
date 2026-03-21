@@ -62,6 +62,14 @@ String AtomicString::AddSlowCase(StringImpl* string) {
   return AtomicStringTable::Instance().Add(string);
 }
 
+bool AtomicString::contains(const StringView& value) const {
+  return string_.find(value) != npos;
+}
+
+bool AtomicString::ContainsIgnoringAsciiCase(const StringView& value) const {
+  return string_.FindIgnoringAsciiCase(value) != npos;
+}
+
 AtomicString AtomicString::FromUTF8(base::span<const uint8_t> bytes) {
   if (!bytes.data()) {
     return g_null_atom;
@@ -86,11 +94,11 @@ AtomicString AtomicString::FromUTF8(std::string_view utf8_string) {
 }
 
 AtomicString AtomicString::LowerASCII(AtomicString source) {
-  if (source.IsLowerASCII()) [[likely]] {
+  if (source.ContainsNoAsciiUpper()) [[likely]] {
     return source;
   }
   StringImpl* impl = source.Impl();
-  // if impl is null, then IsLowerASCII() should have returned true.
+  // if impl is null, then ContainsNoAsciiUpper() should have returned true.
   DCHECK(impl);
   String new_impl = impl->LowerASCII();
   return AtomicString(String(std::move(new_impl)));

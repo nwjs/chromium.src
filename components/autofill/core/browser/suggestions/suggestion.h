@@ -192,6 +192,22 @@ struct Suggestion {
     std::map<FieldType, std::u16string> fields;
   };
 
+  struct AtMemoryPayload final {
+    AtMemoryPayload();
+    explicit AtMemoryPayload(std::u16string value);
+    AtMemoryPayload(const AtMemoryPayload&);
+    AtMemoryPayload(AtMemoryPayload&&);
+    AtMemoryPayload& operator=(const AtMemoryPayload&);
+    AtMemoryPayload& operator=(AtMemoryPayload&&);
+    ~AtMemoryPayload();
+
+    friend bool operator==(const AtMemoryPayload&,
+                           const AtMemoryPayload&) = default;
+
+    // Text to fill in the trigger field upon accepting the suggestion.
+    std::u16string value;
+  };
+
   using IsLoading = base::StrongAlias<class IsLoadingTag, bool>;
   using InstrumentId = base::StrongAlias<class InstrumentIdTag, uint64_t>;
   using BnplIssuer = base::StrongAlias<class BnplIssuerTag, BnplIssuer>;
@@ -205,7 +221,8 @@ struct Suggestion {
                                PaymentsPayload,
                                IdentityCredentialPayload,
                                AutocompleteEntry,
-                               BnplIssuer>;
+                               BnplIssuer,
+                               AtMemoryPayload>;
 
   // This struct is used to provide password suggestions with custom icons,
   // using the favicon of the website associated with the credentials. While
@@ -348,6 +365,8 @@ struct Suggestion {
     kBnplGeneric,
     kBnplAffirmLinked,
     kBnplAffirmUnlinked,
+    kBnplAfterpayLinked,
+    kBnplAfterpayUnlinked,
     kBnplZipLinked,
     kBnplZipUnlinked,
     kBnplKlarnaLinked,
@@ -388,25 +407,20 @@ struct Suggestion {
     kUnacceptableWithDeactivatedStyle,
   };
 
-  // TODO(crbug.com/335194240): Consolidate expected param types for these
-  // constructors. Some expect UTF16 strings and others UTF8, while internally
-  // we only use UTF16. The ones expecting UTF8 are only used by tests and could
-  // be easily refactored.
   explicit Suggestion(SuggestionType type);
   Suggestion(std::u16string main_text, SuggestionType type);
-  // Constructor for unit tests. It will convert the strings from UTF-8 to
-  // UTF-16.
-  Suggestion(std::string_view main_text,
-             std::string_view label,
+  // Constructor for unit tests.
+  Suggestion(std::u16string main_text,
+             std::u16string label,
              Icon icon,
              SuggestionType type);
-  Suggestion(std::string_view main_text,
+  Suggestion(std::u16string_view main_text,
              std::vector<std::vector<Text>> labels,
              Icon icon,
              SuggestionType type);
-  Suggestion(std::string_view main_text,
-             base::span<const std::string> minor_text_labels,
-             std::string_view label,
+  Suggestion(std::u16string_view main_text,
+             base::span<const std::u16string> minor_text_labels,
+             std::u16string_view label,
              Icon icon,
              SuggestionType type);
   Suggestion(const Suggestion& other);
@@ -457,6 +471,8 @@ struct Suggestion {
       case SuggestionType::kBnplEntry:
         return std::holds_alternative<PaymentsPayload>(payload) ||
                std::holds_alternative<BnplIssuer>(payload);
+      case SuggestionType::kAtMemorySearchResult:
+        return std::holds_alternative<AtMemoryPayload>(payload);
       case SuggestionType::kDevtoolsTestAddressEntry:
       default:
         return std::holds_alternative<Guid>(payload) ||
@@ -561,6 +577,11 @@ struct Suggestion {
   // `SuggestionType::kAddressEntryOnTyping`, specifies the `FieldType` used to
   // build the suggestion's `main_text`.
   std::optional<FieldType> field_by_field_filling_type_used;
+
+  // Used by `SuggestionType::kLoadingThrobber` to determine the size of the
+  // loading suggestion. It represents the number of suggestions (assumed to be
+  // two-line suggestions) expected to load to provide a smoother UI transition.
+  std::optional<int> expected_number_of_suggestions;
 
   // How the suggestion should be handled by the filtration logic, see the enum
   // values doc for details.

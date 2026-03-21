@@ -132,12 +132,14 @@ impl<'cmd> Parser<'cmd> {
                         self.cmd[opt].is_allow_hyphen_values_set())
                     {
                         // ParseResult::MaybeHyphenValue, do nothing
-                    } else if self.cmd.get_keymap().get(&pos_counter).is_some_and(|arg| {
-                        self.check_terminator(arg, arg_os.to_value_os()).is_some()
-                    }) {
-                        // Value terminator for this positional, let positional parsing handle it.
                     } else {
                         debug!("Parser::get_matches_with: setting TrailingVals=true");
+                        if self.cmd.get_keymap().get(&pos_counter).is_some_and(|arg| {
+                            self.check_terminator(arg, arg_os.to_value_os()).is_some()
+                        }) {
+                            // count as both an escape and terminator
+                            pos_counter += 1;
+                        }
                         trailing_values = true;
                         matcher.start_trailing();
                         continue;
@@ -742,7 +744,7 @@ impl<'cmd> Parser<'cmd> {
                     p.flag_subcmd_skip = self.flag_subcmd_skip;
                 }
                 if let Err(error) = p.get_matches_with(&mut sc_matcher, raw_args, args_cursor) {
-                    if partial_parsing_enabled {
+                    if partial_parsing_enabled && error.use_stderr() {
                         debug!("Parser::parse_subcommand: ignored error in subcommand {sc_name}: {error:?}");
                     } else {
                         return Err(error);

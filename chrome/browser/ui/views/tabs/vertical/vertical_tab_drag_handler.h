@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/callback_list.h"
+#include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
@@ -17,13 +18,15 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/events/event.h"
+#include "ui/gfx/geometry/vector2d.h"
 
 class TabCollectionNode;
 class TabStripModel;
+class VerticalTabLinkDropHandler;
 
 enum class DragPositionHint {
-  kTop,    // The drag is at the top of the drag target.
-  kBottom  // The drag is at the bottom of the drag target.
+  kBefore,  // The drag is before the drag target.
+  kAfter    // The drag is after the drag target.
 };
 
 // Interface for views to interact with drag handling.
@@ -46,13 +49,24 @@ class VerticalTabDragHandler {
       const TabCollectionNode& node,
       std::optional<DragPositionHint> position_hint) = 0;
 
+  // Handles tab strip model updates to reflect dragged tabs entering a node.
+  // This reparents them to become direct children of the node.
+  virtual void HandleDraggedTabsIntoNode(const TabCollectionNode& node) = 0;
+
   // Handles tab strip model updates to reflect a drag exiting a group.
   // Position hint is used to determine where the drag is, relative to the node.
   virtual void HandleDraggedTabsOutOfGroup(const TabCollectionNode& node,
                                            DragPositionHint position_hint) = 0;
 
+  // Handles the case where tabs are dragged to the end of the tab strip, which
+  // is a special case because there is no node there to handle the drag.
+  virtual void HandleDraggedTabsAtEndOfTabStrip() = 0;
+
   // Returns the drag context for this handler.
   virtual TabDragContext* GetDragContext() = 0;
+
+  // Whether this is is handling a drag.
+  virtual bool IsDragging() const = 0;
 
   // Returns true if `view` belongs to a TabCollectionNode currently being
   // dragged.
@@ -64,17 +78,29 @@ class VerticalTabDragHandler {
   // Returns true if there is an ongoing drag where a group is being moved.
   virtual bool IsDraggingGroups() const = 0;
 
+  // Returns true if the drag is currently at the end of the tab strip.
+  virtual bool IsDraggingAtEndOfTabStrip() const = 0;
+
   // For vertical tabs, `TabSlotView` doesn't represent the actual tab
   // view. This method converts `view` to its actual tab view, or nullptr
   // if this handler doesn't manage it.
   virtual views::View* ViewFromTabSlot(TabSlotView* view) const = 0;
+
+  // Returns the starting position of the view when dragging started.
+  // The position is in screen coordinates.
+  virtual std::optional<gfx::Vector2d> GetOffsetFromSourceAtDragStart(
+      views::View* view) const = 0;
+
+  // Returns the DropIndex for a given node and position hint.
+  // For tab nodes, a nullopt position hint indicates that the drop is over the
+  // middle of the tab and should be interpreted as a "replace" operation.
+  virtual std::optional<BrowserRootView::DropIndex> GetLinkDropIndexForNode(
+      const TabCollectionNode& node,
+      std::optional<DragPositionHint> position_hint) const = 0;
 };
 
 // Implements a minimal drag context to interact with the central
 // `TabDragController`.
-// TODO(crbug.com/439963720): The following is an incremental checklist of
-// support that needs to be added:
-// - Dragging pinned tab (split tabs, tab group, multi-selection).
 class VerticalTabDragHandlerImpl : public VerticalTabDragHandler,
                                    public TabDragContext {
   METADATA_HEADER(VerticalTabDragHandlerImpl, TabDragContext)
@@ -95,13 +121,22 @@ class VerticalTabDragHandlerImpl : public VerticalTabDragHandler,
   void HandleDraggedTabsOverNode(
       const TabCollectionNode& node,
       std::optional<DragPositionHint> position_hint) override;
+  void HandleDraggedTabsIntoNode(const TabCollectionNode& node) override;
   void HandleDraggedTabsOutOfGroup(const TabCollectionNode& node,
                                    DragPositionHint position_hint) override;
+  void HandleDraggedTabsAtEndOfTabStrip() override;
   TabDragContext* GetDragContext() override;
+  bool IsDragging() const override;
   bool IsViewDragging(const views::View& view) const override;
   bool IsDraggingPinnedTabs() const override;
   bool IsDraggingGroups() const override;
+  bool IsDraggingAtEndOfTabStrip() const override;
   views::View* ViewFromTabSlot(TabSlotView* view) const override;
+  std::optional<gfx::Vector2d> GetOffsetFromSourceAtDragStart(
+      views::View* view) const override;
+  std::optional<BrowserRootView::DropIndex> GetLinkDropIndexForNode(
+      const TabCollectionNode& node,
+      std::optional<DragPositionHint> position_hint) const override;
 
   // TabDragContext
   bool CanAcceptEvent(const ui::Event& event) override;
@@ -128,6 +163,14 @@ class VerticalTabDragHandlerImpl : public VerticalTabDragHandler,
       base::OnceCallback<void(TabDragController*)> callback) override;
   TabDragPositioningDelegate* GetPositioningDelegate() override;
 
+  // The following overrides are necessary to support SystemDnD.
+  bool CanDrop(const OSExchangeData& data) override;
+  bool GetDropFormats(int* formats,
+                      std::set<ui::ClipboardFormatType>* format_types) override;
+  void OnDragEntered(const ui::DropTargetEvent& event) override;
+  int OnDragUpdated(const ui::DropTargetEvent& event) override;
+  void OnDragExited() override;
+
  private:
   // Encapsulates data needed to initialize a drag session.
   struct DragInitData {
@@ -147,8 +190,8 @@ class VerticalTabDragHandlerImpl : public VerticalTabDragHandler,
   DragInitData GetDragInitDataForTabDrag(TabCollectionNode& source_node);
   DragInitData GetDragInitDataForGroupHeaderDrag(
       TabCollectionNode& source_node);
-  std::vector<TabSlotView*> GetFullySelectedGroups(
-      const std::unordered_set<raw_ptr<tabs::TabInterface>>& selected_tabs);
+  std::map<tab_groups::TabGroupId, TabSlotView*> GetFullySelectedGroups(
+      const std::vector<tabs::TabInterface*>& selected_tabs);
 
   TabCollectionNode* GetNodeForContents(content::WebContents* contents);
   TabCollectionNode* GetNodeForTabGroup(const tab_groups::TabGroupId& group_id);
@@ -170,18 +213,14 @@ class VerticalTabDragHandlerImpl : public VerticalTabDragHandler,
   void HandleTabDragOverSplit(const TabCollectionNode& node);
   void HandleTabDragOverGroup(const TabCollectionNode& node);
 
-  // Ensures that all tabs being dragged are congious.
-  // TODO(crbug.com/477230662): Ideally, the tabs animate into contiguous
-  // position, which will require handling this from within
-  // `VerticalDraggedTabsContainer`.
-  void EnsureDraggedTabsContiguous(const DragSessionData& drag_session_data);
-
   // Returns the group id of the dragged group header, or null if the drag
   // was not initiated by a group header.
   std::optional<tab_groups::TabGroupId> GetDraggingGroupHeaderId() const;
 
   const raw_ref<TabStripModel> tab_strip_model_;
   const raw_ref<TabCollectionNode> root_node_;
+
+  std::unique_ptr<VerticalTabLinkDropHandler> link_drop_handler_;
 
   // Null if this handler is not managing a dragging session.
   std::unique_ptr<TabDragController> drag_controller_ = nullptr;

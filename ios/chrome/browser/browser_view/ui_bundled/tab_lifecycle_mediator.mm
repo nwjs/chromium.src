@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/browser_view/ui_bundled/tab_lifecycle_mediator.h"
 
+#import "components/webauthn/ios/ios_passkey_client_commands.h"
 #import "components/webauthn/ios/passkey_tab_helper.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/autofill_tab_helper.h"
@@ -36,7 +37,7 @@
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_sheet_commands.h"
-#import "ios/chrome/browser/shared/public/commands/data_controls_commands.h"
+#import "ios/chrome/browser/shared/public/commands/enterprise_commands.h"
 #import "ios/chrome/browser/shared/public/commands/file_upload_panel_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
@@ -160,10 +161,10 @@
   OverscrollActionsTabHelper::FromWebState(webState)->SetDelegate(
       _overscrollActionsDelegate);
 
-  data_controls::DataControlsTabHelper::GetOrCreateForWebState(webState)
-      ->SetDataControlsCommandsHandler(
-          HandlerForProtocol(_commandDispatcher, DataControlsCommands));
-  data_controls::DataControlsTabHelper::GetOrCreateForWebState(webState)
+  data_controls::DataControlsTabHelper::FromWebState(webState)
+      ->SetEnterpriseCommandsHandler(
+          HandlerForProtocol(_commandDispatcher, EnterpriseCommands));
+  data_controls::DataControlsTabHelper::FromWebState(webState)
       ->SetSnackbarHandler(
           static_cast<id<SnackbarCommands>>(_commandDispatcher));
 
@@ -175,15 +176,14 @@
       static_cast<id<SnackbarCommands>>(_commandDispatcher));
 
   DCHECK(_tabHelperDelegate);
-  NetExportTabHelper::GetOrCreateForWebState(webState)->SetDelegate(
-      _tabHelperDelegate);
+  NetExportTabHelper::FromWebState(webState)->SetDelegate(_tabHelperDelegate);
 
   id<WebContentCommands> webContentsHandler =
       HandlerForProtocol(_commandDispatcher, WebContentCommands);
   DCHECK(webContentsHandler);
-  ITunesUrlsHandlerTabHelper::GetOrCreateForWebState(webState)
-      ->SetWebContentsHandler(webContentsHandler);
-  PassKitTabHelper::GetOrCreateForWebState(webState)->SetWebContentsHandler(
+  ITunesUrlsHandlerTabHelper::FromWebState(webState)->SetWebContentsHandler(
+      webContentsHandler);
+  PassKitTabHelper::FromWebState(webState)->SetWebContentsHandler(
       webContentsHandler);
 
   DCHECK(_baseViewController);
@@ -205,14 +205,13 @@
   }
 
   DCHECK(_printCoordinator);
-  PrintTabHelper::GetOrCreateForWebState(webState)->set_printer(
-      _printCoordinator);
+  PrintTabHelper::FromWebState(webState)->set_printer(_printCoordinator);
 
   RepostFormTabHelper::FromWebState(webState)->SetDelegate(_repostFormDelegate);
 
   DCHECK(_tabInsertionBrowserAgent);
-  CaptivePortalTabHelper::GetOrCreateForWebState(webState)
-      ->SetTabInsertionBrowserAgent(_tabInsertionBrowserAgent);
+  CaptivePortalTabHelper::FromWebState(webState)->SetTabInsertionBrowserAgent(
+      _tabInsertionBrowserAgent);
 
   NewTabPageTabHelper::FromWebState(webState)->SetDelegate(
       _NTPTabHelperDelegate);
@@ -335,15 +334,15 @@
 
   OverscrollActionsTabHelper::FromWebState(webState)->SetDelegate(nil);
 
-  data_controls::DataControlsTabHelper::GetOrCreateForWebState(webState)
-      ->SetDataControlsCommandsHandler(nil);
-  data_controls::DataControlsTabHelper::GetOrCreateForWebState(webState)
+  data_controls::DataControlsTabHelper::FromWebState(webState)
+      ->SetEnterpriseCommandsHandler(nil);
+  data_controls::DataControlsTabHelper::FromWebState(webState)
       ->SetSnackbarHandler(nil);
 
   DownloadManagerTabHelper::FromWebState(webState)->SetDelegate(nil);
   DownloadManagerTabHelper::FromWebState(webState)->SetSnackbarHandler(nil);
 
-  NetExportTabHelper::GetOrCreateForWebState(webState)->SetDelegate(nil);
+  NetExportTabHelper::FromWebState(webState)->SetDelegate(nil);
 
   AutofillTabHelper* autofillTabHelper =
       AutofillTabHelper::FromWebState(webState);
@@ -359,12 +358,12 @@
     readerModeTabHelper->SetReaderModeHandler(nil);
   }
 
-  PrintTabHelper::GetOrCreateForWebState(webState)->set_printer(nil);
+  PrintTabHelper::FromWebState(webState)->set_printer(nil);
 
   RepostFormTabHelper::FromWebState(webState)->SetDelegate(nil);
 
-  CaptivePortalTabHelper::GetOrCreateForWebState(webState)
-      ->SetTabInsertionBrowserAgent(nil);
+  CaptivePortalTabHelper::FromWebState(webState)->SetTabInsertionBrowserAgent(
+      nil);
 
   NewTabPageTabHelper::FromWebState(webState)->SetDelegate(nil);
 

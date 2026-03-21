@@ -14,10 +14,11 @@
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/enterprise/data_controls/chrome_rules_service.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_features.h"
-#include "chrome/browser/enterprise/data_protection/data_protection_url_lookup_service.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_url_lookup_service_factory.h"
 #include "chrome/browser/interstitials/enterprise_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/enterprise/data_protection/data_protection_url_lookup_service.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "content/public/browser/browser_thread.h"
@@ -159,7 +160,6 @@ bool IsEnterpriseLookupEnabled(content::BrowserContext* context) {
 
 void DoLookup(safe_browsing::RealTimeUrlLookupServiceBase* lookup_service,
               const GURL& url,
-              const std::string& identifier,
               LookupCallback callback,
               content::WebContents* web_contents) {
   DCHECK(IsEnterpriseLookupEnabled(web_contents->GetBrowserContext()));
@@ -172,8 +172,9 @@ void DoLookup(safe_browsing::RealTimeUrlLookupServiceBase* lookup_service,
     return;
   }
 
-  url_lookup_service->DoLookup(lookup_service, url, identifier,
-                               std::move(callback), web_contents);
+  url_lookup_service->DoLookup(
+      lookup_service, url, std::move(callback),
+      sessions::SessionTabHelper::IdForTab(web_contents));
 }
 
 std::string GetIdentifier(content::BrowserContext* browser_context) {
@@ -205,9 +206,7 @@ DataProtectionNavigationObserver::CreateForNavigationIfNeeded(
     Profile* profile,
     content::NavigationHandle* navigation_handle,
     Callback callback) {
-  if (!navigation_handle->IsInPrimaryMainFrame() ||
-      (!base::FeatureList::IsEnabled(kEnableSinglePageAppDataProtection) &&
-       navigation_handle->IsSameDocument())) {
+  if (!navigation_handle->IsInPrimaryMainFrame()) {
     return nullptr;
   }
 
@@ -310,7 +309,7 @@ void DataProtectionNavigationObserver::ApplyDataProtectionSettings(
         std::move(identifier), std::move(callback), web_contents->GetWeakPtr());
 
     DoLookup(lookup_service, web_contents->GetLastCommittedURL(),
-             GetIdentifier(profile), std::move(lookup_callback), web_contents);
+             std::move(lookup_callback), web_contents);
   } else {
     ud = GetUserData(web_contents);
     DCHECK(ud);
@@ -352,7 +351,7 @@ DataProtectionNavigationObserver::DataProtectionNavigationObserver(
   is_from_cache_ = navigation_handle.IsServedFromBackForwardCache();
   if (!is_from_cache_ &&
       ShouldPerformRealTimeUrlCheck(web_contents->GetBrowserContext())) {
-    DoLookup(lookup_service_, navigation_handle.GetURL(), identifier_,
+    DoLookup(lookup_service_, navigation_handle.GetURL(),
              base::BindOnce(&DataProtectionNavigationObserver::OnLookupComplete,
                             weak_factory_.GetWeakPtr()),
              navigation_handle.GetWebContents());
@@ -401,7 +400,6 @@ void DataProtectionNavigationObserver::DidRedirectNavigation(
           navigation_handle->GetWebContents()->GetBrowserContext())) {
     DoLookup(
         lookup_service_, navigation_handle->GetURL(),
-        GetIdentifier(navigation_handle->GetWebContents()->GetBrowserContext()),
         base::BindOnce(&DataProtectionNavigationObserver::OnLookupComplete,
                        weak_factory_.GetWeakPtr()),
         navigation_handle->GetWebContents());
@@ -465,7 +463,7 @@ void DataProtectionNavigationObserver::DidFinishNavigation(
                  web_contents()->GetBrowserContext())) {
     LogVerdictSource(URLVerdictSource::kPostNavigationLookup);
     DoLookup(
-        lookup_service_, navigation_handle->GetURL(), identifier_,
+        lookup_service_, navigation_handle->GetURL(),
         base::BindOnce(&OnDoLookupComplete, web_contents()->GetWeakPtr(),
                        std::move(pending_navigation_callback_), identifier_),
         web_contents());
@@ -479,12 +477,7 @@ void DataProtectionNavigationObserver::DidFinishNavigation(
 
 // static
 size_t DataProtectionNavigationObserver::GetVerdictCacheMaxSize() {
-  size_t max_value = enterprise_data_protection::kVerdictCacheMaxSize.Get();
-
-  // Defensive check to ensure a valid size for the verdict cache.
-  return max_value > 0
-             ? max_value
-             : enterprise_data_protection::kVerdictCacheMaxSize.default_value;
+  return kVerdictCacheMaxSize;
 }
 
 NAVIGATION_HANDLE_USER_DATA_KEY_IMPL(DataProtectionNavigationObserver);

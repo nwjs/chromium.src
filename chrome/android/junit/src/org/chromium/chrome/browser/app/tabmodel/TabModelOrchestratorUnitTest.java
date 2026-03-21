@@ -5,7 +5,9 @@
 package org.chromium.chrome.browser.app.tabmodel;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,10 +23,12 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
+import org.chromium.chrome.browser.tab.TabStateStorageServiceFactory;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorBase;
 import org.chromium.chrome.browser.tabmodel.TabPersistencePolicy;
@@ -36,16 +40,14 @@ import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStor
 public class TabModelOrchestratorUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock
-    private SettableMonotonicObservableSupplier<TabModelStartupInfo>
-            mMockTabModelStartupInfoSupplier;
-
     @Mock private TabModel mMockTabModel;
     @Mock private TabModelSelectorBase mMockTabModelSelectorBase;
     @Mock private TabPersistentStore mMockTabPersistentStore;
     @Mock private TabPersistentStore mMockShadowPersistentStore;
     @Mock private TabPersistencePolicy mTabPersistencePolicy;
 
+    private final SettableMonotonicObservableSupplier<TabModelStartupInfo>
+            mTabModelStartupInfoSupplier = ObservableSuppliers.createMonotonic();
     private TabModelOrchestrator mTabModelOrchestrator;
     private ArgumentCaptor<TabPersistentStoreObserver> mObserverCaptor;
 
@@ -64,7 +66,7 @@ public class TabModelOrchestratorUnitTest {
 
         mObserverCaptor = ArgumentCaptor.forClass(TabPersistentStoreObserver.class);
         mTabModelOrchestrator.wireSelectorAndStore();
-        mTabModelOrchestrator.setStartupInfoObservableSupplier(mMockTabModelStartupInfoSupplier);
+        mTabModelOrchestrator.setStartupInfoObservableSupplier(mTabModelStartupInfoSupplier);
         verify(mMockTabPersistentStore).addObserver(mObserverCaptor.capture());
     }
 
@@ -81,10 +83,7 @@ public class TabModelOrchestratorUnitTest {
         readTabState(numStandardTabs, numIncognitoTabs, standardIndex, incognitoIndex, fromMerge);
 
         // Verify that the {@link TabModelStartupInfo} is as expected.
-        ArgumentCaptor<TabModelStartupInfo> startupInfoCaptor =
-                ArgumentCaptor.forClass(TabModelStartupInfo.class);
-        verify(mMockTabModelStartupInfoSupplier).set(startupInfoCaptor.capture());
-        TabModelStartupInfo startupInfo = startupInfoCaptor.getValue();
+        TabModelStartupInfo startupInfo = mTabModelStartupInfoSupplier.get();
 
         assertEquals("Unexpected standard tab count.", numStandardTabs, startupInfo.standardCount);
         assertEquals(
@@ -112,10 +111,7 @@ public class TabModelOrchestratorUnitTest {
         readTabState(numStandardTabs, numIncognitoTabs, standardIndex, incognitoIndex, fromMerge);
 
         // Verify that the {@link TabModelStartupInfo} is as expected.
-        ArgumentCaptor<TabModelStartupInfo> startupInfoCaptor =
-                ArgumentCaptor.forClass(TabModelStartupInfo.class);
-        verify(mMockTabModelStartupInfoSupplier).set(startupInfoCaptor.capture());
-        TabModelStartupInfo startupInfo = startupInfoCaptor.getValue();
+        TabModelStartupInfo startupInfo = mTabModelStartupInfoSupplier.get();
 
         assertEquals("Unexpected standard tab count.", numStandardTabs, startupInfo.standardCount);
         assertEquals(
@@ -146,10 +142,7 @@ public class TabModelOrchestratorUnitTest {
         readTabState(numStandardTabs, numIncognitoTabs, standardIndex, incognitoIndex, fromMerge);
 
         // Verify that the {@link TabModelStartupInfo} is as expected.
-        ArgumentCaptor<TabModelStartupInfo> startupInfoCaptor =
-                ArgumentCaptor.forClass(TabModelStartupInfo.class);
-        verify(mMockTabModelStartupInfoSupplier).set(startupInfoCaptor.capture());
-        TabModelStartupInfo startupInfo = startupInfoCaptor.getValue();
+        TabModelStartupInfo startupInfo = mTabModelStartupInfoSupplier.get();
 
         assertEquals("Unexpected standard tab count.", numStandardTabs, startupInfo.standardCount);
         assertEquals("Unexpected incognito tab count.", 0, startupInfo.incognitoCount);
@@ -182,6 +175,12 @@ public class TabModelOrchestratorUnitTest {
     @Test
     @SmallTest
     public void testClearState() {
+        when(mMockTabModel.getProfile()).thenReturn(mock());
+        TabStateStorageServiceFactory.setForTesting(mock());
+
+        mTabModelOrchestrator.markStoresInitialized();
+        assertTrue(mTabModelOrchestrator.areStoresInitialized());
+
         mTabModelOrchestrator.clearState();
         verify(mMockTabPersistentStore).clearState();
         verify(mMockShadowPersistentStore).clearState();

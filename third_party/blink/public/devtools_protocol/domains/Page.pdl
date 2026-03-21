@@ -1538,6 +1538,7 @@ domain Page
       BackForwardCacheDisabledForPrerender
       UserAgentOverrideDiffers
       ForegroundCacheLimit
+      ForwardCacheDisabled
       BrowsingInstanceNotSwapped
       BackForwardCacheDisabledForDelegate
       UnloadHandlerExistsInMainFrame

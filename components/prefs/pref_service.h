@@ -18,7 +18,6 @@
 #include <set>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include "base/compiler_specific.h"
@@ -33,7 +32,7 @@
 #include "components/prefs/persistent_pref_store.h"
 #include "components/prefs/pref_value_store.h"
 #include "components/prefs/prefs_export.h"
-#include "components/prefs/transparent_unordered_string_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/scoped_java_ref.h"
@@ -346,11 +345,12 @@ class COMPONENTS_PREFS_EXPORT PrefService {
 
   // Tell our PrefValueStore to update itself to |command_line_store|.
   // Takes ownership of the store.
-  virtual void UpdateCommandLinePrefStore(PrefStore* command_line_store);
+  virtual void UpdateCommandLinePrefStore(
+      scoped_refptr<PrefStore> command_line_store);
 
   // Tells the PrefValueStore to update itself with `extension_store`.
   // Takes ownership of the store.
-  void UpdateExtensionPrefStore(PrefStore* extension_store);
+  void UpdateExtensionPrefStore(scoped_refptr<PrefStore> extension_store);
 
   // We run the callback once, when initialization completes. The bool
   // parameter will be set to true for successful initialization,
@@ -419,9 +419,8 @@ class COMPONENTS_PREFS_EXPORT PrefService {
  private:
   // Hash map expected to be fastest here since it minimises expensive
   // string comparisons. Order is unimportant, and deletions are rare.
-  // Confirmed on Android where this speeded Chrome startup by roughly 50ms
-  // vs. std::map, and by roughly 180ms vs. std::set of Preference pointers.
-  using PreferenceMap = TransparentUnorderedStringMap<Preference>;
+  using PreferenceMap =
+      absl::flat_hash_map<std::string, std::unique_ptr<Preference>>;
 
   // Give access to ReportUserPrefChanged() and GetMutableUserPref().
   friend class subtle::ScopedUserPrefUpdateBase;

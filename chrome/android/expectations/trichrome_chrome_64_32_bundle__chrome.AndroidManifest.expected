@@ -11,19 +11,21 @@
   <dist:module dist:onDemand="false">  # DIFF-ANCHOR: 2805007f
     <dist:fusing dist:include="true"/>
   </dist:module>  # DIFF-ANCHOR: 2805007f
-  <queries>  # DIFF-ANCHOR: 2a6d7800
+  <queries>  # DIFF-ANCHOR: 46eb35d4
     <intent>  # DIFF-ANCHOR: dd112d1c
       <action android:name="android.intent.action.VIEW"/>
       <category android:name="android.intent.category.BROWSABLE"/>
       <data android:scheme="https"/>
     </intent>  # DIFF-ANCHOR: dd112d1c
+    <package android:name="com.google.android.aicore"/>
     <package android:name="com.google.android.gms.policy_cast_dynamite"/>
-  </queries>  # DIFF-ANCHOR: 2a6d7800
+  </queries>  # DIFF-ANCHOR: 46eb35d4
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+  <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE"/>
   <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
   <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
   <application>
@@ -308,7 +310,7 @@
     </activity>  # DIFF-ANCHOR: 060360d2
     <activity  # DIFF-ANCHOR: 43bdc48f
         android:name="org.chromium.chrome.browser.media.DocumentPictureInPictureActivity"
-        android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+        android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|density|uiMode"
         android:excludeFromRecents="true"
         android:exported="false"
         android:noHistory="true"
@@ -347,6 +349,7 @@
         android:excludeFromRecents="true"
         android:exported="false"
         android:noHistory="true"
+        android:taskAffinity=""
         android:theme="@style/Theme.BrowserUI.Translucent.NoTitleBar">
     </activity>  # DIFF-ANCHOR: e86e2b49
     <activity  # DIFF-ANCHOR: 7ff74272
@@ -727,6 +730,15 @@
         android:name="com.google.android.gms.cast.framework.media.MediaIntentReceiver"
         android:exported="false">
     </receiver>  # DIFF-ANCHOR: 0a6f8fa5
+    <receiver  # DIFF-ANCHOR: 83f0ffb6
+        android:name="org.chromium.chrome.browser.actor.ActorBroadcastReceiver"
+        android:exported="false">
+      <intent-filter>  # DIFF-ANCHOR: 43c058ef
+        <action android:name="org.chromium.chrome.browser.actor.ACTION_CANCEL"/>
+        <action android:name="org.chromium.chrome.browser.actor.ACTION_PAUSE"/>
+        <action android:name="org.chromium.chrome.browser.actor.ACTION_RESUME"/>
+      </intent-filter>  # DIFF-ANCHOR: 43c058ef
+    </receiver>  # DIFF-ANCHOR: 83f0ffb6
     <receiver  # DIFF-ANCHOR: 68e22783
         android:name="org.chromium.chrome.browser.announcement.AnnouncementNotificationManager$Receiver"
         android:exported="false">
@@ -881,6 +893,11 @@
         android:exported="false"
         android:isolatedProcess="true">
     </service>  # DIFF-ANCHOR: 5d82e3ff
+    <service  # DIFF-ANCHOR: 293d124f
+        android:name="org.chromium.chrome.browser.actor.ActorForegroundService"
+        android:exported="false"
+        android:foregroundServiceType="dataSync">
+    </service>  # DIFF-ANCHOR: 293d124f
     <service  # DIFF-ANCHOR: b56e4a55
         android:name="org.chromium.chrome.browser.app.bluetooth.BluetoothNotificationService"
         android:exported="false">
@@ -949,7 +966,7 @@
     <service  # DIFF-ANCHOR: ac8469ff
         android:name="org.chromium.chrome.browser.media.MediaCaptureNotificationService"
         android:exported="false"
-        android:foregroundServiceType="mediaProjection|mediaPlayback">
+        android:foregroundServiceType="camera|microphone|mediaProjection|mediaPlayback">
     </service>  # DIFF-ANCHOR: ac8469ff
     <service  # DIFF-ANCHOR: 7ef9e4e5
         android:name="org.chromium.chrome.browser.media.ui.ChromeMediaNotificationControllerServices$CastListenerService"

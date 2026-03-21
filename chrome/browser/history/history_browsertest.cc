@@ -23,8 +23,6 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_tab_helper.h"
 #include "chrome/browser/history/history_test_utils.h"
-#include "chrome/browser/history_clusters/history_clusters_tab_helper.h"
-#include "chrome/browser/history_embeddings/history_embeddings_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -73,28 +71,11 @@ using ::testing::_;
 
 namespace {
 
-class MockHistoryEmbeddingsTabHelper : public HistoryEmbeddingsTabHelper {
+class MockOnUpdatedHistoryForNavigationObserver {
  public:
-  explicit MockHistoryEmbeddingsTabHelper(content::WebContents* web_contents)
-      : HistoryEmbeddingsTabHelper(web_contents) {}
-  ~MockHistoryEmbeddingsTabHelper() override = default;
-
   MOCK_METHOD(void,
               OnUpdatedHistoryForNavigation,
-              (content::NavigationHandle*, base::Time, const GURL&),
-              (override));
-};
-
-class MockHistoryClustersTabHelper : public HistoryClustersTabHelper {
- public:
-  explicit MockHistoryClustersTabHelper(content::WebContents* web_contents)
-      : HistoryClustersTabHelper(web_contents) {}
-  ~MockHistoryClustersTabHelper() override = default;
-
-  MOCK_METHOD(void,
-              OnUpdatedHistoryForNavigation,
-              (int64_t navigation_id, base::Time timestamp, const GURL& url),
-              (override));
+              (int64_t, bool, base::Time, const GURL&));
 };
 
 // Used to test if the History Service Observer gets called for both
@@ -516,7 +497,7 @@ IN_PROC_BROWSER_TEST_F(HistoryBrowserTest,
 
 // TODO(crbug.com/41000594): Disabled because of flakiness and because for a
 // while history didn't support #q=searchTerm. Now that it does support these
-// type of URLs (crbug.com/619799), this test could be re-enabled if somebody
+// type of URLs (crbug.com/41258710), this test could be re-enabled if somebody
 // goes through the effort to wait for the various stages of the page loading.
 // The loading strategy of the new, Polymer version of chrome://history is
 // sophisticated and multi-part, so we'd need to wait on or ensure a few things
@@ -911,7 +892,7 @@ IN_PROC_BROWSER_TEST_F(HistoryBrowserTest, BeforeUnloadCommitDuringPending) {
 
   // The beforeunload commit should happen before request start, which should
   // result in two history entries, with the newest in index 0. urls[0] was
-  // incorrectly url3 in https://crbug.com/956208.
+  // incorrectly url3 in https://crbug.com/41454894.
   {
     std::vector<GURL> urls(GetHistoryContents());
     ASSERT_EQ(2u, urls.size());
@@ -1428,69 +1409,32 @@ IN_PROC_BROWSER_TEST_P(History404BrowserTest, HistoryRemovalRemoves404Url) {
 }
 
 IN_PROC_BROWSER_TEST_P(History404BrowserTest,
-                       DoesNotNotifyHistoryEmbeddingsTabHelperOn404) {
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  // The HistoryEmbeddingsTabHelper is created in ChromeContentBrowserClient, so
-  // it already exists in web_contents.
-  web_contents->RemoveUserData(HistoryEmbeddingsTabHelper::UserDataKey());
-  auto mock_helper =
-      std::make_unique<MockHistoryEmbeddingsTabHelper>(web_contents);
-  MockHistoryEmbeddingsTabHelper* mock_helper_ptr = mock_helper.get();
-  web_contents->SetUserData(HistoryEmbeddingsTabHelper::UserDataKey(),
-                            std::move(mock_helper));
-
+                       NoOnUpdatedHistoryForNavigationOn404) {
   history::HistoryService* history_service =
       HistoryServiceFactory::GetForProfile(browser()->profile(),
                                            ServiceAccessType::EXPLICIT_ACCESS);
+  HistoryTabHelper* history_tab_helper = HistoryTabHelper::FromWebContents(
+      browser()->tab_strip_model()->GetActiveWebContents());
+
+  testing::NiceMock<MockOnUpdatedHistoryForNavigationObserver> mock_observer;
+  base::CallbackListSubscription subscription =
+      history_tab_helper->RegisterOnUpdatedHistoryForNavigationCallback(
+          base::BindRepeating(&MockOnUpdatedHistoryForNavigationObserver::
+                                  OnUpdatedHistoryForNavigation,
+                              base::Unretained(&mock_observer)));
+
   ui_test_utils::WaitForHistoryToLoad(history_service);
 
-  // Regardless of whether the feature is enabled, HistoryEmbeddings shouldn't
-  // be notified on a 404 visit...
+  // The callback shouldn't be invoked on a 404 visit...
   GURL url404 = embedded_https_test_server().GetURL("/page404.html");
-  EXPECT_CALL(*mock_helper_ptr, OnUpdatedHistoryForNavigation(_, _, url404))
+  EXPECT_CALL(mock_observer, OnUpdatedHistoryForNavigation(_, _, _, url404))
       .Times(0);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url404));
 
-  // ... but a non-404 visit should
+  // ... but a non-404 visit should invoke it.
   GURL url_non_404 = embedded_https_test_server().GetURL("/title1.html");
-  EXPECT_CALL(*mock_helper_ptr,
-              OnUpdatedHistoryForNavigation(_, _, url_non_404))
-      .Times(1);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url_non_404));
-}
-
-IN_PROC_BROWSER_TEST_P(History404BrowserTest,
-                       DoesNotNotifyHistoryClustersTabHelperOn404) {
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  // The HistoryClustersTabHelper is created in ChromeContentBrowserClient, so
-  // it already exists in web_contents.
-  web_contents->RemoveUserData(HistoryClustersTabHelper::UserDataKey());
-  auto mock_helper =
-      std::make_unique<MockHistoryClustersTabHelper>(web_contents);
-  MockHistoryClustersTabHelper* mock_helper_ptr = mock_helper.get();
-  web_contents->SetUserData(HistoryClustersTabHelper::UserDataKey(),
-                            std::move(mock_helper));
-
-  history::HistoryService* history_service =
-      HistoryServiceFactory::GetForProfile(browser()->profile(),
-                                           ServiceAccessType::EXPLICIT_ACCESS);
-  ui_test_utils::WaitForHistoryToLoad(history_service);
-
-  // Regardless of whether the feature is enabled, HistoryClusters shouldn't
-  // be notified on a 404 visit...
-  GURL url404 = embedded_https_test_server().GetURL("/page404.html");
-  EXPECT_CALL(*mock_helper_ptr, OnUpdatedHistoryForNavigation(_, _, url404))
-      .Times(0);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url404));
-
-  // ... but a non-404 visit should
-  GURL url_non_404 = embedded_https_test_server().GetURL("/title1.html");
-  EXPECT_CALL(*mock_helper_ptr,
-              OnUpdatedHistoryForNavigation(_, _, url_non_404))
+  EXPECT_CALL(mock_observer,
+              OnUpdatedHistoryForNavigation(_, _, _, url_non_404))
       .Times(1);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url_non_404));
 }

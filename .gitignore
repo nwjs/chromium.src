@@ -50,10 +50,6 @@
 .emulator_sdk
 .gdb_history
 .gdbinit
-!/.gemini/
-/.gemini/*
-!/.gemini/commands/
-!/.gemini/OWNERS
 .landmines
 .metadata
 .project

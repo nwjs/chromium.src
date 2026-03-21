@@ -158,11 +158,7 @@ WebInputEventResult PointerEventManager::DispatchPointerEvent(
   bool should_filter = ShouldFilterEvent(pointer_event);
   // We are about to dispatch this event. It has to be trusted at this point.
   pointer_event->SetTrusted(true);
-  std::optional<EventTiming> event_timing;
-  if (frame_ && frame_->DomWindow()) {
-    event_timing =
-        EventTiming::TryCreate(frame_->DomWindow(), *pointer_event, target);
-  }
+  UIEventTiming event_timing(frame_, *pointer_event, target);
 
   if (event_type == event_type_names::kPointerdown ||
       event_type == event_type_names::kPointerover ||
@@ -379,18 +375,24 @@ void PointerEventManager::HandlePointerInterruption(
 
     ReleasePointerCapture(pointer_event->pointerId());
 
-    // Send the leave/out events and lostpointercapture if needed.
-    // Note that for mouse due to the web compat we still don't send the
-    // boundary events and for now only send lostpointercapture if needed.
-    // Sending boundary events and possibly updating hover for mouse
-    // in this case may cause some of the existing pages to break.
-    if (web_pointer_event.pointer_type ==
-        WebPointerProperties::PointerType::kMouse) {
-      ProcessPendingPointerCapture(pointer_event);
-    } else {
+    if (RuntimeEnabledFeatures::SuppressPointerStreamAfterDragEnabled()) {
+      // Send the leave/out events and lostpointercapture if needed.
       ProcessCaptureAndPositionOfPointerEvent(pointer_event, nullptr);
+    } else {
+      // TODO(crbug.com/452372355): Remove this branch of the `if` once the
+      // suppression feature flag is enabled by default.
+      // Send the leave/out events and lostpointercapture if needed.
+      // Note that for mouse due to the web compat we still don't send the
+      // boundary events and for now only send lostpointercapture if needed.
+      // Sending boundary events and possibly updating hover for mouse
+      // in this case may cause some of the existing pages to break.
+      if (web_pointer_event.pointer_type ==
+          WebPointerProperties::PointerType::kMouse) {
+        ProcessPendingPointerCapture(pointer_event);
+      } else {
+        ProcessCaptureAndPositionOfPointerEvent(pointer_event, nullptr);
+      }
     }
-
     RemovePointer(pointer_event);
   }
 }

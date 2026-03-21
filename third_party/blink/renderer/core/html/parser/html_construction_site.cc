@@ -31,18 +31,16 @@
 
 #include "base/compiler_specific.h"
 #include "base/notreached.h"
-#include "third_party/blink/renderer/core/dom/attribute_part.h"
-#include "third_party/blink/renderer/core/dom/child_node_part.h"
 #include "third_party/blink/renderer/core/dom/comment.h"
 #include "third_party/blink/renderer/core/dom/container_node.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
-#include "third_party/blink/renderer/core/dom/document_part_root.h"
 #include "third_party/blink/renderer/core/dom/document_type.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/node.h"
-#include "third_party/blink/renderer/core/dom/node_part.h"
 #include "third_party/blink/renderer/core/dom/parser_content_policy.h"
+#include "third_party/blink/renderer/core/dom/processing_instruction.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/template_content_document_fragment.h"
 #include "third_party/blink/renderer/core/dom/text.h"
@@ -218,6 +216,7 @@ static inline void Insert(HTMLConstructionSiteTask& task) {
   // child (if any).
   if (auto* template_element = DynamicTo<HTMLTemplateElement>(*task.parent)) {
     task.parent = template_element->InsertionTarget();
+    task.next_child = template_element->InsertionNextChild();
     // If the Document was detached in the middle of parsing, The template
     // element won't be able to initialize its contents, so bail out.
     if (!task.parent)
@@ -227,10 +226,11 @@ static inline void Insert(HTMLConstructionSiteTask& task) {
   // https://html.spec.whatwg.org/C/#insert-a-foreign-element
   // 3.1, (3) Push (pop) an element queue
   CEReactionsScope reactions(task.child->GetDocument().GetAgent().isolate());
-  if (task.next_child)
+  if (task.next_child) {
     task.parent->ParserInsertBefore(task.child.Get(), *task.next_child);
-  else
+  } else {
     task.parent->ParserAppendChild(task.child.Get());
+  }
 }
 
 static inline void ExecuteInsertTask(HTMLConstructionSiteTask& task) {
@@ -309,40 +309,15 @@ void HTMLConstructionSite::ExecuteTask(HTMLConstructionSiteTask& task) {
   DCHECK(task_queue_.empty());
   if (task.operation == HTMLConstructionSiteTask::kInsert) {
     ExecuteInsertTask(task);
-    if (pending_dom_parts_) {
-      DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-      if (RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled()) {
-        if (task.dom_parts_needed.needs_node_part) {
-          // Just mark the node as having a node part.
-          task.child->SetHasNodePart();
-        }
-      } else {
-        pending_dom_parts_->ConstructDOMPartsIfNeeded(*task.child,
-                                                      task.dom_parts_needed);
-      }
-    }
     return;
   }
 
   if (task.operation == HTMLConstructionSiteTask::kInsertText) {
     ExecuteInsertTextTask(task);
-    if (pending_dom_parts_) {
-      DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-      if (RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled()) {
-        if (task.dom_parts_needed.needs_node_part) {
-          // Just mark the node as having a node part.
-          task.child->SetHasNodePart();
-        }
-      } else {
-        pending_dom_parts_->ConstructDOMPartsIfNeeded(*task.child,
-                                                      task.dom_parts_needed);
-      }
-    }
     return;
   }
 
   // All the cases below this point are only used by the adoption agency.
-  DCHECK(!task.dom_parts_needed);
 
   if (task.operation == HTMLConstructionSiteTask::kInsertAlreadyParsedChild) {
     return ExecuteInsertAlreadyParsedChildTask(task);
@@ -447,7 +422,7 @@ void HTMLConstructionSite::FlushPendingText() {
     task.parent = pending_text_.parent;
     task.next_child = pending_text_.next_child;
     task.child = Text::Create(task.parent->GetDocument(), std::move(substring));
-    if (PreprocessInsertionTask(task)) {
+    if (SanitizeIfNeeded(task)) {
       QueueTask(task, false);
     }
     DCHECK_EQ(To<Text>(task.child.Get())->length(),
@@ -464,9 +439,39 @@ void HTMLConstructionSite::QueueTask(const HTMLConstructionSiteTask& task,
   task_queue_.push_back(task);
 }
 
+bool HTMLConstructionSite::SanitizeIfNeeded(HTMLConstructionSiteTask& task) {
+  // TODO(nrosenthal): sanitize also reparenting etc?
+  CHECK(task.operation == HTMLConstructionSiteTask::Operation::kInsert ||
+        task.operation == HTMLConstructionSiteTask::Operation::kInsertText);
+  if (!RuntimeEnabledFeatures::DocumentPatchingEnabled() || !task.child ||
+      !sanitizer_) {
+    return true;
+  }
+
+  // Sanitize the node itself, e.g. to remove forbidden attributes or to reject
+  // it if it is a forbidden element.
+  if (!sanitizer_->Sanitize(task.child)) {
+    return false;
+  }
+
+  HTMLStackItem* next = open_elements_.TopStackItem();
+
+  // Find the next item in stack that should not be replaced with children
+  // according to the sanitizer.
+  while (sanitizer_->ShouldReplaceWithChildren(next->GetNode())) {
+    CHECK(next);
+    next = next->NextItemInStack();
+    task.parent = next->GetNode();
+    if (!task.parent) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void HTMLConstructionSite::AttachLater(ContainerNode* parent,
                                        Node* child,
-                                       const DOMPartsNeeded& dom_parts_needed,
                                        bool self_closing) {
   auto* element = DynamicTo<Element>(child);
   DCHECK(is_scripting_content_allowed_ || !element ||
@@ -478,15 +483,9 @@ void HTMLConstructionSite::AttachLater(ContainerNode* parent,
   task.parent = parent;
   task.child = child;
   task.self_closing = self_closing;
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled() || !dom_parts_needed);
-  task.dom_parts_needed = dom_parts_needed;
 
   if (ShouldFosterParent()) {
     FosterParent(task.child);
-    return;
-  }
-
-  if (!PreprocessInsertionTask(task)) {
     return;
   }
 
@@ -500,7 +499,9 @@ void HTMLConstructionSite::AttachLater(ContainerNode* parent,
   }
 
   DCHECK(task.parent);
-  QueueTask(task, true);
+  if (SanitizeIfNeeded(task)) {
+    QueueTask(task, true);
+  }
 }
 
 void HTMLConstructionSite::ExecuteQueuedTasks() {
@@ -542,10 +543,6 @@ HTMLConstructionSite::HTMLConstructionSite(
       attachment_root_(fragment_target && fragment_target->IsDocumentFragment()
                            ? fragment_target
                            : static_cast<ContainerNode*>(&document)),
-      pending_dom_parts_(
-          RuntimeEnabledFeatures::DOMPartsAPIEnabled()
-              ? MakeGarbageCollected<PendingDOMParts>(attachment_root_)
-              : nullptr),
       parser_content_policy_(parser_content_policy),
       is_scripting_content_allowed_(
           ScriptingContentIsAllowed(parser_content_policy)),
@@ -586,7 +583,6 @@ void HTMLConstructionSite::Trace(Visitor* visitor) const {
   visitor->Trace(active_formatting_elements_);
   visitor->Trace(task_queue_);
   visitor->Trace(pending_text_);
-  visitor->Trace(pending_dom_parts_);
   visitor->Trace(custom_element_registry_);
   visitor->Trace(sanitizer_);
 }
@@ -616,7 +612,7 @@ void HTMLConstructionSite::InsertHTMLHtmlStartTagBeforeHTML(
     element = MakeGarbageCollected<HTMLHtmlElement>(*document_);
   }
   SetAttributes(element, token);
-  AttachLater(attachment_root_, element, token->GetDOMPartsNeeded());
+  AttachLater(attachment_root_, element);
   open_elements_.PushHTMLHtmlElement(HTMLStackItem::Create(element, token));
 
   ExecuteQueuedTasks();
@@ -681,122 +677,122 @@ void HTMLConstructionSite::SetCompatibilityModeFromDoctype(
 
   // Check for Quirks Mode.
   if (tag != html_names::HTMLTag::kHTML ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "+//Silmaril//dtd html Pro v0r11 19970101//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//AdvaSoft Ltd//DTD HTML 3.0 asWedit + extensions//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//AS//DTD HTML 3.0 asWedit + extensions//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML 2.0 Level 1//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML 2.0 Level 2//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML 2.0 Strict Level 1//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML 2.0 Strict Level 2//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 2.0 Strict//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 2.0//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 2.1E//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 3.0//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 3.2 Final//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 3.2//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML 3//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML Level 0//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML Level 1//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML Level 2//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML Level 3//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 2.0 Strict//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 2.0//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 2.1E//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 3.0//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 3.2 Final//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 3.2//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML 3//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML Level 0//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML Level 1//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML Level 2//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML Level 3//") ||
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML Strict Level 0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML Strict Level 1//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML Strict Level 2//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//IETF//DTD HTML Strict Level 3//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML Strict//") ||
-      public_id.StartsWithIgnoringASCIICase("-//IETF//DTD HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML Strict//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//IETF//DTD HTML//") ||
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Metrius//DTD Metrius Presentational//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Microsoft//DTD Internet Explorer 2.0 HTML Strict//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Microsoft//DTD Internet Explorer 2.0 HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Microsoft//DTD Internet Explorer 2.0 Tables//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Microsoft//DTD Internet Explorer 3.0 HTML Strict//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Microsoft//DTD Internet Explorer 3.0 HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Microsoft//DTD Internet Explorer 3.0 Tables//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Netscape Comm. Corp.//DTD HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Netscape Comm. Corp.//DTD Strict HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//O'Reilly and Associates//DTD HTML 2.0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//O'Reilly and Associates//DTD HTML Extended 1.0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//O'Reilly and Associates//DTD HTML Extended Relaxed 1.0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//SoftQuad Software//DTD HoTMetaL PRO "
           "6.0::19990601::extensions to HTML 4.0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//SoftQuad//DTD HoTMetaL PRO "
           "4.0::19971010::extensions to HTML 4.0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Spyglass//DTD HTML 2.0 Extended//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//SQ//DTD HTML 2.0 HoTMetaL + extensions//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Sun Microsystems Corp.//DTD HotJava HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//Sun Microsystems Corp.//DTD HotJava Strict HTML//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD HTML 3 1995-03-24//") ||
-      public_id.StartsWithIgnoringASCIICase("-//W3C//DTD HTML 3.2 Draft//") ||
-      public_id.StartsWithIgnoringASCIICase("-//W3C//DTD HTML 3.2 Final//") ||
-      public_id.StartsWithIgnoringASCIICase("-//W3C//DTD HTML 3.2//") ||
-      public_id.StartsWithIgnoringASCIICase("-//W3C//DTD HTML 3.2S Draft//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase("-//W3C//DTD HTML 3.2 Draft//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//W3C//DTD HTML 3.2 Final//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//W3C//DTD HTML 3.2//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//W3C//DTD HTML 3.2S Draft//") ||
+      public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD HTML 4.0 Frameset//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD HTML 4.0 Transitional//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD HTML Experimental 19960712//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD HTML Experimental 970421//") ||
-      public_id.StartsWithIgnoringASCIICase("-//W3C//DTD W3 HTML//") ||
-      public_id.StartsWithIgnoringASCIICase("-//W3O//DTD W3 HTML 3.0//") ||
-      EqualIgnoringASCIICase(public_id,
+      public_id.StartsWithIgnoringAsciiCase("-//W3C//DTD W3 HTML//") ||
+      public_id.StartsWithIgnoringAsciiCase("-//W3O//DTD W3 HTML 3.0//") ||
+      EqualIgnoringAsciiCase(public_id,
                              "-//W3O//DTD W3 HTML Strict 3.0//EN//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//WebTechs//DTD Mozilla HTML 2.0//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//WebTechs//DTD Mozilla HTML//") ||
-      EqualIgnoringASCIICase(public_id, "-/W3C/DTD HTML 4.0 Transitional/EN") ||
-      EqualIgnoringASCIICase(public_id, "HTML") ||
-      EqualIgnoringASCIICase(
+      EqualIgnoringAsciiCase(public_id, "-/W3C/DTD HTML 4.0 Transitional/EN") ||
+      EqualIgnoringAsciiCase(public_id, "HTML") ||
+      EqualIgnoringAsciiCase(
           system_id,
           "http://www.ibm.com/data/dtd/v11/ibmxhtml1-transitional.dtd") ||
-      (system_id.empty() && public_id.StartsWithIgnoringASCIICase(
+      (system_id.empty() && public_id.StartsWithIgnoringAsciiCase(
                                 "-//W3C//DTD HTML 4.01 Frameset//")) ||
-      (system_id.empty() && public_id.StartsWithIgnoringASCIICase(
+      (system_id.empty() && public_id.StartsWithIgnoringAsciiCase(
                                 "-//W3C//DTD HTML 4.01 Transitional//"))) {
     SetCompatibilityMode(Document::kQuirksMode);
     return;
   }
 
   // Check for Limited Quirks Mode.
-  if (public_id.StartsWithIgnoringASCIICase(
+  if (public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD XHTML 1.0 Frameset//") ||
-      public_id.StartsWithIgnoringASCIICase(
+      public_id.StartsWithIgnoringAsciiCase(
           "-//W3C//DTD XHTML 1.0 Transitional//") ||
-      (!system_id.empty() && public_id.StartsWithIgnoringASCIICase(
+      (!system_id.empty() && public_id.StartsWithIgnoringAsciiCase(
                                  "-//W3C//DTD HTML 4.01 Frameset//")) ||
-      (!system_id.empty() && public_id.StartsWithIgnoringASCIICase(
+      (!system_id.empty() && public_id.StartsWithIgnoringAsciiCase(
                                  "-//W3C//DTD HTML 4.01 Transitional//"))) {
     SetCompatibilityMode(Document::kLimitedQuirksMode);
     return;
@@ -849,45 +845,41 @@ void HTMLConstructionSite::InsertDoctype(AtomicHTMLToken* token) {
   }
 }
 
+namespace {
+ProcessingInstruction* CreateProcessingInstructionFromToken(
+    AtomicHTMLToken* token,
+    Document& document) {
+  return MakeGarbageCollected<ProcessingInstruction>(
+      document, token->ProcessingInstructionTarget(),
+      token->ProcessingInstructionData());
+}
+}  // namespace
+
+void HTMLConstructionSite::InsertProcessingInstruction(AtomicHTMLToken* token) {
+  DCHECK_EQ(token->GetType(), HTMLToken::kProcessingInstruction);
+  AttachLater(CurrentNode(), CreateProcessingInstructionFromToken(
+                                 token, OwnerDocumentForCurrentNode()));
+}
+
+void HTMLConstructionSite::InsertProcessingInstructionOnDocument(
+    AtomicHTMLToken* token) {
+  DCHECK_EQ(token->GetType(), HTMLToken::kProcessingInstruction);
+  AttachLater(attachment_root_,
+              CreateProcessingInstructionFromToken(token, *document_));
+}
+
+void HTMLConstructionSite::InsertProcessingInstructionOnHTMLHtmlElement(
+    AtomicHTMLToken* token) {
+  DCHECK_EQ(token->GetType(), HTMLToken::kProcessingInstruction);
+  AttachLater(open_elements_.RootNode(),
+              CreateProcessingInstructionFromToken(token, *document_));
+}
+
 void HTMLConstructionSite::InsertComment(AtomicHTMLToken* token) {
   DCHECK_EQ(token->GetType(), HTMLToken::kComment);
   auto comment = token->Comment();
   Comment& comment_node =
       *Comment::Create(OwnerDocumentForCurrentNode(), comment);
-  AttachLater(CurrentNode(), &comment_node);
-}
-
-void HTMLConstructionSite::InsertDOMPart(AtomicHTMLToken* token) {
-  DCHECK_EQ(token->GetType(), HTMLToken::kDOMPart);
-  CHECK(pending_dom_parts_);
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(InParsePartsScope());
-  // Insert an empty comment in place of the part token.
-  Comment& comment_node = *Comment::Create(OwnerDocumentForCurrentNode(), "");
-  if (RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled()) {
-    // Just set a bit on this comment node that it has a NodePart, and change
-    // the content of the comment to kChildNodePartStartCommentData or
-    // kChildNodePartEndCommentData, as appropriate.
-    comment_node.SetHasNodePart();
-    switch (token->DOMPartType()) {
-      case DOMPartTokenType::kChildNodePartStart:
-        comment_node.setData(kChildNodePartStartCommentData);
-        break;
-      case DOMPartTokenType::kChildNodePartEnd:
-        comment_node.setData(kChildNodePartEndCommentData);
-        break;
-    }
-  } else {
-    switch (token->DOMPartType()) {
-      case DOMPartTokenType::kChildNodePartStart:
-        pending_dom_parts_->AddChildNodePartStart(comment_node,
-                                                  token->DOMPartMetadata());
-        break;
-      case DOMPartTokenType::kChildNodePartEnd:
-        pending_dom_parts_->AddChildNodePartEnd(comment_node);
-        break;
-    }
-  }
   AttachLater(CurrentNode(), &comment_node);
 }
 
@@ -908,14 +900,14 @@ void HTMLConstructionSite::InsertHTMLHeadElement(AtomicHTMLToken* token) {
   DCHECK(!ShouldFosterParent());
   head_ = HTMLStackItem::Create(
       CreateElement(token, html_names::xhtmlNamespaceURI), token);
-  AttachLater(CurrentNode(), head_->GetElement(), token->GetDOMPartsNeeded());
+  AttachLater(CurrentNode(), head_->GetElement());
   open_elements_.PushHTMLHeadElement(head_);
 }
 
 void HTMLConstructionSite::InsertHTMLBodyElement(AtomicHTMLToken* token) {
   DCHECK(!ShouldFosterParent());
   Element* body = CreateElement(token, html_names::xhtmlNamespaceURI);
-  AttachLater(CurrentNode(), body, token->GetDOMPartsNeeded());
+  AttachLater(CurrentNode(), body);
   open_elements_.PushHTMLBodyElement(HTMLStackItem::Create(body, token));
   if (document_)
     document_->WillInsertBody();
@@ -931,50 +923,9 @@ void HTMLConstructionSite::InsertHTMLFormElement(AtomicHTMLToken* token,
     UseCounter::Count(OwnerDocumentForCurrentNode(),
                       WebFeature::kDemotedFormElement);
   }
-  AttachLater(CurrentNode(), form_element, token->GetDOMPartsNeeded());
+  AttachLater(CurrentNode(), form_element);
   open_elements_.Push(HTMLStackItem::Create(form_element, token));
 }
-
-namespace {
-
-enum class ContentMethod {
-  kNone,
-  kReplace,
-  kReplaceChildren,
-  kAppend,
-  kPrepend
-};
-
-ContentMethod GetContentMethod(HTMLTemplateElement* template_element) {
-  if (!RuntimeEnabledFeatures::DocumentPatchingEnabled() ||
-      !template_element->FastHasAttribute(html_names::kContentmethodAttr)) {
-    return ContentMethod::kNone;
-  }
-
-  const AtomicString& method =
-      template_element->FastGetAttribute(html_names::kContentmethodAttr);
-
-  DEFINE_STATIC_LOCAL(AtomicString, kReplace, ("replace"));
-  DEFINE_STATIC_LOCAL(AtomicString, kReplaceChildren, ("replace-children"));
-  DEFINE_STATIC_LOCAL(AtomicString, kAppend, ("append"));
-  DEFINE_STATIC_LOCAL(AtomicString, kPrepend, ("prepend"));
-
-  if (method == kReplace) {
-    return ContentMethod::kReplace;
-  }
-  if (method == kReplaceChildren) {
-    return ContentMethod::kReplaceChildren;
-  }
-  if (method == kAppend) {
-    return ContentMethod::kAppend;
-  }
-  if (method == kPrepend) {
-    return ContentMethod::kPrepend;
-  }
-  return ContentMethod::kNone;
-}
-
-}  // namespace
 
 void HTMLConstructionSite::InsertHTMLTemplateElement(
     AtomicHTMLToken* token,
@@ -1024,10 +975,20 @@ void HTMLConstructionSite::InsertHTMLTemplateElement(
         template_stack_item->GetAttributeItem(
             html_names::kShadowrootcustomelementregistryAttr);
 
+    Vector<AtomicString> marker_list;
+    if (auto* marker = template_element->GetMarker()) {
+      CHECK(RuntimeEnabledFeatures::DocumentPatchingEnabled());
+      const auto& token_set = marker->TokenSet();
+      marker_list.reserve(token_set.size());
+      for (const auto& marker_token : token_set) {
+        marker_list.push_back(marker_token);
+      }
+    }
+
     bool success = host->AttachDeclarativeShadowRoot(
         *template_element, declarative_shadow_root_mode, focus_delegation,
         slot_assignment_mode, serializable, clonable, adopted_stylesheets,
-        reference_target, waiting_for_scoped_registry);
+        reference_target, waiting_for_scoped_registry, marker_list);
     // If the shadow root attachment fails, e.g. if the host element isn't a
     // valid shadow host, then we leave should_attach_template true, so that
     // a "normal" template element gets attached to the DOM tree.
@@ -1039,26 +1000,22 @@ void HTMLConstructionSite::InsertHTMLTemplateElement(
       template_element->SetOverrideInsertionTarget(*host->AuthorShadowRoot());
     }
   }
-  if (should_attach_template) {
-    // Attach a normal template element, as long as it doesn't have
-    // contentmethod.
-    if (GetContentMethod(template_element) == ContentMethod::kNone) {
-      AttachLater(CurrentNode(), template_element, token->GetDOMPartsNeeded());
-    }
 
-    DocumentFragment* template_content = template_element->content();
-    if (pending_dom_parts_ && template_content &&
-        !RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled()) {
-      DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-      pending_dom_parts_->PushPartRoot(&template_content->getPartRoot());
-    }
+  if (should_attach_template &&
+      template_element->BeginPatch(*open_elements_.TopStackItem()->GetNode())) {
+    CHECK(RuntimeEnabledFeatures::DocumentPatchingEnabled());
+    should_attach_template = false;
+  }
+
+  if (should_attach_template) {
+    AttachLater(CurrentNode(), template_element);
   }
   open_elements_.Push(template_stack_item);
 }
 
 void HTMLConstructionSite::InsertHTMLElement(AtomicHTMLToken* token) {
   Element* element = CreateElement(token, html_names::xhtmlNamespaceURI);
-  AttachLater(CurrentNode(), element, token->GetDOMPartsNeeded());
+  AttachLater(CurrentNode(), element);
   open_elements_.Push(HTMLStackItem::Create(element, token));
 }
 
@@ -1070,7 +1027,7 @@ void HTMLConstructionSite::InsertSelfClosingHTMLElementDestroyingToken(
   // doesn't get a chance to tell them that we're done parsing their children.
   AttachLater(CurrentNode(),
               CreateElement(token, html_names::xhtmlNamespaceURI),
-              token->GetDOMPartsNeeded(), /*self_closing*/ true);
+              /*self_closing*/ true);
   // FIXME: Do we want to acknowledge the token's self-closing flag?
   // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#acknowledge-self-closing-flag
 }
@@ -1109,7 +1066,7 @@ void HTMLConstructionSite::InsertScriptElement(AtomicHTMLToken* token) {
   }
   SetAttributes(element, token);
   if (is_scripting_content_allowed_)
-    AttachLater(CurrentNode(), element, token->GetDOMPartsNeeded());
+    AttachLater(CurrentNode(), element);
   open_elements_.Push(HTMLStackItem::Create(element, token));
 }
 
@@ -1122,9 +1079,7 @@ void HTMLConstructionSite::InsertForeignElement(
 
   Element* element = CreateElement(token, namespace_uri);
   if (is_scripting_content_allowed_ || !element->IsScriptElement()) {
-    DCHECK(!token->GetDOMPartsNeeded());
-    AttachLater(CurrentNode(), element, /*dom_parts_needed*/ {},
-                token->SelfClosing());
+    AttachLater(CurrentNode(), element, token->SelfClosing());
   }
   if (!token->SelfClosing()) {
     open_elements_.Push(HTMLStackItem::Create(element, token, namespace_uri));
@@ -1145,6 +1100,7 @@ void HTMLConstructionSite::InsertTextNode(const StringView& string,
     // element won't be able to initialize its contents.
     if (auto* insertion_target = template_element->InsertionTarget()) {
       dummy_task.parent = insertion_target;
+      dummy_task.next_child = template_element->InsertionNextChild();
     }
   }
 
@@ -1283,6 +1239,12 @@ Element* HTMLConstructionSite::CreateElement(
       } else {
         registry = CurrentElement()->customElementRegistry();
       }
+    }
+    // If the token has the "customelementregistry" content attribute, override
+    // the registry to null. This allows declarative opt-out from the default
+    // registry during parsing.
+    if (token->GetAttributeItem(html_names::kCustomelementregistryAttr)) {
+      registry = nullptr;
     }
   }
   // 8. Let definition be the result of looking up a custom element definition
@@ -1526,249 +1488,9 @@ void HTMLConstructionSite::FosterParent(Node* node) {
   QueueTask(task, true);
 }
 
-void HTMLConstructionSite::FinishedTemplateElement(
-    DocumentFragment* content_fragment) {
-  if (!pending_dom_parts_) {
-    return;
-  }
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  if (!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled()) {
-    pending_dom_parts_->PopPartRoot();
-  }
-}
-
-bool HTMLConstructionSite::PreprocessInsertionTask(
-    HTMLConstructionSiteTask& task) {
-  CHECK(task.operation == HTMLConstructionSiteTask::Operation::kInsert ||
-        task.operation == HTMLConstructionSiteTask::Operation::kInsertText);
-  if (!RuntimeEnabledFeatures::DocumentPatchingEnabled() || !task.child) {
-    return true;
-  }
-
-  if (sanitizer_) {
-    if (!sanitizer_->Sanitize(task.child)) {
-      return false;
-    }
-
-    HTMLStackItem* next = open_elements_.TopStackItem();
-
-    // Find the next item in stack that should not be replaced with children
-    // according to the sanitizer.
-    while (sanitizer_->ShouldReplaceWithChildren(next->GetNode())) {
-      next = next->NextItemInStack();
-      task.parent = next->GetNode();
-    }
-    if (!task.parent) {
-      return false;
-    }
-  }
-
-  if (OpenElements()->StackDepth() < 2) {
-    return true;
-  }
-  HTMLStackItem* top = open_elements_.TopStackItem();
-  CHECK(top);
-
-  HTMLStackItem* one_below_top = top->NextItemInStack();
-  if (task.parent != top->GetNode() || !one_below_top) {
-    return true;
-  }
-
-  // This means that we have a <template contentmethod> grandparent,
-  // and we're inserting directly into the target specified by the current
-  // parent. This is set below.
-  if (ContainerNode* insertion_target =
-          one_below_top->AdjustedInsertionTarget()) {
-    CHECK(one_below_top->MatchesHTMLTag(html_names::HTMLTag::kTemplate));
-    // When prepending, the "next child" for insertions would be the first child
-    // at the time of discovering the current parent (the <... contentname>
-    // element). This is set below (see the kPrepend handling).
-    Node* adjusted_next_child = one_below_top->AdjustedInsertionNextChild();
-    if (adjusted_next_child &&
-        adjusted_next_child->parentNode() != insertion_target) {
-      return true;
-    }
-    task.parent = insertion_target;
-
-    if (adjusted_next_child && !task.next_child) {
-      task.next_child = adjusted_next_child;
-    }
-    return true;
-  }
-
-  HTMLTemplateElement* top_template =
-      DynamicTo<HTMLTemplateElement>(top->GetElement());
-
-  if (!top_template || top_template->IsShadowRootModeTemplate()) {
-    return true;
-  }
-
-  top->SetAdjustedInsertionTarget(nullptr);
-  top->SetAdjustedInsertionNextChild(nullptr);
-
-  const ContentMethod content_method = GetContentMethod(top_template);
-  if (content_method == ContentMethod::kNone) {
-    return true;
-  }
-  Element* child_element = DynamicTo<Element>(*task.child);
-  if (!child_element ||
-      !child_element->FastHasAttribute(html_names::kContentnameAttr)) {
-    return true;
-  }
-
-  ContainerNode* context_node = one_below_top->GetNode();
-  CHECK(context_node);
-  if (HTMLTemplateElement* context_template =
-          DynamicTo<HTMLTemplateElement>(context_node)) {
-    context_node = context_template->InsertionTarget();
-  } else if (context_node == context_node->GetDocument().FirstBodyElement()) {
-    // Allow patches that are direct descendants of <body> to also modify
-    // <head>.
-    context_node = context_node->GetDocument().documentElement();
-  }
-
-  const AtomicString& content_name =
-      child_element->FastGetAttribute(html_names::kContentnameAttr);
-  const HTMLCollection* candidates = context_node->getElementsByTagNameNS(
-      child_element->TagQName().NamespaceURI(),
-      child_element->TagQName().LocalName());
-
-  auto result = std::find_if(
-      candidates->begin(), candidates->end(), [&](Element* candidate) {
-        return candidate->FastGetAttribute(html_names::kContentnameAttr) ==
-               content_name;
-      });
-
-  if (result.AtEnd()) {
-    return true;
-  }
-
-  Element* target = *result;
-
-  if (content_method == ContentMethod::kReplace) {
-    task.parent = target->parentNode();
-    task.next_child = target;
-    task.operation = HTMLConstructionSiteTask::Operation::kReplaceChild;
-    return true;
-  }
-
-  top->SetAdjustedInsertionTarget(target);
-  switch (content_method) {
-    case ContentMethod::kAppend:
-      return true;
-    case ContentMethod::kPrepend:
-      top->SetAdjustedInsertionNextChild(target->firstChild());
-      return true;
-    case ContentMethod::kReplaceChildren: {
-      HTMLConstructionSiteTask remove_task(
-          HTMLConstructionSiteTask::kRemoveChildren);
-      remove_task.parent = target;
-      QueueTask(remove_task, /*flush_pending_text=*/false);
-      return true;
-    }
-    default:
-      NOTREACHED();
-  }
-}
-
-HTMLConstructionSite::PendingDOMParts::PendingDOMParts(
-    ContainerNode* attachment_root) {
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  if (Document* document = DynamicTo<Document>(attachment_root)) {
-    part_root_stack_.push_back(&document->getPartRoot());
-  } else {
-    DocumentFragment* fragment = DynamicTo<DocumentFragment>(attachment_root);
-    CHECK(fragment) << "Attachment root should be Document or DocumentFragment";
-    part_root_stack_.push_back(&fragment->getPartRoot());
-  }
-}
-
-void HTMLConstructionSite::PendingDOMParts::AddChildNodePartStart(
-    Node& previous_sibling,
-    Vector<String> metadata) {
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
-  // Note that this ChildNodePart is constructed with both `previous_sibling`
-  // and `next_sibling` pointing to the same node, `previous_sibling`. That's
-  // because at this point we will move on to parse the children of this
-  // ChildNodePart, and at that point, we'll need a constructed PartRoot for
-  // those to attach to. So we build this currently-invalid ChildNodePart, and
-  // then update its `next_sibling` later when we find it, rendering it (and
-  // any dependant Parts) valid.
-  ChildNodePart* new_part = MakeGarbageCollected<ChildNodePart>(
-      *CurrentPartRoot(), previous_sibling, previous_sibling,
-      std::move(metadata));
-  part_root_stack_.push_back(new_part);
-}
-
-void HTMLConstructionSite::PendingDOMParts::AddChildNodePartEnd(
-    Node& next_sibling) {
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
-  PartRoot* current_part_root = CurrentPartRoot();
-  if (current_part_root->IsDocumentPartRoot()) {
-    // Mismatched opening/closing child parts.
-    return;
-  }
-  ChildNodePart* last_child_node_part =
-      static_cast<ChildNodePart*>(current_part_root);
-  last_child_node_part->setNextSibling(next_sibling);
-  part_root_stack_.pop_back();
-}
-
-void HTMLConstructionSite::PendingDOMParts::ConstructDOMPartsIfNeeded(
-    Node& last_node,
-    const DOMPartsNeeded& dom_parts_needed) {
-  if (!dom_parts_needed) {
-    return;
-  }
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
-  DCHECK(pending_node_part_metadata_.empty());
-  // For now, there's no syntax for metadata, so just use empty.
-  Vector<String> metadata;
-  if (dom_parts_needed.needs_node_part) {
-    MakeGarbageCollected<NodePart>(*CurrentPartRoot(), last_node, metadata);
-  }
-  if (!dom_parts_needed.needs_attribute_parts.empty()) {
-    Element& element = To<Element>(last_node);
-    for (auto attribute_name : dom_parts_needed.needs_attribute_parts) {
-      MakeGarbageCollected<AttributePart>(*CurrentPartRoot(), element,
-                                          attribute_name, metadata);
-    }
-  }
-}
-
-PartRoot* HTMLConstructionSite::PendingDOMParts::CurrentPartRoot() const {
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
-  CHECK(!part_root_stack_.empty());
-  return part_root_stack_.back().Get();
-}
-
-void HTMLConstructionSite::PendingDOMParts::PushPartRoot(PartRoot* root) {
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
-  DCHECK(root);
-  return part_root_stack_.push_back(root);
-}
-
-PartRoot* HTMLConstructionSite::PendingDOMParts::PopPartRoot() {
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  DCHECK(!RuntimeEnabledFeatures::DOMPartsAPIMinimalEnabled());
-  CHECK(!part_root_stack_.empty());
-  PartRoot* popped = part_root_stack_.back();
-  part_root_stack_.pop_back();
-  return popped;
-}
-
 void HTMLConstructionSite::PendingText::Trace(Visitor* visitor) const {
   visitor->Trace(parent);
   visitor->Trace(next_child);
-}
-
-void HTMLConstructionSite::PendingDOMParts::Trace(Visitor* visitor) const {
-  visitor->Trace(part_root_stack_);
 }
 
 }  // namespace blink

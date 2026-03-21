@@ -105,6 +105,17 @@ void PaintArtifactCompositor::SetTracksRasterInvalidations(bool should_track) {
   }
 }
 
+std::optional<CanvasChildPaintRecord>
+PaintArtifactCompositor::GetCanvasChildPaintRecord(DOMNodeId child_id) const {
+  auto it = canvas_child_layer_map_.find(child_id);
+  if (it == canvas_child_layer_map_.end()) {
+    return std::nullopt;
+  }
+  auto& pending_layer =
+      pending_layers_[canvas_child_layer_map_.find(child_id)->value];
+  return pending_layer.GetCanvasChildPaintRecord();
+}
+
 void PaintArtifactCompositor::WillBeRemovedFromFrame() {
   root_layer_->RemoveAllChildren();
 }
@@ -203,6 +214,11 @@ bool PaintArtifactCompositor::NeedsCompositedScrolling(
     // have an opaque background and composited, not compositing the negative
     // z-index contents won't cause any problem because they (with possible
     // wrong rendering) are obscured by the opaque background.
+    if (RuntimeEnabledFeatures::CanvasDrawElementEnabled() &&
+        scroll_translation.ScrollNode()->GetCompositedScrollingPreference() ==
+            CompositedScrollingPreference::kNotPreferred) {
+      return false;
+    }
     return lcd_text_preference_ != LCDTextPreference::kStronglyPreferred;
   }
   return it->value.is_composited;
@@ -403,6 +419,11 @@ void DumpWithDifferingPaintPropertiesIncluded(const PaintChunk& previous,
   SCOPED_CRASH_KEY_STRING32("ChunkId", "id", previous.id.ToString().Utf8());
 
   base::debug::DumpWithoutCrashing();
+
+  // DCHECK added to facilitate detection by ClusterFuzz.
+  DCHECK(false) << "Paint Property Tree State differs for Paint Chunk: "
+                << "Missing call to PaintArtifactCompositor::"
+                << "SetNeedsUpdate?";
 }
 
 // True if the paint chunk change affects the result of |Update|, such as the
@@ -505,6 +526,18 @@ bool NeedsFullUpdateAfterPaintingChunk(
   }
 
   return false;
+}
+
+// When a child element of <canvas> is rendered via drawElementImage, its paint
+// must be recorded using the canvas element's content clip and effect state.
+PropertyTreeState GetPropertyTreeStateForPaint(
+    const PropertyTreeState& layer_state) {
+  PropertyTreeState result = layer_state;
+  if (layer_state.Effect().HasCanvasChildState()) {
+    result.SetClip(layer_state.Effect().CanvasChildContentClip());
+    result.SetEffect(layer_state.Effect().CanvasChildContentEffect());
+  }
+  return result;
 }
 
 }  // namespace
@@ -1016,6 +1049,7 @@ void PaintArtifactCompositor::Update(
 
   wtf_size_t old_size = pending_layers_.size();
   OldPendingLayerMatcher old_pending_layer_matcher(std::move(pending_layers_));
+  canvas_child_layer_map_.clear();
   CHECK(painted_scroll_translations_.empty());
 
   // Make compositing decisions, storing the result in |pending_layers_|.
@@ -1053,13 +1087,19 @@ void PaintArtifactCompositor::Update(
 
   cc::LayerSelection layer_selection;
   HashSet<int> layers_having_text;
-  for (auto& pending_layer : pending_layers_) {
+  HashSet<int> layers_having_video;
+  for (wtf_size_t i = 0; i < pending_layers_.size(); i++) {
+    auto& pending_layer = pending_layers_[i];
+    const auto& property_state = pending_layer.GetPropertyTreeState();
+    PropertyTreeState property_state_for_paint =
+        GetPropertyTreeStateForPaint(property_state);
+
     pending_layer.UpdateCompositedLayer(
-        old_pending_layer_matcher.Find(pending_layer), layer_selection,
-        tracks_raster_invalidations_, root_layer_->layer_tree_host());
+        old_pending_layer_matcher.Find(pending_layer), property_state_for_paint,
+        layer_selection, tracks_raster_invalidations_,
+        root_layer_->layer_tree_host());
 
     cc::Layer& layer = pending_layer.CcLayer();
-    const auto& property_state = pending_layer.GetPropertyTreeState();
     const auto& transform = property_state.Transform();
     const auto& clip = property_state.Clip();
     const auto& effect = property_state.Effect();
@@ -1077,8 +1117,21 @@ void PaintArtifactCompositor::Update(
       layer.SetElementId(effect.GetCompositorElementId());
       auto& effect_tree = host->property_trees()->effect_tree_mutable();
       auto* cc_node = effect_tree.Node(effect_id);
-      effect_tree.Node(cc_node->parent_id)->backdrop_mask_element_id =
-          effect.GetCompositorElementId();
+      auto* parent_node = effect_tree.Node(cc_node->parent_id);
+
+      // Only set backdrop_mask_element_id if the parent has backdrop_filters.
+      // When synthetic nodes are created for clipping (e.g., overflow:hidden +
+      // border-radius), the backdrop properties are transferred to the
+      // synthetic node, leaving the parent scope node without backdrop_filters.
+      // Setting the mask there causes double-masking. See crbug.com/40778541.
+      if (!parent_node->backdrop_filters.IsEmpty()) {
+        parent_node->backdrop_mask_element_id = effect.GetCompositorElementId();
+      }
+    } else if (pending_layer.GetContentLayerClient() &&
+               !effect.RequiresCompositingForBackdropFilterMask() &&
+               static_cast<cc::PictureLayer&>(layer)
+                   .is_backdrop_filter_mask()) {
+      static_cast<cc::PictureLayer&>(layer).SetIsBackdropFilterMask(false);
     }
 
     int scroll_id =
@@ -1089,6 +1142,9 @@ void PaintArtifactCompositor::Update(
     if (pending_layer.HasText()) {
       layers_having_text.insert(layer.id());
     }
+    if (pending_layer.HasVideo()) {
+      layers_having_video.insert(layer.id());
+    }
 
     layer.set_property_tree_sequence_number(
         root_layer_->property_tree_sequence_number());
@@ -1098,7 +1154,11 @@ void PaintArtifactCompositor::Update(
     layer.SetEffectTreeIndex(effect_id);
     bool backface_hidden = transform.IsBackfaceHidden();
     layer.SetShouldCheckBackfaceVisibility(backface_hidden);
-    layer.SetCanvasChildId(effect.CanvasChildId());
+    if (effect.CanvasChildId()) {
+      canvas_child_layer_map_.Set(effect.CanvasChildId(), i);
+      layer.SetCanvasChildId(
+          CompositorElementIdFromDOMNodeId(effect.CanvasChildId()));
+    }
 
     if (layer.subtree_property_changed())
       root_layer_->SetNeedsCommit();
@@ -1122,7 +1182,7 @@ void PaintArtifactCompositor::Update(
 
   auto layers = layer_list_builder.Finalize();
   property_tree_manager.UpdateConditionalRenderSurfaceReasons(
-      layers, layers_having_text);
+      layers, layers_having_text, layers_having_video);
   root_layer_->SetChildLayerList(std::move(layers));
 
   // In rare cases, we can have painted anchored elements with unpainted
@@ -1186,8 +1246,10 @@ bool PaintArtifactCompositor::TryFastPathUpdate(
     case UpdateType::kRepaint: {
       cc::LayerSelection layer_selection;
       for (auto& pending_layer : pending_layers_) {
-        pending_layer.UpdateCompositedLayerForRepaint(repainted_artifact,
-                                                      layer_selection);
+        PropertyTreeState property_state_for_paint =
+            GetPropertyTreeStateForPaint(pending_layer.GetPropertyTreeState());
+        pending_layer.UpdateCompositedLayerForRepaint(
+            repainted_artifact, property_state_for_paint, layer_selection);
       }
       root_layer_->layer_tree_host()->RegisterSelection(layer_selection);
       UpdateDebugInfo();

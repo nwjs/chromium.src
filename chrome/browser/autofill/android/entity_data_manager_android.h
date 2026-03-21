@@ -9,6 +9,8 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "chrome/browser/autofill/android/entity_instance_android.h"
+#include "chrome/browser/autofill/android/entity_instance_with_labels.h"
 #include "chrome/browser/autofill/android/entity_type_android.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -63,7 +65,8 @@ class EntityDataManagerAndroid : public autofill::EntityDataManager::Observer {
   // Removes the entity instance represented by `guid`.
   void RemoveEntityInstance(JNIEnv* env, const std::string& guid);
 
-  base::android::ScopedJavaLocalRef<jobject> GetEntityInstance(
+  std::optional<EntityInstanceAndroid> GetEntityInstance(
+      JNIEnv* env,
       const std::string& guid);
 
   // Add or replace an `EntityInstance` depending on whether it already exists
@@ -72,13 +75,25 @@ class EntityDataManagerAndroid : public autofill::EntityDataManager::Observer {
                                  const jni_zero::JavaRef<jobject>& jEntity);
 
   // Gets information about all entities to be displayed in the management
-  // service. For each entity, returns an instance of
-  // `EntityInstanceWithLabels.java`;
-  base::android::ScopedJavaLocalRef<jobjectArray> GetEntitiesWithLabels(
-      JNIEnv* env);
+  // service.
+  std::vector<EntityInstanceWithLabels> GetEntitiesWithLabels(JNIEnv* env);
 
   // Returns all types of entities that Autofill AI supports.
   std::vector<EntityTypeAndroid> GetWritableEntityTypes(JNIEnv* env);
+
+  // Returns all entity types that Autofill AI supports, sorted by
+  // usefulness.
+  std::vector<EntityTypeAndroid> GetSortedEntityTypesForListDisplay(
+      JNIEnv* env) const;
+
+  // Checks whether Autofill AI is disabled by enterprise policy.
+  // TODO(crbug.com/468236777): Return `ModelExecutionEnterprisePolicyValue`
+  // enum instead of having a specific method to check the policy pref state.
+  bool GetIsAutofillAiDisabledByEnterprisePolicy(JNIEnv* env);
+
+  // Checks whether Autofill AI is enabled by enterprise policy but without
+  // logging.
+  bool GetIsAutofillAiEnabledByEnterprisePolicyWithoutLogging(JNIEnv* env);
 
  private:
   ~EntityDataManagerAndroid() override;

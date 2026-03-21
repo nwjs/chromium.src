@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/nix/xdg_util.h"
 #include "base/notreached.h"
@@ -353,7 +354,9 @@ TEST(GlobalAcceleratorListenerLinuxTest, OnCommandsChanged) {
         });
 
     global_shortcut_listener->OnCommandsChanged(
-        kExtensionId, kProfileId, commands, widget, observer.get());
+        kExtensionId, kProfileId, commands, widget,
+        base::BindRepeating(&MockObserver::ExecuteCommand,
+                            base::Unretained(observer.get())));
   };
 
   commands[kCommandName] = ui::Command(kCommandName, kShortcutDescription,
@@ -386,6 +389,7 @@ TEST(GlobalAcceleratorListenerLinuxTest, OnCommandsChanged) {
   writer.AppendObjectPath(session_proxy->object_path());
   writer.AppendString(expected_command_id);
   writer.AppendUint64(0);  // timestamp
+  dbus_utils::WriteValue(writer, DbusDictionary());  // options
   activated_callback.Run(&signal);
 
   // Cleanup

@@ -98,8 +98,9 @@ using ExpectedMatchComponents = std::vector<ExpectedMatchComponent>;
 void VerifyMatchComponents(const ExpectedMatchComponents& expected,
                            const AutocompleteMatch& match) {
   std::u16string expected_string;
-  for (const auto& component : expected)
+  for (const auto& component : expected) {
     expected_string += component.text;
+  }
 
   EXPECT_EQ(expected_string, match.contents);
 
@@ -386,7 +387,7 @@ IN_PROC_BROWSER_TEST_P(OmniboxApiTest, OnInputEntered) {
 
 // Tests receiving suggestions from and sending input to the incognito context
 // of an incognito split mode extension.
-// Regression test for https://crbug.com/100927.
+// Regression test for https://crbug.com/40100987.
 IN_PROC_BROWSER_TEST_P(OmniboxApiTest, IncognitoSplitMode) {
   static constexpr char kManifest[] =
       R"({

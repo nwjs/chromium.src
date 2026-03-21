@@ -22,11 +22,11 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -83,7 +83,7 @@ public class TransitiveObservableSupplierTest {
                 parentSupplier.createTransitiveNullable(obs -> obs);
         assertNull(transitiveSupplier.get());
 
-        assertNull(transitiveSupplier.addObserver(mOnChangeCallback));
+        assertNull(transitiveSupplier.addSyncObserverAndPostIfNonNull(mOnChangeCallback));
         verifyNoInteractions(mOnChangeCallback);
 
         parentSupplier.set(targetSupplier1);
@@ -123,7 +123,7 @@ public class TransitiveObservableSupplierTest {
 
         NullableObservableSupplier<String> transitiveSupplier =
                 parentSupplier.createTransitiveNullable(obs -> obs);
-        assertNull(transitiveSupplier.addObserver(mOnChangeCallback));
+        assertNull(transitiveSupplier.addSyncObserverAndPostIfNonNull(mOnChangeCallback));
         assertTrue(parentSupplier.hasObservers());
         assertTrue(targetSupplier.hasObservers());
 
@@ -131,7 +131,8 @@ public class TransitiveObservableSupplierTest {
         assertEquals("valueA", transitiveSupplier.get());
         verify(mOnChangeCallback).onResult(eq("valueA"));
 
-        assertEquals("valueA", transitiveSupplier.addObserver(mOnChangeCallback));
+        assertEquals(
+                "valueA", transitiveSupplier.addSyncObserverAndPostIfNonNull(mOnChangeCallback));
         transitiveSupplier.removeObserver(mOnChangeCallback);
         assertFalse(parentSupplier.hasObservers());
         assertFalse(targetSupplier.hasObservers());
@@ -150,9 +151,10 @@ public class TransitiveObservableSupplierTest {
                 parentSupplier.createTransitiveNullable(obs -> obs);
         assertEquals("valueA", transitiveSupplier.get());
 
-        assertEquals("valueA", transitiveSupplier.addObserver(mOnChangeCallback));
+        assertEquals(
+                "valueA", transitiveSupplier.addSyncObserverAndPostIfNonNull(mOnChangeCallback));
         assertEquals("valueA", transitiveSupplier.get());
-        ShadowLooper.idleMainLooper();
+        RobolectricUtil.runAllBackgroundAndUi();
         verify(mOnChangeCallback).onResult(eq("valueA"));
     }
 
@@ -177,7 +179,7 @@ public class TransitiveObservableSupplierTest {
 
         assertEquals(
                 "valueA", transitiveSupplier.addSyncObserverAndCallIfNonNull(mOnChangeCallback));
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         verify(mOnChangeCallback).onResult(eq("valueA"));
     }
 
@@ -201,7 +203,7 @@ public class TransitiveObservableSupplierTest {
         verifyNoInteractions(mOnChangeCallback);
 
         assertEquals("valueA", transitiveSupplier.addSyncObserver(mOnChangeCallback));
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
         verifyNoInteractions(mOnChangeCallback);
 
         targetSupplier1.set("valueB");
@@ -260,11 +262,12 @@ public class TransitiveObservableSupplierTest {
         monotonicSupplier.set("foo");
         assertThrows(
                 AssertionError.class,
-                () ->
-                        monotonicSupplier
-                                .createTransitiveMonotonic(
-                                        parent -> (MonotonicObservableSupplier<?>) nullableSupplier)
-                                .addObserver(CallbackUtils.emptyCallback()));
+                () -> {
+                    monotonicSupplier
+                            .createTransitiveMonotonic(
+                                    parent -> (MonotonicObservableSupplier<?>) nullableSupplier)
+                            .addSyncObserverAndPostIfNonNull(CallbackUtils.emptyCallback());
+                });
 
         SettableMonotonicObservableSupplier<String> monotonicSupplier2 =
                 ObservableSuppliers.createMonotonic();
@@ -272,7 +275,7 @@ public class TransitiveObservableSupplierTest {
                 new AtomicReference<>(monotonicSupplier2);
         MonotonicObservableSupplier<String> transMonotonic =
                 monotonicSupplier.createTransitiveMonotonic(unused -> retValue.get());
-        assertNull(transMonotonic.addObserver(mOnChangeCallback));
+        assertNull(transMonotonic.addSyncObserverAndPostIfNonNull(mOnChangeCallback));
         monotonicSupplier2.set("foo");
         verify(mOnChangeCallback).onResult("foo");
         clearInvocations(mOnChangeCallback);

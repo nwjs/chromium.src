@@ -65,15 +65,6 @@ export class ExtensionsSectionElement extends CrLitElement {
   private updateHeightInterval_: number = 0;
   private collapseAnimationDuration_: number = 0;
 
-  override firstUpdated() {
-    // Compute the animation duration/intervals once on startup.
-    this.collapseAnimationDuration_ =
-        parseInt(getComputedStyle(this).getPropertyValue(
-            '--iron-collapse-transition-duration'));
-    this.updateHeightInterval_ =
-        this.collapseAnimationDuration_ / UPDATE_REQUEST_COUNT;
-  }
-
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
@@ -89,11 +80,20 @@ export class ExtensionsSectionElement extends CrLitElement {
     }
   }
 
+  override firstUpdated() {
+    // Compute the animation duration/intervals once on startup.
+    this.collapseAnimationDuration_ =
+        parseInt(getComputedStyle(this).getPropertyValue(
+            '--iron-collapse-transition-duration'));
+    this.updateHeightInterval_ =
+        this.collapseAnimationDuration_ / UPDATE_REQUEST_COUNT;
+  }
+
   checked(): boolean {
     return this.$.checkbox.checked;
   }
 
-  protected onExpandChanged_(e: CustomEvent<{value: boolean}>) {
+  protected onExpandedChanged_(e: CustomEvent<{value: boolean}>) {
     this.expanded_ = e.detail.value;
 
     // Stagger the update by `this.updateHeightInterval_` so it will fire its

@@ -42,6 +42,10 @@ cr-button#entrypoint {
   width: max-content;
 }
 
+cr-button#entrypoint:focus {
+  outline-offset: 0;
+}
+
 @keyframes slide-in {
   to {
     transform: translateX(0);
@@ -266,5 +270,21 @@ cr-button#entrypoint {
     background-color: ButtonFace;
     border: 1px solid ButtonText;
     box-sizing: border-box;
+  }
+}
+
+@container style(--cr-animations-disabled: 1) {
+  :host([glif-animation-state]) .aim-gradient-outer-blur,
+  :host([glif-animation-state]) .aim-gradient-solid,
+  :host([glif-animation-state]) .aim-background {
+    display: none;
+  }
+  :host([glif-animation-state]) #entrypoint {
+    animation: none;
+  }
+  :host([glif-animation-state]) #description {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }

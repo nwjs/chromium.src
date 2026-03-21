@@ -4,6 +4,9 @@
 
 #import "ios/chrome/browser/autofill/ui_bundled/manual_fill/manual_fill_constants.h"
 
+#import "base/feature_list.h"
+#import "components/autofill/core/common/autofill_features.h"
+
 namespace manual_fill {
 
 // Passwords
@@ -104,6 +107,16 @@ NSString* const kAccessoryKeyboardAccessibilityIdentifier =
 + (manual_fill::ManualFillDataType)manualFillDataTypeFromFillingProduct:
     (autofill::FillingProduct)fillingProduct {
   switch (fillingProduct) {
+    case autofill::FillingProduct::kAutofillAi:
+      // For AutofillAi suggestions, the manual fill menu opens to the Address
+      // tab and scrolls to the "Manage Addresses and More..." button, allowing
+      // users to manage AutofillAi related data.
+      if (!base::FeatureList::IsEnabled(
+              autofill::features::kAutofillAiWithDataSchema)) {
+        // Only allow kAutofillAi if the associated feature is enabled.
+        NOTREACHED();
+      }
+      [[fallthrough]];
     case autofill::FillingProduct::kAddress:
     case autofill::FillingProduct::kPlusAddresses:
       return manual_fill::ManualFillDataType::kAddress;
@@ -118,11 +131,11 @@ NSString* const kAccessoryKeyboardAccessibilityIdentifier =
     case autofill::FillingProduct::kNone:
       return manual_fill::ManualFillDataType::kOther;
     case autofill::FillingProduct::kCompose:
-    case autofill::FillingProduct::kAutofillAi:
     case autofill::FillingProduct::kMerchantPromoCode:
     case autofill::FillingProduct::kLoyaltyCard:
     case autofill::FillingProduct::kIdentityCredential:
     case autofill::FillingProduct::kOneTimePassword:
+    case autofill::FillingProduct::kAtMemory:
       // These cases are currently not available on iOS.
       NOTREACHED();
   }

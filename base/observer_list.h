@@ -96,13 +96,29 @@ enum class ObserverListPolicy {
   EXISTING_ONLY,
 };
 
+// Enumeration of reentrancy policy for ObserverList.
+enum class ObserverListReentrancyPolicy {
+  // Specifies that iterating through the list while already in the iteration
+  // loop is prohibited and results in a check failure.
+  kDisallowReentrancy,
+
+  // Specifies that iterating through the list while already in the iteration
+  // loop is allowed.
+  kAllowReentrancy,
+
+  // Specifies that iterating through the list while already in the iteration
+  // loop is allowed, but this is untriaged.
+  kAllowReentrancyUntriaged,
+};
+
 // When `check_empty` is true, assert that the list is empty on destruction.
-// When `allow_reentrancy` is false, iterating through the list while already in
-// the iteration loop will result in DCHECK failure.
+// When `reentrancy` is kDisallowReentrancy, iterating through the list while
+// already in the iteration loop will result in DCHECK failure.
 // TODO(oshima): Change the default to non reentrant. https://crbug.com/812109
 template <class ObserverType,
           bool check_empty = false,
-          bool allow_reentrancy = true,
+          ObserverListReentrancyPolicy reentrancy =
+              ObserverListReentrancyPolicy::kAllowReentrancy,
           class ObserverStorageType = internal::CheckedObserverAdapter>
 class ObserverList {
  public:
@@ -115,7 +131,7 @@ class ObserverList {
   // in headers using a forward-declare of ObserverType.
   using Unchecked = ObserverList<ObserverType,
                                  check_empty,
-                                 allow_reentrancy,
+                                 reentrancy,
                                  internal::UncheckedObserverAdapter<>>;
   // Allow declaring an ObserverList<...>::UncheckedAndDanglingUntriaged that
   // replaces the default ObserverStorageType to use
@@ -126,7 +142,7 @@ class ObserverList {
   using UncheckedAndDanglingUntriaged =
       ObserverList<ObserverType,
                    check_empty,
-                   allow_reentrancy,
+                   reentrancy,
                    internal::UncheckedObserverAdapter<DanglingUntriaged>>;
 
   // Allow declaring an ObserverList<...>::UncheckedAndRawPtrExcluded that
@@ -136,10 +152,11 @@ class ObserverList {
   using UncheckedAndRawPtrExcluded = ObserverList<
       ObserverType,
       check_empty,
-      allow_reentrancy,
+      reentrancy,
       internal::UncheckedObserverAdapter<RawPtrTraits::kEmpty, true>>;
 
   // An iterator class that can be used to access the list of observers.
+  template <bool check_reentrancy = true>
   class Iter {
    public:
     using iterator_category = std::forward_iterator_tag;
@@ -159,7 +176,10 @@ class ObserverList {
       DCHECK(list);
       // TODO(crbug.com/40063488): Turn into CHECK once very prevalent failures
       // are weeded out.
-      DUMP_WILL_BE_CHECK(allow_reentrancy || list_.IsOnlyRemainingNode());
+      DUMP_WILL_BE_CHECK(
+          !check_reentrancy ||
+          reentrancy != ObserverListReentrancyPolicy::kDisallowReentrancy ||
+          list_.IsOnlyRemainingNode());
       // Bind to this sequence when creating the first iterator.
       DCHECK_CALLED_ON_VALID_SEQUENCE(list_->iteration_sequence_checker_);
       EnsureValidIndex();
@@ -263,8 +283,8 @@ class ObserverList {
     size_t max_index_;
   };
 
-  using iterator = Iter;
-  using const_iterator = Iter;
+  using iterator = Iter<>;
+  using const_iterator = Iter<>;
   using value_type = ObserverType;
 
   const_iterator begin() const {
@@ -399,6 +419,30 @@ class ObserverList {
     }
   }
 
+  // Same as `Notify` but doesn't check reentrancy. Use this if it's safe to
+  // call the method reentrantly even if the observer list itself should be
+  // non-reentrant. The observer should be non reentrant.
+  // TODO(40562847): Add static_assert to ensure the reentrancy is
+  // kDisallowReentrancy.
+  template <typename Method, typename... Args>
+    requires std::invocable<Method, ObserverType*, const Args&...>
+  void NotifyAllowReentrancy(Method method, const Args&... args) {
+    for (auto iter = Iter</*check_reentrancy=*/false>(this);
+         iter != Iter</*check_reentrancy=*/false>(); iter++) {
+      std::invoke(method, *iter, args...);
+    }
+  }
+
+  // Same as `NotifyReentrantly` but the reentrancy of the observer method is
+  // not trigaged and needs investigation.
+  // TODO(40562847(): Add static_assert to ensure the reentrancy is
+  // kDisallowReentrancy.
+  template <typename Method, typename... Args>
+    requires std::invocable<Method, ObserverType*, const Args&...>
+  void NotifyAllowReentrancyUntriaged(Method method, const Args&... args) {
+    NotifyAllowReentrancy(method, args...);
+  }
+
  private:
   friend class internal::WeakLinkNode<ObserverList>;
 
@@ -440,7 +484,10 @@ class ObserverList {
 };
 
 template <class ObserverType, bool check_empty = false>
-using ReentrantObserverList = ObserverList<ObserverType, check_empty, true>;
+using ReentrantObserverList =
+    ObserverList<ObserverType,
+                 check_empty,
+                 ObserverListReentrancyPolicy::kAllowReentrancy>;
 
 }  // namespace base
 

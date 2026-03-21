@@ -355,13 +355,19 @@ void ProcessMirrorHeader(
                                : manage_accounts_params.continue_url);
   signin::IdentityManager* const identity_manager =
       IdentityManagerFactory::GetForProfile(profile);
+
+  std::optional<CoreAccountInfo> target_account_info =
+      manage_accounts_params.email.empty()
+          ? std::nullopt
+          : FindCoreAccountInfoByEmail(identity_manager,
+                                       manage_accounts_params.email);
+
   if (manage_accounts_params.show_consistency_promo) {
-    std::optional<CoreAccountInfo> account_info = FindCoreAccountInfoByEmail(
-        identity_manager, manage_accounts_params.email);
     SigninBridgeFactory::GetForProfile(profile)->OpenAccountPickerBottomSheet(
         web_contents, continue_url,
-        account_info ? std::make_optional(account_info->account_id)
-                     : std::nullopt);
+        target_account_info
+            ? std::make_optional(target_account_info->account_id)
+            : std::nullopt);
     return;
   }
 
@@ -374,6 +380,17 @@ void ProcessMirrorHeader(
     return;
   }
 
+  if (target_account_info &&
+      identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+          target_account_info->account_id)) {
+    // The target account was found on the device, but it has a persistent auth
+    // error, trigger a reauth flow to resolve it
+    SigninBridgeFactory::GetForProfile(profile)->StartUpdateCredentialsFlow(
+        TabAndroid::FromWebContents(web_contents), continue_url,
+        target_account_info->account_id);
+    return;
+  }
+
   auto* window = web_contents->GetNativeView()->GetWindowAndroid();
   if (!window) {
     return;
@@ -381,8 +398,7 @@ void ProcessMirrorHeader(
 
   if (service_type == signin::GAIA_SERVICE_TYPE_ADDSESSION &&
       base::FeatureList::IsEnabled(switches::kSupportWebSigninAddSession)) {
-    if (FindCoreAccountInfoByEmail(identity_manager,
-                                   manage_accounts_params.email)) {
+    if (target_account_info) {
       // If account is already on device don't start the add account flow.
       // TODO(crbug.com/456445865): Consider adding a reauth flow or a wait
       // for cookies in this scenario.
@@ -494,25 +510,25 @@ void ProcessDiceResponseHeaderIfExists(ResponseAdapter* response,
     return;
 
   DiceResponseParams params;
-  std::optional<std::string> header_value =
-      response_headers->GetNormalizedHeader(kDiceResponseHeader);
-  if (header_value) {
+  std::optional<std::string> header_value;
+  if (header_value = response_headers->GetNormalizedHeader(kDiceResponseHeader);
+      header_value) {
     params = BuildDiceSigninResponseParams(*header_value);
     // The header must be removed for privacy reasons, so that renderers never
     // have access to the authorization code.
     response->RemoveHeader(kDiceResponseHeader);
-  } else {
-    header_value =
-        response_headers->GetNormalizedHeader(kGoogleSignoutResponseHeader);
-    if (header_value) {
-      params = BuildDiceSignoutResponseParams(*header_value);
-    }
+  } else if (header_value = response_headers->GetNormalizedHeader(
+                 kGoogleSignoutResponseHeader);
+             header_value) {
+    params = BuildDiceSignoutResponseParams(*header_value);
   }
 
-  // If the request does not have a response header or if the header contains
-  // garbage, then |user_intention| is set to |NONE|.
-  if (params.user_intention == DiceAction::NONE)
+  if (!params.IsValid()) {
+    if (header_value) {
+      DLOG(WARNING) << "Invalid header: " << *header_value;
+    }
     return;
+  }
 
   // Post a task even if we are already on the UI thread to avoid making any
   // requests while processing a throttle event.

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/sync/sync_error_notifier.h"
 
+#include "ash/constants/chrome_webui_url_constants.h"
 #include "ash/constants/notifier_catalogs.h"
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/webui/settings/public/constants/routes.mojom.h"
@@ -21,7 +22,6 @@
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
-#include "chrome/common/url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
@@ -52,12 +52,13 @@ void ShowSyncSetup(Profile* profile) {
   LoginUIService* login_ui = LoginUIServiceFactory::GetForProfile(profile);
   if (login_ui->current_login_ui()) {
     // TODO(michaelpg): The LoginUI might be on an inactive desktop.
-    // See crbug.com/354280.
+    // See crbug.com/41095891.
     login_ui->current_login_ui()->FocusUI();
     return;
   }
 
-  chrome::ShowSettingsSubPageForProfile(profile, chrome::kSyncSetupSubPage);
+  chrome::ShowSettingsSubPageForProfile(profile,
+                                        ash::chrome_urls::kSyncSetupSubPage);
 }
 
 void TriggerSyncKeyRetrieval(Profile* profile) {

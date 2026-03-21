@@ -6,10 +6,12 @@
 
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_mutator.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/buildflags.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
@@ -36,6 +38,9 @@ const CGFloat kButtonShadowOpacity = 0.2;
 const CGFloat kButtonShadowOffset = 1;
 // The duration of the animation to update the TabGrid button.
 const CGFloat kTabGridAnimationDuration = 0.25;
+// Spacing between tab grid button and the tab grid spotlight view anchor.
+const CGFloat kSpotlightViewHorizontalInset = 12;
+const CGFloat kSpotlightViewVerticalInset = 2;
 
 // Returns the configuration for all the symbols.
 UIImageSymbolConfiguration* AppBarSymbolConfiguration() {
@@ -51,16 +56,13 @@ UIImage* DefaultAppBarSymbol(NSString* symbol_name) {
                                         AppBarSymbolConfiguration());
 }
 
-// Remove the "unused-function" check as this is only used when some buildflag
-// is enabled.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
 // Returns a custom symbol with the common configuration.
 UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   return CustomSymbolWithConfiguration(symbol_name,
                                        AppBarSymbolConfiguration());
 }
-#pragma clang diagnostic pop
+#endif
 
 }  // namespace
 
@@ -71,13 +73,32 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   UIImageView* _tabGridSymbolView;
   UILabel* _tabCountLabel;
   NSUInteger _tabCount;
-  // Whether the tab grid is currently visible.
+  // Whether the Tab Grid is currently visible.
   BOOL _isTabGridVisible;
+  // Whether the tab groups page in the tab grid is currently visible.
+  BOOL _isTabGroupsPageVisible;
+  // Whether a tab group is currently being shown in the tab grid.
+  BOOL _isTabGroupVisible;
+  // Context menus for the App Bar buttons.
+  UIMenu* _assistantButtonMenu;
+  UIMenu* _openNewTabButtonMenu;
+  UIMenu* _tabGridButtonMenu;
+  UIView* _spotlightView;
+}
+
+- (void)updateForAngle:(CGFloat)angle {
+  [self loadViewIfNeeded];
+
+  CGAffineTransform transform = CGAffineTransformMakeRotation(angle);
+  _assistantButton.transform = transform;
+  _openNewTabButton.transform = transform;
+  _tabGridButton.transform = transform;
 }
 
 - (void)viewDidLoad {
   [super viewDidLoad];
 
+  // TODO(crbug.com/483998773): Use a real design.
   self.view.backgroundColor = [UIColor.purpleColor colorWithAlphaComponent:0.5];
 
   _assistantButton = [self createAssistantButton];
@@ -90,11 +111,26 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   stackView.translatesAutoresizingMaskIntoConstraints = NO;
   stackView.distribution = UIStackViewDistributionFillEqually;
 
-  [self.view addSubview:stackView];
+  UIView* view = self.view;
+  [view addSubview:stackView];
 
-  AddSameConstraints(stackView, self.view);
+  [NSLayoutConstraint activateConstraints:@[
+    [stackView.leadingAnchor constraintEqualToAnchor:view.leadingAnchor],
+    [stackView.topAnchor constraintEqualToAnchor:view.topAnchor],
+    [stackView.trailingAnchor constraintEqualToAnchor:view.trailingAnchor],
+    [stackView.bottomAnchor
+        constraintLessThanOrEqualToAnchor:view.bottomAnchor],
+    [view.heightAnchor constraintEqualToConstant:kAppBarHeight],
+  ]];
 
-  [self.layoutGuideCenter referenceView:self.view underName:kAppBarGuide];
+  [self.layoutGuideCenter referenceView:view underName:kAppBarGuide];
+}
+
+#pragma mark - Public
+
+- (void)toggleSpotlightView:(BOOL)shouldShow {
+  CHECK(IsBestOfAppGuidedTourEnabled());
+  _spotlightView.hidden = !shouldShow;
 }
 
 #pragma mark - AppBarConsumer
@@ -106,7 +142,47 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
 
 - (void)setTabGridVisible:(BOOL)tabGridVisible {
   _isTabGridVisible = tabGridVisible;
-  [self updateTabGridButtonForTabGridShowing:tabGridVisible];
+  [self updateTabGridButtonForTabGridVisibility];
+}
+
+- (void)setMenu:(UIMenu*)menu forButtonType:(AppBarButtonType)buttonType {
+  switch (buttonType) {
+    case AppBarButtonTypeAssistant:
+      _assistantButtonMenu = menu;
+      _assistantButton.menu = menu;
+      return;
+    case AppBarButtonTypeNewTab:
+      _openNewTabButtonMenu = menu;
+      _openNewTabButton.menu = menu;
+      return;
+    case AppBarButtonTypeTabGrid:
+      _tabGridButtonMenu = menu;
+      _tabGridButton.menu = menu;
+      return;
+  }
+  NOTREACHED();
+}
+
+- (void)setTabGroupsPageVisible:(BOOL)tabGroupsPageVisible {
+  if (tabGroupsPageVisible == _isTabGroupsPageVisible) {
+    return;
+  }
+  _isTabGroupsPageVisible = tabGroupsPageVisible;
+  [self updateNewTabButtonForTabGroupsVisibility];
+}
+
+- (void)setTabGroupVisible:(BOOL)tabGroupVisible {
+  if (tabGroupVisible == _isTabGroupVisible) {
+    return;
+  }
+  _isTabGroupVisible = tabGroupVisible;
+  [self updateNewTabButtonForTabGroupsVisibility];
+}
+
+- (void)setButtonsEnabled:(BOOL)enabled {
+  _assistantButton.enabled = enabled;
+  _openNewTabButton.enabled = enabled;
+  _tabGridButton.enabled = enabled;
 }
 
 #pragma mark - Private
@@ -121,6 +197,7 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   UIImage* image = DefaultAppBarSymbol(kGeminiNonBrandedLogoSymbol);
 #endif
   UIButton* button = [self buttonWithTitle:title image:image];
+  button.menu = _assistantButtonMenu;
 
   [button addTarget:self
                 action:@selector(didTapAssistantButton)
@@ -133,6 +210,7 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   NSString* title = l10n_util::GetNSString(IDS_IOS_DIAMOND_PROTOTYPE_NEW_TAB);
   UIImage* image = DefaultAppBarSymbol(kPlusInCircleSymbol);
   UIButton* button = [self buttonWithTitle:title image:image];
+  button.menu = _openNewTabButtonMenu;
 
   [button addTarget:self
                 action:@selector(didTapOpenNewTabButton:)
@@ -142,14 +220,24 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
 
 // Returns a new "TabGrid" button.
 - (UIButton*)createTabGridButton {
+  // Use a custom Symbol and Label instead of the ones from the button to be
+  // able to modify them as necessary.
+  UIImageView* tabGridSymbolView = [[UIImageView alloc] init];
+  tabGridSymbolView.translatesAutoresizingMaskIntoConstraints = NO;
+  tabGridSymbolView.image = DefaultAppBarSymbol(kAppSymbol);
+  _tabGridSymbolView = tabGridSymbolView;
+
+  // Set up button.
   NSString* title = l10n_util::GetNSString(IDS_IOS_DIAMOND_PROTOTYPE_ALL_TABS);
   UIImage* image = DefaultAppBarSymbol(kAppSymbol);
   UIButton* button = [self buttonWithTitle:title image:image];
+  button.menu = _tabGridButtonMenu;
 
   UIButtonConfiguration* configuration = button.configuration;
   // Make the base image clear so we can overlay our own with the label while
   // keeping the right size.
   configuration.imageColorTransformer = ^UIColor*(UIColor* color) {
+    tabGridSymbolView.tintColor = color;
     return UIColor.clearColor;
   };
   button.configuration = configuration;
@@ -160,15 +248,8 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   [button addTarget:self
                 action:@selector(didTapTabGridButton)
       forControlEvents:UIControlEventTouchUpInside];
-
-  // Use a custom Symbol and Label instead of the ones from the button to be
-  // able to modify them as necessary.
-  _tabGridSymbolView = [[UIImageView alloc] init];
-  _tabGridSymbolView.translatesAutoresizingMaskIntoConstraints = NO;
-  _tabGridSymbolView.tintColor = UIColor.whiteColor;
-  _tabGridSymbolView.image = DefaultAppBarSymbol(kAppSymbol);
-  [button addSubview:_tabGridSymbolView];
-  AddSameCenterConstraints(_tabGridSymbolView, button.imageView);
+  [button addSubview:tabGridSymbolView];
+  AddSameCenterConstraints(tabGridSymbolView, button.imageView);
 
   _tabCountLabel = [[UILabel alloc] init];
   _tabCountLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -176,6 +257,22 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   [self updateTabCount:_tabCount];
   [button addSubview:_tabCountLabel];
   AddSameCenterConstraints(_tabCountLabel, button.imageView);
+
+  if (IsBestOfAppGuidedTourEnabled()) {
+    _spotlightView = [[UIView alloc] init];
+    _spotlightView.translatesAutoresizingMaskIntoConstraints = NO;
+    _spotlightView.userInteractionEnabled = NO;
+    [button addSubview:_spotlightView];
+    AddSameConstraintsToSidesWithInsets(
+        _spotlightView, button,
+        LayoutSides::kTop | LayoutSides::kTrailing | LayoutSides::kLeading |
+            LayoutSides::kBottom,
+        NSDirectionalEdgeInsetsMake(
+            kSpotlightViewVerticalInset, kSpotlightViewHorizontalInset,
+            kSpotlightViewVerticalInset, kSpotlightViewHorizontalInset));
+    [self.layoutGuideCenter referenceView:_spotlightView
+                                underName:kTabSwitcherGuide];
+  }
 
   return button;
 }
@@ -204,14 +301,30 @@ UIImage* CustomAppBarSymbol(NSString* symbol_name) {
   return button;
 }
 
-// Updates the tab grid button for the given tab grid showing state.
-- (void)updateTabGridButtonForTabGridShowing:(BOOL)showing {
-  NSString* symbolName = showing ? kAppFillSymbol : kAppSymbol;
+// Updates the new tab button for whether the tab groups page in the tab grid or
+// a tab group is visible.
+- (void)updateNewTabButtonForTabGroupsVisibility {
+  if (_isTabGroupsPageVisible || _isTabGroupVisible) {
+    _openNewTabButton.menu = _openNewTabButtonMenu;
+    _openNewTabButton.showsMenuAsPrimaryAction = YES;
+    return;
+  }
+
+  // The context menu for the New Tab button should appear on a long press when
+  // the tab groups page is not visible.
+  _openNewTabButton.showsMenuAsPrimaryAction = NO;
+}
+
+// Updates the Tab Grid button for the given Tab Grid showing state.
+- (void)updateTabGridButtonForTabGridVisibility {
+  NSString* symbolName = _isTabGridVisible ? kAppFillSymbol : kAppSymbol;
+  _tabGridButton.menu = _tabGridButtonMenu;
   [_tabGridSymbolView setSymbolImage:DefaultAppBarSymbol(symbolName)
                withContentTransition:[NSSymbolReplaceContentTransition
                                          replaceOffUpTransition]];
   UILabel* label = _tabCountLabel;
-  UIColor* labelColor = showing ? UIColor.blackColor : UIColor.whiteColor;
+  UIColor* labelColor =
+      _isTabGridVisible ? UIColor.blackColor : UIColor.whiteColor;
   [UIView transitionWithView:label
                     duration:kTabGridAnimationDuration
                      options:UIViewAnimationOptionTransitionCrossDissolve

@@ -49,7 +49,6 @@
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_delegate.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
 #import "ios/chrome/browser/content_suggestions/default_browser/coordinator/default_browser_mediator.h"
-#import "ios/chrome/browser/content_suggestions/default_browser/public/features.h"
 #import "ios/chrome/browser/content_suggestions/impression_limits/model/impression_limit_service_factory.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/coordinator/magic_stack_ranking_model.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/public/magic_stack_utils.h"
@@ -84,7 +83,7 @@
 #import "ios/chrome/browser/content_suggestions/tips/coordinator/tips_magic_stack_mediator.h"
 #import "ios/chrome/browser/content_suggestions/tips/coordinator/tips_passwords_coordinator.h"
 #import "ios/chrome/browser/content_suggestions/tips/model/tips_metrics.h"
-#import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_state.h"
+#import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_config.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_commands.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_image_data_source.h"
@@ -154,6 +153,7 @@
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_lens_input_selection_command.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
+#import "ios/chrome/browser/shared/public/commands/picture_in_picture_commands.h"
 #import "ios/chrome/browser/shared/public/commands/price_tracked_items_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/search_image_with_lens_command.h"
@@ -461,8 +461,6 @@ using segmentation_platform::TipIdentifier;
   _safetyCheckMediator.presentationAudience = self;
   [moduleMediators addObject:_safetyCheckMediator];
 
-  if (send_tab_to_self::
-          IsSendTabIOSPushNotificationsEnabledWithMagicStackCard()) {
     FaviconLoader* faviconLoader =
         IOSChromeFaviconLoaderFactory::GetForProfile(profile);
 
@@ -471,7 +469,6 @@ using segmentation_platform::TipIdentifier;
                                                 prefService:prefs];
     _sendTabPromoMediator.notificationsDelegate = self;
     [moduleMediators addObject:_sendTabPromoMediator];
-  }
 
   BOOL areTipsCardsEnabled =
       prefs->GetBoolean(ntp_tiles::prefs::kTipsHomeModuleEnabled);
@@ -498,8 +495,7 @@ using segmentation_platform::TipIdentifier;
     _appBundlePromoMediator.presentationAudience = self;
     [moduleMediators addObject:_appBundlePromoMediator];
   }
-  if (segmentation_platform::features::IsDefaultBrowserMagicStackEnabled() &&
-      areTipsCardsEnabled) {
+  if (areTipsCardsEnabled) {
     _defaultBrowserMediator =
         [[DefaultBrowserMediator alloc] initWithProfilePrefService:prefs];
     _defaultBrowserMediator.presentationAudience = self;
@@ -595,6 +591,12 @@ using segmentation_platform::TipIdentifier;
   _magicStackRankingModel = nil;
   [_appBundlePromoMediator disconnect];
   _appBundlePromoMediator = nil;
+  [_defaultBrowserMediator disconnect];
+  _defaultBrowserMediator = nil;
+  [_priceTrackingPromoMediator disconnect];
+  _priceTrackingPromoMediator = nil;
+  [_shopCardMediator disconnect];
+  _shopCardMediator = nil;
   [self.contentSuggestionsMediator disconnect];
   self.contentSuggestionsMediator = nil;
   [self.contentSuggestionsMetricsRecorder disconnect];
@@ -758,22 +760,10 @@ using segmentation_platform::TipIdentifier;
 - (void)didTapDefaultBrowserPromo {
   [_magicStackRankingModel logMagicStackEngagementForType:
                                ContentSuggestionsModuleType::kDefaultBrowser];
-  DefaultBrowserMagicStackIosVariationType variation =
-      GetDefaultBrowserMagicStackIosVariation();
-
-  if (variation ==
-      DefaultBrowserMagicStackIosVariationType::kTapToDeviceSettings) {
-    OpenIOSDefaultBrowserSettingsPage();
-  } else if (variation ==
-             DefaultBrowserMagicStackIosVariationType::kTapToAppSettings) {
-    id<SettingsCommands> settingsHandler = HandlerForProtocol(
-        self.browser->GetCommandDispatcher(), SettingsCommands);
-    [settingsHandler
-        showDefaultBrowserSettingsFromViewController:nil
-                                        sourceForUMA:
-                                            DefaultBrowserSettingsPageSource::
-                                                kMagicStackCard];
-  }
+  id<PictureInPictureCommands> PIPHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), PictureInPictureCommands);
+  OpenIOSDefaultBrowserSettingsPage(/*force_default_apps_if_available=*/false,
+                                    /*ui_application_to_use=*/nil, PIPHandler);
 }
 
 - (void)openTipDestination:(segmentation_platform::TipIdentifier)tip {
@@ -792,9 +782,9 @@ using segmentation_platform::TipIdentifier;
                                       : LensEntrypoint::NewTabPage;
 
       if (tip == TipIdentifier::kLensShop &&
-          _tipsMediator.state.productImageData.length > 0) {
+          _tipsMediator.config.productImageData.length > 0) {
         UIImage* productImage =
-            [UIImage imageWithData:_tipsMediator.state.productImageData];
+            [UIImage imageWithData:_tipsMediator.config.productImageData];
 
         if (productImage) {
           SearchImageWithLensCommand* command =
@@ -838,7 +828,7 @@ using segmentation_platform::TipIdentifier;
       _tipsPasswordsCoordinator = [[TipsPasswordsCoordinator alloc]
           initWithBaseViewController:self.magicStackCollectionView
                              browser:self.browser
-                          identifier:_tipsMediator.state.identifier];
+                          identifier:_tipsMediator.config.identifier];
 
       _tipsPasswordsCoordinator.delegate = self;
 
@@ -889,13 +879,13 @@ using segmentation_platform::TipIdentifier;
     case ContentSuggestionsModuleType::kTips: {
       CHECK(_tipsMediator);
       std::optional<std::string_view> name =
-          OutputLabelForTipIdentifier(_tipsMediator.state.identifier);
+          OutputLabelForTipIdentifier(_tipsMediator.config.identifier);
       if (name.has_value()) {
         registry->NotifyCardShown(std::string(name.value()).c_str());
         // Log the Tips (Magic Stack) Module that was displayed to the user.
         base::UmaHistogramEnumeration(
             kTipsMagicStackModuleDisplayedTypeHistogram,
-            _tipsMediator.state.identifier);
+            _tipsMediator.config.identifier);
         break;
       }
       [[fallthrough]];

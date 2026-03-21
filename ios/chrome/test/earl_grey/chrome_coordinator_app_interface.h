@@ -40,20 +40,27 @@
 // Calls the block if the given selector is dispatched.
 + (void)setAction:(ProceduralBlock)block forSelector:(NSString*)selectorString;
 
+// Ensures the browser is created. Used to initialize browser dependencies before
+// starting the tested coordinator.
++ (void)startBrowser;
+
 // Methods to start coordinators.
+// keep-sorted start
++ (void)startBookmarksCoordinator;
++ (void)startComposeboxCoordinator;
 + (void)startEnhancedSafeBrowsingPromoCoordinator;
-+ (void)startLensPromoCoordinator;
 + (void)startHistoryCoordinator;
++ (void)startLensPromoCoordinator;
 + (void)startNewTabPageCoordinator;
++ (void)startOmniboxCoordinator;
++ (void)startPasswordSuggestionCoordinator;
 + (void)startPopupMenuCoordinator;
 + (void)startPrivacySafeBrowsingCoordinator;
-+ (void)startOmniboxCoordinator;
 + (void)startQRScannerLegacyCoordinator;
++ (void)startReadingListCoordinator;
 + (void)startSearchWhatYouSeePromoCoordinator;
 + (void)startSnackbarCoordinator;
-+ (void)startReadingListCoordinator;
-+ (void)startBookmarksCoordinator;
-+ (void)startPasswordSuggestionCoordinator;
+// keep-sorted end
 
 // Stops the currently started coordinator.
 + (void)stopCoordinator;

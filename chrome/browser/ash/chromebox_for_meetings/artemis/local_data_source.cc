@@ -42,7 +42,7 @@ LocalDataSource::LocalDataSource(size_t data_buffer_size_limit,
       poll_rate_(poll_rate),
       data_needs_redacting_(data_needs_redacting),
       is_incremental_(is_incremental),
-      redactor_(nullptr) {}
+      redactor_() {}
 
 inline LocalDataSource::~LocalDataSource() = default;
 
@@ -85,8 +85,8 @@ void LocalDataSource::AddWatchDog(
     // Pattern is guaranteed to be populated based on the
     // results of IsWatchDogFilterValid().
     const std::string& pattern = filter->pattern.value();
-    if (regex_cache_.count(pattern) == 0) {
-      regex_cache_[pattern] = std::make_unique<RE2>(pattern);
+    if (std::unique_ptr<RE2>& regex = regex_cache_[pattern]; regex == nullptr) {
+      regex = std::make_unique<RE2>(pattern);
     }
 
     regex_based_watchdogs_[pattern].Add(std::move(remote));

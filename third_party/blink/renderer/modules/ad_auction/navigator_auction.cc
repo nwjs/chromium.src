@@ -88,6 +88,7 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_to_number.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/boringssl/src/include/openssl/curve25519.h"
@@ -1809,7 +1810,7 @@ ConvertDirectFromSellerSignalsFromV8ToMojo(
       // the URL doesn't match.
       const KURL subresource_url(StrCat(
           {direct_from_seller_signals_prefix.GetString(), "?perBuyerSignals=",
-           EncodeWithURLEscapeSequences(buyer->ToString())
+           EncodeWithUrlEscapeSequences(buyer->ToString())
                .Replace("/", "%2F")}));
       mojom::blink::DirectFromSellerSignalsSubresourcePtr maybe_mojo_bundle =
           TryToBuildDirectFromSellerSignalsSubresource(
@@ -2349,7 +2350,7 @@ bool ConvertAuctionConfigPrioritySignalsFromIdlToMojo(
     const Vector<std::pair<String, double>>& priority_signals_in,
     HashMap<String, double>& priority_signals_out) {
   for (const auto& key_value_pair : priority_signals_in) {
-    if (key_value_pair.first.StartsWith("browserSignals.")) {
+    if (key_value_pair.first.starts_with("browserSignals.")) {
       exception_state.ThrowTypeError(ErrorInvalidAuctionConfig(
           input, "perBuyerPrioritySignals key", key_value_pair.first,
           "must not start with reserved \"browserSignals.\" prefix."));
@@ -3357,10 +3358,9 @@ void NavigatorAuction::AuctionHandle::DeprecatedRenderURLReplacementsResolved::
       deprecated_render_url_replacements =
           ConvertNonPromiseDeprecatedRenderURLReplacementsFromV8ToMojo(value);
   for (const auto& replacement : deprecated_render_url_replacements) {
-    if (!(replacement->match.StartsWith("${") &&
-          replacement->match.EndsWith("}")) &&
-        !(replacement->match.StartsWith("%%") &&
-          replacement->match.EndsWith("%%"))) {
+    const String& match = replacement->match;
+    if (!(match.starts_with("${") && match.ends_with('}')) &&
+        !(match.starts_with("%%") && match.ends_with("%%"))) {
       V8ThrowException::ThrowTypeError(
           script_state->GetIsolate(),
           "Replacements must be of the form '${...}' or '%%...%%'");
@@ -3972,14 +3972,16 @@ namespace {
 String CombineAuctionNonce(base::Uuid base_auction_nonce,
                            uint32_t auction_nonce_counter) {
   CHECK(base_auction_nonce.is_valid());
-  String base_nonce_string(base_auction_nonce.AsLowercaseString());
-  bool ok;
-  uint32_t base_nonce_suffix = base_nonce_string.Right(6).HexToUIntStrict(&ok);
-  CHECK(ok) << "Unexpected: invalid base auction nonce.";
-  uint32_t nonce_suffix = base_nonce_suffix + auction_nonce_counter;
+  const std::string& base_nonce_string = base_auction_nonce.AsLowercaseString();
+  auto [base_nonce_prefix_string, base_nonce_suffix_string] =
+      base::as_byte_span(base_nonce_string).split_at<30>();
+  auto base_nonce_suffix = HexStringToUint(StringView(base_nonce_suffix_string),
+                                           NumberParsingOptions::Strict());
+  CHECK(base_nonce_suffix) << "Unexpected: invalid base auction nonce.";
+  uint32_t nonce_suffix = *base_nonce_suffix + auction_nonce_counter;
 
   StringBuilder nonce_builder;
-  nonce_builder.Append(base_nonce_string.Left(30));
+  nonce_builder.Append(base_nonce_prefix_string);
   nonce_builder.AppendFormat("%06x", nonce_suffix & 0x00FFFFFF);
   return nonce_builder.ReleaseString();
 }
@@ -4207,16 +4209,15 @@ ScriptPromise<IDLUndefined> NavigatorAuction::deprecatedReplaceInURN(
   }
   Vector<mojom::blink::AdKeywordReplacementPtr> replacements_list;
   for (const auto& replacement : replacements) {
-    if (!(replacement.first.StartsWith("${") &&
-          replacement.first.EndsWith("}")) &&
-        !(replacement.first.StartsWith("%%") &&
-          replacement.first.EndsWith("%%"))) {
+    const String& first = replacement.first;
+    if (!(first.starts_with("${") && first.ends_with('}')) &&
+        !(first.starts_with("%%") && first.ends_with("%%"))) {
       exception_state.ThrowTypeError(
           "Replacements must be of the form '${...}' or '%%...%%'");
       return EmptyPromise();
     }
-    replacements_list.push_back(mojom::blink::AdKeywordReplacement::New(
-        replacement.first, replacement.second));
+    replacements_list.push_back(
+        mojom::blink::AdKeywordReplacement::New(first, replacement.second));
   }
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(
       script_state, exception_state.GetContext());
@@ -4547,12 +4548,9 @@ bool NavigatorAuction::AuctionHandle::MaybeResolveAuction() {
 
   if (resolve_to_config_.value() == true) {
     auction_resolver_->Resolve(
-        MakeGarbageCollected<V8UnionFencedFrameConfigOrUSVString>(
-            FencedFrameConfig::From(auction_config_.value())));
+        FencedFrameConfig::From(auction_config_.value()));
   } else {
-    auction_resolver_->Resolve(
-        MakeGarbageCollected<V8UnionFencedFrameConfigOrUSVString>(
-            KURL(auction_config_->urn_uuid().value())));
+    auction_resolver_->Resolve(KURL(auction_config_->urn_uuid().value()));
   }
   return true;
 }

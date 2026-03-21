@@ -97,7 +97,7 @@ class SourceBufferStreamTest : public testing::Test {
   void SetAudioStream() {
     video_config_ = TestVideoConfig::Invalid();
     audio_config_.Initialize(AudioCodec::kVorbis, kSampleFormatPlanarF32,
-                             CHANNEL_LAYOUT_STEREO, kSampleRate,
+                             ChannelLayoutConfig::Stereo(), kSampleRate,
                              EmptyExtraData(), EncryptionScheme::kUnencrypted,
                              base::TimeDelta(), 0);
     ResetStream<>(audio_config_);
@@ -187,6 +187,8 @@ class SourceBufferStreamTest : public testing::Test {
   void SignalStartOfCodedFrameGroup(base::TimeDelta start_timestamp) {
     stream_->OnStartOfCodedFrameGroup(start_timestamp);
   }
+
+  bool IsRangeListSorted() { return stream_->IsRangeListSortedForTesting(); }
 
   int GetRemovalRangeInMs(int start, int end, int bytes_to_free,
                           int* removal_end) {
@@ -3930,8 +3932,8 @@ TEST_F(SourceBufferStreamTest, SameTimestamp_Video_Overlap_3) {
 // Test all the valid same timestamp cases for audio.
 TEST_F(SourceBufferStreamTest, SameTimestamp_Audio) {
   AudioDecoderConfig config(AudioCodec::kMP3, kSampleFormatF32,
-                            CHANNEL_LAYOUT_STEREO, 44100, EmptyExtraData(),
-                            EncryptionScheme::kUnencrypted);
+                            ChannelLayoutConfig::Stereo(), 44100,
+                            EmptyExtraData(), EncryptionScheme::kUnencrypted);
   ResetStream<>(config);
   Seek(0);
   NewCodedFrameGroupAppend("0K 0K 30K 30K");
@@ -4487,9 +4489,10 @@ TEST_F(SourceBufferStreamTest, Audio_SpliceFrame_NoMillisecondSplices) {
   EXPECT_MEDIA_LOG(SkippingSpliceTooLittleOverlap(1250, 250));
 
   video_config_ = TestVideoConfig::Invalid();
-  audio_config_.Initialize(
-      AudioCodec::kVorbis, kSampleFormatPlanarF32, CHANNEL_LAYOUT_STEREO, 4000,
-      EmptyExtraData(), EncryptionScheme::kUnencrypted, base::TimeDelta(), 0);
+  audio_config_.Initialize(AudioCodec::kVorbis, kSampleFormatPlanarF32,
+                           ChannelLayoutConfig::Stereo(), 4000,
+                           EmptyExtraData(), EncryptionScheme::kUnencrypted,
+                           base::TimeDelta(), 0);
   ResetStream<>(audio_config_);
   // Equivalent to 0.5ms per frame.
   SetStreamInfo(2000, 2000);
@@ -4520,7 +4523,7 @@ TEST_F(SourceBufferStreamTest, Audio_PrerollFrame) {
 
 TEST_F(SourceBufferStreamTest, Audio_ConfigChangeWithPreroll) {
   AudioDecoderConfig new_config(
-      AudioCodec::kVorbis, kSampleFormatPlanarF32, CHANNEL_LAYOUT_MONO,
+      AudioCodec::kVorbis, kSampleFormatPlanarF32, ChannelLayoutConfig::Mono(),
       kSampleRate, EmptyExtraData(), EncryptionScheme::kUnencrypted);
   SetAudioStream();
   Seek(0);
@@ -4566,8 +4569,8 @@ TEST_F(SourceBufferStreamTest, Audio_Opus_SeekToJustBeforeRangeStart) {
   // interval requires a nonzero seek_preroll value.
   video_config_ = TestVideoConfig::Invalid();
   audio_config_.Initialize(AudioCodec::kOpus, kSampleFormatPlanarF32,
-                           CHANNEL_LAYOUT_STEREO, kSampleRate, EmptyExtraData(),
-                           EncryptionScheme::kUnencrypted,
+                           ChannelLayoutConfig::Stereo(), kSampleRate,
+                           EmptyExtraData(), EncryptionScheme::kUnencrypted,
                            base::Milliseconds(10), 0);
   ResetStream<>(audio_config_);
 
@@ -5698,6 +5701,50 @@ TEST_F(SourceBufferStreamTest, SignalCodedFrameGroupWithoutCurrentRange) {
   NewCodedFrameGroupAppend("1000D100K 30000D100K");
   SignalStartOfCodedFrameGroup(base::Milliseconds(400));
   SignalStartOfCodedFrameGroup(base::Milliseconds(1000));
+}
+
+TEST_F(SourceBufferStreamTest, OverlappingRangesAfterSplitAndEarlyReturn) {
+  // 1. Append F1 with huge duration.
+  // F1: PTS=1s, duration=25s. (Ends at 26s)
+  SignalStartOfCodedFrameGroup(base::Seconds(1));
+  BufferQueue buffers;
+  scoped_refptr<StreamParserBuffer> f1 =
+      StreamParserBuffer::CopyFrom(kDataA, true, DemuxerStream::VIDEO, 0);
+  f1->set_timestamp(base::Seconds(1));
+  f1->SetDecodeTimestamp(
+      DecodeTimestamp::FromPresentationTime(base::Seconds(1)));
+  f1->set_duration(base::Seconds(25));
+  buffers.push_back(f1);
+  stream_->Append(buffers);
+
+  // 2. Append F2 (keyframe) at PTS=20s.
+  // We append it in a way that it ends up in the same range.
+  // F1 is [1, 26). F2 is at 20.
+  buffers.clear();
+  scoped_refptr<StreamParserBuffer> f2 =
+      StreamParserBuffer::CopyFrom(kDataA, true, DemuxerStream::VIDEO, 0);
+  f2->set_timestamp(base::Seconds(20));
+  f2->SetDecodeTimestamp(
+      DecodeTimestamp::FromPresentationTime(base::Seconds(20)));
+  f2->set_duration(base::Seconds(1));
+  buffers.push_back(f2);
+  stream_->Append(buffers);
+
+  // 3. Append F3 (keyframe) at PTS=2s. This will trigger a split of the
+  // existing range.
+  SignalStartOfCodedFrameGroup(base::Seconds(2));
+  buffers.clear();
+  scoped_refptr<StreamParserBuffer> f3 =
+      StreamParserBuffer::CopyFrom(kDataA, true, DemuxerStream::VIDEO, 0);
+  f3->set_timestamp(base::Seconds(2));
+  f3->SetDecodeTimestamp(
+      DecodeTimestamp::FromPresentationTime(base::Seconds(2)));
+  f3->set_duration(base::Seconds(1));
+  buffers.push_back(f3);
+  stream_->Append(buffers);
+
+  // 4. Check if ranges are sorted.
+  EXPECT_TRUE(IsRangeListSorted());
 }
 
 }  // namespace media

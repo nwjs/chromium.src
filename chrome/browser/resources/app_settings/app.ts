@@ -61,14 +61,6 @@ export class AppElement extends AppElementBase {
   protected accessor iconUrl_: string = '';
   protected accessor showSearch_: boolean = false;
 
-  override willUpdate(changedProperties: PropertyValues<this>) {
-    super.willUpdate(changedProperties);
-
-    if ((changedProperties as Map<PropertyKey, unknown>).has('app_')) {
-      this.iconUrl_ = getAppIcon(this.app_);
-    }
-  }
-
   override connectedCallback() {
     super.connectedCallback();
     this.apps_ = {};
@@ -111,6 +103,14 @@ export class AppElement extends AppElementBase {
     callbackRouter.onAppRemoved.addListener(this.onAppRemoved_.bind(this));
   }
 
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if ((changedProperties as Map<PropertyKey, unknown>).has('app_')) {
+      this.iconUrl_ = getAppIcon(this.app_);
+    }
+  }
+
   private onAppChanged_(app: App) {
     if (app.id === this.app_.id) {
       this.app_ = app;
@@ -143,8 +143,8 @@ export class AppElement extends AppElementBase {
     return this.app_.publisherId.startsWith('isolated-app://');
   }
 
-  protected openNotificationsSystemSettings_(e: CustomEvent<{event: Event}>):
-      void {
+  protected onNotificationsSystemSettingsLinkClicked_(
+      e: CustomEvent<{event: Event}>): void {
     // A place holder href with the value "#" is used to have a compliant link.
     // This prevents the browser from navigating the window to "#"
     e.detail.event.preventDefault();

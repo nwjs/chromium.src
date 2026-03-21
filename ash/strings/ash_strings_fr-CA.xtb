@@ -9,7 +9,6 @@
 <translation id="101823271612280837">L'enregistrement a été interrompu. Impossible d'utiliser le Tableau de bord de jeu en mode Tablette.</translation>
 <translation id="1024364763893396229">Enregistrez votre <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Le niveau de la pile du stylet est faible</translation>
-<translation id="1036073649888683237">Pour gérer les notifications, accédez aux paramètres</translation>
 <translation id="1036348656032585052">Désactiver</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> ajouté</translation>
 <translation id="1038106730571050514">Afficher les suggestions</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Installer l'application</translation>
 <translation id="2482878487686419369">Notifications</translation>
 <translation id="2484513351006226581">Appuyez sur <ph name="KEYBOARD_SHORTCUT" /> pour changer la disposition du clavier.</translation>
+<translation id="2485422356828889247">Désinstaller</translation>
 <translation id="2486214324139475545">Aperçu du bureau <ph name="DESK_NAME" />. Bureau actif.</translation>
 <translation id="2486405091093637109">La résolution de « <ph name="DISPLAY_NAME" /> » a été remplacée par une résolution de <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Sans confirmation, les paramètres précédents seront restaurés dans <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Joindre</translation>

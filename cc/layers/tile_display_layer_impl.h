@@ -171,6 +171,7 @@ class CC_EXPORT TileDisplayLayerImpl
   }
   void SetRecordedBounds(const gfx::Rect& bounds) { recorded_bounds_ = bounds; }
   bool IsDirectlyCompositedImage() const override;
+  gfx::Rect RecordedBounds() const override;
   void SetProposedTilingScalesForDeletion(
       std::vector<float> proposed_tiling_scales) {
     proposed_tiling_scales_for_deletion_ = std::move(proposed_tiling_scales);
@@ -217,13 +218,6 @@ class CC_EXPORT TileDisplayLayerImpl
 
  private:
   // TileBasedLayerImpl:
-  void AppendQuadsSpecialization(const AppendQuadsContext& context,
-                                 viz::CompositorRenderPass* render_pass,
-                                 AppendQuadsData* append_quads_data,
-                                 viz::SharedQuadState* shared_quad_state,
-                                 const Occlusion& scaled_occlusion,
-                                 const gfx::Vector2d& quad_offset,
-                                 float max_contents_scale) override;
   float GetMaximumContentsScaleForUseInAppendQuads() const override;
   float GetIdealContentsScaleKey() const override;
   void AppendQuadsForResourcelessSoftwareDraw(
@@ -238,6 +232,22 @@ class CC_EXPORT TileDisplayLayerImpl
       float ideal_contents_scale) override;
   TilingResolution GetTilingResolutionForDebugBorders(
       const TileDisplayLayerTiling* tiling) const override;
+  void ComputeCheckerboardedNeedsRecord(
+      AppendQuadsData* append_quads_data) override;
+
+  bool AppendQuadForTile(TilingSetCoverageIterator<TileDisplayLayerTiling> iter,
+                         const AppendQuadsContext& context,
+                         viz::CompositorRenderPass* render_pass,
+                         AppendQuadsData* append_quads_data,
+                         viz::SharedQuadState* shared_quad_state,
+                         const Occlusion& scaled_occlusion,
+                         const gfx::Rect& offset_geometry_rect,
+                         const gfx::Rect& offset_visible_geometry_rect,
+                         const gfx::Rect& visible_geometry_rect,
+                         bool needs_blending,
+                         const std::optional<gfx::Rect>& scaled_cull_rect,
+                         float max_contents_scale,
+                         AppendQuadsCustomSharedData* custom_data) override;
 
   bool is_directly_composited_image_ = false;
   bool nearest_neighbor_ = false;

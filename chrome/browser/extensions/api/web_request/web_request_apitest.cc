@@ -187,7 +187,7 @@ constexpr char kOriginTrialPublicKeyForTesting[] =
     "dRCs+TocuKkocNKa0AtZ4awrt9XKH2SQCI6o4FY6BNA=";
 
 // Observer that listens for messages from chrome.test.sendMessage to allow them
-// to be used to trigger browser initiated naviagations from the javascript for
+// to be used to trigger browser initiated navigations from the javascript for
 // testing purposes.
 class NavigateTabMessageHandler {
  public:
@@ -447,7 +447,7 @@ class ExtensionWebRequestApiTest : public ExtensionApiTest {
   CreateURLLoaderFactory() {
     network::mojom::URLLoaderFactoryParamsPtr params =
         network::mojom::URLLoaderFactoryParams::New();
-    params->process_id = network::OriginatingProcess::browser();
+    params->process_id = network::OriginatingProcessId::browser();
     params->automatically_assign_isolation_info = true;
     params->is_orb_enabled = false;
     mojo::PendingRemote<network::mojom::URLLoaderFactory> loader_factory;
@@ -1222,7 +1222,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
 
 // Test that the webRequest events are dispatched with the expected details when
 // a frame or tab is immediately removed after starting a request.
-// Flaky on all platforms. See crbug.com/780369 for detail.
+// Flaky on all platforms. See crbug.com/40547579 for detail.
 IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
                        DISABLED_WebRequestUnloadImmediately) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -1332,7 +1332,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
 }
 
 // This is flaky on wide variety of platforms (beyond that tracked previously in
-// https://crbug.com/998369). See https://crbug.com/1026001.
+// https://crbug.com/41478509). See https://crbug.com/1026001.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiAuthRequiredTest,
                        DISABLED_WebRequestAuthRequiredParallel) {
   const bool incognito = GetEnableIncognito();
@@ -1527,9 +1527,9 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
       << message_;
 }
 
-// This test times out regularly on win_rel trybots. See http://crbug.com/122178
+// This test times out regularly on win_rel trybots. See crbug.com/40773655
 // Also on Linux/ChromiumOS debug, ASAN and MSAN builds.
-// https://crbug.com/670415
+// https://crbug.com/40496163
 // Slower and flaky tests should be isolated in the "slow" group of tests in
 // the JS file. This prevents losing test coverage for those tests that are
 // not causing timeouts and flakes.
@@ -1725,7 +1725,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 // This test fixture runs all of the broken and flaky tests. It's disabled
 // until these tests are fixed and moved to the set of tests that aren't
 // broken or flaky. Should tests become flaky, they can be moved here.
-// See https://crbug.com/846555.
+// See https://crbug.com/41391042.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
                        DISABLED_WebRequestDeclarative1Broken) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -2160,7 +2160,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
   // though the request is for b.com (and the extension only has access to
   // a.com), it should still see the request. This is necessary for extensions
   // with webRequest to work with runtime host permissions.
-  // https://crbug.com/851722.
+  // https://crbug.com/40580327.
   auto reload_page_dialog_reset =
       ReloadPageDialogController::AcceptDialogForTesting(true);
   runner->RunAction(extension, true /* grant tab permissions */);
@@ -2174,7 +2174,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 
 // Tests behavior when an extension has withheld access to a request's URL, but
 // not the initiator's (tab's) URL. Regression test for
-// https://crbug.com/891586.
+// https://crbug.com/41418607.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
                        WithheldHostPermissionsForCrossOriginWithoutInitiator) {
   content::SetupCrossSiteRedirector(embedded_test_server());
@@ -2498,7 +2498,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, DISABLED_WebSocketRequest) {
 }
 
 // Test that the webRequest events are dispatched for the WebSocket handshake
-// requests when authenrication is requested by server.
+// requests when authentication is requested by server.
 // TODO(crbug.com/40168662) Re-enable test
 IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
                        DISABLED_WebSocketRequestAuthRequired) {
@@ -2521,7 +2521,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest, WebSocketRequestOnWorker) {
 
 // Tests that a clean close from the server is not reported as an error when
 // there is a race between OnDropChannel and SendFrame.
-// Regression test for https://crbug.com/937790.
+// Regression test for https://crbug.com/40616409.
 //
 // TODO(b:332825952): Flaky on linux-chromeos-dbg
 #if BUILDFLAG(IS_CHROMEOS)
@@ -2722,7 +2722,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 
   {
     // example.com should also succeed since non-navigation browser-initiated
-    // requests are hidden from extensions. See crbug.com/884932.
+    // requests are hidden from extensions. See crbug.com/40092481.
     SCOPED_TRACE("example.com with Profile's url loader");
     make_browser_request(url_loader_factory, example_url, kExampleFullContent,
                          net::OK);
@@ -2824,7 +2824,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextTypeMV3,
 #endif  // defined(MEMORY_SANITIZER) || defined(UNDEFINED_SANITIZER) ||
         // defined(ADDRESS_SANITIZER)
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-// Regression test for http://crbug.com/878366.
+// Regression test for http://crbug.com/40591185.
 // TODO(crbug.com/371324825): Port to desktop Android. The test crashes during
 // Profile creation because Android requires a "startup data profile key".
 IN_PROC_BROWSER_TEST_F(
@@ -2860,7 +2860,7 @@ IN_PROC_BROWSER_TEST_F(
       nullptr));
   temp_web_contents.reset();
   auto params = network::mojom::URLLoaderFactoryParams::New();
-  params->process_id = network::OriginatingProcess::browser();
+  params->process_id = network::OriginatingProcessId::browser();
   mojo::Remote<network::mojom::URLLoaderFactory> factory(
       std::move(factory_builder)
           .Finish<mojo::PendingRemote<network::mojom::URLLoaderFactory>>(
@@ -3120,7 +3120,7 @@ INSTANTIATE_TEST_SUITE_P(ServiceWorker,
                          ::testing::Values(ContextType::kServiceWorker));
 
 // Ensures that requests made by the NTP Instant renderer are hidden from the
-// Web Request API. Regression test for crbug.com/797461.
+// Web Request API. Regression test for crbug.com/40089982.
 IN_PROC_BROWSER_TEST_P(NTPInterceptionWebRequestAPITest,
                        NTPRendererRequestsHidden) {
   // Loads an extension which tries to intercept requests to
@@ -4369,7 +4369,7 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerWebRequestApiTest,
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // Ensure we don't strip off initiator incorrectly in web request events when
 // both the normal and incognito contexts are active. Regression test for
-// crbug.com/934398.
+// crbug.com/40614965.
 // TODO(crbug.com/41493389): enable this flaky test
 // Both Initiator Incognito tests build but don't run on desktop android.
 #if BUILDFLAG(IS_LINUX) && defined(ADDRESS_SANITIZER) && defined(LEAK_SANITIZER)
@@ -4436,7 +4436,7 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 
 // Ensure we don't strip off initiator incorrectly in web request events when
 // both the normal and incognito contexts are active. Regression test for
-// crbug.com/934398.
+// crbug.com/40614965.
 // Flaky on Linux. See http://crbug.com/1423252
 #if BUILDFLAG(IS_LINUX)
 #define MAYBE_Initiator_SplitIncognito DISABLED_Initiator_SplitIncognito
@@ -4499,7 +4499,7 @@ std::unique_ptr<net::test_server::HttpResponse> HandleXHRRequest(
   return http_response;
 }
 
-// Regression test for http://crbug.com/971206. The responseHeaders should still
+// Regression test for crbug.com/41463381. The responseHeaders should still
 // be present in onBeforeRedirect even for HSTS upgrade.
 IN_PROC_BROWSER_TEST_P(
     ExtensionWebRequestApiTestWithContextTypeForHstsTopLevelNavigationOnly,
@@ -4872,8 +4872,9 @@ IN_PROC_BROWSER_TEST_P(SubresourceWebBundlesWebRequestApiTest,
         self.numScriptRequests = 0;
         self.numUUIDInPackageScriptRequests = 0;
         chrome.webRequest.onBeforeRequest.addListener(function(details) {
-          if (details.url.includes('test.html'))
+          if (details.url.includes('test.html')) {
             self.numMainResourceRequests++;
+          }
           else if (details.url.includes('web_bundle.wbn'))
             self.numWebBundleRequests++;
           else if (details.url.includes('test.js'))
@@ -5462,8 +5463,9 @@ IN_PROC_BROWSER_TEST_P(SubresourceWebBundlesWebRequestApiTest,
   test_dir.WriteFile(FILE_PATH_LITERAL("background.js"),
                      base::StringPrintf(R"(
         chrome.webRequest.onBeforeRequest.addListener(function(details) {
-          if (!details.url.includes('redirect.wbn'))
+          if (!details.url.includes('redirect.wbn')) {
             return;
+          }
           const redirectUrl =
               details.url.replace('redirect.wbn', 'redirected.wbn');
           return {redirectUrl};
@@ -7054,8 +7056,9 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
          // test.
          async function flushStorage() {
            console.assert(!storageComplete);
-           if (!isUsingStorage)
+           if (!isUsingStorage) {
              return;
+           }
            await new Promise((resolve) => {
              storageComplete = resolve;
            });
@@ -7070,8 +7073,9 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                requestCount++;
                await chrome.storage.local.set({requestCount});
                isUsingStorage = false;
-               if (storageComplete)
+               if (storageComplete) {
                  storageComplete();
+               }
                chrome.test.sendMessage('event received');
              },
              {urls: ['<all_urls>'], types: ['main_frame']});)";
@@ -7141,23 +7145,23 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
   EXPECT_EQ(2, get_request_count());
 }
 
-class ManifestV3WebRequestApiTestWithAlternativeAddListener
+class ManifestV3WebRequestApiTestWithEventRouterPersistence
     : public ManifestV3WebRequestApiTest {
  public:
-  ManifestV3WebRequestApiTestWithAlternativeAddListener() {
+  ManifestV3WebRequestApiTestWithEventRouterPersistence() {
     scoped_feature_list_.InitAndEnableFeature(
-        extensions_features::kWebRequestAlternativeAddListener);
+        extensions_features::kWebRequestPersistFilteredEventsViaEventRouter);
   }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Test that, when the `WebRequestAlternativeAddListener` feature flag is
-// enabled, adding a listener right after an extension has been unloaded, but
-// before its renderer has been shut down, doesn't cause a CHECK failure in
-// WebRequestAPI. Regression test for https://crbug.com/479841044.
-IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTestWithAlternativeAddListener,
+// Test that, when the `kWebRequestPersistFilteredEventsViaEventRouter` feature
+// flag is enabled, adding a listener right after an extension has been
+// unloaded, but before its renderer has been shut down, doesn't cause a CHECK
+// failure in WebRequestAPI. Regression test for https://crbug.com/479841044.
+IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTestWithEventRouterPersistence,
                        DontCrashOnExtensionUnload) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   static constexpr char kManifest[] =
@@ -7454,7 +7458,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                                             "secondListenerCount"));
 }
 
-// Tests listeners in multiple contexts with lazy event disptaching.
+// Tests listeners in multiple contexts with lazy event dispatching.
 IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
                        ListenersInMultipleContextsWithLazyDispatch) {
   ASSERT_TRUE(StartEmbeddedTestServer());
@@ -8510,35 +8514,17 @@ class URLLoaderFactoriesResetWaiter : public WebRequestAPI::TestObserver {
   base::RunLoop url_loader_factory_reset_runloop_;
 };
 
-class ManifestV3WebRequestApiTestWithSkipResetServiceWorkerURLLoaderFactories
-    : public ManifestV3WebRequestApiTest,
-      public testing::WithParamInterface<bool> {
- public:
-  ManifestV3WebRequestApiTestWithSkipResetServiceWorkerURLLoaderFactories() {
-    feature_list_.InitWithFeatureState(
-        extensions_features::kSkipResetServiceWorkerURLLoaderFactories,
-        GetParam());
-  }
-  ~ManifestV3WebRequestApiTestWithSkipResetServiceWorkerURLLoaderFactories()
-      override = default;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
 // Tests that the call to `ResetURLLoaderFactories()` performed by WebRequestAPI
 // doesn't break the registration process of other extensions.
 // Regression test for https://crbug.com/394523691.
-IN_PROC_BROWSER_TEST_P(
-    ManifestV3WebRequestApiTestWithSkipResetServiceWorkerURLLoaderFactories,
-    ResetURLLoaderFactoryDoesntBreakRegistration) {
+IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest,
+                       ResetURLLoaderFactoryDoesntBreakRegistration) {
   // Skip if the proxy is forced since factories will not be reset in that case.
   if (base::FeatureList::IsEnabled(
           extensions_features::kForceWebRequestProxyForTest)) {
     return;
   }
 
-  bool feature_enabled = GetParam();
   ASSERT_TRUE(StartEmbeddedTestServer());
 
   // A simple extension that sends a message and waits for a response in its
@@ -8574,9 +8560,8 @@ IN_PROC_BROWSER_TEST_P(
   ASSERT_TRUE(web_request_api);
 
   // Listen to "will_receive" message from the extension.
-  ExtensionTestMessageListener will_receive_listener(
-      "will_receive",
-      feature_enabled ? ReplyBehavior::kWillReply : ReplyBehavior::kWontReply);
+  ExtensionTestMessageListener will_receive_listener("will_receive",
+                                                     ReplyBehavior::kWillReply);
   // Listen to the completion of the registration storage.
   service_worker_test_utils::TestServiceWorkerContextObserver
       registration_observer(profile());
@@ -8611,34 +8596,19 @@ IN_PROC_BROWSER_TEST_P(
   // long and won't trigger the bug in all cases.
   web_request_api->ForceProxyForTesting();
 
-  if (feature_enabled) {
-    // SkipResetServiceWorkerURLLoaderFactories feature enabled: expect
-    // successful execution. Check that the worker is still running and
-    // functional.
-    registration_observer.WaitForWorkerStarted();
-    std::optional<WorkerId> worker_id = GetWorkerIdForExtension(extension_id);
-    EXPECT_TRUE(worker_id);
-    SCOPED_TRACE(
-        "Waiting for extension background to signal that it can send messages");
-    ASSERT_TRUE(will_receive_listener.WaitUntilSatisfied());
-    will_receive_listener.Reply("go");
-    url_loader_factories_reset_waiter.WaitForResetURLLoaderFactoriesCalled();
-    registration_observer.WaitForRegistrationStored();
-  } else {
-    // SkipResetServiceWorkerURLLoaderFactories feature disabled: expect worker
-    // registration to fail. We have observed that the registration can fail
-    // with either `kErrorStartWorkerFailed` or `kErrorNetwork` depending on
-    // when exactly it's interrupted.
-    auto status_code =
-        worker_failure_observer.WaitForWorkerRegistrationFailure();
-    EXPECT_NE(status_code, blink::ServiceWorkerStatusCode::kOk);
-  }
+  // SkipResetServiceWorkerURLLoaderFactories is now default behavior: expect
+  // successful execution. Check that the worker is still running and
+  // functional.
+  registration_observer.WaitForWorkerStarted();
+  std::optional<WorkerId> worker_id = GetWorkerIdForExtension(extension_id);
+  EXPECT_TRUE(worker_id);
+  SCOPED_TRACE(
+      "Waiting for extension background to signal that it can send messages");
+  ASSERT_TRUE(will_receive_listener.WaitUntilSatisfied());
+  will_receive_listener.Reply("go");
+  url_loader_factories_reset_waiter.WaitForResetURLLoaderFactoriesCalled();
+  registration_observer.WaitForRegistrationStored();
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    ManifestV3WebRequestApiTestWithSkipResetServiceWorkerURLLoaderFactories,
-    testing::Bool());
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 

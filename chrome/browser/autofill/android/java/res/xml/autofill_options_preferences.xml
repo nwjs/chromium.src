@@ -9,19 +9,40 @@ found in the LICENSE file.
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orderingFromXml="false">
 
-    <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
-        android:key="autofill_ai_switch"
+   <!-- TODO(crbug.com/476754486): Nest the radio buttons and text message inside the preference category -->
+   <PreferenceCategory
+        android:id="@+id/autofill_service_provider_category"
+        android:key="autofill_service_provider_category"
         android:order="0"
-        app:isPreferenceVisible="false"
-        app:allowDividerBelow="true" />
-
+        android:title="@string/settings_autofill_service_provider"
+        app:isPreferenceVisible="false" />
     <org.chromium.chrome.browser.autofill.options.RadioButtonGroupThirdPartyPreference
         android:key="autofill_third_party_filling"
         android:order="1"
         android:selectable="false" />
-
     <org.chromium.components.browser_ui.settings.TextMessagePreference
         android:key="third_party_toggle_hint"
         android:order="2"
         app:allowDividerBelow="false" />
+
+    <PreferenceCategory
+        android:id="@+id/autofill_ai_category"
+        android:key="autofill_ai_category"
+        android:order="3"
+        android:title="@string/settings_autofill_ai_page_title"
+        app:isPreferenceVisible="false">
+        <org.chromium.chrome.browser.autofill.options.AutofillAiPreference
+            android:key="autofill_ai_switch"
+            android:layout="@layout/autofill_ai_preference"
+            android:order="0"
+            android:title="@string/settings_autofill_ai_page_title"
+            android:summary="@string/settings_autofill_ai_description" />
+
+        <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
+            android:id="@+id/autofill_ai_authentication_switch"
+            android:key="autofill_ai_authentication_switch"
+            android:order="1"
+            android:title="@string/settings_autofill_ai_authentication_toggle_title"
+            android:summary="@string/settings_autofill_ai_authentication_toggle_subtitle" />
+    </PreferenceCategory>
 </PreferenceScreen>

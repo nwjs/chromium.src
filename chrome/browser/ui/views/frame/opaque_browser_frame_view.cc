@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/views/frame/caption_button_placeholder_container.h"
 #include "chrome/browser/ui/views/frame/opaque_browser_frame_view_layout.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/tab_icon_view.h"
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
@@ -143,8 +144,8 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
         browser_view->IsWindowControlsOverlayEnabled(), this);
   }
 
-  if (browser_view->AppUsesBorderlessMode()) {
-    layout_->SetBorderlessModeEnabled(browser_view->IsBorderlessModeEnabled(),
+  if (browser_view->AppUsesUnframedMode()) {
+    layout_->SetBorderlessModeEnabled(browser_view->IsUnframedModeEnabled(),
                                       this);
   }
   if (frameless_)
@@ -600,7 +601,7 @@ bool OpaqueBrowserFrameView::IsTabStripVisible() const {
 }
 
 bool OpaqueBrowserFrameView::GetBorderlessModeEnabled() const {
-  return GetBrowserView()->IsBorderlessModeEnabled();
+  return GetBrowserView()->IsUnframedModeEnabled();
 }
 
 bool OpaqueBrowserFrameView::IsToolbarVisible() const {
@@ -691,12 +692,19 @@ void OpaqueBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
   if (GetFrameButtonStyle() == FrameButtonStyle::kMdButton) {
     for (views::Button* button :
          {minimize_button_, maximize_button_, restore_button_, close_button_}) {
-      DCHECK_EQ(views::FrameCaptionButton::kViewClassName,
-                button->GetClassName());
       views::FrameCaptionButton* frame_caption_button =
-          static_cast<views::FrameCaptionButton*>(button);
+          views::AsViewClass<views::FrameCaptionButton>(button);
+      CHECK(frame_caption_button);
+
       frame_caption_button->SetPaintAsActive(active);
-      frame_caption_button->SetBackgroundColor(frame_color);
+
+      const bool button_in_top_container =
+          button->GetBoundsInScreen().Intersects(
+              GetBrowserView()->top_container()->GetBoundsInScreen());
+      SkColor background_color =
+          button_in_top_container ? GetColorProvider()->GetColor(kColorToolbar)
+                                  : frame_color;
+      frame_caption_button->SetBackgroundColor(background_color);
     }
   }
 

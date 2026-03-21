@@ -23,6 +23,7 @@
 #include "extensions/browser/guest_view/web_view/web_view_permission_helper.h"
 #include "extensions/browser/guest_view/web_view/web_view_permission_types.h"
 #include "extensions/browser/script_executor.h"
+#include "net/base/net_errors.h"
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom.h"
 
 namespace content {
@@ -101,6 +102,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   // Set the zoom mode.
   void SetZoomMode(zoom::ZoomController::ZoomMode zoom_mode);
 
+  // TODO(crbug.com/40436245): allow_scaling may no longer have any effect.
+  // Remove all supporting code.
   void SetAllowScaling(bool allow);
   bool allow_scaling() const { return allow_scaling_; }
 
@@ -256,8 +259,6 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
                          const content::ContextMenuParams& params) final;
   bool HandleKeyboardEvent(content::WebContents* source,
                            const input::NativeWebKeyboardEvent& event) final;
-  bool PreHandleGestureEvent(content::WebContents* source,
-                             const blink::WebGestureEvent& event) final;
   void RendererResponsive(content::WebContents* source,
                           content::RenderWidgetHost* render_widget_host) final;
   void RendererUnresponsive(
@@ -361,7 +362,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
 
   // Notification that a load in the guest resulted in abort. Note that `url`
   // may be invalid.
-  void LoadAbort(bool is_top_level, const GURL& url, int error_code);
+  void LoadAbort(bool is_top_level, const GURL& url, net::Error error_code);
 
   // Creates a new guest window owned by this WebViewGuest.
   void CreateNewGuestWebViewWindow(const content::OpenURLParams& params);

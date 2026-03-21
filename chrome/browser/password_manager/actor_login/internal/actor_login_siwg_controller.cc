@@ -8,7 +8,6 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/strings/string_util.h"
-#include "chrome/browser/webid/federated_actor_login_request.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
@@ -16,6 +15,8 @@
 #include "components/autofill/content/common/mojom/autofill_agent.mojom.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/browser/webid/identity_credential_source.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
@@ -36,6 +37,35 @@ content::RenderFrameHost* GetLocalRoot(content::RenderFrameHost* rfh) {
     local_root = local_root->GetParent();
   }
   return local_root;
+}
+
+LoginStatusResult FromFederatedLoginResult(
+    content::webid::FederatedLoginResult result) {
+  switch (result) {
+    case content::webid::FederatedLoginResult::kSuccess:
+      return LoginStatusResult::kSuccessFederated;
+    case content::webid::FederatedLoginResult::kContinuation:
+      return LoginStatusResult::kErrorFederatedContinuation;
+    case content::webid::FederatedLoginResult::kAccountNotLoggedIn:
+      return LoginStatusResult::kErrorFederatedAccountNotLoggedIn;
+    case content::webid::FederatedLoginResult::kAccountIsSignUp:
+      return LoginStatusResult::kErrorFederatedAccountIsSignUp;
+    case content::webid::FederatedLoginResult::kAccountNotAvailable:
+      return LoginStatusResult::kErrorFederatedAccountNotAvailable;
+    case content::webid::FederatedLoginResult::kIdpReturnedError:
+      return LoginStatusResult::kErrorFederatedIdpReturnedError;
+    case content::webid::FederatedLoginResult::kIdpNetworkError:
+      return LoginStatusResult::kErrorFederatedIdpNetworkError;
+    case content::webid::FederatedLoginResult::kTokenRequestAborted:
+      return LoginStatusResult::kErrorFederatedTokenRequestAborted;
+    case content::webid::FederatedLoginResult::kFrameNotActive:
+      return LoginStatusResult::kErrorFederatedFrameNotActive;
+    case content::webid::FederatedLoginResult::kExpectedAccountNotPresent:
+      return LoginStatusResult::kErrorFederatedExpectedAccountNotPresent;
+    case content::webid::FederatedLoginResult::kTimeout:
+      return LoginStatusResult::kErrorFederatedTimeout;
+  }
+  NOTREACHED();
 }
 
 }  // namespace
@@ -61,14 +91,26 @@ ActorLoginSiwgController::~ActorLoginSiwgController() = default;
 void ActorLoginSiwgController::StartFederatedLogin(
     const Credential& credential) {
   CHECK(credential.federation_detail);
-  FederatedActorLoginRequest::Set(
-      web_contents(), credential.federation_detail->idp_origin,
-      credential.federation_detail->account_id,
-      base::BindRepeating(
-          &ActorLoginSiwgController::OnFederatedLoginResultReceived,
-          weak_ptr_factory_.GetWeakPtr()));
 
-  ClickSiwgButton();
+  auto* source = content::webid::IdentityCredentialSource::FromPage(
+      web_contents()->GetPrimaryPage());
+
+  source->SetEmbedderLoginRequest(
+      credential.federation_detail->idp_origin,
+      credential.federation_detail->account_id,
+      base::BindOnce(&ActorLoginSiwgController::OnFederatedLoginResultReceived,
+                     weak_ptr_factory_.GetWeakPtr()));
+
+  // There may be an existing FedCM dialog; if so, select an account in that
+  // dialog instead of clicking the signin button.
+  if (metrics_helper_) {
+    metrics_helper_->RecordFederatedHangingFedCmRequestExists(
+        source->HasPendingRequest());
+  }
+  if (!source->SelectAccount(credential.federation_detail->idp_origin,
+                             credential.federation_detail->account_id)) {
+    ClickSiwgButton();
+  }
 }
 
 void ActorLoginSiwgController::ClickSiwgButton() {
@@ -80,22 +122,25 @@ void ActorLoginSiwgController::ClickSiwgButton() {
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
+void ActorLoginSiwgController::SetMetricsHelper(
+    ActorLoginMetricsHelper* metrics_helper) {
+  metrics_helper_ = metrics_helper;
+}
+
 void ActorLoginSiwgController::OnFederatedLoginResultReceived(
-    FederatedLoginResult result) {
+    content::webid::FederatedLoginResult result) {
+  if (metrics_helper_) {
+    if (result == content::webid::FederatedLoginResult::kContinuation) {
+      metrics_helper_->RecordFederatedContinuationShown();
+    } else {
+      metrics_helper_->RecordFederatedLoginResult(result);
+    }
+  }
+
   if (!on_finished_callback_) {
     return;
   }
-  if (result == FederatedLoginResult::kSuccess) {
-    std::move(on_finished_callback_)
-        // TODO(crbug.com/478799141): add new status for SiwG success.
-        .Run(LoginStatusResult::kSuccessUsernameAndPasswordFilled);
-  } else if (result == FederatedLoginResult::kContinuation) {
-    // TODO(crbug.com/481685277): handle the continuation case.
-  } else {
-    std::move(on_finished_callback_)
-        // TODO(crbug.com/478799141): add new status for SiwG failure.
-        .Run(base::unexpected(ActorLoginError::kFillingNotAllowed));
-  }
+  std::move(on_finished_callback_).Run(FromFederatedLoginResult(result));
 }
 
 void ActorLoginSiwgController::OnPageContentReceived(

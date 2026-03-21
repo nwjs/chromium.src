@@ -11,7 +11,7 @@
 #include "build/build_config.h"
 #include "components/named_mojo_ipc_server/named_mojo_ipc_util.h"
 #include "mojo/public/cpp/platform/named_platform_channel.h"
-#include "remoting/host/base/username.h"
+#include "remoting/base/username.h"
 
 namespace remoting {
 

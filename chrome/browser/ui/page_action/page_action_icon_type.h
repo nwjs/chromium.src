@@ -23,7 +23,7 @@ enum class PageActionIconType {
   // DEPRECATED: kLocalCardMigration = 7,
   kManagePasswords = 8,
   kPaymentsOfferNotification = 9,
-  kPriceTracking = 10,
+  // DEPRECATED: kPriceTracking = 10,
   kPwaInstall = 11,
   // DEPRECATED: kQRCodeGenerator = 12,
   // DEPRECATED: kReaderMode = 13,
@@ -52,7 +52,10 @@ enum class PageActionIconType {
   kReadingMode = 36,
   kContextualSidePanel = 37,
   kJsOptimizations = 38,
-  kMaxValue = kJsOptimizations,
+  kRecordReplay = 39,
+  kIndigo = 40,
+  kFederation = 41,
+  kMaxValue = kFederation,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/page/enums.xml:PageActionIconType)
 
@@ -66,7 +69,6 @@ static_assert(static_cast<int>(PageActionIconType::kIntentPicker) == 6);
 static_assert(static_cast<int>(PageActionIconType::kManagePasswords) == 8);
 static_assert(
     static_cast<int>(PageActionIconType::kPaymentsOfferNotification) == 9);
-static_assert(static_cast<int>(PageActionIconType::kPriceTracking) == 10);
 static_assert(static_cast<int>(PageActionIconType::kPwaInstall) == 11);
 static_assert(static_cast<int>(PageActionIconType::kAutofillAddress) == 14);
 static_assert(static_cast<int>(PageActionIconType::kSaveCard) == 15);
@@ -89,6 +91,9 @@ static_assert(static_cast<int>(PageActionIconType::kAiMode) == 35);
 static_assert(static_cast<int>(PageActionIconType::kReadingMode) == 36);
 static_assert(static_cast<int>(PageActionIconType::kContextualSidePanel) == 37);
 static_assert(static_cast<int>(PageActionIconType::kJsOptimizations) == 38);
+static_assert(static_cast<int>(PageActionIconType::kRecordReplay) == 39);
+static_assert(static_cast<int>(PageActionIconType::kIndigo) == 40);
+static_assert(static_cast<int>(PageActionIconType::kFederation) == 41);
 
 // Returns a bool indicating whether the given page action type has been
 // migrated to the new framework, which is based on ActionItems instead of

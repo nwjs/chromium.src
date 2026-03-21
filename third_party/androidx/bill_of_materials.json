@@ -375,6 +375,11 @@
         "version": "1.18.0-SNAPSHOT"
     },
     {
+        "name": "core-pip",
+        "group": "androidx.core",
+        "version": "1.0.0-SNAPSHOT"
+    },
+    {
         "name": "core-viewtree",
         "group": "androidx.core",
         "version": "1.1.0-SNAPSHOT"
@@ -535,6 +540,11 @@
         "version": "1.9.0-SNAPSHOT"
     },
     {
+        "name": "graphics-core",
+        "group": "androidx.graphics",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
         "name": "graphics-path",
         "group": "androidx.graphics",
         "version": "1.1.0-SNAPSHOT"
@@ -555,6 +565,71 @@
         "version": "1.1.0"
     },
     {
+        "name": "ink-authoring",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-authoring-android",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-brush",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-brush-android",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-geometry",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-geometry-android",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-nativeloader",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-nativeloader-android",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-rendering",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-rendering-android",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-strokes",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "ink-strokes-android",
+        "group": "androidx.ink",
+        "version": "1.1.0-SNAPSHOT"
+    },
+    {
+        "name": "input-motionprediction",
+        "group": "androidx.input",
+        "version": "1.0.0"
+    },
+    {
         "name": "interpolator",
         "group": "androidx.interpolator",
         "version": "1.1.0-SNAPSHOT"
@@ -562,12 +637,12 @@
     {
         "name": "leanback",
         "group": "androidx.leanback",
-        "version": "1.2.0"
+        "version": "1.3.0-SNAPSHOT"
     },
     {
         "name": "leanback-grid",
         "group": "androidx.leanback",
-        "version": "1.0.0"
+        "version": "1.1.0-SNAPSHOT"
     },
     {
         "name": "leanback-preference",
@@ -870,6 +945,11 @@
         "version": "1.0.0-SNAPSHOT"
     },
     {
+        "name": "pdf-ink",
+        "group": "androidx.pdf",
+        "version": "1.0.0-SNAPSHOT"
+    },
+    {
         "name": "pdf-viewer",
         "group": "androidx.pdf",
         "version": "1.0.0-SNAPSHOT"
@@ -1100,16 +1180,6 @@
         "version": "1.0.1"
     },
     {
-        "name": "tracing-wire",
-        "group": "androidx.tracing",
-        "version": "2.0.0-SNAPSHOT"
-    },
-    {
-        "name": "tracing-wire-android",
-        "group": "androidx.tracing",
-        "version": "2.0.0-SNAPSHOT"
-    },
-    {
         "name": "transition",
         "group": "androidx.transition",
         "version": "1.7.0"
@@ -1257,12 +1327,12 @@
     {
         "name": "play-services-base",
         "group": "com.google.android.gms",
-        "version": "18.5.0"
+        "version": "18.7.2"
     },
     {
         "name": "play-services-basement",
         "group": "com.google.android.gms",
-        "version": "18.5.0"
+        "version": "18.9.0"
     },
     {
         "name": "play-services-fido",
@@ -1272,12 +1342,12 @@
     {
         "name": "play-services-identity-credentials",
         "group": "com.google.android.gms",
-        "version": "16.0.0-alpha08"
+        "version": "16.0.0-alpha11"
     },
     {
         "name": "play-services-tasks",
         "group": "com.google.android.gms",
-        "version": "18.2.0"
+        "version": "18.3.2"
     },
     {
         "name": "googleid",
@@ -1287,7 +1357,7 @@
     {
         "name": "material",
         "group": "com.google.android.material",
-        "version": "1.11.0"
+        "version": "1.13.0"
     },
     {
         "name": "impress",

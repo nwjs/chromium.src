@@ -7,6 +7,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_handler.h"
+#include "third_party/skia/include/core/SkBitmap.h"
 
 #ifndef CHROME_BROWSER_UI_ANDROID_EXTENSIONS_EXTENSIONS_MENU_DELEGATE_ANDROID_H_
 #define CHROME_BROWSER_UI_ANDROID_EXTENSIONS_EXTENSIONS_MENU_DELEGATE_ANDROID_H_
@@ -29,10 +30,15 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
 
   // JNI implementations:
   void Destroy(JNIEnv* env);
-  // Returns a flattened list of action IDs and names from the menu model.
-  std::vector<std::string> GetActions(JNIEnv* env);
-  // Returns whether the menu model has been populated.
+  base::android::ScopedJavaLocalRef<jobject> GetActionIcon(JNIEnv* env,
+                                                           int action_index);
+  base::android::ScopedJavaLocalRef<jobject> GetMenuEntry(JNIEnv* env,
+                                                          int action_index);
+  std::vector<base::android::ScopedJavaLocalRef<jobject>> GetMenuEntries(
+      JNIEnv* env);
+  base::android::ScopedJavaLocalRef<jobject> GetSiteSettings(JNIEnv* env);
   bool IsReady(JNIEnv* env);
+  void OnSiteSettingsToggleChanged(JNIEnv* env, bool is_checked);
 
   // ExtensionsMenuViewModel::Delegate:
   std::unique_ptr<ExtensionActionViewModel> CreateActionViewModel(
@@ -42,9 +48,12 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
   void OnPageNavigation() override;
   void OnActionAdded(ExtensionActionViewModel* action_model,
                      int index) override;
+  void OnActionIconUpdated(const ToolbarActionsModel::ActionId& action_id,
+                           int index) override;
   void OnActionRemoved(const ToolbarActionsModel::ActionId& action_id,
                        int index) override;
-  void OnActionUpdated(const ToolbarActionsModel::ActionId& action_id) override;
+  void OnActionUpdated(const ToolbarActionsModel::ActionId& action_id,
+                       int index) override;
   void OnActionsInitialized() override;
   void OnHostAccessRequestAdded(const extensions::ExtensionId& extension_id,
                                 int index) override;
@@ -61,6 +70,8 @@ class ExtensionsMenuDelegateAndroid : public ExtensionsMenuViewModel::Delegate,
 
   // ExtensionsMenuHandler:
   void CloseBubble() override;
+  void OnActionButtonClicked(
+      const extensions::ExtensionId& extension_id) override;
   void OnAllowExtensionClicked(
       const extensions::ExtensionId& extension_id) override;
   void OnDismissExtensionClicked(

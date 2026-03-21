@@ -40,6 +40,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -78,7 +79,7 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/component_loader.h"
-#include "chrome/browser/extensions/extension_web_ui.h"
+#include "chrome/browser/extensions/extension_url_overrides.h"
 #include "extensions/browser/extension_webkit_preferences.h"
 #endif
 
@@ -278,8 +279,8 @@ bool ChromeContentBrowserClientExtensionsPart::
   // transitioning from app to non-app URLs if there exists another app
   // WebContents that might script this one.  These navigations should stay in
   // the app process to not break scripting when a hosted app opens a same-site
-  // popup. See https://crbug.com/718516 and https://crbug.com/828720 and
-  // https://crbug.com/859062.
+  // popup. See https://crbug.com/40518928 and https://crbug.com/41380648 and
+  // https://crbug.com/40583115.
   if (!is_outermost_main_frame)
     return false;
   size_t candidate_active_contents_count =
@@ -288,7 +289,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   // Intentionally only checks for hosted app effective URLs and not NTP-based
   // effective URLs (which ChromeContentBrowserClient::GetEffectiveURL would
   // include as well). This avoids keeping same-site popups in the NTP's
-  // process, per https://crbug.com/859062.
+  // process, per https://crbug.com/40583115.
   bool src_has_effective_url = HasEffectiveUrl(browser_context, candidate_url);
   bool dest_has_effective_url =
       HasEffectiveUrl(browser_context, destination_url);
@@ -556,7 +557,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   // iframe.  This mainly reduces the likelihood of problems with main frames
   // and makes it more likely that the subframe process will be shown near the
   // extension in Chrome's task manager for blame purposes. See
-  // https://crbug.com/899418.
+  // https://crbug.com/40599941.
   const Extension* extension =
       ExtensionRegistry::Get(
           outermost_main_frame->GetSiteInstance()->GetBrowserContext())
@@ -593,7 +594,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   // subframes on a web main frame are also placed in the same BrowsingInstance
   // (by the content/ part of ShouldSwapBrowsingInstancesForNavigation); this
   // check is just doing the same for top-level frames.  See
-  // https://crbug.com/590068.
+  // https://crbug.com/41241280.
 
   // First we check for navigations which are transitioning to/from the URL
   // associated with the new Webstore.
@@ -711,7 +712,7 @@ std::vector<url::Origin> ChromeContentBrowserClientExtensionsPart::
   std::vector<url::Origin> list;
 
   // Require a dedicated process for the webstore origin.  See
-  // https://crbug.com/939108.
+  // https://crbug.com/40094229.
   list.push_back(url::Origin::Create(extension_urls::GetWebstoreLaunchURL()));
   list.push_back(
       url::Origin::Create(extension_urls::GetNewWebstoreLaunchURL()));
@@ -815,7 +816,8 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
   constexpr bool is_oopif_pdf_extension = false;
 #endif  // BUILDFLAG(ENABLE_PDF)
 
-  if (site_instance->IsGuest() && !is_oopif_pdf_extension) {
+  if (site_instance->GetSecurityPrincipal().IsGuest() &&
+      !is_oopif_pdf_extension) {
     return;
   }
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
@@ -823,7 +825,7 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcessAndSite(
   // Manifest-sandboxed documents, and data: or or about:srcdoc urls, do not get
   // access to the extension APIs. We trust that the given SiteInstance is only
   // marked as sandboxed in cases that do not have access to extension APIs.
-  if (site_instance->IsSandboxed()) {
+  if (site_instance->GetSecurityPrincipal().IsSandboxed()) {
     return;
   }
 
@@ -867,7 +869,7 @@ bool ChromeContentBrowserClientExtensionsPart::
   // after a navigation, we can remove this case so that extension settings can
   // apply to webview accessible resources without impacting web pages
   // subsequently loaded in the webview.
-  if (main_frame_site.IsGuest()) {
+  if (main_frame_site.GetSecurityPrincipal().IsGuest()) {
     return false;
   }
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW)
@@ -899,10 +901,11 @@ void ChromeContentBrowserClientExtensionsPart::OverrideWebPreferences(
 void ChromeContentBrowserClientExtensionsPart::BrowserURLHandlerCreated(
     BrowserURLHandler* handler) {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-  handler->AddHandlerPair(&ExtensionWebUI::HandleChromeURLOverride,
+  handler->AddHandlerPair(&ExtensionUrlOverrides::HandleChromeURLOverride,
                           BrowserURLHandler::null_handler());
-  handler->AddHandlerPair(BrowserURLHandler::null_handler(),
-                          &ExtensionWebUI::HandleChromeURLOverrideReverse);
+  handler->AddHandlerPair(
+      BrowserURLHandler::null_handler(),
+      &ExtensionUrlOverrides::HandleChromeURLOverrideReverse);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
 

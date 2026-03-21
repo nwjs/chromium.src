@@ -684,7 +684,7 @@ bool InputHandlerProxy::GenerateAndDispatchSyntheticScrollPrediction(
   // so far apart that we cannot reliably create predictions. When that occurs
   // we do not create any synthetic events.
   if (!currently_active_gesture_device_.has_value() || !scroll_predictor_ ||
-      !scroll_predictor_->HasPrediction(args.frame_time) ||
+      !scroll_predictor_->HasPrediction(args.frame_time, args.interval) ||
       scroll_begin_main_thread_hit_test_reasons_) {
     return false;
   }
@@ -930,8 +930,8 @@ InputHandlerProxy::RouteToTypeSpecificHandler(
 
       if (mouse_event.button == WebMouseEvent::Button::kLeft) {
         CHECK(input_handler_);
-        // TODO(arakeri): Pass in the modifier instead of a bool once the
-        // refactor (crbug.com/1022097) is done. For details, see
+        // TODO(crbug.com/40106459): Pass in the modifier instead of a bool
+        // once the refactor is done. For details, see
         // crbug.com/1016955.
         HandlePointerDown(event_with_callback, mouse_event.PositionInWidget());
       }
@@ -1088,8 +1088,11 @@ void InputHandlerProxy::RecordScrollBegin(
 
 InputHandlerProxy::EventDisposition InputHandlerProxy::HandleMouseWheel(
     const WebMouseWheelEvent& wheel_event) {
-  if (base::FeatureList::IsEnabled(
-          blink::features::kFadeInScrollbarWhenMouseWheelMayBegin) &&
+  const bool is_scrollbar_fade_in_at_may_begin_phase_enabled =
+      base::FeatureList::IsEnabled(
+          blink::features::kFadeInScrollbarWhenMouseWheelMayBegin);
+
+  if (is_scrollbar_fade_in_at_may_begin_phase_enabled &&
       wheel_event.phase == WebMouseWheelEvent::kPhaseMayBegin) {
     mouse_wheel_result_ = DID_NOT_HANDLE_NON_BLOCKING;
     return *mouse_wheel_result_;
@@ -1144,9 +1147,7 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleMouseWheel(
     }
   }
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kFadeInScrollbarWhenMouseWheelMayBegin) &&
-      result == DROP_EVENT) {
+  if (is_scrollbar_fade_in_at_may_begin_phase_enabled && result == DROP_EVENT) {
     // Do not drop began and cancelled events to ensure that the events are
     // forwarded to the main thread to start fading out scrollbars after a
     // MayBegin event.
@@ -1173,8 +1174,8 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollBegin(
   // in progress.
   if (currently_active_gesture_device_.has_value() &&
       handling_gesture_on_impl_thread_) {
-    // TODO(arakeri): Once crbug.com/1074209 is fixed, delete calls to
-    // RecordScrollEnd.
+    // TODO(crbug.com/40127913): Once crbug.com/40127913 is fixed, delete calls
+    // to RecordScrollEnd.
     input_handler_->RecordScrollEnd(
         GestureScrollInputType(*currently_active_gesture_device_));
     InputHandlerScrollEnd();
@@ -1333,7 +1334,7 @@ InputHandlerProxy::HandleGestureScrollUpdate(
   return scroll_result.did_scroll ? DID_HANDLE : DROP_EVENT;
 }
 
-// TODO(arakeri): Ensure that redudant GSE(s) in the CompositorThreadEventQueue
+// TODO(gastonr): Ensure that redundant GSE(s) in the CompositorThreadEventQueue
 // are handled gracefully. (i.e currently, when an ongoing scroll needs to end,
 // we call RecordScrollEnd and InputHandlerScrollEnd synchronously. Ideally, we
 // should end the scroll when the GSB is being handled).
@@ -1771,6 +1772,14 @@ void InputHandlerProxy::DeliverInputForBeginFrame(
   ProcessQueuedEventsUpToSampleTime(args, sample_time);
 
   compositor_event_queue_->DidFinishDispatch();
+
+  // If the queue is not empty (e.g. events are in the future), we need to
+  // ensure the scheduler requests another frame to process them. This is
+  // applied when kUpdateScrollPredictorInputMapping is enabled, as it causes
+  // events to be deferred.
+  if (update_scroll_predictor_ && !compositor_event_queue_->empty()) {
+    input_handler_->SetNeedsAnimateInput();
+  }
 
   if (!queue_flushed_callback_.is_null()) {
     std::move(queue_flushed_callback_).Run();

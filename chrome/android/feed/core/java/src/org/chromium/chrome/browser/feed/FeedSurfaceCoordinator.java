@@ -53,6 +53,7 @@ import org.chromium.chrome.browser.feed.sections.SectionHeaderViewBinder;
 import org.chromium.chrome.browser.feed.sort_ui.FeedOptionsCoordinator;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.NewTabPageLayout;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
@@ -127,6 +128,12 @@ public class FeedSurfaceCoordinator
     private final ObserverList<SurfaceCoordinator.Observer> mObservers = new ObserverList<>();
     private final FeedActionDelegate mActionDelegate;
     private final boolean mUseStaggeredLayout;
+
+    /** Factory for creating {@link FeedActionDelegate}. */
+    public interface ActionDelegateFactory {
+        FeedActionDelegate createActionDelegate();
+    }
+
     private final int mDefaultBackgroundColor;
 
     // FeedReliabilityLogger params.
@@ -167,8 +174,6 @@ public class FeedSurfaceCoordinator
     // In New Tab Page, it does not track the header offset (no header) - instead, it
     // tracks scrolling events.
     private @Nullable ScrollableContainerDelegate mScrollableContainerDelegate;
-
-    private @Nullable HeaderIphScrollListener mHeaderIphScrollListener;
     private @Nullable RefreshIphScrollListener mRefreshIphScrollListener;
     private @Nullable FeedReliabilityLogger mReliabilityLogger;
     private final PrivacyPreferencesManagerImpl mPrivacyPreferencesManager;
@@ -183,7 +188,6 @@ public class FeedSurfaceCoordinator
 
     // Used to handle padding adjustment when edge to edge is enabled.
     private final EdgeToEdgePadAdjuster mEdgePadAdjuster;
-    private final boolean mIsNewTabPageCustomizationEnabled;
     private final boolean mIsNewTabPageCustomizationV2Enabled;
     private @Nullable ImageButton mNtpCustomizationButton;
     private @Nullable NtpCustomizationConfigManager mNtpCustomizationConfigManager;
@@ -218,7 +222,7 @@ public class FeedSurfaceCoordinator
                 mRecyclerView.post(mRecyclerView::invalidateItemDecorations);
                 updateNtpHeaderMargins();
             }
-            if (mIsNewTabPageCustomizationEnabled && mUseStaggeredLayout) {
+            if (mUseStaggeredLayout) {
                 updateNtpCustomizationButtonVisibility();
             }
         }
@@ -414,9 +418,10 @@ public class FeedSurfaceCoordinator
      * @param overScrollDisabled Whether the overscroll effect is disabled.
      * @param viewportView The view that should be used as a container for viewport measurement
      *     purposes, or |null| if the view returned by HybridListRenderer is to be used.
-     * @param actionDelegate Implements some Feed actions.
+     * @param createActionDelegate Factory for creating the implementation of Feed actions.
      * @param tabStripHeightSupplier Supplier for the tab strip height.
      * @param edgeToEdgeControllerSupplier Supplier for the {@link EdgeToEdgeController} instance.
+     * @param moduleRegistry The instance of {@link ModuleRegistry}.
      */
     public FeedSurfaceCoordinator(
             Activity activity,
@@ -438,9 +443,10 @@ public class FeedSurfaceCoordinator
             FeedSwipeRefreshLayout swipeRefreshLayout,
             boolean overScrollDisabled,
             @Nullable ViewGroup viewportView,
-            FeedActionDelegate actionDelegate,
+            ActionDelegateFactory createActionDelegate,
             NonNullObservableSupplier<Integer> tabStripHeightSupplier,
-            MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier) {
+            MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeControllerSupplier,
+            @Nullable ModuleRegistry moduleRegistry) {
         mActivity = activity;
         mSnackbarManager = snackbarManager;
         mNtpHeader = ntpHeader;
@@ -456,16 +462,14 @@ public class FeedSurfaceCoordinator
         mSwipeRefreshLayout = swipeRefreshLayout;
         mOverScrollDisabled = overScrollDisabled;
         mViewportView = viewportView;
-        mActionDelegate = actionDelegate;
+        mActionDelegate = createActionDelegate.createActionDelegate();
         mEmbeddingSurfaceCreatedTimeNs = embeddingSurfaceCreatedTimeNs;
         mWebFeedHasContent = false;
         mHeaderIndex = 0;
         mTabStripHeightSupplier = tabStripHeightSupplier;
         mUseStaggeredLayout = DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);
-        mIsNewTabPageCustomizationEnabled = ChromeFeatureList.sNewTabPageCustomization.isEnabled();
         mIsNewTabPageCustomizationV2Enabled =
-                mIsNewTabPageCustomizationEnabled
-                        && NtpCustomizationUtils.isNtpThemeCustomizationEnabled();
+                NtpCustomizationUtils.isNtpThemeCustomizationEnabled();
         mDefaultBackgroundColor =
                 ContextCompat.getColor(mActivity, R.color.home_surface_background_color);
 
@@ -514,12 +518,12 @@ public class FeedSurfaceCoordinator
 
         // The NTP customization button needs to be added after the RecyclerView to make it float
         // above the RecyclerView.
-        if (mIsNewTabPageCustomizationEnabled && mUseStaggeredLayout) {
+        if (mUseStaggeredLayout) {
             mNtpCustomizationButton =
                     NtpCustomizationUtils.createNtpCustomizationButton(
                             mActivity,
                             v -> {
-                                showNtpCustomizationBottomSheet();
+                                showNtpCustomizationBottomSheet(moduleRegistry);
                             });
             mRootView.addView(mNtpCustomizationButton);
         }
@@ -634,7 +638,7 @@ public class FeedSurfaceCoordinator
                         snapScrollHelper,
                         mSectionHeaderModel,
                         getTabIdFromLaunchOrigin(launchOrigin),
-                        actionDelegate,
+                        mActionDelegate,
                         optionsCoordinator,
                         useUiConfig ? mUiConfig : null,
                         profile);
@@ -763,14 +767,15 @@ public class FeedSurfaceCoordinator
                 mRecyclerView.getPaddingLeft() >= min_margin ? View.VISIBLE : View.GONE);
     }
 
-    void showNtpCustomizationBottomSheet() {
+    void showNtpCustomizationBottomSheet(@Nullable ModuleRegistry moduleRegistry) {
         NtpCustomizationCoordinatorFactory.getInstance()
                 .create(
                         mActivity,
                         mBottomSheetController,
                         () -> mProfile,
                         NtpCustomizationCoordinator.BottomSheetType.MAIN,
-                        mWindowAndroid)
+                        mWindowAndroid,
+                        moduleRegistry)
                 .showBottomSheet();
         NtpCustomizationMetricsUtils.recordOpenBottomSheetEntry(
                 NtpCustomizationCoordinator.EntryPointType.NEW_TAB_PAGE);
@@ -858,6 +863,8 @@ public class FeedSurfaceCoordinator
         if (mNtpBackgroundImageCoordinator != null) {
             mNtpBackgroundImageCoordinator.destroy();
         }
+
+        mActionDelegate.destroy();
     }
 
     /**
@@ -1071,6 +1078,13 @@ public class FeedSurfaceCoordinator
         assumeNonNull(view);
         view.setId(R.id.feed_stream_recycler_view);
         view.setClipToPadding(false);
+
+        RecyclerView.ItemAnimator animator = view.getItemAnimator();
+        if (animator != null) {
+            // Prevents Feeds flickering when bring Chrome to the background and move to foreground
+            // again.
+            animator.setAddDuration(0);
+        }
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.FEED_CONTAINMENT)) {
             // Used to draw containment background.
@@ -1315,24 +1329,7 @@ public class FeedSurfaceCoordinator
             mScrollableContainerDelegate = new ScrollableContainerDelegateImpl();
         }
 
-        if (!mIsNewTabPageCustomizationEnabled) {
-            createHeaderIphScrollListener();
-        }
         createRefreshIphScrollListener();
-    }
-
-    private void createHeaderIphScrollListener() {
-        assumeNonNull(mScrollableContainerDelegate);
-        mHeaderIphScrollListener =
-                new HeaderIphScrollListener(
-                        this,
-                        mScrollableContainerDelegate,
-                        () -> {
-                            UserEducationHelper helper =
-                                    new UserEducationHelper(mActivity, mProfile, mHandler);
-                            ((SectionHeaderView) mHeaderView).showMenuIph(helper);
-                        });
-        mScrollableContainerDelegate.addScrollListener(mHeaderIphScrollListener);
     }
 
     private void createRefreshIphScrollListener() {
@@ -1356,10 +1353,6 @@ public class FeedSurfaceCoordinator
      */
     private void stopBubbleTriggering() {
         if (mMediator.hasStreams() && mScrollableContainerDelegate != null) {
-            if (mHeaderIphScrollListener != null) {
-                mScrollableContainerDelegate.removeScrollListener(mHeaderIphScrollListener);
-                mHeaderIphScrollListener = null;
-            }
             if (mRefreshIphScrollListener != null) {
                 mScrollableContainerDelegate.removeScrollListener(mRefreshIphScrollListener);
                 mRefreshIphScrollListener = null;

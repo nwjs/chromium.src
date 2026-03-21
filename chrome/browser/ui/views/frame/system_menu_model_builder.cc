@@ -9,6 +9,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/features.h"
@@ -31,7 +33,6 @@
 #include "ash/multi_user/multi_user_window_manager.h"
 #include "ash/shell.h"
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
@@ -48,10 +49,6 @@
 
 #if BUILDFLAG(IS_OZONE) && !BUILDFLAG(IS_CHROMEOS)
 #include "ui/ozone/public/ozone_platform.h"
-#endif
-
-#if BUILDFLAG(ENABLE_GLIC)
-#include "chrome/browser/glic/public/glic_enabling.h"
 #endif
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SystemMenuModelBuilder,
@@ -103,7 +100,6 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
 
   model->AddItemWithStringId(IDC_BOOKMARK_ALL_TABS, IDS_BOOKMARK_ALL_TABS);
   model->AddItemWithStringId(IDC_NAME_WINDOW, IDS_NAME_WINDOW);
-#if BUILDFLAG(ENABLE_GLIC)
 #if BUILDFLAG(IS_WIN)
   // On Windows we can not remove an item when showing the menu. So only add
   // the glic toggle option if glic is enabled when building the menu.
@@ -114,7 +110,6 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
 #if BUILDFLAG(IS_WIN)
   }
 #endif  // BUILDFLAG(IS_WIN)
-#endif  // BUILDFLAG(ENABLE_GLIC)
 
   if (auto* controller =
           tabs::VerticalTabStripStateController::From(browser())) {

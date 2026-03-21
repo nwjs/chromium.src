@@ -4,6 +4,7 @@
 
 #include "components/optimization_guide/core/delivery/prediction_model_download_manager.h"
 
+#include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_util.h"
@@ -32,6 +33,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/services/unzip/public/cpp/unzip.h"
 #include "components/services/unzip/public/mojom/unzipper.mojom.h"
+#include "components/variations/variations_switches.h"
 #include "crypto/hash.h"
 #include "google_apis/common/api_key_request_util.h"
 #include "google_apis/google_api_keys.h"
@@ -197,7 +199,9 @@ bool PredictionModelDownloadManager::IsAvailableForDownloads() const {
 
 bool PredictionModelDownloadManager::ShouldFetchModels() const {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          kDisableModelDownloadsForBenchmarking)) {
+          kDisableModelDownloadsForBenchmarking) ||
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          ::switches::kEnableBenchmarking)) {
     return false;
   }
   return (switches::ShouldSkipGoogleApiKeyConfigurationCheck() ||

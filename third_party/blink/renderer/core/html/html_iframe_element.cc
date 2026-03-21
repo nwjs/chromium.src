@@ -156,7 +156,7 @@ void HTMLIFrameElement::CollectStyleForPresentationAttribute(
     // LocalFrame border doesn't really match the HTML4 spec definition for
     // iframes. It simply adds a presentational hint that the border should be
     // off if set to zero.
-    if (!StringToInt(value).value_or(0)) {
+    if (!StringToIntLoose(value).value_or(0)) {
       // Add a rule that nulls out our border width.
       for (CSSPropertyID property_id :
            {CSSPropertyID::kBorderTopWidth, CSSPropertyID::kBorderBottomWidth,
@@ -190,18 +190,18 @@ void HTMLIFrameElement::ParseAttribute(
       FrameOwnerPropertiesChanged();
       should_call_did_change_attributes = true;
     }
-    if (name_.Contains('\n')) {
+    if (name_.contains('\n')) {
       UseCounter::Count(GetDocument(), WebFeature::kFrameNameContainsNewline);
     }
-    if (name_.Contains('<')) {
+    if (name_.contains('<')) {
       UseCounter::Count(GetDocument(), WebFeature::kFrameNameContainsBrace);
     }
-    if (name_.Contains('\n') && name_.Contains('<')) {
+    if (name_.contains('\n') && name_.contains('<')) {
       UseCounter::Count(GetDocument(), WebFeature::kDanglingMarkupInWindowName);
-      if (!name_.EndsWith('>')) {
+      if (!name_.ends_with('>')) {
         UseCounter::Count(GetDocument(),
                           WebFeature::kDanglingMarkupInWindowNameNotEndsWithGT);
-        if (!name_.EndsWith('\n')) {
+        if (!name_.ends_with('\n')) {
           UseCounter::Count(
               GetDocument(),
               WebFeature::kDanglingMarkupInWindowNameNotEndsWithNewLineOrGT);
@@ -271,7 +271,7 @@ void HTMLIFrameElement::ParseAttribute(
     }
   } else if (name == html_names::kCspAttr) {
     static const size_t kMaxLengthCSPAttribute = 4096;
-    if (value && (value.Contains('\n') || value.Contains('\r') ||
+    if (value && (value.contains('\n') || value.contains('\r') ||
                   !MatchesTheSerializedCSPGrammar(value.GetString()))) {
       // TODO(antoniosartori): It would be safer to block loading iframes with
       // invalid 'csp' attribute.
@@ -643,7 +643,7 @@ void HTMLIFrameElement::DidChangeAttributes() {
       ParseContentSecurityPolicies(
           required_csp_,
           network::mojom::blink::ContentSecurityPolicyType::kEnforce,
-          network::mojom::blink::ContentSecurityPolicySource::kHTTP, KURL());
+          network::mojom::blink::ContentSecurityPolicySource::kHTTP, NullUrl());
   DCHECK_LE(csp.size(), 1u);
 
   auto attributes = mojom::blink::IframeAttributes::New();
@@ -734,9 +734,8 @@ void HTMLIFrameElement::NaturalSizingInfoChanged() {
   }
 }
 
-const V8UnionStringOrTrustedHTML* HTMLIFrameElement::srcdoc() const {
-  return MakeGarbageCollected<V8UnionStringOrTrustedHTML>(
-      getAttribute(html_names::kSrcdocAttr));
+String HTMLIFrameElement::srcdoc() const {
+  return getAttribute(html_names::kSrcdocAttr);
 }
 
 void HTMLIFrameElement::setSrcdoc(const V8UnionStringOrTrustedHTML* value,

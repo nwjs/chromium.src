@@ -113,20 +113,18 @@ export class SelectionController {
     let focusNodeId = this.nodeStore_.getAxId(focusNode);
     let adjustedAnchorOffset = anchorOffset;
     let adjustedFocusOffset = focusOffset;
-    if (chrome.readingMode.isReadAloudEnabled) {
-      if (!anchorNodeId) {
-        const ancestor = this.nodeStore_.getAncestor(anchorNode);
-        if (ancestor) {
-          anchorNodeId = this.nodeStore_.getAxId(ancestor.node);
-          adjustedAnchorOffset += ancestor.offset;
-        }
+    if (!anchorNodeId) {
+      const ancestor = this.nodeStore_.getAncestor(anchorNode);
+      if (ancestor) {
+        anchorNodeId = this.nodeStore_.getAxId(ancestor.node);
+        adjustedAnchorOffset += ancestor.offset;
       }
-      if (!focusNodeId) {
-        const ancestor = this.nodeStore_.getAncestor(focusNode);
-        if (ancestor) {
-          focusNodeId = this.nodeStore_.getAxId(ancestor.node);
-          adjustedFocusOffset += ancestor.offset;
-        }
+    }
+    if (!focusNodeId) {
+      const ancestor = this.nodeStore_.getAncestor(focusNode);
+      if (ancestor) {
+        focusNodeId = this.nodeStore_.getAxId(ancestor.node);
+        adjustedFocusOffset += ancestor.offset;
       }
     }
     return {
@@ -147,8 +145,8 @@ export class SelectionController {
     if (!selectionToUpdate) {
       return;
     }
-    const {startNodeId, endNodeId} = chrome.readingMode;
-    if (!startNodeId || !endNodeId) {
+    const {startNodeId, endNodeId, hasValidSelection} = chrome.readingMode;
+    if (!startNodeId || !endNodeId || !hasValidSelection) {
       // The selection is the main panel collapsed, so clear the selection here.
       selectionToUpdate.removeAllRanges();
       return;
@@ -210,14 +208,23 @@ export class SelectionController {
       return null;
     }
 
+    const anchorContent = chrome.readingMode.getTextContent(anchorNodeId);
+    const focusContent = chrome.readingMode.getTextContent(focusNodeId);
+
+    // If the nodes don't have valid text content, they shouldn't be used
+    // for selection.
+    if (!anchorContent || !focusContent) {
+      return null;
+    }
+
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
     const anchorContext = {
       prefix: chrome.readingMode.getPrefixText(anchorNodeId),
-      content: chrome.readingMode.getTextContent(anchorNodeId),
+      content: anchorContent,
     };
     const focusContext = {
       prefix: chrome.readingMode.getPrefixText(focusNodeId),
-      content: chrome.readingMode.getTextContent(focusNodeId),
+      content: focusContent,
     };
 
     const result = this.findTargetNodes_(walker, anchorContext, focusContext);

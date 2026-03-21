@@ -42,6 +42,7 @@ The current status of existing standards and Abseil features is:
     dates represent the start of the two-year TBD periods for certain parts of
     Abseil:_
       * absl::linked_hash_set & map: Initially added to third_party Dec 30, 2025
+      * absl::optional_ref: Initially added to third_party Feb 25, 2026
 
 ## Banned features and third-party code
 
@@ -714,6 +715,31 @@ declaring a template type for each such parameter.
 **Notes:**
 *** promo
 [Migration bug](https://crbug.com/1414526)
+***
+
+### Aggregate initialization using parentheses <sup>[allowed]</sup>
+
+```c++
+struct B {
+  int a;
+  int&& r;
+} b2(1, 1);  // Warning: dangling reference
+```
+
+**Description:** Allows initialization of aggregates using parentheses, not just
+braces.
+
+**Documentation:**
+[Aggregate initialization](https://en.cppreference.com/w/cpp/language/aggregate_initialization),
+[Direct initialization](https://en.cppreference.com/w/cpp/language/direct_initialization)
+
+**Notes:**
+*** promo
+There are subtle but important differences between brace-init and paren-init of
+aggregates. The parenthesis style has some pitfalls, e.g. allowing narrowing
+conversions and not extending lifetimes of temporaries bound to references, but
+this matches the behavior of paren-init of non-aggregate types which is already
+allowed.
 ***
 
 ### consteval <sup>[allowed]</sup>
@@ -1392,6 +1418,28 @@ of data is string-like and not an arbitrary binary blob, prefer
 `std::string[_view]` over `char*`.
 ***
 
+### Coroutines <sup>[banned]</sup>
+
+```c++
+co_return 1;
+```
+
+**Description:** Allows writing functions that logically block while physically
+returning control to a caller. This enables writing some kinds of async code in
+simple, straight-line ways without storing state in members or binding
+callbacks.
+
+**Documentation:**
+[Coroutines](https://en.cppreference.com/w/cpp/language/coroutines)
+
+**Notes:**
+*** promo
+Requires significant support code and planning around API and migration, see
+[discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/ehMerLApxr8/m/5vzoHqCgCwAJ).
+Re-evaluate once supported on win32 and there is a plan for how to integrate
+with Chrome task scheduling.
+***
+
 ### Modules <sup>[banned]</sup>
 
 ```c++
@@ -1512,6 +1560,41 @@ encoded using the current C locale.
 Chromium functionality should not vary with the C locale.
 ***
 
+### &lt;coroutine&gt; <sup>[banned]</sup>
+
+```c++
+#include <coroutine>
+```
+
+**Description:** Header which defines various core coroutine types.
+
+**Documentation:**
+[Coroutine support](https://en.cppreference.com/w/cpp/coroutine)
+
+**Notes:**
+*** promo
+See notes on "Coroutines" above.
+***
+
+### &lt;format&gt; <sup>[banned]</sup>
+
+```c++
+std::cout << std::format("Hello {}!\n", "world");
+```
+
+**Description:** Utilities for producing formatted strings.
+
+**Documentation:**
+[Formatting library](https://en.cppreference.com/w/cpp/utility/format)
+
+**Notes:**
+*** promo
+Has both pros and cons compared to `absl::StrFormat` (which we use internally in
+base::StringPrintf). Migration would be nontrivial due to string format
+specifiers being different. The external {fmt} library might be a better
+candidate to switch to.
+***
+
 ### Range factories and range adaptors <sup>[banned]</sup>
 
 ```c++
@@ -1540,6 +1623,27 @@ runtime performance.
 [Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/ZnIbkfJ0Glw)
 ***
 
+### std::ranges::operator| <sup>[banned]</sup>
+
+```c++
+constexpr int kArr[] = {6, 2, 8, 4, 4, 2};
+constexpr auto plus_one = std::views::transform([](int n){ return n + 1; });
+static_assert(std::ranges::equal(kArr | plus_one, {7, 3, 9, 5, 5, 3}));
+```
+
+**Description:** The pipe operator for chaining range adaptor closure objects.
+
+**Documentation:**
+[`std::ranges::operator|`](https://en.cppreference.com/w/cpp/named_req/RangeAdaptorClosureObject.html)
+
+**Notes:**
+*** promo
+Banned in Chromium since range factories and adapters are banned. Explicitly
+enforced by the Chromium style clang-plugin.
+
+[Discussion](https://groups.google.com/a/chromium.org/g/cxx/c/ZnIbkfJ0Glw) [threads](https://groups.google.com/a/chromium.org/g/cxx/c/ZzSLYf6-KwQ)
+***
+
 ### std::ranges::view_interface <sup>[banned]</sup>
 
 ```c++
@@ -1557,6 +1661,24 @@ Banned in Chrome since range factories and adapters are banned, and this would
 primarily allow authors to create similar functionality.
 
 [Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/ZnIbkfJ0Glw)
+***
+
+### &lt;source_location&gt; <sup>[banned]</sup>
+
+```c++
+#include <source_location>
+```
+
+**Description:** Provides a class that can hold source code details such as
+filenames, function names, and line numbers.
+
+**Documentation:**
+[Standard library header `<source_location>`](https://en.cppreference.com/w/cpp/header/source_location)
+
+**Notes:**
+*** promo
+Regresses binary size vs. `base::Location`, see
+[discussion here](https://groups.google.com/a/chromium.org/g/cxx/c/2BsvGgWfNWo/m/2SO4F2b4AAAJ).
 ***
 
 ### &lt;span&gt; <sup>[banned]</sup>
@@ -1595,6 +1717,23 @@ Banned because it is not guaranteed to be SFINAE-compatible. Use
 base::to_address, which does guarantee this.
 ***
 
+### std::u8string <sup>[banned]</sup>
+
+```c++
+std::u8string str = u8"Foo";
+```
+
+**Description:** A string whose character type is `char8_t`, intended to hold
+UTF-8-encoded text.
+
+**Documentation:**
+[`std::basic_string`](https://en.cppreference.com/w/cpp/string/basic_string)
+
+**Notes:**
+*** promo
+See notes on `char8_t` above.
+***
+
 ### &lt;syncstream&gt; <sup>[banned]</sup>
 
 ```c++
@@ -1611,128 +1750,6 @@ base::to_address, which does guarantee this.
 Banned due to being unimplemented per
 [the libc++ C++20 status page](https://libcxx.llvm.org/Status/Cxx20.html).
 Reevaluate usefulness once implemented.
-***
-
-## C++20 TBD Language Features {#core-review-20}
-
-The following C++20 language features are not allowed in the Chromium codebase.
-See the top of this page on how to propose moving a feature from this list into
-the allowed or banned sections.
-
-### Aggregate initialization using parentheses <sup>[tbd]</sup>
-
-```c++
-struct B {
-  int a;
-  int&& r;
-} b2(1, 1);  // Warning: dangling reference
-```
-
-**Description:** Allows initialization of aggregates using parentheses, not just
-braces.
-
-**Documentation:**
-[Aggregate initialization](https://en.cppreference.com/w/cpp/language/aggregate_initialization),
-[Direct initialization](https://en.cppreference.com/w/cpp/language/direct_initialization)
-
-**Notes:**
-*** promo
-There are subtle but important differences between brace- and paren-init of
-aggregates. The parenthesis style appears to have more pitfalls (allowing
-narrowing conversions, not extending lifetimes of temporaries bound to
-references).
-***
-
-### Coroutines <sup>[tbd]</sup>
-
-```c++
-co_return 1;
-```
-
-**Description:** Allows writing functions that logically block while physically
-returning control to a caller. This enables writing some kinds of async code in
-simple, straight-line ways without storing state in members or binding
-callbacks.
-
-**Documentation:**
-[Coroutines](https://en.cppreference.com/w/cpp/language/coroutines)
-
-**Notes:**
-*** promo
-Requires significant support code and planning around API and migration.
-***
-
-## C++20 TBD Library Features {#library-review-20}
-
-The following C++20 library features are not allowed in the Chromium codebase.
-See the top of this page on how to propose moving a feature from this list into
-the allowed or banned sections.
-
-### &lt;coroutine&gt; <sup>[tbd]</sup>
-
-```c++
-#include <coroutine>
-```
-
-**Description:** Header which defines various core coroutine types.
-
-**Documentation:**
-[Coroutine support](https://en.cppreference.com/w/cpp/coroutine)
-
-**Notes:**
-*** promo
-See notes on "Coroutines" above.
-***
-
-### &lt;format&gt; <sup>[tbd]</sup>
-
-```c++
-std::cout << std::format("Hello {}!\n", "world");
-```
-
-**Description:** Utilities for producing formatted strings.
-
-**Documentation:**
-[Formatting library](https://en.cppreference.com/w/cpp/utility/format)
-
-**Notes:**
-*** promo
-Has both pros and cons compared to `absl::StrFormat` (which we don't yet use).
-Migration would be nontrivial.
-***
-
-### &lt;source_location&gt; <sup>[tbd]</sup>
-
-```c++
-#include <source_location>
-```
-
-**Description:** Provides a class that can hold source code details such as
-filenames, function names, and line numbers.
-
-**Documentation:**
-[Standard library header `<source_location>`](https://en.cppreference.com/w/cpp/header/source_location)
-
-**Notes:**
-*** promo
-Seems to regress code size vs. `base::Location`.
-***
-
-### std::u8string <sup>[tbd]</sup>
-
-```c++
-std::u8string str = u8"Foo";
-```
-
-**Description:** A string whose character type is `char8_t`, intended to hold
-UTF-8-encoded text.
-
-**Documentation:**
-[`std::basic_string`](https://en.cppreference.com/w/cpp/string/basic_string)
-
-**Notes:**
-*** promo
-See notes on `char8_t` above.
 ***
 
 ## C++23 Allowed Language Features {#core-allowlist-23}
@@ -1887,6 +1904,25 @@ std::vector<int> new_way(std::from_range, a_very_long_container_name);
 *** promo
 [Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/ZzSLYf6-KwQ).
 See also std::ranges::to which offers something similar.
+***
+
+### std::ranges::to <sup>[allowed]</sup>
+
+```c++
+std::set<int> s = {1, 2, 3};
+auto u = std::ranges::to<std::vector>(s);
+```
+
+**Description:** Converts a range to a container.
+
+**Documentation:**
+[std::ranges::to](https://en.cppreference.com/w/cpp/ranges/to)
+
+**Notes:**
+*** promo
+[Discussion thread](https://groups.google.com/a/chromium.org/g/cxx/c/ZzSLYf6-KwQ).
+NOTE: `std::ranges::to` could also be used as a range adaptor, but those are
+banned in Chromium, see [here](#range-factories-and-range-adaptors-banned).
 ***
 
 ### std::to_underlying <sup>[allowed]</sup>
@@ -2123,26 +2159,6 @@ std::mdspan m(ptr, 10, 10);
 *** promo
 We ban std::span in favor of base::span, which has better safety guarantees.
 If we want to support this, maybe we should implement base::mdspan.
-***
-
-### std::ranges::to <sup>[tbd]</sup>
-
-```c++
-std::set<int> s = {1, 2, 3};
-auto u = std::ranges::to<std::vector>(s);
-auto v = s | std::ranges::to<std::vector>();
-```
-
-**Description:** Converts a range to a container.
-
-**Documentation:**
-[std::ranges::to](https://en.cppreference.com/w/cpp/ranges/to)
-
-**Notes:**
-*** promo
-We should ban the 2nd case in the snippet (use as an adaptor), but might want to
-allow the 1st case (simple container conversion). Note there's also
-std::from_range for use cases like the 1st one.
 ***
 
 ### Range Formatting <sup>[tbd]</sup>
@@ -2789,3 +2805,26 @@ amortized insertions and lookups, as well as iteration in the insertion order.
 **Documentation:**
 *   [linked_hash_set.h](https://source.chromium.org/chromium/chromium/src/+/main:third_party/abseil-cpp/absl/container/linked_hash_set.h)
 *   [linked_hash_map.h](https://source.chromium.org/chromium/chromium/src/+/main:third_party/abseil-cpp/absl/container/linked_hash_map.h)
+
+
+### absl::optional_ref <sup>[tbd]</sup>
+
+```c++
+   void ProcessT(absl::optional_ref<const T> input) {
+     if (!input.has_value()) {
+       // Handle empty case.
+       return;
+     }
+     const T& val = *input;
+     // Do something with val.
+   }
+
+   ProcessT(std::nullopt);
+   ProcessT(BuildT());
+```
+
+**Description:** A `std::optional`-like interface around `T*`.
+It is similar to C++26's `std::optional<T&>`, but with slight enhancements.
+
+**Documentation:**
+*   [optional_ref.h](https://source.chromium.org/chromium/chromium/src/+/main:third_party/abseil-cpp/absl/types/optional_ref.h)

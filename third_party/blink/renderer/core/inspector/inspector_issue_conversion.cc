@@ -53,11 +53,11 @@ blink::protocol::String InspectorIssueCodeValue(
           ContentSecurityPolicyIssue;
     case mojom::blink::InspectorIssueCode::kSharedArrayBufferIssue:
       return protocol::Audits::InspectorIssueCodeEnum::SharedArrayBufferIssue;
-    case mojom::blink::InspectorIssueCode::kLowTextContrastIssue:
-      return protocol::Audits::InspectorIssueCodeEnum::LowTextContrastIssue;
     case mojom::blink::InspectorIssueCode::kUserReidentificationIssue:
       return protocol::Audits::InspectorIssueCodeEnum::
           UserReidentificationIssue;
+    case mojom::blink::InspectorIssueCode::kPerformanceIssue:
+      return protocol::Audits::InspectorIssueCodeEnum::PerformanceIssue;
     case mojom::blink::InspectorIssueCode::kHeavyAdIssue:
     case mojom::blink::InspectorIssueCode::kFederatedAuthRequestIssue:
     case mojom::blink::InspectorIssueCode::kFederatedAuthUserInfoRequestIssue:
@@ -365,6 +365,15 @@ std::unique_ptr<protocol::Audits::SourceCodeLocation> BuildAffectedLocation(
   return protocol_affected_location;
 }
 
+protocol::String BuildPerformanceIssueType(
+    mojom::blink::PerformanceIssueType type) {
+  switch (type) {
+    case mojom::blink::PerformanceIssueType::kDocumentCookie:
+      return protocol::Audits::PerformanceIssueTypeEnum::DocumentCookie;
+  }
+  NOTREACHED();
+}
+
 }  // namespace
 
 std::unique_ptr<protocol::Audits::InspectorIssue>
@@ -465,19 +474,18 @@ ConvertInspectorIssueToProtocolFormat(InspectorIssue* issue) {
     issueDetails.setSharedArrayBufferIssueDetails(std::move(details));
   }
 
-  if (issue->Details()->low_text_contrast_details) {
-    const auto* d = issue->Details()->low_text_contrast_details.get();
-    auto lowContrastDetails =
-        protocol::Audits::LowTextContrastIssueDetails::create()
-            .setThresholdAA(d->threshold_aa)
-            .setThresholdAAA(d->threshold_aaa)
-            .setFontSize(d->font_size)
-            .setFontWeight(d->font_weight)
-            .setContrastRatio(d->contrast_ratio)
-            .setViolatingNodeSelector(d->violating_node_selector)
-            .setViolatingNodeId(d->violating_node_id)
+  if (issue->Details()->performance_issue_details) {
+    const auto* d = issue->Details()->performance_issue_details.get();
+    auto performanceDetails =
+        protocol::Audits::PerformanceIssueDetails::create()
+            .setPerformanceIssueType(
+                BuildPerformanceIssueType(d->performance_issue_type))
             .build();
-    issueDetails.setLowTextContrastIssueDetails(std::move(lowContrastDetails));
+    if (d->affected_location) {
+      performanceDetails->setSourceCodeLocation(
+          BuildAffectedLocation(d->affected_location));
+    }
+    issueDetails.setPerformanceIssueDetails(std::move(performanceDetails));
   }
 
   auto final_issue = protocol::Audits::InspectorIssue::create()

@@ -6,6 +6,7 @@
 
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
+#include "third_party/blink/renderer/bindings/core/v8/frozen_array.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/shadow_including_tree_order_traversal.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
@@ -28,7 +29,7 @@ void IdsFromAttribute(const Element& element,
                       Vector<AtomicString>& ids,
                       const QualifiedName& attr_name) {
   SpaceSplitString split_ids(AXObject::AriaAttribute(element, attr_name));
-  ids.AppendRange(split_ids.begin(), split_ids.end());
+  ids.append_range(split_ids);
 }
 }  // namespace
 

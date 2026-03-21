@@ -64,6 +64,19 @@ enum AIPageContentAnnotatedRole {
 };
 
 struct AIPageContentGeometry {
+  // All rectangles in this struct are expressed in visual-viewport coordinates
+  // in the local root's BlinkSpace (device pixels). These are not DIPs/CSS
+  // pixels; callers starting from a DIP point must convert from layout-viewport
+  // DIPs to visual-viewport BlinkSpace (e.g. apply the device scale factor and
+  // any layout-vs-visual viewport offset) to compare or hit test against these
+  // bounds.
+  //
+  // Terminology:
+  // - Layout viewport: the viewport used for layout/scrolling.
+  // - Visual viewport: what the user actually sees; can be offset from the
+  //   layout viewport (e.g. when the mobile toolbar shows/hides during
+  //   scrolling, or during pinch-zoom).
+
   // The bounding box of the content node mapped to the viewport ignoring any
   // ancestor clips (including the viewport clip). This can be thought of as the
   // where the element would be relative to the viewport if it "popped out" of
@@ -122,10 +135,16 @@ struct AIPageContentSelection {
 // the main frame and embedded iframes.
 struct AIPageContentPageInteractionInfo {
   // The DOMNodeId of the content node that is currently focused.
+  //
+  // TODO(crbug.com/415778689): Deprecate when consumers move to
+  // AIPageContentFrameInteractionInfo.focused_dom_node_id.
   int32? focused_dom_node_id;
 
   // The DOMNodeId of the content node that is currently focused by a
   // screen reader or other accessibility tool.
+  //
+  // TODO(crbug.com/415778689): Deprecate when consumers move to
+  // AIPageContentFrameInteractionInfo.accessibility_focused_dom_node_id.
   int32? accessibility_focused_dom_node_id;
 
   // The last known mouse position, in the page coordinate system.
@@ -135,6 +154,13 @@ struct AIPageContentPageInteractionInfo {
 struct AIPageContentFrameInteractionInfo {
   // The current selection.
   AIPageContentSelection? selection;
+
+  // The DOMNodeId of the content node that is currently focused.
+  int32? focused_dom_node_id;
+
+  // The DOMNodeId of the content node that is currently focused by a
+  // screen reader or other accessibility tool.
+  int32? accessibility_focused_dom_node_id;
 };
 
 // Provides the reasons which make an element clickable.
@@ -612,6 +638,18 @@ struct AIPageContentOptions {
 
   // Whether to include data for visible passwords.
   bool include_passwords_for_redaction = false;
+
+  // Whether to include data for visible sensitive payment information.
+  bool include_sensitive_payments_for_redaction = false;
+
+  // Optional node-id policy options.
+  // If unset, extraction emits node ids for all nodes.
+  // If set, extraction emits ids for always-required override cases (actionable
+  // targets and metadata-linked nodes such as focus/selection/label-for
+  // references), plus any attribute types listed here.
+  // For better overall Blink performance, request node ids only for attribute
+  // types that require DOM round-trip behavior.
+  array<AIPageContentAttributeType>? node_id_allowlist;
 };
 
 // Used to obtain the AIPageContent representation for Documents. Lives in the

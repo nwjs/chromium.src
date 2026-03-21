@@ -608,6 +608,7 @@
     "lowercase",
     //none
     "math-auto",
+    "full-size-kana",
     //
     // visibility
     //
@@ -838,6 +839,7 @@
     //
     // auto
     // none
+    // all
 
     //
     // text-decoration-thickness
@@ -1312,11 +1314,13 @@
     // normal
 
     // column-rule-visibility-items
+    // auto
     // all
     "around",
     "between",
 
     // row-rule-visibility-items
+    // auto
     // all
     // around
     // between
@@ -1335,11 +1339,6 @@
     // vector-effect
     // none
     "non-scaling-stroke",
-
-    //
-    // CSS3 viewport-length keywords
-    //
-    "-internal-extend-to-zoom",
 
     // isolation
     // auto

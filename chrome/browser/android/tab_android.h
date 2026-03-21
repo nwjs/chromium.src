@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-#include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
@@ -22,9 +21,7 @@
 #include "base/supports_user_data.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/android/tab_android_data_provider.h"
-#include "chrome/browser/sync/glue/synced_tab_delegate_android.h"
 #include "chrome/browser/tab/web_contents_state.h"
-#include "components/infobars/core/infobar_manager.h"
 #include "components/sessions/core/session_id.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -33,20 +30,30 @@
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 
 class GURL;
+class TabAndroidDataProvider;
+class TabInterfaceAndroid;
 class Profile;
 
 namespace cc::slim {
 class Layer;
-}
+}  // namespace cc::slim
 
 namespace android {
 class TabWebContentsDelegateAndroid;
-}
+}  // namespace android
+
+namespace browser_sync {
+class SyncedTabDelegateAndroid;
+}  // namespace browser_sync
 
 namespace content {
 class DevToolsAgentHost;
 class WebContents;
 }  // namespace content
+
+namespace sync_sessions {
+class SyncedTabDelegate;
+}  // namespace sync_sessions
 
 namespace tabs {
 class TabCollection;
@@ -106,7 +113,7 @@ class TabAndroid : public tabs::TabInterface,
   SessionID GetWindowId() const override;
   int GetAndroidId() const override;
   std::unique_ptr<WebContentsStateByteBuffer> GetWebContentsByteBuffer()
-      override;
+      const override;
 
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject() const;
@@ -169,6 +176,10 @@ class TabAndroid : public tabs::TabInterface,
   // Set the media state of the tab. This is called by MediaStateObserver.
   void SetMediaState(int media_state);
 
+  void SetTabInterfaceAndroid(base::PassKey<TabInterfaceAndroid>,
+                              TabInterfaceAndroid* tab_interface_android);
+  void ResetParentCollection(base::PassKey<TabInterfaceAndroid>);
+
   // Observers -----------------------------------------------------------------
 
   // Adds/Removes an Observer.
@@ -203,8 +214,8 @@ class TabAndroid : public tabs::TabInterface,
       const base::android::JavaRef<jobject>& jweb_contents,
       int32_t width,
       int32_t height);
-  void SetActiveNavigationEntryTitleForUrl(std::string& jurl,
-                                           std::u16string& jtitle);
+  void SetActiveNavigationEntryTitleForUrl(const std::string& jurl,
+                                           const std::u16string& jtitle);
   void LoadOriginalImage();
   void OnShow();
   void NotifyPinnedStateChanged(bool is_pinned);
@@ -220,6 +231,8 @@ class TabAndroid : public tabs::TabInterface,
 
   void SetDevToolsAgentHost(scoped_refptr<content::DevToolsAgentHost> host);
 
+  tabs::TabCollection* GetRootCollection() const;
+
   base::WeakPtr<TabAndroid> GetTabAndroidWeakPtr();
 
   // TabInterface overrides:
@@ -227,7 +240,7 @@ class TabAndroid : public tabs::TabInterface,
   content::WebContents* GetContents() const override;
   // This implementation of close immediately closes the tab without undo
   // support and without a warning dialog when closing the last tab in a tab
-  // group. For more granualar control it is strongly recommended to close tabs
+  // group. For more granular control it is strongly recommended to close tabs
   // from Java instead. This operation may fail if the TabModel for this tab is
   // not found for some reason.
   void Close() override;
@@ -252,6 +265,8 @@ class TabAndroid : public tabs::TabInterface,
       PinnedStateChangedCallback callback) override;
   base::CallbackListSubscription RegisterGroupChanged(
       GroupChangedCallback callback) override;
+  base::CallbackListSubscription RegisterBlockedStateChanged(
+      BlockedStateChangedCallback callback) override;
   bool CanShowModalUI() const override;
   std::unique_ptr<tabs::ScopedTabModalUI> ShowModalUI() override;
   base::CallbackListSubscription RegisterModalUIChanged(
@@ -280,12 +295,13 @@ class TabAndroid : public tabs::TabInterface,
  private:
   // This constructor bypassing JVM setup is for CreateForTesting only.
   TabAndroid(Profile* profile, int tab_id);
-  JavaObjectWeakGlobalRef weak_java_tab_;
 
   void UpdateProperties();
   void SetIsPinned(bool pinned);
   void SetIsDragging(bool dragging);
   void SetTabGroupId(std::optional<tab_groups::TabGroupId> tab_group_id);
+
+  base::android::ScopedJavaLocalRef<jobject> GetJavaObject(JNIEnv* env) const;
 
   int tab_id_;
 
@@ -303,6 +319,7 @@ class TabAndroid : public tabs::TabInterface,
   // Holds tab-scoped state. Constructed after tab_helpers.
   std::unique_ptr<tabs::TabFeatures> tab_features_;
 
+  raw_ptr<TabInterfaceAndroid> tab_interface_android_ = nullptr;
   raw_ptr<tabs::TabCollection> parent_collection_ = nullptr;
 
   base::ObserverList<Observer> observers_;

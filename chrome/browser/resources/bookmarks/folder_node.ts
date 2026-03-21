@@ -72,11 +72,6 @@ export class BookmarksFolderNodeElement extends BookmarksFolderNodeElementBase {
   protected accessor isSelectedFolder_: boolean = false;
   protected accessor hasChildFolder_: boolean = false;
 
-  override firstUpdated(changedProperties: PropertyValues<this>) {
-    super.firstUpdated(changedProperties);
-    this.addEventListener('keydown', e => this.onKeydown_(e));
-  }
-
   override connectedCallback() {
     super.connectedCallback();
     this.updateFromStore();
@@ -116,6 +111,11 @@ export class BookmarksFolderNodeElement extends BookmarksFolderNodeElementBase {
       this.hasChildFolder_ =
           hasChildFolders(this.itemId, this.getState().nodes);
     }
+  }
+
+  override firstUpdated(changedProperties: PropertyValues<this>) {
+    super.firstUpdated(changedProperties);
+    this.addEventListener('keydown', e => this.onKeydown_(e));
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -316,13 +316,17 @@ export class BookmarksFolderNodeElement extends BookmarksFolderNodeElementBase {
     return children.pop()!.getLastVisibleDescendant();
   }
 
-  protected selectFolder_() {
+  protected onFolderClick_() {
+    this.selectFolder_();
+  }
+
+  private selectFolder_() {
     if (!this.isSelectedFolder_) {
       this.dispatch(selectFolder(this.itemId, this.getState().nodes));
     }
   }
 
-  protected onContextMenu_(e: MouseEvent) {
+  protected onContextmenu_(e: MouseEvent) {
     e.preventDefault();
     this.selectFolder_();
     // Disable the context menu for root nodes.
@@ -341,12 +345,20 @@ export class BookmarksFolderNodeElement extends BookmarksFolderNodeElementBase {
   /**
    * Toggles whether the folder is open.
    */
-  protected toggleFolder_(e: Event) {
+  private toggleFolder_(e: Event) {
     this.dispatch(changeFolderOpen(this.itemId, !this.isOpen));
     e.stopPropagation();
   }
 
-  protected preventDefault_(e: Event) {
+  protected onFolderDblclick_(e: Event) {
+    this.toggleFolder_(e);
+  }
+
+  protected onArrowClick_(e: Event) {
+    this.toggleFolder_(e);
+  }
+
+  protected onArrowMousedown_(e: Event) {
     e.preventDefault();
   }
 

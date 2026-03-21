@@ -314,7 +314,7 @@ PrimaryAccountError SetPrimaryAccountWithInvalidToken(
 
   auto set_primary_account_result =
       identity_manager->GetPrimaryAccountMutator()->SetPrimaryAccount(
-          account_id, signin::ConsentLevel::kSignin);
+          account_id, signin::ConsentLevel::kSignin, access_point);
   DVLOG(1) << "Operation of setting account id <" << account_id.ToString()
            << "> received the following result: "
            << static_cast<int>(set_primary_account_result);
@@ -480,13 +480,14 @@ void EnableHistorySync(syncer::SyncService* sync_service) {
 bool IsValidAccessPointForHistoryOptinScreen(
     signin_metrics::AccessPoint access_point) {
   switch (access_point) {
-    case (signin_metrics::AccessPoint::kExtensionInstallBubble):
-    case (signin_metrics::AccessPoint::kBookmarkBubble):
-    case (signin_metrics::AccessPoint::kRecentTabs):
-    case (signin_metrics::AccessPoint::kCollaborationJoinTabGroup):
-    case (signin_metrics::AccessPoint::kCollaborationShareTabGroup):
-    case (signin_metrics::AccessPoint::kPasswordBubble):
-    case (signin_metrics::AccessPoint::kAddressBubble):
+    case signin_metrics::AccessPoint::kExtensionInstallBubble:
+    case signin_metrics::AccessPoint::kBookmarkBubble:
+    case signin_metrics::AccessPoint::kRecentTabs:
+    case signin_metrics::AccessPoint::kCollaborationJoinTabGroup:
+    case signin_metrics::AccessPoint::kCollaborationShareTabGroup:
+    case signin_metrics::AccessPoint::kPasswordBubble:
+    case signin_metrics::AccessPoint::kAddressBubble:
+    case signin_metrics::AccessPoint::kSearchAIModeBubble:
       return false;
     case signin_metrics::AccessPoint::kStartPage:
     case signin_metrics::AccessPoint::kMenu:
@@ -497,7 +498,6 @@ bool IsValidAccessPointForHistoryOptinScreen(
     case signin_metrics::AccessPoint::kAvatarBubbleSignIn:
     case signin_metrics::AccessPoint::kUserManager:
     case signin_metrics::AccessPoint::kFullscreenSigninPromo:
-    case signin_metrics::AccessPoint::kUnknown:
     case signin_metrics::AccessPoint::kAutofillDropdown:
     case signin_metrics::AccessPoint::kResigninInfobar:
     case signin_metrics::AccessPoint::kMachineLogon:
@@ -558,6 +558,9 @@ bool IsValidAccessPointForHistoryOptinScreen(
     case signin_metrics::AccessPoint::kCredentialExchangeImport:
     case signin_metrics::AccessPoint::kSetSyncConsentFromSyncInternals:
     case signin_metrics::AccessPoint::kIosChromeWebView:
+    case signin_metrics::AccessPoint::kAshChromeSessionManager:
+    case signin_metrics::AccessPoint::kAshUserSessionManager:
+    case signin_metrics::AccessPoint::kAvatarPillExpandPromo:
       return true;
   }
 }
@@ -603,16 +606,14 @@ bool ShouldShowAvatarSyncPromo(Profile* profile) {
     return false;
   }
 
-  // For non-dice users, do not show the promo for users that have been signed
-  // for a short period of time.
-  if (pref_service->GetBoolean(prefs::kExplicitBrowserSignin)) {
-    const base::Time last_changed = base::Time::FromSecondsSinceUnixEpoch(
-        pref_service->GetDouble(prefs::kGaiaCookieChangedTime));
-    if (last_changed.is_null() ||
-        (base::Time::Now() - last_changed <
-         switches::GetAvatarSyncPromoFeatureMinimumCookeAgeParam())) {
-      return false;
-    }
+  // Do not show the promo for users that have been signed for a short period of
+  // time.
+  const base::Time last_changed = base::Time::FromSecondsSinceUnixEpoch(
+      pref_service->GetDouble(prefs::kGaiaCookieChangedTime));
+  if (last_changed.is_null() ||
+      (base::Time::Now() - last_changed <
+       switches::GetAvatarSyncPromoFeatureMinimumCookeAgeParam())) {
+    return false;
   }
 
   return true;

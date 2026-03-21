@@ -15,12 +15,28 @@ rust_static_library("system") {
     "message_pipe.rs",
     "mojo_types.rs",
     "raw_trap.rs",
+    "scoped_handle_interop.rs",
     "trap.rs",
   ]
+  cxx_bindings = [ "scoped_handle_interop.rs" ]
   allow_unsafe = true
   deps = [
     ":ffi_bindings",
+    "//base",
     "//third_party/rust/bitflags/v2:lib",
+    "//third_party/rust/cxx/v1:lib",
+  ]
+  public_deps = [ ":scoped_handle_interop_cc" ]
+}
+
+source_set("scoped_handle_interop_cc") {
+  sources = [
+    "scoped_handle_interop.cc",
+    "scoped_handle_interop.h",
+  ]
+  deps = [
+    "//base",
+    "//mojo/public/cpp/system",
   ]
 }
 
@@ -56,7 +72,7 @@ rust_static_library("ffi_bindings") {
 rust_bindgen("mojo_c_system_bindings") {
   header = "//mojo/public/c/system/thunks.h"
   deps = [ "//mojo/public/c/system" ]
-  visibility = [ ":ffi_bindings" ]
+  visibility = [ ":*" ]
 }
 
 rust_static_library("system_bindings_unittests") {

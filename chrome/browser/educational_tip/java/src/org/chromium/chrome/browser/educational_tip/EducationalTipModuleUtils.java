@@ -4,14 +4,22 @@
 
 package org.chromium.chrome.browser.educational_tip;
 
+import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 
 import java.util.HashSet;
+import java.util.function.Supplier;
 
 /** Utilities for educational tip modules. */
 @NullMarked
 public class EducationalTipModuleUtils {
+    private static @Nullable Boolean sIsEducationalTipActiveForTesting;
 
     /** Returns a list of module types supported by EducationalTip builder and mediator. */
     public static HashSet<Integer> getModuleTypes() {
@@ -23,5 +31,47 @@ public class EducationalTipModuleUtils {
         modules.add(ModuleType.HISTORY_SYNC_PROMO);
         modules.add(ModuleType.TIPS_NOTIFICATIONS_PROMO);
         return modules;
+    }
+
+    /**
+     * Creates a {@link BottomSheetObserver} that triggers an update callback when a bottom sheet is
+     * dismissed.
+     *
+     * @param shouldSkipUpdate A supplier that returns true if the update should be skipped (e.g.
+     *     for Default Browser when navigating to settings).
+     * @param updateCallback The callback to run when the sheet is hidden.
+     * @return A new BottomSheetObserver.
+     */
+    public static BottomSheetObserver createBottomSheetObserver(
+            Supplier<Boolean> shouldSkipUpdate, Runnable updateCallback) {
+        return new EmptyBottomSheetObserver() {
+            @Override
+            public void onSheetStateChanged(int newState, int reason) {
+                if (newState == BottomSheetController.SheetState.HIDDEN) {
+                    if (shouldSkipUpdate.get()
+                            && reason
+                                    == BottomSheetController.StateChangeReason
+                                            .INTERACTION_COMPLETE) {
+                        return;
+                    }
+                    updateCallback.run();
+                }
+            }
+        };
+    }
+
+    /** Returns whether the educational tip module is active. */
+    public static boolean isEducationalTipActive() {
+        if (sIsEducationalTipActiveForTesting != null) {
+            return sIsEducationalTipActiveForTesting;
+        }
+        return ChromeFeatureList.isEnabled(
+                ChromeFeatureList.SEGMENTATION_PLATFORM_EPHEMERAL_CARD_RANKER);
+    }
+
+    /** Sets whether the educational tip module is active for testing. */
+    public static void setEducationalTipActiveForTesting(boolean active) {
+        sIsEducationalTipActiveForTesting = active;
+        ResettersForTesting.register(() -> sIsEducationalTipActiveForTesting = null);
     }
 }

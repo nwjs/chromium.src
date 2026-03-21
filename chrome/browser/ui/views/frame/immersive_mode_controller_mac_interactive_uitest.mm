@@ -21,7 +21,6 @@
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -54,8 +53,7 @@ class ScopedAlwaysShowToolbar {
 class ImmersiveModeControllerMacInteractiveTest : public InProcessBrowserTest {
  public:
   ImmersiveModeControllerMacInteractiveTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kImmersiveFullscreen, tabs::kVerticalTabs}, {});
+    scoped_feature_list_.InitWithFeatures({tabs::kVerticalTabs}, {});
   }
 
   ImmersiveModeControllerMacInteractiveTest(
@@ -80,7 +78,7 @@ class ImmersiveModeControllerMacInteractiveTest : public InProcessBrowserTest {
         browser_window().childWindows.count;
 
     views::Widget::InitParams params(
-        views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET,
+        views::Widget::InitParams::CLIENT_OWNS_WIDGET,
         views::Widget::InitParams::TYPE_POPUP);
     params.bounds = gfx::Rect(100, 100, 200, 200);
     BrowserView* browser_view =
@@ -574,4 +572,45 @@ IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
 
   // Verify MinimumContentOffset resets to 0.
   EXPECT_EQ(controller->GetMinimumContentOffset(), 0);
+}
+
+// Reproducer for Top Container sizing/positioning issue when toggling vertical
+// tabs in immersive mode.
+IN_PROC_BROWSER_TEST_F(ImmersiveModeControllerMacInteractiveTest,
+                       VerticalTabsToggleInImmersiveModeRepro) {
+  ImmersiveModeController* controller =
+      ImmersiveModeController::From(browser());
+
+  // 1. Enter Fullscreen Immersive mode
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_TRUE(controller->IsEnabled());
+
+  // 2. Update the pref for vertical tabs ONLY after we’ve entered immersive
+  // mode
+  tabs::VerticalTabStripStateController::From(browser())
+      ->SetVerticalTabsEnabled(true);
+  RunScheduledLayouts();
+
+  // 3. Exit Fullscreen Immersive mode (you should see vertical tabs appear)
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_FALSE(controller->IsEnabled());
+
+  // 4. Enter Fullscreen Immersive mode again
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+  EXPECT_TRUE(controller->IsEnabled());
+
+  // 5. Force the top container to show
+  std::unique_ptr<ImmersiveRevealedLock> lock =
+      controller->GetRevealedLock(ImmersiveModeController::ANIMATE_REVEAL_NO);
+  EXPECT_TRUE(controller->IsRevealed());
+
+  // Verify the fix: The browser should not use the split tabbed overlay mode
+  // when vertical tabs are enabled.
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  EXPECT_FALSE(browser_view->UsesImmersiveFullscreenTabbedMode());
+
+  // The tab_overlay_widget should either not exist or be hidden.
+  if (browser_view->tab_overlay_widget()) {
+    EXPECT_FALSE(browser_view->tab_overlay_widget()->IsVisible());
+  }
 }

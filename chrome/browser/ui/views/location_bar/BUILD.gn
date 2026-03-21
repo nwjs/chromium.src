@@ -20,7 +20,6 @@ source_set("location_bar") {
       "intent_picker_view.h",
       "lens_overlay_homework_page_action_controller.h",
       "lens_overlay_homework_page_action_icon_view.h",
-      "lens_overlay_page_action_icon_view.h",
       "location_bar_bubble_delegate_view.h",
       "location_bar_layout.h",
       "location_bar_view.h",
@@ -29,6 +28,7 @@ source_set("location_bar") {
       "omnibox_chip_button.h",
       "omnibox_chip_theme.h",
       "omnibox_popup_file_selector.h",
+      "record_replay_page_action_controller.h",
       "selected_keyword_view.h",
       "star_view.h",
       "webui_location_bar.h",
@@ -80,7 +80,6 @@ source_set("impl") {
       "intent_picker_view.cc",
       "lens_overlay_homework_page_action_controller.cc",
       "lens_overlay_homework_page_action_icon_view.cc",
-      "lens_overlay_page_action_icon_view.cc",
       "location_bar_bubble_delegate_view.cc",
       "location_bar_layout.cc",
       "location_bar_view.cc",
@@ -88,6 +87,7 @@ source_set("impl") {
       "merchant_trust_chip_button_controller.cc",
       "omnibox_chip_button.cc",
       "omnibox_popup_file_selector.cc",
+      "record_replay_page_action_controller.cc",
       "selected_keyword_view.cc",
       "star_view.cc",
       "webui_location_bar.cc",
@@ -107,6 +107,8 @@ source_set("impl") {
       "//chrome/browser/contextual_search",
       "//chrome/browser/extensions",
       "//chrome/browser/extensions/api/omnibox",
+      "//chrome/browser/glic",
+      "//chrome/browser/history_embeddings",
       "//chrome/browser/page_info",
       "//chrome/browser/search_engines",
       "//chrome/browser/sharing_hub",
@@ -117,12 +119,14 @@ source_set("impl") {
       "//chrome/browser/ui/actions",
       "//chrome/browser/ui/autofill/payments",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/call_to_action",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/contextual_search",
       "//chrome/browser/ui/find_bar",
       "//chrome/browser/ui/lens",
       "//chrome/browser/ui/omnibox",
       "//chrome/browser/ui/passwords",
+      "//chrome/browser/ui/record_replay",
       "//chrome/browser/ui/search",
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/tabs/saved_tab_groups",
@@ -138,13 +142,15 @@ source_set("impl") {
       "//chrome/browser/ui/webui/cr_components/composebox",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications:features",
+      "//chrome/common/record_replay",
       "//components/autofill/core/common:features",
       "//components/commerce/core:feature_list",
       "//components/contextual_search:public",
       "//components/dom_distiller/core",
       "//components/favicon/content",
       "//components/feature_engagement/public:feature_constants",
-      "//components/history_embeddings",
+      "//components/history_embeddings/content",
+      "//components/history_embeddings/core",
       "//components/lens",
       "//components/omnibox/browser",
       "//components/omnibox/browser:vector_icons",
@@ -167,10 +173,6 @@ source_set("impl") {
       "//ui/native_theme",
       "//ui/strings:ui_strings_grit",
     ]
-
-    if (enable_glic) {
-      deps += [ "//chrome/browser/glic" ]
-    }
   }
 }
 
@@ -259,6 +261,7 @@ source_set("browser_tests") {
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/base/clipboard:clipboard_test_support",
     "//ui/views:test_support",
   ]
   if (is_chromeos) {

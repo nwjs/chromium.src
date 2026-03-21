@@ -200,6 +200,16 @@ class FrameSizeButtonTest : public AshTestBase {
     close_button_ = test.close_button();
   }
 
+  void TearDown() override {
+    close_button_ = nullptr;
+    size_button_ = nullptr;
+    minimize_button_ = nullptr;
+    window_state_ = nullptr;
+    widget_ = nullptr;
+    widget_delegate_ = nullptr;
+    AshTestBase::TearDown();
+  }
+
   WindowState* window_state() { return window_state_; }
   const WindowState* window_state() const { return window_state_; }
   views::Widget* GetWidget() { return widget_; }
@@ -213,13 +223,12 @@ class FrameSizeButtonTest : public AshTestBase {
 
  private:
   // Not owned.
-  raw_ptr<WindowState, DanglingUntriaged> window_state_;
-  raw_ptr<views::Widget, DanglingUntriaged> widget_;
-  raw_ptr<views::FrameCaptionButton, DanglingUntriaged> minimize_button_;
-  raw_ptr<views::FrameCaptionButton, DanglingUntriaged> size_button_;
-  raw_ptr<views::FrameCaptionButton, DanglingUntriaged> close_button_;
-  raw_ptr<FrameSizeButtonTestWidgetDelegate, DanglingUntriaged>
-      widget_delegate_;
+  raw_ptr<WindowState> window_state_;
+  raw_ptr<views::Widget> widget_;
+  raw_ptr<views::FrameCaptionButton> minimize_button_;
+  raw_ptr<views::FrameCaptionButton> size_button_;
+  raw_ptr<views::FrameCaptionButton> close_button_;
+  raw_ptr<FrameSizeButtonTestWidgetDelegate> widget_delegate_;
   bool resizable_ = true;
 };
 
@@ -358,7 +367,7 @@ TEST_F(FrameSizeButtonTest, RightMouseButton) {
 TEST_F(FrameSizeButtonTest, CancelSnapTest) {
   EXPECT_EQ(views::Button::STATE_NORMAL, size_button()->GetState());
 
-  // Press on the size button and drag toward to close buton to enter waiting-
+  // Press on the size button and drag toward to close button to enter waiting-
   // for-snap mode.
   ui::test::EventGenerator* generator = GetEventGenerator();
   generator->MoveMouseTo(CenterPointInScreen(size_button()));

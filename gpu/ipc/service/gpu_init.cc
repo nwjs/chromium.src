@@ -520,8 +520,7 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 
   const bool need_fallback_from_graphite = [this]() {
     // If graphite is requested, check ANGLE implementation.
-    if (gpu_preferences_.gr_context_type != GrContextType::kGraphiteDawn &&
-        gpu_preferences_.gr_context_type != GrContextType::kGraphiteMetal) {
+    if (gpu_preferences_.gr_context_type != GrContextType::kGraphiteDawn) {
       return false;
     }
 
@@ -799,24 +798,18 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
 #if BUILDFLAG(IS_OZONE)
   // We need to get supported formats before sandboxing to avoid an known
   // issue which breaks the camera preview. (b/166850715)
-  bool supports_nv12_for_allocation_and_texturing;
-  bool supports_p010_for_allocation_and_texturing;
   {
     TRACE_EVENT("gpu,startup", "ui::ozone::IsFormatSupportedForTexturing");
-    supports_nv12_for_allocation_and_texturing =
-        ui::OzonePlatform::GetInstance()
-            ->GetSurfaceFactoryOzone()
-            ->IsFormatSupportedForTexturing(viz::MultiPlaneFormat::kNV12);
-    supports_p010_for_allocation_and_texturing =
-        ui::OzonePlatform::GetInstance()
-            ->GetSurfaceFactoryOzone()
-            ->IsFormatSupportedForTexturing(viz::MultiPlaneFormat::kP010);
+    auto* surface_factory =
+        ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
+    auto* gl_ozone = surface_factory->GetCurrentGLOzone();
+    if (gl_ozone) {
+      gpu_feature_info_.supports_nv12_gl_native_pixmap =
+          gl_ozone->CanImportNativePixmap(viz::MultiPlaneFormat::kNV12);
+      gpu_feature_info_.supports_p010_gl_native_pixmap =
+          gl_ozone->CanImportNativePixmap(viz::MultiPlaneFormat::kP010);
+    }
   }
-  std::vector<viz::SharedImageFormat>
-      supported_formats_for_gl_native_pixmap_import =
-          ui::OzonePlatform::GetInstance()
-              ->GetSurfaceFactoryOzone()
-              ->GetSupportedFormatsForGLNativePixmapImport();
 #endif  // BUILDFLAG(IS_OZONE)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
@@ -957,12 +950,6 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   SetSkiaBackendType();
 #if BUILDFLAG(IS_OZONE)
   ui::OzonePlatform::GetInstance()->AfterSandboxEntry();
-  gpu_feature_info_.supports_nv12_for_allocation_and_texturing =
-      supports_nv12_for_allocation_and_texturing;
-  gpu_feature_info_.supports_p010_for_allocation_and_texturing =
-      supports_p010_for_allocation_and_texturing;
-  gpu_feature_info_.supported_formats_for_gl_native_pixmap_import =
-      std::move(supported_formats_for_gl_native_pixmap_import);
   [[maybe_unused]] auto* factory =
       ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
   bool filter_set = false;
@@ -1172,21 +1159,15 @@ void GpuInit::InitializeInProcess(base::CommandLine* command_line,
   }
 
 #if BUILDFLAG(IS_OZONE)
-  const std::vector<viz::SharedImageFormat>
-      supported_formats_for_gl_native_pixmap_import =
-          ui::OzonePlatform::GetInstance()
-              ->GetSurfaceFactoryOzone()
-              ->GetSupportedFormatsForGLNativePixmapImport();
-  gpu_feature_info_.supports_nv12_for_allocation_and_texturing =
-      ui::OzonePlatform::GetInstance()
-          ->GetSurfaceFactoryOzone()
-          ->IsFormatSupportedForTexturing(viz::MultiPlaneFormat::kNV12);
-  gpu_feature_info_.supports_p010_for_allocation_and_texturing =
-      ui::OzonePlatform::GetInstance()
-          ->GetSurfaceFactoryOzone()
-          ->IsFormatSupportedForTexturing(viz::MultiPlaneFormat::kP010);
-  gpu_feature_info_.supported_formats_for_gl_native_pixmap_import =
-      std::move(supported_formats_for_gl_native_pixmap_import);
+  auto* surface_factory =
+      ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
+  auto* gl_ozone = surface_factory->GetCurrentGLOzone();
+  if (gl_ozone) {
+    gpu_feature_info_.supports_nv12_gl_native_pixmap =
+        gl_ozone->CanImportNativePixmap(viz::MultiPlaneFormat::kNV12);
+    gpu_feature_info_.supports_p010_gl_native_pixmap =
+        gl_ozone->CanImportNativePixmap(viz::MultiPlaneFormat::kP010);
+  }
 #endif  // BUILDFLAG(IS_OZONE)
 
   DisableInProcessGpuVulkan(&gpu_feature_info_, &gpu_preferences_);
@@ -1264,10 +1245,6 @@ void GpuInit::SetSkiaBackendType() {
     case gpu::GrContextType::kVulkan:
       skia_backend_type = SkiaBackendType::kGaneshVulkan;
       break;
-    case gpu::GrContextType::kGraphiteMetal:
-      // Graphite/Metal isn't expected to be used outside tests.
-      skia_backend_type = SkiaBackendType::kUnknown;
-      break;
     case gpu::GrContextType::kGraphiteDawn: {
 #if BUILDFLAG(SKIA_USE_DAWN)
       // The caller must ensure `dawn_context_provider_`'s creation, else the
@@ -1285,6 +1262,9 @@ void GpuInit::SetSkiaBackendType() {
           break;
         case wgpu::BackendType::Metal:
           skia_backend_type = SkiaBackendType::kGraphiteDawnMetal;
+          break;
+        case wgpu::BackendType::OpenGLES:
+          skia_backend_type = SkiaBackendType::kGraphiteDawnOpenGLES;
           break;
         default:
           break;

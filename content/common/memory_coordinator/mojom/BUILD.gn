@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//content/common/features.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
 mojom_component("mojom") {
@@ -11,6 +12,11 @@ mojom_component("mojom") {
   cpp_only = true
 
   sources = [ "memory_coordinator.mojom" ]
+
+  if (enable_memory_coordinator_internals) {
+    sources += [ "memory_coordinator_diagnostics.mojom" ]
+    enabled_features = [ "ENABLE_MEMORY_COORDINATOR_INTERNALS" ]
+  }
 
   public_deps = [ "//mojo/public/mojom/base" ]
 
@@ -26,6 +32,18 @@ mojom_component("mojom") {
 
       traits_headers = [ "memory_consumer_traits_mojom_traits.h" ]
       traits_public_deps = [ "//base" ]
+    },
+    {
+      types = [
+        {
+          mojom = "content.mojom.MemoryConsumerUpdate"
+          cpp = "::content::MemoryConsumerUpdate"
+          move_only = true
+        },
+      ]
+
+      traits_headers = [ "memory_coordinator_mojom_traits.h" ]
+      traits_public_deps = [ "//content/public/common:memory_consumer_update" ]
     },
   ]
 }

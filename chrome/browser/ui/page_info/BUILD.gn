@@ -76,6 +76,7 @@ source_set("impl") {
     "//chrome/browser:browser_process",
     "//chrome/browser/content_settings",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/lookalikes",
     "//chrome/browser/permissions",
     "//chrome/browser/permissions/system",
     "//chrome/browser/picture_in_picture",
@@ -139,5 +140,6 @@ source_set("unit_tests") {
     "//content/test:test_support",
     "//net:test_support",
     "//services/device/public/cpp:test_support",
+    "//services/network/public/cpp",
   ]
 }

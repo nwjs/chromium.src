@@ -6,10 +6,14 @@
 
 #include <numeric>
 
+#include "base/task/single_thread_task_runner.h"
+#include "build/build_config.h"
+#include "build/buildflag.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/browser/ui/views/tabs/tab_group_editor_bubble_tracker.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
@@ -180,6 +184,25 @@ bool VerticalTabGroupHeaderView::OnKeyPressed(const ui::KeyEvent& event) {
         ToggleTabGroupCollapsedStateOrigin::kKeyboard);
     return true;
   }
+
+  std::optional<event_utils::ReorderDirection> reorder_direction =
+      event_utils::GetReorderCommandForKeyboardEvent(
+          event, views::LayoutOrientation::kVertical);
+  if (!reorder_direction) {
+    return false;
+  }
+
+  switch (*reorder_direction) {
+    case event_utils::ReorderDirection::kPrevious: {
+      delegate_->ShiftGroupUp();
+      return true;
+    }
+    case event_utils::ReorderDirection::kNext: {
+      delegate_->ShiftGroupDown();
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -248,7 +271,59 @@ void VerticalTabGroupHeaderView::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
 void VerticalTabGroupHeaderView::OnMouseExited(const ui::MouseEvent& event) {
+#if BUILDFLAG(IS_LINUX)
+  // Bypasses the synchronous IsMouseHovered() check which can be stale on Linux
+  // Wayland/X11 due to asynchronous cursor updates during mouse exit events.
+  SetEditorBubbleButtonVisibilityOnHover(/*is_hovered=*/false);
+#else
   UpdateEditorBubbleButtonVisibility();
+#endif
+}
+
+void VerticalTabGroupHeaderView::OnFocus() {
+  UpdateEditorBubbleButtonVisibility();
+}
+
+void VerticalTabGroupHeaderView::OnBlur() {
+  UpdateEditorBubbleButtonVisibility();
+}
+
+void VerticalTabGroupHeaderView::AddedToWidget() {
+  views::FlexLayoutView::AddedToWidget();
+  GetFocusManager()->AddFocusChangeListener(this);
+}
+
+void VerticalTabGroupHeaderView::RemovedFromWidget() {
+  GetFocusManager()->RemoveFocusChangeListener(this);
+  views::FlexLayoutView::RemovedFromWidget();
+}
+
+void VerticalTabGroupHeaderView::OnWillChangeFocus(views::View* focused_before,
+                                                   views::View* focused_now) {
+  if (Contains(focused_now)) {
+    UpdateEditorBubbleButtonVisibility();
+    // If navigating upward from below, the button is initially hidden and gets
+    // skipped. We detect reverse focus traversal (from a view physically below
+    // this one) and manually forward the focus to the button.
+    if (focused_now == this &&
+        focused_before->GetBoundsInScreen().y() > GetBoundsInScreen().y()) {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(
+                         [](base::WeakPtr<VerticalTabGroupHeaderView> view) {
+                           if (view && view->editor_bubble_button_) {
+                             view->editor_bubble_button_->RequestFocus();
+                           }
+                         },
+                         weak_ptr_factory_.GetWeakPtr()));
+    }
+  }
+}
+
+void VerticalTabGroupHeaderView::OnDidChangeFocus(views::View* focused_before,
+                                                  views::View* focused_now) {
+  if (Contains(focused_before) && !Contains(focused_now)) {
+    UpdateEditorBubbleButtonVisibility();
+  }
 }
 
 void VerticalTabGroupHeaderView::ShowContextMenuForViewImpl(
@@ -402,8 +477,21 @@ void VerticalTabGroupHeaderView::UpdateAccessibleName(
 }
 
 void VerticalTabGroupHeaderView::UpdateEditorBubbleButtonVisibility() {
-  editor_bubble_button_->SetVisible(editor_bubble_tracker_.is_open() ||
-                                    IsMouseHovered());
+  views::FocusManager* focus_manager = GetFocusManager();
+  if (!focus_manager) {
+    return;
+  }
+
+  SetEditorBubbleButtonVisibilityOnHover(
+      IsMouseHovered() || Contains(focus_manager->GetFocusedView()));
+}
+
+void VerticalTabGroupHeaderView::SetEditorBubbleButtonVisibilityOnHover(
+    bool is_hovered) {
+  if (editor_bubble_button_) {
+    editor_bubble_button_->SetVisible(editor_bubble_tracker_.is_open() ||
+                                      is_hovered);
+  }
 }
 
 void VerticalTabGroupHeaderView::ShowEditorBubble() {

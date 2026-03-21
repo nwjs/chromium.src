@@ -28,46 +28,6 @@
 
 namespace media {
 
-namespace {
-
-bool SupportsFormat(DXGI_FORMAT dxgi_format) {
-  switch (dxgi_format) {
-    case DXGI_FORMAT_NV12:
-    case DXGI_FORMAT_P010:
-    case DXGI_FORMAT_Y210:
-    case DXGI_FORMAT_Y410:
-    case DXGI_FORMAT_P016:
-    case DXGI_FORMAT_Y216:
-    case DXGI_FORMAT_Y416:
-    case DXGI_FORMAT_B8G8R8A8_UNORM:
-    case DXGI_FORMAT_R10G10B10A2_UNORM:
-    case DXGI_FORMAT_R16G16B16A16_FLOAT:
-      return true;
-    default:
-      return false;
-  }
-}
-
-viz::SharedImageFormat DXGIFormatToMultiPlanarSharedImageFormat(
-    DXGI_FORMAT dxgi_format) {
-  switch (dxgi_format) {
-    case DXGI_FORMAT_NV12:
-      return viz::MultiPlaneFormat::kNV12;
-    case DXGI_FORMAT_P010:
-      return viz::MultiPlaneFormat::kP010;
-    case DXGI_FORMAT_B8G8R8A8_UNORM:
-      return viz::SinglePlaneFormat::kBGRA_8888;
-    case DXGI_FORMAT_R10G10B10A2_UNORM:
-      return viz::SinglePlaneFormat::kRGBA_1010102;
-    case DXGI_FORMAT_R16G16B16A16_FLOAT:
-      return viz::SinglePlaneFormat::kRGBA_F16;
-    default:
-      NOTREACHED();
-  }
-}
-
-}  // anonymous namespace
-
 Texture2DWrapper::Texture2DWrapper() = default;
 
 Texture2DWrapper::~Texture2DWrapper() = default;
@@ -75,11 +35,11 @@ Texture2DWrapper::~Texture2DWrapper() = default;
 DefaultTexture2DWrapper::DefaultTexture2DWrapper(
     const gfx::Size& size,
     const gfx::ColorSpace& output_color_space,
-    DXGI_FORMAT dxgi_format,
+    viz::SharedImageFormat output_si_format,
     ComD3D11Device device)
     : size_(size),
       output_color_space_(output_color_space),
-      dxgi_format_(dxgi_format),
+      output_si_format_(output_si_format),
       video_device_(std::move(device)) {}
 
 DefaultTexture2DWrapper::~DefaultTexture2DWrapper() = default;
@@ -103,7 +63,6 @@ D3D11Status DefaultTexture2DWrapper::BeginSharedImageAccess() {
 }
 
 D3D11Status DefaultTexture2DWrapper::ProcessTexture(
-    const gfx::ColorSpace& input_color_space,
     scoped_refptr<gpu::ClientSharedImage>& shared_image_dest) {
   // If we've received an error, then return it to our caller.  This is probably
   // from some previous operation.
@@ -114,11 +73,6 @@ D3D11Status DefaultTexture2DWrapper::ProcessTexture(
   }
 
   shared_image_dest = shared_image_;
-
-  // TODO(hitawala): Possibly optimize this method as input and stored color
-  // spaces should be same.
-  CHECK_EQ(input_color_space, output_color_space_);
-
   return D3D11Status::Codes::kOk;
 }
 
@@ -130,8 +84,9 @@ D3D11Status DefaultTexture2DWrapper::Init(
     scoped_refptr<media::D3D11PictureBuffer> picture_buffer,
     Texture2DWrapper::PictureBufferGPUResourceInitDoneCB
         picture_buffer_gpu_resource_init_done_cb) {
-  if (!SupportsFormat(dxgi_format_))
+  if (SharedImageFormatToDXGIFormat(output_si_format_) == DXGI_FORMAT_UNKNOWN) {
     return D3D11Status::Codes::kUnsupportedTextureFormatForBind;
+  }
 
   picture_buffer_gpu_resource_init_done_cb_ =
       std::move(picture_buffer_gpu_resource_init_done_cb);
@@ -149,7 +104,7 @@ D3D11Status DefaultTexture2DWrapper::Init(
                      weak_factory_.GetWeakPtr()));
   gpu_resources_ = base::SequenceBound<GpuResources>(
       std::move(gpu_task_runner), std::move(on_error_cb),
-      std::move(get_helper_cb), size_, output_color_space_, dxgi_format_,
+      std::move(get_helper_cb), size_, output_color_space_, output_si_format_,
       video_device_, texture, array_slice, std::move(picture_buffer),
       std::move(gpu_resource_init_cb));
   return D3D11Status::Codes::kOk;
@@ -178,7 +133,7 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
     GetCommandBufferHelperCB get_helper_cb,
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
-    DXGI_FORMAT dxgi_format,
+    viz::SharedImageFormat output_si_format,
     ComD3D11Device video_device,
     ComD3D11Texture2D texture,
     size_t array_slice,
@@ -243,12 +198,8 @@ DefaultTexture2DWrapper::GpuResources::GpuResources(
       multi_threaded->GetMultithreadProtected() &&
       IsDedicatedMediaServiceThreadEnabled(gl::ANGLEImplementation::kD3D11);
 
-  gpu::SharedImageInfo si_info{
-      DXGIFormatToMultiPlanarSharedImageFormat(dxgi_format),
-      size,
-      color_space,
-      usage,
-      "VideoTexture"};
+  gpu::SharedImageInfo si_info{output_si_format, size, color_space, usage,
+                               "VideoTexture"};
   scoped_refptr<gpu::GpuChannelSharedImageInterface>
       gpu_channel_shared_image_interface =
           helper_->GetSharedImageStub()->shared_image_interface();

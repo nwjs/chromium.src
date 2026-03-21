@@ -21,7 +21,7 @@ namespace utils {
 
 // A generic handler for unary, ie request/response, gRPC APIs. Can only be used
 // with rpc that have the following signature:
-//       rpc Foo(Request) returns (Response)
+//        rpc Foo(Request) returns (Response)
 //
 // - TService is the gRPC service type.
 // - TRequest is the service request type.
@@ -50,6 +50,23 @@ class GrpcUnaryHandler final : public GrpcHandler {
         : ReactorBase(std::forward<TArgs>(args)...),
           on_request_callback_(std::move(on_request_callback)) {
       ReadRequest();
+    }
+
+    ~Reactor() override {
+      if (on_destroy_callback_) {
+        std::move(on_destroy_callback_).Run();
+      }
+    }
+
+    void OnDone() override {
+      if (on_destroy_callback_) {
+        std::move(on_destroy_callback_).Run();
+      }
+      ReactorBase::OnDone();
+    }
+
+    void SetOnDestroyCallback(base::OnceClosure on_destroy_callback) {
+      on_destroy_callback_ = std::move(on_destroy_callback);
     }
 
    protected:
@@ -81,7 +98,7 @@ class GrpcUnaryHandler final : public GrpcHandler {
       // This method may be called from the cancelled_reactor as a generic way
       // to signal reactor is done via OnResponseDone API. For unary reactor it
       // is a no-op.
-      CHECK(status.error_code() == grpc::StatusCode::ABORTED)
+      CHECK(status.ok() || status.error_code() == grpc::StatusCode::ABORTED)
           << "Unexpected status: " << GrpcStatusToString(status);
     }
 
@@ -94,8 +111,10 @@ class GrpcUnaryHandler final : public GrpcHandler {
     }
 
     OnRequestCallback on_request_callback_;
+    base::OnceClosure on_destroy_callback_;
   };
 
+  using Request = TRequest;
   using Response = TResponse;
   using OnRequestCallback = typename Reactor::OnRequestCallback;
 

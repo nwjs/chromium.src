@@ -73,6 +73,7 @@ import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.media.PictureInPicture;
 import org.chromium.chrome.browser.share.ChromeShareExtras;
 import org.chromium.chrome.browser.share.LensUtils;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -103,7 +104,6 @@ import org.chromium.content_public.browser.test.util.TestTouchUtils;
 import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.printing.Printable;
-import org.chromium.printing.PrintingController;
 import org.chromium.printing.PrintingControllerImpl;
 import org.chromium.ui.base.Clipboard;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -134,7 +134,7 @@ public class ContextMenuTest {
 
     @Mock private TabContextMenuItemDelegate mItemDelegate;
     @Mock private ShareDelegate mShareDelegate;
-    @Mock private PrintingController mPrintingController;
+    @Mock private PrintingControllerImpl mPrintingController;
     @Mock private DataProtectionBridge.Natives mDataProtectionBridgeMock;
     @Mock private MenuModelBridge mMenuModelBridge;
 
@@ -1043,14 +1043,14 @@ public class ContextMenuTest {
     @Test
     @SmallTest
     @Feature({"Browser", "ContextMenu"})
-    // TODO(crbug.com/483149206): Test is flaky on desktop bots.
-    @DisableIf.Device(DeviceFormFactor.DESKTOP)
+    @EnableFeatures({ChromeFeatureList.CONTEXT_MENU_PICTURE_IN_PICTURE_ANDROID})
     public void testContextMenuRetrievesVideoOptions() throws TimeoutException {
         Tab tab = mActivityTestRule.getActivityTab();
         DOMUtils.clickNode(mActivityTestRule.getWebContents(), "videoDOMElement");
         mMenuCoordinator = ContextMenuUtils.openContextMenu(tab, "videoDOMElement");
 
         Integer[] expectedItems = {R.id.contextmenu_save_video};
+        expectedItems = maybeAddPictureInPictureItem(expectedItems);
         expectedItems = maybeAddInspectElementItem(expectedItems);
         assertMenuItemsAreEqual(mMenuCoordinator, expectedItems);
     }
@@ -1090,6 +1090,7 @@ public class ContextMenuTest {
     @SmallTest
     @Feature({"Browser", "ContextMenu"})
     @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/481444053
+    @DisabledTest(message = "https://crbug.com/443865720")
     public void testCopyImage() throws Throwable {
         doAnswer(sCopyIsAllowedByPolicy)
                 .when(mDataProtectionBridgeMock)
@@ -1395,7 +1396,9 @@ public class ContextMenuTest {
         ThreadUtils.runOnUiThreadBlocking(
                 // Set printing controller to use the mock instance.
                 () -> {
-                    PrintingControllerImpl.setInstanceForTesting(mPrintingController);
+                    PrintingControllerImpl.setPrintingControllerForTesting(
+                            mActivityTestRule.getActivity().getWindowAndroid(),
+                            mPrintingController);
                 });
 
         ContextMenuUtils.selectContextMenuItem(
@@ -1423,7 +1426,9 @@ public class ContextMenuTest {
         ThreadUtils.runOnUiThreadBlocking(
                 // Set printing controller to use the mock instance.
                 () -> {
-                    PrintingControllerImpl.setInstanceForTesting(mPrintingController);
+                    PrintingControllerImpl.setPrintingControllerForTesting(
+                            mActivityTestRule.getActivity().getWindowAndroid(),
+                            mPrintingController);
                 });
 
         ContextMenuUtils.selectContextMenuItemFromRightClick(
@@ -1501,6 +1506,13 @@ public class ContextMenuTest {
             for (int i = 0; i < additionalItems.length; i++) variableItems.add(additionalItems[i]);
         }
         return variableItems.toArray(baseItems);
+    }
+
+    private Integer[] maybeAddPictureInPictureItem(Integer[] baseItems) {
+        return addItemsIf(
+                PictureInPicture.isEnabled(mActivityTestRule.getActivity()),
+                baseItems,
+                new Integer[] {R.id.contextmenu_picture_in_picture});
     }
 
     private Integer[] maybeAddInspectElementItem(Integer[] baseItems) {

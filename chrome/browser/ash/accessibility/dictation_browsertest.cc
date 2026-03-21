@@ -64,6 +64,7 @@
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
+#include "ui/base/clipboard/test/clipboard_test_util.h"
 #include "ui/events/test/event_generator.h"
 
 namespace ash {
@@ -175,8 +176,6 @@ class DictationTestBase : public AccessibilityFeatureBrowserTest,
                                                   editable_type());
     std::vector<base::test::FeatureRef> enabled_features =
         utils_->GetEnabledFeatures();
-    enabled_features.push_back(
-        ::features::kAccessibilityManifestV3SwitchAccess);
     scoped_feature_list_.InitWithFeatures(enabled_features,
                                           utils_->GetDisabledFeatures());
     AccessibilityFeatureBrowserTest::SetUpCommandLine(command_line);
@@ -261,10 +260,9 @@ class DictationTestBase : public AccessibilityFeatureBrowserTest,
   }
 
   std::string GetClipboardText() {
-    std::u16string text;
-    ui::Clipboard::GetForCurrentThread()->ReadText(
-        ui::ClipboardBuffer::kCopyPaste, /*data_dst=*/nullptr, &text);
-    return base::UTF16ToUTF8(text);
+    return base::UTF16ToUTF8(ui::clipboard_test_util::ReadText(
+        ui::Clipboard::GetForCurrentThread(), ui::ClipboardBuffer::kCopyPaste,
+        /*data_dst=*/nullptr));
   }
 
   void PressTab() {

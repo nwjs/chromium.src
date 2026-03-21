@@ -41,6 +41,8 @@
 #include "components/user_education/common/feature_promo/feature_promo_precondition.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "components/user_education/common/feature_promo/impl/common_preconditions.h"
+#include "components/user_education/common/feature_promo/impl/scoped_typed_data.h"
+#include "components/user_education/common/feature_promo/impl/typed_data.h"
 #include "components/user_education/common/user_education_features.h"
 #include "components/user_education/common/user_education_storage_service.h"
 #include "components/webui/chrome_urls/pref_names.h"
@@ -49,8 +51,6 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
-#include "ui/base/interaction/scoped_typed_data.h"
-#include "ui/base/interaction/typed_data.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/point.h"
@@ -89,9 +89,10 @@ class BrowserFeaturePromoPreconditionsUiTest : public InteractiveBrowserTest {
         expected);
   }
 
-  ui::UnownedTypedDataCollection data_;
-  ui::test::ScopedTypedData<ui::SafeElementReference> anchor_element_data_{
-      data_, user_education::AnchorElementPrecondition::kAnchorElement};
+  user_education::UnownedTypedDataCollection data_;
+  user_education::test::ScopedTypedData<ui::SafeElementReference>
+      anchor_element_data_{
+          data_, user_education::AnchorElementPrecondition::kAnchorElement};
 };
 
 using WindowActivePreconditionUiTest = BrowserFeaturePromoPreconditionsUiTest;
@@ -99,6 +100,13 @@ using WindowActivePreconditionUiTest = BrowserFeaturePromoPreconditionsUiTest;
 IN_PROC_BROWSER_TEST_F(WindowActivePreconditionUiTest, ElementInActiveBrowser) {
   RunTestSequence(
       CaptureAnchor(kToolbarAppMenuButtonElementId),
+      CheckWindowActiveResult(user_education::FeaturePromoResult::Success()));
+}
+
+IN_PROC_BROWSER_TEST_F(WindowActivePreconditionUiTest,
+                       RegionElementInActiveBrowser) {
+  RunTestSequence(
+      CaptureAnchor(kBrowserDialogAnchorElementId),
       CheckWindowActiveResult(user_education::FeaturePromoResult::Success()));
 }
 
@@ -113,6 +121,24 @@ IN_PROC_BROWSER_TEST_F(WindowActivePreconditionUiTest,
                 Steps(WaitForShow(kToolbarAppMenuButtonElementId),
                       ActivateSurface(kToolbarAppMenuButtonElementId))),
       WithElement(kToolbarAppMenuButtonElementId,
+                  [this](ui::TrackedElement* anchor) {
+                    *anchor_element_data_ = anchor;
+                  }),
+      CheckWindowActiveResult(
+          user_education::FeaturePromoResult::kAnchorSurfaceNotActive));
+}
+
+IN_PROC_BROWSER_TEST_F(WindowActivePreconditionUiTest,
+                       RegionElementInInactiveBrowser) {
+  auto* const incog = CreateIncognitoBrowser();
+  RunTestSequence(
+      WaitForShow(kToolbarAppMenuButtonElementId),
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              "Linux window activation issues."),
+      InContext(BrowserElements::From(incog)->GetContext(),
+                Steps(WaitForShow(kToolbarAppMenuButtonElementId),
+                      ActivateSurface(kToolbarAppMenuButtonElementId))),
+      WithElement(kBrowserDialogAnchorElementId,
                   [this](ui::TrackedElement* anchor) {
                     *anchor_element_data_ = anchor;
                   }),
@@ -384,10 +410,14 @@ class UserNotActivePreconditionUiTest
   ~UserNotActivePreconditionUiTest() override = default;
 
   void SetUp() override {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        user_education::features::kUserEducationExperienceVersion2Point5,
-        {{"idle_before_heavyweight",
-          base::StringPrintf("%dms", GetParam().InMilliseconds())}});
+    user_education::features::testing::TimeoutOverrides overrides;
+    overrides.high_priority_timeout = base::Seconds(1);
+    overrides.medium_priority_timeout = base::Seconds(2);
+    overrides.low_priority_timeout = base::Seconds(3);
+    overrides.idle_before_heavyweight = GetParam();
+    timeout_override_handle_ =
+        user_education::features::testing::SetTimeoutOverridesForTest(
+            overrides);
     less_than_activity_time_ = GetParam() / 2;
     more_than_activity_time_ = GetParam() + base::Seconds(1);
 
@@ -430,7 +460,8 @@ class UserNotActivePreconditionUiTest
   base::TimeDelta less_than_activity_time_;
   base::TimeDelta more_than_activity_time_;
 
-  base::test::ScopedFeatureList feature_list_;
+  user_education::features::testing::TimeoutOverrideHandle
+      timeout_override_handle_;
   base::SimpleTestClock test_clock_;
   user_education::UserEducationTimeProvider time_provider_;
   std::unique_ptr<UserNotActivePrecondition> precondition_;

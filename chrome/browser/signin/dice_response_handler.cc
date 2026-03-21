@@ -55,6 +55,8 @@ const char kDiceResponseHeaderHistogram[] = "Signin.DiceResponseHeader";
 const char kDiceTokenFetchResultHistogram[] = "Signin.DiceTokenFetchResult";
 const char kDiceTokenBindingOutcomeHistogram[] =
     "Signin.DiceTokenBindingOutcome";
+const char kDiceEnableSyncHeaderAccountInfoIsPresent[] =
+    "Signin.DiceEnableSyncHeaderAccountInfoIsPresent";
 
 // Used for UMA. Do not reorder, append new values at the end.
 enum DiceResponseHeader {
@@ -257,16 +259,23 @@ DiceResponseHandler::~DiceResponseHandler() = default;
 void DiceResponseHandler::ProcessDiceHeader(
     const signin::DiceResponseParams& dice_params,
     std::unique_ptr<ProcessDiceHeaderDelegate> delegate) {
-  DCHECK(delegate);
+  if (!dice_params.IsValid()) {
+    return;
+  }
+
+  CHECK(delegate);
   switch (dice_params.user_intention) {
     case signin::DiceAction::SIGNIN: {
+      const signin::DiceResponseParams::SigninInfo::SigninAccount* initiator =
+          dice_params.signin_info->GetInitiator();
+      CHECK(initiator);
       const signin::DiceResponseParams::AccountInfo& info =
-          dice_params.signin_info->account_info;
-      ProcessDiceSigninHeader(
-          info.gaia_id, info.email, dice_params.signin_info->authorization_code,
-          dice_params.signin_info->no_authorization_code,
-          dice_params.signin_info->supported_algorithms_for_token_binding,
-          std::move(delegate));
+          initiator->account_info;
+      ProcessDiceSigninHeader(info.gaia_id, info.email,
+                              initiator->authorization_code,
+                              initiator->no_authorization_code,
+                              initiator->supported_algorithms_for_token_binding,
+                              std::move(delegate));
       return;
     }
     case signin::DiceAction::ENABLE_SYNC: {
@@ -382,8 +391,14 @@ void DiceResponseHandler::ProcessEnableSyncHeader(
       return;  // There is already a request in flight with the same parameters.
     }
   }
-  delegate->CompleteChromeSignInAfterGaiaSignin(
-      identity_manager_->FindExtendedAccountInfoByGaiaId(gaia_id));
+  AccountInfo account_info =
+      identity_manager_->FindExtendedAccountInfoByGaiaId(gaia_id);
+  base::UmaHistogramBoolean(kDiceEnableSyncHeaderAccountInfoIsPresent,
+                            !account_info.IsEmpty());
+  if (account_info.IsEmpty()) {
+    return;
+  }
+  delegate->CompleteChromeSignInAfterGaiaSignin(account_info);
 }
 
 void DiceResponseHandler::ProcessDiceSignoutHeader(

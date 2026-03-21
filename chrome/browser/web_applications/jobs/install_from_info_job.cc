@@ -10,12 +10,13 @@
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/to_string.h"
+#include "chrome/browser/web_applications/jobs/finalize_install_job.h"
 #include "chrome/browser/web_applications/jobs/uninstall/web_app_uninstall_and_replace_job.h"
-#include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
 #include "components/webapps/browser/install_result_code.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
@@ -33,9 +34,7 @@ InstallFromInfoJob::InstallFromInfoJob(
     : profile_(*profile),
       debug_value_(debug_value),
       manifest_id_(install_info->manifest_id()),
-      app_id_(
-          GenerateAppIdFromManifestId(manifest_id_,
-                                      install_info->parent_app_manifest_id)),
+      app_id_(GenerateAppIdFromManifestId(manifest_id_)),
       overwrite_existing_manifest_fields_(overwrite_existing_manifest_fields),
       install_surface_(install_surface),
       install_params_(std::move(install_params)),
@@ -59,10 +58,11 @@ InstallFromInfoJob::InstallFromInfoJob(
 
 InstallFromInfoJob::~InstallFromInfoJob() = default;
 
-void InstallFromInfoJob::Start(WithAppResources* lock_with_app_resources) {
-  CHECK(lock_with_app_resources);
+void InstallFromInfoJob::Start(Lock* lock, WithAppResources* lock_resources) {
+  CHECK(lock);
+  CHECK(lock_resources);
 
-  lock_with_app_resources_ = lock_with_app_resources;
+  lock_with_app_resources_ = lock_resources;
   PopulateProductIcons(install_info_.get(),
                        /*icons_map=*/nullptr);
   // No IconsMap to populate shortcut item icons from.
@@ -76,7 +76,7 @@ void InstallFromInfoJob::Start(WithAppResources* lock_with_app_resources) {
     webapps::InstallableMetrics::TrackInstallEvent(install_surface_);
   }
 
-  WebAppInstallFinalizer::FinalizeOptions options(install_surface_);
+  FinalizeJobOptions options(install_surface_);
   options.overwrite_existing_manifest_fields =
       overwrite_existing_manifest_fields_;
 
@@ -92,16 +92,19 @@ void InstallFromInfoJob::Start(WithAppResources* lock_with_app_resources) {
 
   debug_value_->Set("options.install_state",
                     base::ToString(options.install_state));
-  lock_with_app_resources_->install_finalizer().FinalizeInstall(
-      *install_info_, options,
-      base::BindOnce(&InstallFromInfoJob::OnInstallCompleted,
-                     weak_factory_.GetWeakPtr()));
+
+  install_job_ = std::make_unique<FinalizeInstallJob>(
+      profile_.get(), lock, lock_with_app_resources_, *install_info_, options);
+
+  install_job_->Start(base::BindOnce(&InstallFromInfoJob::OnInstallCompleted,
+                                     weak_factory_.GetWeakPtr()));
 }
 
 void InstallFromInfoJob::OnInstallCompleted(const webapps::AppId& app_id,
                                             webapps::InstallResultCode code) {
   debug_value_->Set("result_code", base::ToString(code));
   CHECK(callback_);
+  install_job_.reset();
   std::move(callback_).Run(app_id_, code);
 }
 

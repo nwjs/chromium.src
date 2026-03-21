@@ -133,6 +133,8 @@ class TabDragController : public views::WidgetObserver,
   // and is only non-empty if the original selection isn't the same as the
   // dragging set. Returns Liveness::DELETED if `this` was deleted during this
   // call, and Liveness::ALIVE if `this` still exists.
+  // Note: `dragging_views` must be ordered by their position in the source
+  // tabstrip (both visually and in the model).
   [[nodiscard]] Liveness Init(TabDragContext* source_context,
                               TabSlotView* source_view,
                               const std::vector<TabSlotView*>& dragging_views,
@@ -312,8 +314,6 @@ class TabDragController : public views::WidgetObserver,
   void OnActiveStripWebContentsReplaced(content::WebContents* previous,
                                         content::WebContents* next);
 
-  void UpdateDockInfo(const gfx::Point& point_in_screen);
-
   // Saves focus in the window that the drag initiated from. Focus will be
   // restored appropriately if the drag ends within this same window.
   [[nodiscard]] Liveness SaveFocus();
@@ -454,10 +454,6 @@ class TabDragController : public views::WidgetObserver,
 
   // Maximizes the attached window.
   void MaximizeAttachedWindow();
-
-  // Hides the frame for the window that contains the TabDragContext
-  // the current drag session was initiated from.
-  void HideFrame();
 
   void BringWindowUnderPointToFront(const gfx::Point& point_in_screen);
 

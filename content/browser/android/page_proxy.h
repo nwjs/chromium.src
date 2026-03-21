@@ -24,12 +24,8 @@ class PageProxy final {
 
   void WillDeletePage(bool is_prerendering);
 
-  const base::android::JavaRef<jobject>& java_page() const {
-    return java_page_;
-  }
+  base::android::ScopedJavaLocalRef<jobject> GetJavaPage() const;
 
- private:
-  base::android::ScopedJavaGlobalRef<jobject> java_page_;
 };
 
 }  // namespace content

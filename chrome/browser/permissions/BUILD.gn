@@ -6,6 +6,7 @@ import("//build/config/ui.gni")
 import("//components/optimization_guide/features.gni")
 import("//components/safe_browsing/buildflags.gni")
 import("//device/vr/buildflags/buildflags.gni")
+import("//extensions/buildflags/buildflags.gni")
 import("//services/device/public/cpp/geolocation/buildflags.gni")
 import("//third_party/protobuf/proto_library.gni")
 
@@ -75,8 +76,11 @@ source_set("permissions") {
     "//chrome/browser/bluetooth",
     "//chrome/browser/content_extraction",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/display_capture",
     "//chrome/browser/favicon",
+    "//chrome/browser/geolocation",
     "//chrome/browser/metrics",
+    "//chrome/browser/nfc",
     "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:profile",
@@ -141,6 +145,7 @@ source_set("permissions") {
 
     deps += [
       "//chrome/android:chrome_jni_headers",
+      "//chrome/browser/android:tabs_public",
       "//components/messages/android",
       "//components/messages/android:feature_flags",
       "//ui/android",
@@ -151,6 +156,10 @@ source_set("permissions") {
     }
   }
   allow_circular_includes_from = []
+
+  if (enable_extensions) {
+    deps += [ "//chrome/browser/clipboard" ]
+  }
 
   if (is_chromeos) {
     deps += [
@@ -235,6 +244,10 @@ source_set("unit_tests") {
     "pref_based_quiet_permission_ui_selector_unittest.cc",
   ]
 
+  if (build_with_tflite_lib) {
+    sources += [ "prediction_service/passage_embedder_delegate_unittest.cc" ]
+  }
+
   if (!is_android) {
     sources += [ "one_time_permissions_tracker_unittest.cc" ]
   }
@@ -244,6 +257,7 @@ source_set("unit_tests") {
     ":permissions_proto",
     ":test_support",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/geolocation",
     "//chrome/browser/history",
     "//chrome/browser/optimization_guide:test_support",
     "//chrome/browser/permissions/system",
@@ -260,6 +274,10 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+
+  if (build_with_tflite_lib) {
+    deps += [ "//components/passage_embeddings/core" ]
+  }
 
   if (is_android) {
     sources += [
@@ -298,7 +316,6 @@ if (!is_android) {
       "one_time_permissions_browsertest.cc",
       "permission_delegation_browsertest.cc",
       "permission_element_browsertest.cc",
-      "permission_element_origin_trial_browsertest.cc",
       "permission_manager_browsertest.cc",
       "permission_request_manager_browsertest.cc",
       "permission_settings_page_browsertest.cc",
@@ -310,6 +327,7 @@ if (!is_android) {
       ":test_support",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/custom_handlers",
+      "//chrome/browser/geolocation",
       "//chrome/browser/media/webrtc",
       "//chrome/browser/optimization_guide",
       "//chrome/browser/optimization_guide:test_support",

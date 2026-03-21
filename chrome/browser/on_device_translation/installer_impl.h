@@ -8,6 +8,7 @@
 #include "base/observer_list.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/on_device_translation/installer.h"
+#include "components/on_device_translation/public/language_pack.h"
 
 namespace on_device_translation {
 
@@ -27,14 +28,20 @@ class OnDeviceTranslationInstallerImpl : public OnDeviceTranslationInstaller {
   void Init(base::RepeatingClosure on_ready_callback) override;
   void InstallLanguagePack(LanguagePackKey language_pack) override;
   void UnInstallLanguagePack(LanguagePackKey language_pack) override;
-  void AddOserver(Observer* observer) override;
+  void AddObserver(Observer* observer) override;
+  void RemoveObserver(Observer* observer) override;
 
  private:
-  // Called when a language pack has finished being installed.
-  void OnLanguagePackInstalled(LanguagePackKey language_pack);
-
-  std::set<LanguagePackKey> installed_language_packs_;
-  base::ObserverList<Observer> observers_;
+  base::FilePath GetFilePathFromCommandLine(
+      LanguagePackKey language_pack) const;
+  std::set<LanguagePackKey> GetLanguagePackKeysFromCommandLine() const;
+  // We hide away the logic to notify observers.
+  class Notifier;
+  std::unique_ptr<Notifier> notifier_;
+  // The LanguagePackInfo from the command line. This is nullopt if the
+  // command line flag `--translate-kit-packages` is not set.
+  const std::optional<std::map<LanguagePackKey, base::FilePath>>
+      language_packs_from_command_line_;
   base::WeakPtrFactory<OnDeviceTranslationInstallerImpl> weak_ptr_factory_{
       this};
 };

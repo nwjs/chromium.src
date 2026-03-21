@@ -163,7 +163,7 @@ UPLOAD_SKIA_JSON_BUILDERS = frozenset([
     'linux-perf',
     'linux-perf-fyi',
     'linux-perf-rel',
-    'linux-processor-perf',
+    'linux-r350-processor-perf',
     'linux-r350-perf',
     'mac-arm-builder-perf',
     'mac-builder-perf',
@@ -257,43 +257,7 @@ FYI_BUILDERS = {
             'pool': 'chrome.tests',
         },
     },
-    'fuchsia-perf-nsn-pgo': {
-        'tests': [{
-            'isolate':
-            'performance_web_engine_test_suite',
-            'extra_args': ['--output-format=histograms'] +
-            bot_platforms.FUCHSIA_EXEC_ARGS['nelson'],
-            'type':
-            TEST_TYPES.TELEMETRY,
-        }],
-        'platform':
-        'fuchsia-wes',
-        'dimension': {
-            'cpu': None,
-            'device_type': 'Nelson',
-            'os': 'Fuchsia',
-            'pool': 'chrome.tests',
-        },
-    },
     'fuchsia-perf-shk': {
-        'tests': [{
-            'isolate':
-            'performance_web_engine_test_suite',
-            'extra_args': ['--output-format=histograms'] +
-            bot_platforms.FUCHSIA_EXEC_ARGS['sherlock'],
-            'type':
-            TEST_TYPES.TELEMETRY,
-        }],
-        'platform':
-        'fuchsia-wes',
-        'dimension': {
-            'cpu': None,
-            'device_type': 'Sherlock',
-            'os': 'Fuchsia',
-            'pool': 'chrome.tests',
-        },
-    },
-    'fuchsia-perf-shk-pgo': {
         'tests': [{
             'isolate':
             'performance_web_engine_test_suite',
@@ -369,12 +333,6 @@ FYI_BUILDERS = {
         },
     },
     'fuchsia-builder-perf-arm64': {
-        'additional_compile_targets': [
-            'web_engine_shell_pkg', 'cast_runner_pkg', 'chromium_builder_perf',
-            'base_perftests'
-        ],
-    },
-    'fuchsia-builder-perf-arm64-pgo': {
         'additional_compile_targets': [
             'web_engine_shell_pkg', 'cast_runner_pkg', 'chromium_builder_perf',
             'base_perftests'
@@ -929,7 +887,8 @@ BUILDERS = {
                 ],
             },
         ],
-        'platform': 'linux',
+        'platform':
+        'linux',
         'dimension': {
             'gpu': '10de:2184',
             'os': 'Ubuntu-22.04',
@@ -1002,14 +961,15 @@ BUILDERS = {
         'platform':
         'linux',
         'dimension': {
-            'os': 'Ubuntu-22.04.5',
+            'os':
+            'Ubuntu-22.04.5',
             'pool':
             'chrome.tests.perf',
             'synthetic_product_name':
             'System Product Name [System Version] (Falcon Northwest)',
         },
     },
-    'linux-processor-perf': {
+    'linux-r350-processor-perf': {
         'platform': 'linux',
         'perf_processor': True,
     },
@@ -1400,7 +1360,8 @@ BUILDERS = {
         'target_bits':
         64,
         'dimension': {
-            'os': 'Windows-11-26100.1742',
+            'os':
+            'Windows-11-26100.1742',
             'pool':
             'chrome.tests.perf',
             'synthetic_product_name':

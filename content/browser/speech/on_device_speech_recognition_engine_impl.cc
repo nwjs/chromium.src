@@ -142,8 +142,11 @@ void OnDeviceSpeechRecognitionEngine::CreateModelClientOnUI(
           rfh->GetBrowserContext());
 
   if (core_->model_broker_client) {
+    core_->model_broker_client->RequestAssetsFor(
+        optimization_guide::mojom::OnDeviceFeature::kOnDeviceSpeechRecognition);
     core_->model_broker_client
-        ->GetSubscriber(optimization_guide::mojom::OnDeviceFeature::kPromptApi)
+        ->GetSubscriber(optimization_guide::mojom::OnDeviceFeature::
+                            kOnDeviceSpeechRecognition)
         .WaitForClient(base::BindOnce(
             &OnDeviceSpeechRecognitionEngine::OnModelClientAvailable,
             weak_factory_.GetWeakPtr()));

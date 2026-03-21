@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -23,7 +24,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
-#include "build/android_buildflags.h"
 #include "build/build_config.h"
 #include "content/browser/media/media_internals.h"
 #include "content/browser/renderer_host/media/video_capture_controller.h"
@@ -32,6 +32,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/desktop_media_id.h"
+#include "content/public/common/content_features.h"
 #include "media/base/media_switches.h"
 #include "media/base/video_facing.h"
 #include "media/capture/mojom/video_capture_types.mojom.h"
@@ -39,6 +40,13 @@
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 
 namespace {
+
+// Test feature that simulates a hardware limitation where starting a second
+// display capture stream automatically stops the first one.
+// TODO(crbug.com/485200165): Remove this once testing is completed and the bug
+// is fixed.
+BASE_FEATURE(kVideoCaptureManagerStopFirstDisplayCaptureAfterSecondStarts,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 void LogVideoCaptureError(media::VideoCaptureError error) {
   base::UmaHistogramEnumeration("Media.VideoCapture.Error", error);
@@ -120,11 +128,19 @@ void VideoCaptureManager::RegisterListener(
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   DCHECK(listener);
   listeners_.AddObserver(listener);
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
-  application_state_has_running_activities_ = true;
-  app_status_listener_ =
-      base::android::ApplicationStatusListener::New(base::BindRepeating(
-          &VideoCaptureManager::OnApplicationStateChange, this));
+#if BUILDFLAG(IS_ANDROID)
+  // When kAndroidEnableBackgroundMediaCapturing is enabled, video capture
+  // is allowed to continue even if the app is in the background.
+  // Therefore, we only need to register the ApplicationStatusListener and
+  // track foreground/background state if this feature is DISABLED,
+  // ensuring that capture is stopped when the app is no longer active.
+  if (!base::FeatureList::IsEnabled(
+          features::kAndroidEnableBackgroundMediaCapturing)) {
+    application_state_has_running_activities_ = true;
+    app_status_listener_ =
+        base::android::ApplicationStatusListener::New(base::BindRepeating(
+            &VideoCaptureManager::OnApplicationStateChange, this));
+  }
 #endif
 }
 
@@ -191,6 +207,11 @@ void VideoCaptureManager::Close(
   auto session_it = sessions_.find(capture_session_id);
   if (session_it == sessions_.end()) {
     return;
+  }
+
+  if (base::FeatureList::IsEnabled(
+          kVideoCaptureManagerStopFirstDisplayCaptureAfterSecondStarts)) {
+    std::erase(display_capture_session_ids_, capture_session_id);
   }
 
   VideoCaptureController* const existing_device =
@@ -351,6 +372,28 @@ void VideoCaptureManager::OnDeviceLaunched(VideoCaptureController* controller) {
   DCHECK(!device_start_request_queue_.empty());
   DCHECK_EQ(controller, device_start_request_queue_.begin()->controller());
   DCHECK(controller);
+
+  // Test feature that simulates a hardware limitation where starting a second
+  // display capture stream automatically stops the first one.
+  // TODO(crbug.com/485200165): Remove this once testing is completed and the
+  // bug is fixed.
+  if (base::FeatureList::IsEnabled(
+          kVideoCaptureManagerStopFirstDisplayCaptureAfterSecondStarts) &&
+      controller->stream_type() ==
+          blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE) {
+    const media::VideoCaptureSessionId session_id =
+        device_start_request_queue_.front().session_id();
+    if (!display_capture_session_ids_.empty()) {
+      const base::UnguessableToken first_session_id =
+          display_capture_session_ids_.front();
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+          FROM_HERE,
+          base::BindOnce(&VideoCaptureManager::Close,
+                         weak_factory_.GetWeakPtr(), first_session_id),
+          base::Milliseconds(30));
+    }
+    display_capture_session_ids_.push_back(session_id);
+  }
 
   if (blink::IsVideoDesktopCaptureMediaType(controller->stream_type())) {
     const media::VideoCaptureSessionId session_id =
@@ -952,7 +995,7 @@ VideoCaptureManager::GetOrCreateController(
   return new_controller;
 }
 
-#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_DESKTOP_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
 void VideoCaptureManager::OnApplicationStateChange(
     base::android::ApplicationState state) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);

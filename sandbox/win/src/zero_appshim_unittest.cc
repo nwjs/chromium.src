@@ -3,12 +3,11 @@
 // found in the LICENSE file.
 
 #include <windows.h>
+#include <winternl.h>
 
 #include <ntstatus.h>
 
 #include "base/win/windows_version.h"
-#include "sandbox/win/src/nt_internals.h"
-#include "sandbox/win/src/sandbox_nt_util.h"
 #include "sandbox/win/src/target_services.h"
 #include "sandbox/win/tests/common/controller.h"
 #include "sandbox/win/tests/integration_tests/integration_tests_common.h"
@@ -25,11 +24,11 @@ constexpr ptrdiff_t kShimDataOffset = 0x1e8;
 }  // namespace
 
 // Validate that we can zero the member and still execute.
-SBOX_TESTS_COMMAND int ZeroAppShimCommand(int argc, wchar_t** argv) {
+SBOX_TEST_COMMAND(ZeroAppShimCommand) {
   PROCESS_BASIC_INFORMATION info = {};
-  NTSTATUS status = GetNtExports()->QueryInformationProcess(
-      GetCurrentProcess(), ProcessBasicInformation, &info, sizeof(info),
-      nullptr);
+  NTSTATUS status =
+      ::NtQueryInformationProcess(GetCurrentProcess(), ProcessBasicInformation,
+                                  &info, sizeof(info), nullptr);
   if (STATUS_SUCCESS != status) {
     return SBOX_TEST_FAILED;
   }
@@ -52,13 +51,10 @@ TEST(ZeroAppShimTest, ZeroAppShim) {
     GTEST_SKIP() << "ZeroAppShim not supported in WoW or ARM64 emulated modes.";
   }
 
-  std::wstring test_command = L"ZeroAppShimCommand";
-  TestRunner runner;
-  sandbox::TargetConfig* config = runner.GetPolicy()->GetConfig();
+  ZeroAppShimCommandTestRunner runner;
+  runner.GetConfig()->SetZeroAppShim();
 
-  config->SetZeroAppShim();
-
-  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest(test_command.c_str()));
+  EXPECT_EQ(SBOX_TEST_SUCCEEDED, runner.RunTest());
 }
 
 }  // namespace sandbox

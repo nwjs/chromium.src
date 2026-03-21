@@ -37,11 +37,11 @@
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_view_client.h"
 #include "third_party/blink/public/web/web_window_features.h"
+#include "third_party/blink/renderer/core/ad_tracker/ad_tracker.h"
 #include "third_party/blink/renderer/core/core_initializer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/exported/web_dev_tools_agent_impl.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
-#include "third_party/blink/renderer/core/frame/ad_tracker.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -163,8 +163,8 @@ WebWindowFeatures GetWindowFeaturesFromString(const String& feature_string,
         value_string == "true") {
       value = 1;
     } else {
-      value = CharactersToInt(value_string, NumberParsingOptions::Loose(),
-                              /*ok=*/nullptr);
+      value =
+          StringToInt(value_string, NumberParsingOptions::Loose()).value_or(0);
     }
 
     if (!ui_features_were_disabled && key_string != "noopener" &&
@@ -232,8 +232,8 @@ WebWindowFeatures GetWindowFeaturesFromString(const String& feature_string,
 
         // attributionsrc values are encoded in order to support embedded
         // special characters, such as '='.
-        window_features.attribution_srcs->emplace_back(DecodeURLEscapeSequences(
-            original_case_value_string, DecodeURLMode::kUTF8));
+        window_features.attribution_srcs->emplace_back(DecodeUrlEscapeSequences(
+            original_case_value_string, DecodeUrlMode::kUtf8));
       }
     }
   }
@@ -333,8 +333,7 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
                    NavigationPolicy::kNavigationPolicyNewPopup;
   bool borderless = false;
   if (auto* widget = opener_frame.GetWidgetForLocalRoot()) {
-    borderless =
-        widget->DisplayMode() == mojom::blink::DisplayMode::kBorderless;
+    borderless = widget->DisplayMode() == mojom::blink::DisplayMode::kUnframed;
   }
   if (new_popup && borderless) {
     min_size = kMinimumBorderlessWindowSize;

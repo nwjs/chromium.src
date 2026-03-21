@@ -672,8 +672,10 @@ class MockDurableMessageAccountingDelegate
   }
 
   void WillRemoveBytes(DevtoolsDurableMessage& message) override {
-    size_ -= message.encoded_byte_size();
+    size_ -= message.size();
   }
+
+  void WillDestroyMessage(DevtoolsDurableMessage& message) override {}
 
   int64_t size() { return size_; }
 
@@ -1028,7 +1030,7 @@ class URLLoaderTest : public testing::Test {
 
   void SetUpContext(const GURL& url, bool is_trusted) {
     context().mutable_factory_params().process_id =
-        OriginatingProcess::browser();
+        OriginatingProcessId::browser();
     context().mutable_factory_params().is_orb_enabled = orb_enabled_;
     context().mutable_factory_params().client_security_state.Swap(
         &factory_client_security_state_);
@@ -1285,7 +1287,7 @@ class URLLoaderTest : public testing::Test {
 
   void RunUntilIdle() { task_environment_.RunUntilIdle(); }
 
-  static const OriginatingProcess kProcessId;
+  static const OriginatingProcessId kProcessId;
   static constexpr int kRouteId = 8;
 
   // |OnServerReceivedRequest| allows subclasses to register additional logic to
@@ -1380,8 +1382,8 @@ class URLLoaderMockSocketTest : public URLLoaderTest {
   net::MockClientSocketFactory socket_factory_;
 };
 
-const OriginatingProcess URLLoaderTest::kProcessId =
-    OriginatingProcess::renderer(RendererProcess(4));
+const OriginatingProcessId URLLoaderTest::kProcessId =
+    OriginatingProcessId::renderer(RendererProcessId(4));
 constexpr int URLLoaderTest::kRouteId;
 
 TEST_F(URLLoaderTest, ProvidedResponseBodyStream) {
@@ -1403,7 +1405,8 @@ TEST_F(URLLoaderTest, ProvidedResponseBodyStream) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
 
   url_loader = URLLoaderOptions().MakeURLLoader(
@@ -2763,14 +2766,12 @@ TEST_F(URLLoaderTest, WritesToDurableMessage) {
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
   set_durable_messages({durable_message.GetWeakPtr()});
   std::string body;
-  constexpr int kGzippedBodyLength = 60;
+
   EXPECT_EQ(net::OK, Load(test_server()->GetURL("/hello.html.gz"), &body));
   EXPECT_EQ(body, ReadTestFile("hello.html"));
   EXPECT_TRUE(durable_message.is_complete());
-  ASSERT_EQ(accounting_delegate.size(), kGzippedBodyLength);
-  ASSERT_EQ(durable_message.encoded_byte_size(),
-            static_cast<size_t>(kGzippedBodyLength));
-  ASSERT_EQ(durable_message.byte_size_for_testing(), body.size());
+  ASSERT_EQ(accounting_delegate.size(), static_cast<int64_t>(body.size()));
+  ASSERT_EQ(durable_message.size(), body.size());
   // Retrieve the stored body and verify that it is accurate.
   EXPECT_EQ(durable_message.Retrieve(), base::as_byte_span(body));
 }
@@ -2779,7 +2780,7 @@ TEST_F(URLLoaderTest, DurableMessageWorksWithMimeSniffing) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
   set_durable_messages({durable_message.GetWeakPtr()});
-  constexpr int kGzippedBodyLength = 142;
+
   set_sniff();
   set_client_side_content_decoding_enabled();
   std::string encoded_body;
@@ -2793,10 +2794,9 @@ TEST_F(URLLoaderTest, DurableMessageWorksWithMimeSniffing) {
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_EQ(encoded_body, ReadTestFile("content-sniffer-test0.html.gz"));
   EXPECT_TRUE(durable_message.is_complete());
-  ASSERT_EQ(accounting_delegate.size(), kGzippedBodyLength);
-  ASSERT_EQ(durable_message.encoded_byte_size(),
-            static_cast<size_t>(kGzippedBodyLength));
-  ASSERT_EQ(durable_message.byte_size_for_testing(), encoded_body.size());
+  ASSERT_EQ(accounting_delegate.size(),
+            static_cast<int64_t>(encoded_body.size()));
+  ASSERT_EQ(durable_message.size(), encoded_body.size());
   // Retrieve the stored body and verify that it is accurate and contents are in
   // decoded form.
   mojo_base::BigBuffer buffer = durable_message.Retrieve();
@@ -2853,8 +2853,7 @@ TEST_F(URLLoaderMockSocketTest, DurableMessageWorksWithLotsOfData) {
   EXPECT_TRUE(durable_message.is_complete());
   size_t compressed_size = compressed.size();
   ASSERT_EQ(accounting_delegate.size(), static_cast<int64_t>(compressed_size));
-  ASSERT_EQ(durable_message.encoded_byte_size(), compressed_size);
-  ASSERT_EQ(durable_message.byte_size_for_testing(), compressed_size);
+  ASSERT_EQ(durable_message.size(), compressed_size);
   EXPECT_EQ(durable_message.Retrieve(), base::as_byte_span(response_body));
 }
 
@@ -2864,7 +2863,7 @@ TEST_F(URLLoaderTest, DurableMessagePerformsClientSideDecodingGzip) {
   MockDurableMessageAccountingDelegate accounting_delegate;
   DevtoolsDurableMessage durable_message("test", accounting_delegate);
   set_durable_messages({durable_message.GetWeakPtr()});
-  constexpr size_t kGzippedBodyLength = 60;
+
   set_sniff();
   set_client_side_content_decoding_enabled();
   std::string encoded_body;
@@ -2876,8 +2875,7 @@ TEST_F(URLLoaderTest, DurableMessagePerformsClientSideDecodingGzip) {
               ElementsAre(net::SourceStreamType::kGzip));
   EXPECT_TRUE(durable_message.is_complete());
   ASSERT_EQ(accounting_delegate.size(),
-            static_cast<int64_t>(kGzippedBodyLength));
-  ASSERT_EQ(durable_message.encoded_byte_size(), kGzippedBodyLength);
+            static_cast<int64_t>(encoded_body.size()));
   // Retrieve the stored body and verify that it is accurate and contents are in
   // decoded form.
   mojo_base::BigBuffer buffer = durable_message.Retrieve();
@@ -3020,7 +3018,8 @@ TEST_F(URLLoaderTest, DestroyOnURLLoaderPipeClosed) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3068,7 +3067,8 @@ TEST_F(URLLoaderTest, CloseResponseBodyConsumerBeforeProducer) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3255,7 +3255,7 @@ TEST_F(URLLoaderTest, UploadFileWithoutNetworkServiceClient) {
 
 class CallbackSavingNetworkContextClient : public TestNetworkContextClient {
  public:
-  void OnFileUploadRequested(int32_t process_id,
+  void OnFileUploadRequested(const OriginatingProcessId& process_id,
                              bool async,
                              const std::vector<base::FilePath>& file_paths,
                              const GURL& destination_url,
@@ -3296,7 +3296,8 @@ TEST_F(URLLoaderTest, UploadFileCanceled) {
 
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   auto network_context_client =
       std::make_unique<CallbackSavingNetworkContextClient>();
@@ -3424,7 +3425,8 @@ TEST_F(URLLoaderTest, UploadChunkedDataPipe) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3457,7 +3459,8 @@ TEST_F(URLLoaderTest, UploadChunkedDataPipeOverHTTP2) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3507,7 +3510,8 @@ TEST_F(URLLoaderTest, UploadChunkedDataPipeReadOnceStream) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3600,7 +3604,8 @@ TEST_F(URLLoaderTest, SSLInfoOnRedirectWithCertificateError) {
 
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   auto network_context_client = std::make_unique<TestNetworkContextClient>();
   context().set_network_context_client(network_context_client.get());
@@ -3634,7 +3639,8 @@ TEST_F(URLLoaderTest, RedirectModifiedHeaders) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3682,7 +3688,7 @@ TEST_F(URLLoaderTest, RedirectFailsOnModifyUnsafeHeader) {
     mojo::Remote<mojom::URLLoader> loader;
     std::unique_ptr<URLLoader> url_loader;
     context().mutable_factory_params().process_id =
-        OriginatingProcess::browser();
+        OriginatingProcessId::browser();
     context().mutable_factory_params().is_orb_enabled = false;
     url_loader = URLLoaderOptions().MakeURLLoader(
         context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3712,7 +3718,8 @@ TEST_F(URLLoaderTest, RedirectRemoveHeader) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3748,7 +3755,8 @@ TEST_F(URLLoaderTest, RedirectRemoveHeaderAndAddItBack) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -3789,7 +3797,8 @@ TEST_F(URLLoaderTest, UpgradeAddsSecHeaders) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
@@ -3833,7 +3842,8 @@ TEST_F(URLLoaderTest, DowngradeRemovesSecHeaders) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
@@ -3886,7 +3896,8 @@ TEST_F(URLLoaderTest, RedirectChainRemovesAndAddsSecHeaders) {
   base::RunLoop delete_run_loop;
   mojo::Remote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.BindNewPipeAndPassReceiver(), request, client()->CreateRemote());
@@ -3945,7 +3956,8 @@ TEST_F(URLLoaderTest, RedirectSecHeadersUser) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -3971,7 +3983,8 @@ TEST_F(URLLoaderTest, RedirectDirectlyModifiedSecHeadersUser) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -4113,7 +4126,8 @@ TEST_F(URLLoaderTest, ReadPipeClosedWhileReadTaskPosted) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -4785,7 +4799,8 @@ TEST_F(URLLoaderTest, FollowRedirectTwice) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   context().mutable_factory_params().is_orb_enabled = false;
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
@@ -5278,7 +5293,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5299,7 +5315,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, LoadNoStatus) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5325,7 +5342,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, LoadStatusNone) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5352,7 +5370,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, LoadStatusInactive) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5375,7 +5394,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, LoadStatusActive) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5402,7 +5422,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, Load_StatusActive_IgnoredParam) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5427,7 +5448,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, Load_StatusActive_IncorrectType) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5449,7 +5471,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest, RedirectWithLoad) {
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5492,7 +5515,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest,
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -5536,7 +5560,8 @@ TEST_F(StorageAccessHeaderURLLoaderTest,
 
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -7015,7 +7040,8 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader_remote;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   MockTrustTokenDevToolsObserver devtools_observer;
 
   URLLoaderOptions url_loader_options;
@@ -7078,7 +7104,8 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader_remote;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   MockTrustTokenDevToolsObserver devtools_observer;
 
   URLLoaderOptions url_loader_options;
@@ -7126,7 +7153,8 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader_remote;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   MockTrustTokenDevToolsObserver devtools_observer;
 
   URLLoaderOptions url_loader_options;
@@ -7177,7 +7205,8 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader_remote;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   MockTrustTokenDevToolsObserver devtools_observer;
 
   URLLoaderOptions url_loader_options;
@@ -7224,7 +7253,8 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader_remote;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   MockTrustTokenDevToolsObserver devtools_observer;
 
   URLLoaderOptions url_loader_options;
@@ -7268,7 +7298,8 @@ TEST_P(URLLoaderSyncOrAsyncTrustTokenOperationTest,
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader_remote;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   MockTrustTokenDevToolsObserver devtools_observer;
 
   URLLoaderOptions url_loader_options;
@@ -8469,7 +8500,8 @@ TEST_F(URLLoaderTest, SetLoadTimingInternalInfoForTrustedLoaders) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,
@@ -8489,7 +8521,8 @@ TEST_F(URLLoaderTest, DoNotSetLoadTimingInternalInfoForUntrustedLoaders) {
   base::RunLoop delete_run_loop;
   mojo::PendingRemote<mojom::URLLoader> loader;
   std::unique_ptr<URLLoader> url_loader;
-  context().mutable_factory_params().process_id = OriginatingProcess::browser();
+  context().mutable_factory_params().process_id =
+      OriginatingProcessId::browser();
   url_loader = URLLoaderOptions().MakeURLLoader(
       context(), DeleteLoaderCallback(&delete_run_loop, &url_loader),
       loader.InitWithNewPipeAndPassReceiver(), request,

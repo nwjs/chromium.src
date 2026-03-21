@@ -381,7 +381,7 @@ class SitePerProcessTextInputManagerTest : public InProcessBrowserTest {
 // creates a sequence of tab presses and verifies that after each key press, the
 // TextInputState.value reflects that of the focused input, i.e., the
 // TextInputManager is correctly tracking TextInputState across frames.
-// Flaky on ChromeOS, Linux, Mac, and Windows; https://crbug.com/704994.
+// Flaky on ChromeOS, Linux, Mac, and Windows; https://crbug.com/41309330.
 IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
                        DISABLED_TrackStateWhenSwitchingFocusedFrames) {
   CreateIframePage("a(a,b,c(a,b,d(e, f)),g)");
@@ -405,8 +405,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
   for (const auto& value : values) {
     content::TextInputManagerValueObserver observer(active_contents(), value);
-    SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                     ui::VKEY_TAB, false, false, false, false);
+    content::SimulateCharTyped(active_contents(), '\t');
     observer.Wait();
   }
 }
@@ -437,8 +436,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
   for (const auto& value : values) {
     content::TextInputManagerValueObserver observer(active_contents(), value);
-    SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                     ui::VKEY_TAB, false, false, false, false);
+    content::SimulateCharTyped(active_contents(), '\t');
     observer.Wait();
   }
 
@@ -510,8 +508,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   // Press tab key to focus the <input> in the first frame.
   content::TextInputManagerTypeObserver type_observer_text_a(
       active_contents(), ui::TEXT_INPUT_TYPE_TEXT);
-  SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                   ui::VKEY_TAB, false, false, false, false);
+  content::SimulateCharTyped(active_contents(), '\t');
   type_observer_text_a.Wait();
 
   std::string remove_first_iframe_script =
@@ -527,8 +524,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   // Press tab to focus the <input> in the second frame.
   content::TextInputManagerTypeObserver type_observer_text_b(
       active_contents(), ui::TEXT_INPUT_TYPE_TEXT);
-  SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                   ui::VKEY_TAB, false, false, false, false);
+  content::SimulateCharTyped(active_contents(), '\t');
   type_observer_text_b.Wait();
 
   // Detach first frame and observe |TextInputState.type| resetting to
@@ -554,8 +550,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   // Focus <input> in child frame and verify the |TextInputState.value|.
   content::TextInputManagerValueObserver child_set_state_observer(
       active_contents(), "child");
-  SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                   ui::VKEY_TAB, false, false, false, false);
+  content::SimulateCharTyped(active_contents(), '\t');
   child_set_state_observer.Wait();
 
   // Navigate the child frame to about:blank and verify that TextInputManager
@@ -579,8 +574,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
   content::TextInputManagerTypeObserver set_state_observer(
       active_contents(), ui::TEXT_INPUT_TYPE_TEXT);
-  SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                   ui::VKEY_TAB, false, false, false, false);
+  content::SimulateCharTyped(active_contents(), '\t');
   set_state_observer.Wait();
 
   content::TextInputManagerTypeObserver reset_state_observer(
@@ -592,7 +586,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 #if defined(USE_AURA)
 // This test creates a blank page and adds an <input> to it. Then, the <input>
 // is focused, UI is focused, then the input is refocused. The test verifies
-// that selection bounds change with the refocus (see https://crbug.com/864563).
+// that selection bounds change with the refocus (see
+// https://crbug.com/41402146).
 IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
                        SelectionBoundsChangeAfterRefocusInput) {
   CreateIframePage("a()");
@@ -618,7 +613,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   ASSERT_TRUE(window);
   LocationBar* location_bar = window->GetLocationBar();
   ASSERT_TRUE(location_bar);
-  location_bar->FocusLocation(true);
+  location_bar->FocusLocation(/*is_user_initiated=*/true,
+                              /*clear_focus_if_failed=*/false);
 
   focus_input_and_wait_for_selection_bounds_change();
 }
@@ -626,9 +622,15 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
 // This test verifies that if we have a focused <input> in the main frame and
 // the tab is closed, TextInputManager handles unregistering itself and
-// notifying the observers properly (see https://crbug.com/669375).
+// notifying the observers properly (see https://crbug.com/41288534).
+#if BUILDFLAG(IS_MAC)
+// https://crbug.com/483430690 created by gardener.
+#define MAYBE_ClosingTabWillNotCrash DISABLED_ClosingTabWillNotCrash
+#else
+#define MAYBE_ClosingTabWillNotCrash ClosingTabWillNotCrash
+#endif
 IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
-                       ClosingTabWillNotCrash) {
+                       MAYBE_ClosingTabWillNotCrash) {
   CreateIframePage("a()");
   content::RenderFrameHost* main_frame = GetFrame(IndexVector{});
   AddInputFieldToFrame(main_frame, "text", "", false);
@@ -636,8 +638,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   // Focus the input and wait for state update.
   content::TextInputManagerTypeObserver observer(active_contents(),
                                                  ui::TEXT_INPUT_TYPE_TEXT);
-  SimulateKeyPress(active_contents(), ui::DomKey::TAB, ui::DomCode::TAB,
-                   ui::VKEY_TAB, false, false, false, false);
+  content::SimulateCharTyped(active_contents(), '\t');
   observer.Wait();
 
   // Now destroy the tab. We should exit without crashing.
@@ -668,8 +669,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
       [&web_contents](const std::string& expected_value) {
         content::TextInputManagerValueObserver observer(web_contents,
                                                         expected_value);
-        SimulateKeyPress(web_contents, ui::DomKey::TAB, ui::DomCode::TAB,
-                         ui::VKEY_TAB, false, false, false, false);
+        content::SimulateCharTyped(web_contents, '\t');
         observer.Wait();
       };
 
@@ -719,8 +719,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
       [&web_contents](content::RenderWidgetHostView* view) {
         ViewTextInputTypeObserver type_observer(web_contents, view,
                                                 ui::TEXT_INPUT_TYPE_TEXT);
-        SimulateKeyPress(web_contents, ui::DomKey::TAB, ui::DomCode::TAB,
-                         ui::VKEY_TAB, false, false, false, false);
+        content::SimulateCharTyped(web_contents, '\t');
         type_observer.Wait();
 
         ViewCompositionRangeChangedObserver range_observer(web_contents, view);
@@ -733,7 +732,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
     send_tab_set_composition_wait_for_bounds_change(view);
 }
 
-// Failing on Mac - http://crbug.com/852452
+// Failing on Mac - http://crbug.com/41394416
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_TrackTextSelectionForAllFrames \
   DISABLED_TrackTextSelectionForAllFrames
@@ -765,8 +764,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
   auto send_tab_and_wait_for_value = [&web_contents](const std::string& value) {
     content::TextInputManagerValueObserver observer(web_contents, value);
-    SimulateKeyPress(web_contents, ui::DomKey::TAB, ui::DomCode::TAB,
-                     ui::VKEY_TAB, false, false, false, false);
+    content::SimulateCharTyped(web_contents, '\t');
     observer.Wait();
   };
 
@@ -774,9 +772,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
       [&web_contents](content::RenderWidgetHostView* view, size_t count) {
         ViewTextSelectionObserver observer(web_contents, view, count);
         for (size_t i = 0; i < count; ++i) {
-          SimulateKeyPress(web_contents, ui::DomKey::FromCharacter('E'),
-                           ui::DomCode::US_E, ui::VKEY_E, false, false, false,
-                           false);
+          content::SimulateCharTyped(web_contents, 'E');
         }
         observer.Wait();
       };
@@ -796,8 +792,8 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 // on the page. Specifically, the test sends an IPC to the RenderWidget
 // corresponding to a focused frame with a focused <input> to commit some text.
 // Then, it verifies that the <input>'s value matches the committed text
-// (https://crbug.com/688842).
-// Flaky on Android and Linux http://crbug.com/852274
+// (https://crbug.com/41299742).
+// Flaky on Android and Linux http://crbug.com/149652556
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_ImeCommitTextForAllFrames DISABLED_ImeCommitTextForAllFrames
 #else
@@ -846,7 +842,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
 // TODO(ekaramad): Some of the following tests should be active on Android as
 // well. Enable them when the corresponding feature is implemented for Android
-// (https://crbug.com/602723).
+// (https://crbug.com/40464731).
 #if !BUILDFLAG(IS_ANDROID)
 // This test creates a page with multiple child frames and adds an <input> to
 // each frame. Then, sequentially, each <input> is focused by sending a tab key.
@@ -874,13 +870,10 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
       [&web_contents](content::RenderWidgetHostView* view) {
         ViewTextInputTypeObserver type_observer(web_contents, view,
                                                 ui::TEXT_INPUT_TYPE_TEXT);
-        SimulateKeyPress(web_contents, ui::DomKey::TAB, ui::DomCode::TAB,
-                         ui::VKEY_TAB, false, false, false, false);
+        content::SimulateCharTyped(web_contents, '\t');
         type_observer.Wait();
         ViewSelectionBoundsChangedObserver bounds_observer(web_contents, view);
-        SimulateKeyPress(web_contents, ui::DomKey::FromCharacter('E'),
-                         ui::DomCode::US_E, ui::VKEY_E, false, false, false,
-                         false);
+        content::SimulateCharTyped(web_contents, 'E');
         bounds_observer.Wait();
       };
 
@@ -890,7 +883,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
 // This test makes sure browser correctly tracks focused editable element inside
 // each RenderFrameHost.
-// Test is flaky on chromeOS; https://crbug.com/705203.
+// Test is flaky on chromeOS; https://crbug.com/41309421.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_TrackingFocusedElementForAllFrames \
   DISABLED_TrackingFocusedElementForAllFrames
@@ -938,7 +931,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 // focused. Then the <input> inside frame is both focused and blurred and  and
 // in both cases the test verifies that WebContents is aware whether or not a
 // focused editable element exists on the page.
-// Test is flaky on ChromeOS. crbug.com/705289
+// Test is flaky on ChromeOS. crbug.com/41309482
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_TrackPageFocusEditableElement \
   DISABLED_TrackPageFocusEditableElement
@@ -981,7 +974,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 // WebContents knows about the focused editable element. Then it asks the
 // WebContents to clear focused element and verifies that there is no longer
 // a focused editable element on the page.
-// Test is flaky on ChromeOS; https://crbug.com/705203.
+// Test is flaky on ChromeOS; https://crbug.com/41309421.
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_ClearFocusedElementOnPage DISABLED_ClearFocusedElementOnPage
 #else
@@ -1013,7 +1006,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 
 // TODO(ekaramad): The following tests are specifically written for Aura and are
 // based on InputMethodObserver. Write similar tests for Mac/Android/Mus
-// (crbug.com/602723).
+// (crbug.com/40464731).
 #if defined(USE_AURA)
 // -----------------------------------------------------------------------------
 // Input Method Observer Tests
@@ -1024,7 +1017,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 // TODO(ekaramad): We only have coverage for some aura tests as the whole idea
 // of ui::TextInputClient/ui::InputMethod/ui::InputMethodObserver seems to be
 // only fit to aura (specifically, OS_CHROMEOS). Can we add more tests here for
-// aura as well as other platforms (https://crbug.com/602723)?
+// aura as well as other platforms (https://crbug.com/40464731)?
 
 // Observes current input method for state changes.
 class InputMethodObserverBase {
@@ -1086,7 +1079,7 @@ class InputMethodObserverForShowIme : public InputMethodObserverBase {
 };
 
 // TODO(ekaramad): This test is actually a unit test and should be moved to
-// somewhere more relevant (https://crbug.com/602723).
+// somewhere more relevant (https://crbug.com/40464731).
 // This test verifies that the IME for Aura is shown if and only if the current
 // client's |TextInputState.type| is not ui::TEXT_INPUT_TYPE_NONE and the flag
 // |TextInputState.show_ime_if_needed| is true. This should happen even when
@@ -1151,7 +1144,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
 #endif  // USE_AURA
 
 // Ensure that a cross-process subframe can utilize keyboard edit commands.
-// See https://crbug.com/640706.  This test is Linux-specific, as it relies on
+// See https://crbug.com/41271772.  This test is Linux-specific, as it relies on
 // overriding ui::LinuxUi.
 #if BUILDFLAG(IS_LINUX)
 IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
@@ -1180,11 +1173,11 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   EXPECT_EQ(child, web_contents->GetFocusedFrame());
 
   // Generate a couple of keystrokes, which will be routed to the subframe.
-  SimulateKeyPress(web_contents, ui::DomKey::FromCharacter('1'),
-                   ui::DomCode::DIGIT1, ui::VKEY_1, false, false, false, false);
+  content::SimulateCharTyped(web_contents, '1');
+
   EXPECT_TRUE(ExecJs(child, "waitForInput()"));
-  SimulateKeyPress(web_contents, ui::DomKey::FromCharacter('2'),
-                   ui::DomCode::DIGIT2, ui::VKEY_2, false, false, false, false);
+  content::SimulateCharTyped(web_contents, '2');
+
   EXPECT_TRUE(ExecJs(child, "waitForInput()"));
 
   // Verify that the input field in the subframe received the keystrokes.
@@ -1269,7 +1262,7 @@ class ShowDefinitionForWordObserver
   std::unique_ptr<base::RunLoop> run_loop_;
 };
 
-// Flakey (https:://crbug.com/874417).
+// Flakey (https:://crbug.com/41408166).
 // This test verifies that requests for dictionary lookup based on selection
 // range are routed to the focused RenderWidgetHost.
 IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
@@ -1340,7 +1333,7 @@ IN_PROC_BROWSER_TEST_F(
         // This runs before TextInputClientMac gets to handle the mojo message.
         // Then, by the time TextInputClientMac calls back into UI to show the
         // dictionary, the target RWH is already destroyed which will be a
-        // close enough repro for the crash in https://crbug.com/737032.
+        // close enough repro for the crash in https://crbug.com/41327401.
         ASSERT_TRUE(content::DestroyRenderWidgetHost(process_id, routing_id));
 
         // Quit the run loop on IO to make sure the message handler of
@@ -1408,7 +1401,7 @@ IN_PROC_BROWSER_TEST_F(
         // This runs before TextInputClientMac gets to handle the mojo message.
         // Then, by the time TextInputClientMac calls back into UI to show the
         // dictionary, the target RWH is already destroyed which will be a
-        // close enough repro for the crash in https://crbug.com/737032.
+        // close enough repro for the crash in https://crbug.com/41327401.
         ASSERT_TRUE(content::DestroyRenderWidgetHost(process_id, routing_id));
 
         // Quit the run loop on IO to make sure the message handler of

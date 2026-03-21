@@ -8,6 +8,7 @@
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/tabs/tab_group_attention_indicator.h"
+#include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_animating_layout_manager.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_dragged_tabs_container.h"
@@ -18,7 +19,6 @@
 #include "ui/views/view.h"
 
 class TabCollectionNode;
-class VerticalTabDragHandler;
 class VerticalTabGroupHeaderView;
 
 // The view class for vertical tab group container. It manages layout
@@ -58,12 +58,19 @@ class VerticalTabGroupView
   bool ContinueHeaderDrag(const ui::MouseEvent& event) override;
   void CancelHeaderDrag() override;
   void HideHoverCard() const override;
+  void ShiftGroupUp() override;
+  void ShiftGroupDown() override;
 
   // TabCollectionAnimatingLayoutManager::Delegate:
   bool IsViewDragging(const views::View& child_view) const override;
+  bool ShouldAnimateOpacityForAddAndRemove(
+      const views::View& child_view) const override;
   void OnAnimationEnded() override;
 
   bool IsCollapsed() const;
+
+  std::optional<BrowserRootView::DropIndex> GetLinkDropIndex(
+      const gfx::Point& point_in_local_coords);
 
   const TabCollectionNode* collection_node() const { return collection_node_; }
 
@@ -74,18 +81,22 @@ class VerticalTabGroupView
 
  private:
   // VerticalDraggedTabsContainer:
-  VerticalTabDragHandler& GetDragHandler() override;
-  const VerticalTabDragHandler& GetDragHandler() const override;
-  bool IsTabStripCollapsed() const override;
   views::ScrollView* GetScrollViewForContainer() const override;
-  void UpdateLayoutForDrag() override;
+  void UpdateTargetLayoutForDrag(
+      const std::vector<const views::View*>& views_to_snap) override;
+  const views::ProposedLayout& GetLayoutForDrag() const override;
   void HandleTabDragInContainer(const gfx::Rect& dragged_tab_bounds) override;
   void OnTabDragExited(const gfx::Point& point_in_screen) override;
+
+  void AttachChildView(std::unique_ptr<views::View> child_view,
+                       const gfx::Rect& previous_bounds_in_screen);
+  std::unique_ptr<views::View> DetachChildView(views::View* child_view);
 
   void ResetCollectionNode();
   void OnDataChanged();
   void UpdateChildVisibilityForCollapseState(bool collapsed);
   bool GetIsShared();
+  bool IsTabStripCollapsed() const;
 
   raw_ptr<TabCollectionNode> collection_node_ = nullptr;
 

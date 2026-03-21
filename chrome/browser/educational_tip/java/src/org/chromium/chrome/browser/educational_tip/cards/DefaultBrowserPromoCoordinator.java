@@ -20,13 +20,17 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.educational_tip.EducationTipModuleActionDelegate;
 import org.chromium.chrome.browser.educational_tip.EducationalTipCardProvider;
 import org.chromium.chrome.browser.educational_tip.R;
+import org.chromium.chrome.browser.magic_stack.ModuleDelegate.ModuleType;
+import org.chromium.chrome.browser.setup_list.SetupListCompletable;
+import org.chromium.chrome.browser.setup_list.SetupListModuleUtils;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.ui.widget.ButtonCompat;
 
 /** Coordinator for the default browser promo card. */
 @NullMarked
-public class DefaultBrowserPromoCoordinator implements EducationalTipCardProvider {
+public class DefaultBrowserPromoCoordinator
+        implements EducationalTipCardProvider, SetupListCompletable {
     // For the default browser promo card specifically, it is triggered only when the user clicks on
     // the bottom sheet, directing them to the default app settings page.
     private final Runnable mOnModuleClickedCallback;
@@ -47,9 +51,7 @@ public class DefaultBrowserPromoCoordinator implements EducationalTipCardProvide
     // EducationalTipCardProvider implementation.
     @Override
     public String getCardTitle() {
-        return mActionDelegate
-                .getContext()
-                .getString(R.string.educational_tip_default_browser_title);
+        return mActionDelegate.getContext().getString(R.string.use_chrome_by_default);
     }
 
     @Override
@@ -61,16 +63,32 @@ public class DefaultBrowserPromoCoordinator implements EducationalTipCardProvide
 
     @Override
     public String getCardButtonText() {
+        if (SetupListModuleUtils.isSetupListModule(ModuleType.DEFAULT_BROWSER_PROMO)) {
+            return mActionDelegate
+                    .getContext()
+                    .getString(R.string.setup_list_default_browser_promo_button);
+        }
         return mActionDelegate.getContext().getString(R.string.educational_tip_module_button);
     }
 
     @Override
     public @DrawableRes int getCardImage() {
+        if (SetupListModuleUtils.isSetupListModule(ModuleType.DEFAULT_BROWSER_PROMO)) {
+            return R.drawable.setup_list_default_browser_promo_logo;
+        }
         return R.drawable.default_browser_promo_logo;
     }
 
     @Override
     public void onCardClicked() {
+        if (SetupListModuleUtils.isSetupListModule(ModuleType.DEFAULT_BROWSER_PROMO)) {
+            SetupListModuleUtils.setModuleCompleted(
+                    ModuleType.DEFAULT_BROWSER_PROMO, /* silent= */ false);
+            if (mActionDelegate.maybeShowDefaultBrowserPromoWithRoleManager()) {
+                mOnModuleClickedCallback.run();
+                return;
+            }
+        }
         Context context = mActionDelegate.getContext();
         View defaultBrowserBottomSheetView =
                 LayoutInflater.from(context)
@@ -99,6 +117,17 @@ public class DefaultBrowserPromoCoordinator implements EducationalTipCardProvide
             mDefaultBrowserBottomSheetContent.destroy();
             mDefaultBrowserBottomSheetContent = null;
         }
+    }
+
+    // SetupListCompletable implementation.
+    @Override
+    public boolean isComplete() {
+        return SetupListModuleUtils.isModuleCompleted(ModuleType.DEFAULT_BROWSER_PROMO);
+    }
+
+    @Override
+    public @DrawableRes int getCardImageCompletedResId() {
+        return R.drawable.default_browser_promo_completed_logo;
     }
 
     private Intent createBottomSheetOnClickIntent() {

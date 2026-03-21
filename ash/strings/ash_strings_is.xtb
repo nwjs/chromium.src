@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Upptaka stöðvuð. Ekki hægt að nota leikjastjórnborð í spjaldtölvustillingu.</translation>
 <translation id="1024364763893396229">Vistaðu <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Lítil hleðsla á pennarafhlöðu</translation>
-<translation id="1036073649888683237">Opnaðu stillingar til að stjórna tilkynningum</translation>
 <translation id="1036348656032585052">Slökkva</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> bætt við</translation>
 <translation id="1038106730571050514">Sýna tillögur</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Setja upp forrit</translation>
 <translation id="2482878487686419369">Tilkynningar</translation>
 <translation id="2484513351006226581">Ýttu á <ph name="KEYBOARD_SHORTCUT" /> til að skipta um lyklaskipan.</translation>
+<translation id="2485422356828889247">Fjarlægja</translation>
 <translation id="2486214324139475545">Forskoðun <ph name="DESK_NAME" />. Virkt skrifborð.</translation>
 <translation id="2486405091093637109">„<ph name="DISPLAY_NAME" />“ var breytt í <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz) upplausn. Án staðfestingar verða fyrri stillingar endurheimtar eftir <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Tengjast</translation>

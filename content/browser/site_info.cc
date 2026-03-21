@@ -451,6 +451,10 @@ auto SiteInfo::MakeSecurityPrincipalKey(const SiteInfo& site_info) {
       site_info.browser_context_id_);
 }
 
+const StoragePartitionConfig& SiteInfo::GetStoragePartitionConfig() const {
+  return storage_partition_config_;
+}
+
 SiteInfo SiteInfo::GetNonOriginKeyedEquivalentForMetrics(
     const IsolationContext& isolation_context) const {
   SiteInfo non_oac_site_info(*this);
@@ -506,6 +510,15 @@ SiteInfo SiteInfo::GetNonOriginKeyedEquivalentForMetrics(
         process_lock_url, AgentClusterKey::OACStatus::kSiteKeyedByDefault);
   }
   return non_oac_site_info;
+}
+
+bool SiteInfo::IsSandboxed() const {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  return is_sandboxed_;
+}
+
+bool SiteInfo::IsGuest() const {
+  return is_guest_;
 }
 
 GURL SiteInfo::GetProcessLockURL() const {
@@ -820,6 +833,13 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForURL(
         AgentClusterKey::OACStatus::kSiteKeyedByDefault);
   }
 
+  // If the URL is invalid, return a site-keyed AgentClusterKey with an empty
+  // URL.
+  if (!url.has_scheme()) {
+    DCHECK(!url.is_valid()) << url;
+    return AgentClusterKey();
+  }
+
   // Ideally, we should check that the origin we've received corresponds to a
   // data URL with an opaque origin when setting the following boolean
   // is_origin_isolated_sandboxed_data_iframe to true. However, doing so will
@@ -991,13 +1011,6 @@ AgentClusterKey SiteInfo::GetAgentClusterKeyForURL(
     DCHECK(!origin.scheme().empty());
     GURL site_url = GURL(origin.scheme() + ":");
     return AgentClusterKey::CreateSiteKeyed(site_url, oac_status);
-  }
-
-  // If the URL is invalid, return a site-keyed AgentClusterKey with an empty
-  // URL.
-  if (!url.has_scheme()) {
-    DCHECK(!url.is_valid()) << url;
-    return AgentClusterKey();
   }
 
   if (url.SchemeIs(url::kDataScheme)) {

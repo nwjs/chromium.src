@@ -70,12 +70,16 @@ suite('NewTabPageAppTest', () => {
       doodle: null,
     });
     handler.setPromiseResolveFor('getModulesIdNames', {data: []});
-    windowProxy.setResultMapperFor('matchMedia', () => ({
-                                                   addListener() {},
-                                                   addEventListener() {},
-                                                   removeListener() {},
-                                                   removeEventListener() {},
-                                                 }));
+    handler.setPromiseResolveFor('getModulesOrder', {data: []});
+    windowProxy.setResultMapperFor(
+        'matchMedia', (query: string) => ({
+                        matches: false,
+                        media: query,
+                        addListener: () => {},
+                        addEventListener: () => {},
+                        removeListener: () => {},
+                        removeEventListener: () => {},
+                      }));
     windowProxy.setPromiseResolveFor('waitForLazyRender');
     windowProxy.setResultFor('createIframeSrc', '');
     windowProxy.setResultFor('url', url);
@@ -1131,8 +1135,11 @@ suite('NewTabPageAppTest', () => {
             const composeButton = getComposeButton();
             assertTrue(!!composeButton);
 
-            searchboxContainer!.shadowRoot
+            searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
                 .querySelector<HTMLInputElement>('#input')!.value = 'hello';
+            searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
+                .querySelector<HTMLInputElement>('#input')!.dispatchEvent(
+                    new InputEvent('input'));
 
             // Dispatch the 'compose-click' event directly, which cr-searchbox
             // listens for. This simulates the `cr-searchbox-compose-button`
@@ -1169,7 +1176,7 @@ suite('NewTabPageAppTest', () => {
         const composeButton = getComposeButton();
         assertTrue(!!composeButton);
 
-        searchboxContainer!.shadowRoot
+        searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
             .querySelector<HTMLInputElement>('#input')!.value = 'hello';
 
         // Act.
@@ -1241,8 +1248,11 @@ suite('NewTabPageAppTest', () => {
             const composeButton = getComposeButton();
             assertTrue(!!composeButton);
 
-            searchboxContainer!.shadowRoot
+            searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
                 .querySelector<HTMLInputElement>('#input')!.value = 'hello';
+            searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
+                .querySelector<HTMLInputElement>('#input')!.dispatchEvent(
+                    new InputEvent('input'));
 
             // Dispatch the 'compose-click' event directly, which cr-searchbox
             // listens for. This simulates the `cr-searchbox-compose-button`
@@ -1409,8 +1419,11 @@ suite('NewTabPageAppTest', () => {
           const composeButton = getComposeButton();
           assertTrue(!!composeButton);
 
-          searchboxContainer!.shadowRoot
+          searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
               .querySelector<HTMLInputElement>('#input')!.value = 'hello';
+          searchboxContainer!.shadowRoot.querySelector('#input')!.shadowRoot!
+              .querySelector<HTMLInputElement>('#input')!.dispatchEvent(
+                  new InputEvent('input'));
 
           // Simulate entrypoint click with text present.
           composeButton.dispatchEvent(new CustomEvent(
@@ -1467,8 +1480,9 @@ suite('NewTabPageAppTest', () => {
 
             assertEquals(
                 'hello',
-                searchboxContainer!.shadowRoot
-                    .querySelector<HTMLInputElement>('#input')!.value);
+                searchboxContainer!.shadowRoot.querySelector('#input')!
+                    .shadowRoot!.querySelector<HTMLInputElement>(
+                                    '#input')!.value);
           });
     });
     suite('Close options disabled', () => {
@@ -2613,6 +2627,13 @@ suite('NewTabPageAppReducedMotionTest', () => {
     windowProxy.setResultFor('waitForLazyRender', Promise.resolve());
     windowProxy.setResultFor('createIframeSrc', '');
     windowProxy.setResultFor('url', url);
+    windowProxy.setResultFor('matchMedia', {
+      matches: false,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+    });
     handler = installMock(
         PageHandlerRemote,
         mock => NewTabPageProxy.setInstance(mock, new PageCallbackRouter()));
@@ -2624,6 +2645,10 @@ suite('NewTabPageAppReducedMotionTest', () => {
       doodle: null,
     }));
     handler.setResultFor('getModulesIdNames', Promise.resolve({data: []}));
+    handler.setResultFor('getModulesEligibleForRemoval', Promise.resolve({
+      moduleIds: [],
+    }));
+    handler.setResultFor('getModulesOrder', Promise.resolve({moduleIds: []}));
     backgroundManager = installMock(
         BackgroundManager, (mock) => BackgroundManager.setInstance(mock));
     backgroundManager.setResultFor(
@@ -2668,42 +2693,16 @@ suite('NewTabPageAppReducedMotionTest', () => {
     await microtasksFinished();
   }
 
-  function setReducedMotionPreference(
-      reducedMotionPreferred: boolean,
-      addEventListener?: (t: string, l: any) => void) {
-    windowProxy.setResultMapperFor('matchMedia', (query: string) => {
-      return {
-        matches: query === '(prefers-reduced-motion: reduce)' &&
-            reducedMotionPreferred,
-        addEventListener: (type: string, listener: any) => {
-          if (addEventListener) {
-            addEventListener(type, listener);
-          }
-        },
-        removeEventListener: () => {},
-        addListener() {},
-        removeListener() {},
-      };
-    });
+  function setReducedMotionPreference(reducedMotionPreferred: boolean) {
+    if (reducedMotionPreferred) {
+      document.documentElement.style.setProperty(
+          '--cr-animations-disabled', '1');
+    } else {
+      document.documentElement.style.removeProperty('--cr-animations-disabled');
+    }
   }
 
   suite('Initialization', () => {
-    test(
-        'initializes as INELIGIBLE when reduced motion is preferred',
-        async () => {
-          createSetup();
-          setReducedMotionPreference(true);
-          await createAndAppendApp();
-          app.dispatchEvent(new CustomEvent(
-              'action-chips-retrieval-state-changed',
-              {detail: {state: ActionChipsRetrievalState.REQUESTED}}));
-          await microtasksFinished();
-
-          assertEquals(
-              GlifAnimationState.INELIGIBLE,
-              (app as any).contextMenuGlifAnimationState_);
-        });
-
     test(
         'initializes as SPINNER_ONLY when reduced motion is not preferred',
         async () => {
@@ -2719,46 +2718,6 @@ suite('NewTabPageAppReducedMotionTest', () => {
               GlifAnimationState.SPINNER_ONLY,
               (app as any).contextMenuGlifAnimationState_);
         });
-  });
-
-  suite('Event Handling', () => {
-    test(
-        'context menu animation is correct when action chips retrieval state ' +
-            'updates',
-        async () => {
-          createSetup();
-          setReducedMotionPreference(true);
-          await createAndAppendApp();
-
-          assertEquals(
-              GlifAnimationState.INELIGIBLE,
-              (app as any).contextMenuGlifAnimationState_);
-
-          app.dispatchEvent(new CustomEvent(
-              'action-chips-retrieval-state-changed',
-              {detail: {state: ActionChipsRetrievalState.REQUESTED}}));
-          await microtasksFinished();
-
-          assertEquals(
-              GlifAnimationState.INELIGIBLE,
-              (app as any).contextMenuGlifAnimationState_);
-        });
-
-    test.skip('updates when prefers-reduced-motion change occurs', async () => {
-      createSetup();
-      let listener: (e: MediaQueryListEvent) => void = () => {};
-      setReducedMotionPreference(true, (_, l) => listener = l);
-      await createAndAppendApp();
-
-      assertTrue((app as any).reducedMotionPreferred_);
-
-      // Act: Simulate media query change to "no preference".
-      listener({matches: false} as MediaQueryListEvent);
-      await microtasksFinished();
-
-      // Assert.
-      assertFalse((app as any).reducedMotionPreferred_);
-    });
   });
 
   suite('ReducedMotionScrim', () => {
@@ -2817,35 +2776,5 @@ suite('NewTabPageAppReducedMotionTest', () => {
                 'none');
           });
     });
-  });
-
-  suite('ReducedMotionIntegration', () => {
-    setup(() => {
-      loadTimeData.overrideValues({
-        ntpNextFeaturesEnabled: true,
-        ntpRealboxNextEnabled: true,
-        actionChipsEnabled: true,
-      });
-      createSetup();
-    });
-
-    test(
-        'action chips receive reduced-motion-preferred attribute', async () => {
-          setReducedMotionPreference(true);
-          await createAndAppendApp();
-
-          const actionChips = app.shadowRoot.querySelector('ntp-action-chips')!;
-          assertTrue(actionChips.hasAttribute('reduced-motion-preferred'));
-        });
-
-    test(
-        'action chips do not have reduced-motion-preferred attr. when disabled',
-        async () => {
-          setReducedMotionPreference(false);
-          await createAndAppendApp();
-
-          const actionChips = app.shadowRoot.querySelector('ntp-action-chips')!;
-          assertFalse(actionChips.hasAttribute('reduced-motion-preferred'));
-        });
   });
 });

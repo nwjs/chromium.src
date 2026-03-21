@@ -244,6 +244,13 @@ suite('ComposeboxDragAndDrop', () => {
 
     windowProxy = installMock(WindowProxy);
     windowProxy.setResultFor('setTimeout', 0);
+    windowProxy.setResultMapperFor('matchMedia', () => ({
+                                                   addListener() {},
+                                                   addEventListener() {},
+                                                   removeListener() {},
+                                                   removeEventListener() {},
+                                                 }));
+
 
     loadTimeData.overrideValues({
       'composeboxContextDragAndDropEnabled': true,
@@ -334,6 +341,8 @@ suite('ComposeboxDragAndDrop', () => {
       dataUrl: null,
       url: null,
       tabId: null,
+      iconName: null,
+      supportsUnimodal: true,
     };
     composeboxElement.addFileContextForTesting(mockAddedFile);
     await microtasksFinished();
@@ -405,6 +414,8 @@ suite('ComposeboxDragAndDrop', () => {
       dataUrl: null,
       url: null,
       tabId: null,
+      iconName: null,
+      supportsUnimodal: true,
     };
     composeboxElement.addFileContextForTesting(mockAddedFile);
     await microtasksFinished();

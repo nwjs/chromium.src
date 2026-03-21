@@ -14,7 +14,9 @@
 #include "base/containers/flat_tree.h"
 #include "base/functional/bind.h"
 #include "base/strings/to_string.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/commands/command_metrics.h"
+#include "chrome/browser/web_applications/jobs/finalize_install_job.h"
 #include "chrome/browser/web_applications/jobs/manifest_to_web_app_install_info_job.h"
 #include "chrome/browser/web_applications/locks/shared_web_contents_lock.h"
 #include "chrome/browser/web_applications/locks/shared_web_contents_with_app_lock.h"
@@ -256,7 +258,7 @@ void InstallAppFromVerifiedManifestCommand::OnInstallInfoParsedFromManifest(
 void InstallAppFromVerifiedManifestCommand::OnAppLockAcquired() {
   CHECK(app_lock_);
   CHECK(app_lock_->IsGranted());
-  WebAppInstallFinalizer::FinalizeOptions finalize_options(install_source_);
+  FinalizeJobOptions finalize_options(install_source_);
   finalize_options.add_to_quick_launch_bar = false;
   finalize_options.overwrite_existing_manifest_fields = false;
 
@@ -268,8 +270,12 @@ void InstallAppFromVerifiedManifestCommand::OnAppLockAcquired() {
   // association validate for all origins.
   finalize_options.skip_origin_association_validation = true;
 
-  app_lock_->install_finalizer().FinalizeInstall(
-      *web_app_info_, finalize_options,
+  install_job_ = std::make_unique<FinalizeInstallJob>(
+      *Profile::FromBrowserContext(
+          app_lock_->shared_web_contents().GetBrowserContext()),
+      app_lock_.get(), app_lock_.get(), *web_app_info_, finalize_options);
+
+  install_job_->Start(
       base::BindOnce(&InstallAppFromVerifiedManifestCommand::OnInstallFinalized,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -277,6 +283,7 @@ void InstallAppFromVerifiedManifestCommand::OnAppLockAcquired() {
 void InstallAppFromVerifiedManifestCommand::OnInstallFinalized(
     const webapps::AppId& app_id,
     webapps::InstallResultCode code) {
+  install_job_.reset();
   GetMutableDebugValue().Set("error_code", base::ToString(code));
   RecordInstallMetrics(InstallCommand::kInstallAppFromVerifiedManifest,
                        WebAppType::kCraftedApp, code, install_source_);

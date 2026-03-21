@@ -91,14 +91,15 @@ std::string VideoFrame::StorageTypeToString(
       return "DMABUFS";
 #endif
     case VideoFrame::STORAGE_MAPPABLE_SHARED_IMAGE:
-      return "GPU_MEMORY_BUFFER";
+      return "MAPPABLE_SHARED_IMAGE";
   }
 
   NOTREACHED() << "Invalid StorageType provided: " << storage_type;
 }
 
 // static
-bool VideoFrame::IsStorageTypeMappable(VideoFrame::StorageType storage_type) {
+bool VideoFrame::StorageTypeAllowsDirectCpuAccess(
+    VideoFrame::StorageType storage_type) {
   // CPU memory is the only kind of storage that is mappable at the level of
   // VideoFrame itself (other types of storage such as DMA bufs and
   // MappableSharedImage can be mapped, but not at the level of VideoFrame).
@@ -469,21 +470,9 @@ scoped_refptr<VideoFrame> VideoFrame::WrapMappableSharedImage(
   frame->shared_image_release_cb_ = std::move(shared_image_release_cb);
   frame->acquire_sync_token_ = sync_token;
 
-  // Note that we can not use |shared_image|->MakeUnOwned() here since that
-  // will not work for MappableSI due to it owning a GMB internally and we can
-  // not create an unowned reference to it. Additionally
-  // removing the use of ClientSharedImage::MakeUnOwned() everywhere is
-  // currently work in progress as a part of Automatic shared image management
-  // for ClientSharedImage project, so we don't want to use it here as well. The
-  // downside right now with below code is that while destroying the
-  // ClientSharedImage when MappableSI is enabled, there will be more than one
-  // reference of it and we will hit CHECKs in
-  // ClientSharedImageInterface::DestroySharedImage(). To avoid this CHECKs, we
-  // will need to replace the ClientSharedImageInterface::DestroySharedImage()
-  // call sites with ClientSharedImage::UpdateDestructionSyncToken() for every
-  // VideoFrame MappableSI client. This works well since it is also eventual
-  // goal of ClientSharedImage for rest of the chrome. crbug.com/40286368 for
-  // more details on the work.
+  // Note that we cannot use |shared_image|->MakeUnowned() here since MappableSI
+  // owns a MappableBuffer internally, which we cannot create an unowned
+  // reference to.
   frame->shared_image_ = std::move(shared_image);
   return frame;
 }
@@ -869,7 +858,7 @@ scoped_refptr<VideoFrame> VideoFrame::WrapVideoFrame(
   wrapping_frame->set_color_space(frame->ColorSpace());
   wrapping_frame->set_hdr_metadata(frame->hdr_metadata());
 
-  if (frame->IsMappable()) {
+  if (frame->HasDirectCpuAccess()) {
     for (size_t i = 0; i < new_plane_count; ++i) {
       wrapping_frame->data_[i] = frame->data_[i];
     }
@@ -1161,8 +1150,8 @@ void VideoFrame::BackWithOwnedSharedMemory(
   owned_shm_mapping_ = std::move(mapping);
 }
 
-bool VideoFrame::IsMappable() const {
-  return IsStorageTypeMappable(storage_type_);
+bool VideoFrame::HasDirectCpuAccess() const {
+  return StorageTypeAllowsDirectCpuAccess(storage_type_);
 }
 
 bool VideoFrame::HasSharedImage() const {
@@ -1223,6 +1212,25 @@ gfx::ColorSpace VideoFrame::ColorSpace() const {
   return color_space_;
 }
 
+void VideoFrame::set_color_space(const gfx::ColorSpace& color_space) {
+  // Check color spaces are same for video frames created from shared image
+  // from WrapSharedImage codepaths.
+  if (HasSharedImage() && !HasMappableSharedImage() &&
+      color_space != shared_image()->color_space()) {
+    SCOPED_CRASH_KEY_STRING256("video_frame", "si_color_space",
+                               shared_image()->color_space().ToString());
+    SCOPED_CRASH_KEY_STRING256("video_frame", "color_space",
+                               color_space.ToString());
+    SCOPED_CRASH_KEY_STRING256("video_frame", "si_label",
+                               shared_image()->debug_label());
+    DUMP_WILL_BE_CHECK(false)
+        << "VideoFrame color space (" << color_space.ToString()
+        << ") does not match SharedImage color_space ("
+        << shared_image()->color_space().ToString() << ")";
+  }
+  color_space_ = color_space;
+}
+
 gfx::ColorSpace VideoFrame::CompatRGBColorSpace() const {
   const auto rgb_color_space = ColorSpace().GetAsFullRangeRGB();
   if (!rgb_color_space.IsValid()) {
@@ -1280,7 +1288,7 @@ template <typename T>
 base::span<T> VideoFrame::GetVisibleDataInternal(base::span<T> data,
                                                  size_t plane) const {
   DCHECK(IsValidPlane(format(), plane));
-  DCHECK(IsMappable());
+  DCHECK(HasDirectCpuAccess());
   if (data.empty()) [[unlikely]] {
     return {};
   }
@@ -1357,6 +1365,7 @@ SkYUVAInfo VideoFrame::GetVisibleSkYUVAInfo() const {
 
 std::vector<SkPixmap> VideoFrame::GetVisiblePlanesSkPixmaps() const {
   const auto yuva_info = GetVisibleSkYUVAInfo();
+  const auto color_space = ColorSpace().GetAsFullRangeRGB().ToSkColorSpace();
   std::array<SkISize, kMaxPlanes> plane_dimensions = {
       SkISize::Make(visible_rect_.width(), visible_rect_.height()),
   };
@@ -1376,8 +1385,8 @@ std::vector<SkPixmap> VideoFrame::GetVisiblePlanesSkPixmaps() const {
     const auto alpha_type = SkColorTypeIsAlwaysOpaque(color_type)
                                 ? kOpaque_SkAlphaType
                                 : kUnpremul_SkAlphaType;
-    const SkImageInfo plane_info =
-        SkImageInfo::Make(plane_dimensions[p], color_type, alpha_type);
+    const SkImageInfo plane_info = SkImageInfo::Make(
+        plane_dimensions[p], color_type, alpha_type, color_space);
     planes[p] = SkPixmap(plane_info, visible_data(p), stride(p));
   }
   return planes;

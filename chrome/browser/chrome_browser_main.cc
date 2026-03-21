@@ -30,6 +30,7 @@
 #include "base/trace_event/named_trigger.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/active_use_util.h"
 #include "chrome/browser/after_startup_task_utils.h"
@@ -67,7 +68,6 @@
 #include "chrome/browser/segmentation_platform/chrome_browser_main_extra_parts_segmentation_platform.h"
 #include "chrome/browser/sessions/chrome_serialized_navigation_driver.h"
 #include "chrome/browser/shell_integration.h"
-#include "chrome/browser/startup/startup_launch_manager.h"
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_service.h"
@@ -138,6 +138,7 @@
 #include "rlz/buildflags/buildflags.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/on_device_model/public/cpp/buildflags.h"
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
 #include "third_party/blink/public/common/origin_trials/origin_trials_settings_provider.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
@@ -161,6 +162,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/publishers/publisher_host_factory_impl.h"
 #include "chrome/browser/headless/chrome_browser_main_extra_parts_headless.h"
+#include "chrome/browser/lifetime/smart_restart_metrics_observer.h"
 #include "chrome/browser/profiles/delete_profile_helper.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/resources_integrity.h"
@@ -244,6 +246,7 @@
 #if BUILDFLAG(IS_WIN)
 #include "chrome/browser/first_run/upgrade_util_win.h"
 #include "chrome/browser/notifications/win/notification_launch_id.h"
+#include "chrome/browser/startup/startup_launch_manager.h"
 #include "chrome/browser/ui/network_profile_bubble.h"
 #include "chrome/browser/webnn/win_app_runtime_installer.h"
 #include "chrome/browser/win/chrome_select_file_dialog_factory.h"
@@ -313,6 +316,10 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/env.h"
+#endif
+
+#if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
+#include "chrome/browser/optimization_guide/chrome_browser_main_extra_parts_optimization_guide.h"
 #endif
 
 // Separate per-platform blocks specifically for chrome_browser_main code. Put
@@ -799,6 +806,11 @@ std::unique_ptr<content::BrowserMainParts> ChromeBrowserMainParts::Create(
 #if !BUILDFLAG(IS_ANDROID)
   main_parts->AddParts(
       std::make_unique<headless::ChromeBrowserMainExtraPartsHeadless>());
+#endif
+
+#if BUILDFLAG(USE_ON_DEVICE_MODEL_SERVICE)
+  main_parts->AddParts(
+      std::make_unique<ChromeBrowserMainExtraPartsOptimizationGuide>());
 #endif
 
   // Always add ChromeBrowserMainExtraPartsGpu last to make sure
@@ -1655,6 +1667,15 @@ void ChromeBrowserMainParts::PostBrowserStart() {
   // We setup to observe to the initial page load here to defer running
   // task posted via PostAfterStartupTask until its complete.
   AfterStartupTaskUtils::StartMonitoringStartup();
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Initialize the observer for smart restart metrics on desktop.
+  if (base::FeatureList::IsEnabled(features::kSmartRestartMetrics)) {
+    smart_restart_metrics_observer_ =
+        std::make_unique<smart_restart::SmartRestartMetricsObserver>(
+            UpgradeDetector::GetInstance());
+  }
+#endif
 }
 
 int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {

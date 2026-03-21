@@ -80,19 +80,6 @@ export class CrCheckboxElement extends CrCheckboxElementBase {
   accessor ariaLabelOverride: string|undefined;
   override accessor tabIndex: number = 0;
 
-  override firstUpdated() {
-    this.addEventListener('click', this.onClick_.bind(this));
-    this.addEventListener('pointerup', this.hideRipple_.bind(this));
-    this.$.labelContainer.addEventListener(
-        'pointerdown', this.showRipple_.bind(this));
-    this.$.labelContainer.addEventListener(
-        'pointerleave', this.hideRipple_.bind(this));
-
-    // <if expr="is_win">
-    this.$.checkbox.addEventListener('click', this.onCheckboxClick_.bind(this));
-    // </if>
-  }
-
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
@@ -104,6 +91,19 @@ export class CrCheckboxElement extends CrCheckboxElementBase {
         this.tabIndex = this.disabled ? -1 : 0;
       }
     }
+  }
+
+  override firstUpdated() {
+    this.addEventListener('click', this.onClick_.bind(this));
+    this.addEventListener('pointerup', this.hideRipple_.bind(this));
+    this.$.labelContainer.addEventListener(
+        'pointerdown', this.showRipple_.bind(this));
+    this.$.labelContainer.addEventListener(
+        'pointerleave', this.hideRipple_.bind(this));
+
+    // <if expr="is_win">
+    this.$.checkbox.addEventListener('click', this.onCheckboxClick_.bind(this));
+    // </if>
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -170,7 +170,7 @@ export class CrCheckboxElement extends CrCheckboxElementBase {
     this.fire('change', this.checked);
   }
 
-  protected onKeyDown_(e: KeyboardEvent) {
+  protected onKeydown_(e: KeyboardEvent) {
     if (e.key !== ' ' && e.key !== 'Enter') {
       return;
     }
@@ -186,7 +186,7 @@ export class CrCheckboxElement extends CrCheckboxElementBase {
     }
   }
 
-  protected onKeyUp_(e: KeyboardEvent) {
+  protected onKeyup_(e: KeyboardEvent) {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();

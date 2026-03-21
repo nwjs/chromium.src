@@ -92,6 +92,10 @@ export class TsReadModelImpl implements ReadAloudModelBrowserProxy {
     this.resetState_();
     const textNodes = this.getAllTextNodesFrom_(context.domNode());
     if (!textNodes.length) {
+      // If there are no text nodes, set the initialization state to prevent
+      // indeterminate states. This can happen when there are invisible elements
+      // that are being ignored by read aloud.
+      this.initialized_ = true;
       return;
     }
 
@@ -439,7 +443,7 @@ export class TsReadModelImpl implements ReadAloudModelBrowserProxy {
       acceptNode: (node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
           const element = node as HTMLElement;
-          if (element.style.display === 'none') {
+          if (element.style.display === 'none' || !element.checkVisibility()) {
             // We should not read aloud text from a hidden element.
             return NodeFilter.FILTER_REJECT;
           }
@@ -486,7 +490,7 @@ export class TsReadModelImpl implements ReadAloudModelBrowserProxy {
         // Create the text node (e.g., "1. "). A newline is added to the
         // beginning of the node to ensure that it is not accidentally
         // grouped with the previous text node for sentence segmentation.
-        const markerNode = document.createTextNode('\n' + number + '. ');
+        const markerNode = document.createTextNode(`\n${number}. `);
         const readAloudNode = ReadAloudNode.create(markerNode);
         if (readAloudNode instanceof DomReadAloudNode) {
           textNodes.push(readAloudNode);

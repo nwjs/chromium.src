@@ -372,6 +372,14 @@ void LayerTreeHost::WillBeginMainFrame() {
   client_->WillBeginMainFrame();
 }
 
+void LayerTreeHost::WillBeginImplCommit() {
+  if (client_) {
+    base::AutoReset<bool> in_will_begin_impl_commit(
+        &inside_will_begin_impl_commit_, true);
+    client_->WillBeginImplCommit();
+  }
+}
+
 void LayerTreeHost::DidBeginMainFrame() {
   DCHECK(IsMainThread());
   inside_main_frame_ = false;
@@ -471,6 +479,9 @@ void LayerTreeHost::WaitForProtectedSequenceCompletion() const {
 
 void LayerTreeHost::WaitForCommitCompletion(bool for_protected_sequence) const {
   DCHECK(IsMainThread());
+  // We should not be running code that modifies commit state just prior to the
+  // impl commit.
+  CHECK(!inside_will_begin_impl_commit_);
   if (commit_completion_event_) {
     TRACE_EVENT0("cc", "LayerTreeHost::WaitForCommitCompletion");
     commit_completion_event_->Wait();
@@ -1253,8 +1264,10 @@ void LayerTreeHost::AnimateLayers(base::TimeTicks monotonic_time) {
   std::unique_ptr<MutatorEvents> events = mutator_host()->CreateEvents();
 
   if (mutator_host()->TickAnimations(monotonic_time,
-                                     property_trees()->scroll_tree(), true))
+                                     property_trees()->scroll_tree(), true,
+                                     events.get())) {
     mutator_host()->UpdateAnimationState(true, events.get());
+  }
 
   if (!events->IsEmpty()) {
     property_tree_delegate_->OnAnimateLayers();

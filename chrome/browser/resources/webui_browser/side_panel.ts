@@ -11,7 +11,7 @@ import {getCss} from './side_panel.css.js';
 import {getHtml} from './side_panel.html.js';
 import {WebviewElement} from './webview.js';
 
-export class SidePanel extends CrLitElement {
+export class SidePanelElement extends CrLitElement {
   static get is() {
     return 'side-panel';
   }
@@ -44,6 +44,10 @@ export class SidePanel extends CrLitElement {
     this.requestUpdate();
   }
 
+  protected onCloseClick_(_e: Event) {
+    this.close();
+  }
+
   async close() {
     this.showing_ = false;
     this.webView = null;
@@ -59,8 +63,8 @@ export class SidePanel extends CrLitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'side-panel': SidePanel;
+    'side-panel': SidePanelElement;
   }
 }
 
-customElements.define(SidePanel.is, SidePanel);
+customElements.define(SidePanelElement.is, SidePanelElement);

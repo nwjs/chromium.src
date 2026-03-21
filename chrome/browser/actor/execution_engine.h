@@ -25,12 +25,10 @@
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/common/buildflags.h"
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
 #include "chrome/browser/password_manager/actor_login/actor_login_service.h"
-#endif
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/task_id.h"
-#include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
+#include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -58,6 +56,7 @@ namespace actor {
 
 struct ActionResultWithLatencyInfo;
 class ActorTask;
+class AutofillSelectionDialogEventHandler;
 class ToolRequest;
 namespace ui {
 class UiEventDispatcher;
@@ -167,7 +166,6 @@ class ExecutionEngine : public ToolDelegate {
       const GURL& url,
       DecisionCallbackWithReason callback) override;
   autofill::ActorFormFillingService& GetActorFormFillingService() override;
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   actor_login::ActorLoginService& GetActorLoginService() override;
   void PromptToSelectCredential(
       const std::vector<actor_login::Credential>& credentials,
@@ -178,9 +176,9 @@ class ExecutionEngine : public ToolDelegate {
       base::OnceClosure affiliations_fetched) override;
   const std::optional<CredentialWithPermission> GetUserSelectedCredential(
       const url::Origin& request_origin) const override;
-#endif  // !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void RequestToShowAutofillSuggestions(
       std::vector<autofill::ActorFormFillingRequest> requests,
+      base::WeakPtr<AutofillSelectionDialogEventHandler> event_handler,
       AutofillSuggestionSelectedCallback callback) override;
   void InterruptFromTool() override;
   void UninterruptFromTool() override;
@@ -237,7 +235,12 @@ class ExecutionEngine : public ToolDelegate {
     tool_invoke_complete_callback_for_testing_ = std::move(callback);
   }
 
-  State state() { return state_; }
+  State state() const { return state_; }
+
+  // Currently, navigations are generally forced to happen in the same tab (see
+  // https://crbug.com/420669167 ). In some cases we need to drop this
+  // restriction for certain tools to function.
+  bool TabsCanOpenNewWebContents() const;
 
  protected:
   // Allow derived classes to use the natural constructors.
@@ -258,7 +261,7 @@ class ExecutionEngine : public ToolDelegate {
   // Performs synchronous safety checks for the next action. If everything
   // passes calls tool_controller_.Invoke().
   void DidFinishAsyncSafetyChecks(const url::Origin& evaluated_origin,
-                                  bool may_act);
+                                  mojom::ActionResultCode result_code);
 
   // If a failure occurs before the next action starts, we associate the tab
   // that the action would have acted on with the task, so that we can provide
@@ -294,10 +297,10 @@ class ExecutionEngine : public ToolDelegate {
   size_t InProgressActionIndex() const;
   const ToolRequest& GetInProgressAction() const;
 
-  void LogNavigationGating(
-      base::optional_ref<const url::Origin> initiator_origin,
-      const url::Origin& navigation_origin,
-      bool applied_gate) const;
+  void LogNavigationGating(const url::Origin& source,
+                           base::optional_ref<const url::Origin> initiator,
+                           const url::Origin& destination,
+                           bool applied_gate) const;
 
   // Returns the highest-priority navigation gating decision. Prioritizes
   // blocking navigations over allowing (except on same origin navigations).
@@ -305,14 +308,16 @@ class ExecutionEngine : public ToolDelegate {
                                          const GURL& destination_url) const;
 
   void CheckNavigationSensitiveUrlList(
-      base::optional_ref<const url::Origin> initiator_origin,
-      const GURL& navigation_url,
+      const url::Origin& source,
+      const std::optional<url::Origin>& initiator,
+      const GURL& destination_url,
       bool skip_prompt,
       base::ScopedUmaHistogramTimer timer,
       NavigationDecisionCallback callback);
   void OnNavigationSensitiveUrlListChecked(
-      base::optional_ref<const url::Origin> initiator_origin,
-      const url::Origin& navigation_origin,
+      const url::Origin& source,
+      const std::optional<url::Origin>& initiator,
+      const url::Origin& destination,
       bool skip_prompt,
       base::ScopedUmaHistogramTimer timer,
       NavigationDecisionCallback callback,
@@ -321,33 +326,33 @@ class ExecutionEngine : public ToolDelegate {
   // Called when the browser detects the actor needs to confirm a
   // client-side-initiated navigation to a novel origin.
   void HandleNavigationToNewOrigin(
-      const url::Origin& navigation_origin,
+      const url::Origin& destination,
       base::ScopedUmaHistogramTimer timer,
       ExecutionEngine::NavigationDecisionCallback callback);
 
-  void SendNavigationConfirmationRequest(const url::Origin& navigation_origin,
+  void SendNavigationConfirmationRequest(const url::Origin& destination,
                                          base::ScopedUmaHistogramTimer timer,
                                          NavigationDecisionCallback callback);
   void OnNavigationConfirmationDecision(
-      const url::Origin& navigation_origin,
+      const url::Origin& destination,
       base::ScopedUmaHistogramTimer timer,
       NavigationDecisionCallback callback,
       webui::mojom::NavigationConfirmationResponsePtr response);
 
   void MaybeRecordNavigationConfirmationMetrics(
       ExecutionEngine::State state_for_metrics,
-      const url::Origin& navigation_origin,
+      const url::Origin& destination,
       bool is_pre_approved);
 
   // Makes the web client confirm with the user that the actor is allowed to
   // navigate to this origin.
   void SendUserConfirmationDialogRequest(
-      const url::Origin& navigation_origin,
+      const url::Origin& destination,
       bool for_sensitive_origin,
       std::optional<base::ScopedUmaHistogramTimer> timer,
       NavigationDecisionCallback callback);
   void OnPromptUserToConfirmNavigationDecision(
-      url::Origin navigation_origin,
+      const url::Origin& destination,
       NavigationDecisionCallback callback,
       webui::mojom::UserConfirmationDialogResponsePtr response);
 
@@ -363,9 +368,7 @@ class ExecutionEngine : public ToolDelegate {
   // Created when task_ is set. Handles execution details for an individual tool
   // request.
   std::unique_ptr<ToolController> tool_controller_;
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   std::unique_ptr<actor_login::ActorLoginService> actor_login_service_;
-#endif
   std::unique_ptr<autofill::ActorFormFillingService>
       actor_form_filling_service_;
   std::unique_ptr<ui::UiEventDispatcher> ui_event_dispatcher_;
@@ -391,13 +394,11 @@ class ExecutionEngine : public ToolDelegate {
   // the user has been prompted about.
   OriginChecker origin_checker_;
 
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   // For multi-step login, this is the credential that the user has chosen to
   // allow the actor to use. The key is the
   // `Credential::request_origin`.
   base::flat_map<url::Origin, CredentialWithPermission>
       user_selected_credentials_;
-#endif
 
   base::OnceCallback<void(bool /*should_cancel*/)> user_takeover_callback_;
   std::optional<mojom::ActionResultCode> user_takeover_result_;

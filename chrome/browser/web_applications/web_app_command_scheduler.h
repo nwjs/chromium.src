@@ -12,14 +12,18 @@
 
 #include "base/files/file_path.h"
 #include "base/types/expected.h"
+#include "chrome/browser/web_applications/commands/fetch_manifest_and_update_result.h"
 #include "chrome/browser/web_applications/commands/internal/callback_command.h"
 #include "chrome/browser/web_applications/isolated_web_apps/commands/isolated_web_app_apply_update_command.h"
+#include "chrome/browser/web_applications/model/migration_behavior.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_sub_manager.h"
 #include "chrome/browser/web_applications/scheduler/apply_manifest_migration_result.h"
 #include "chrome/browser/web_applications/scheduler/apply_pending_manifest_update_result.h"
 #include "chrome/browser/web_applications/scheduler/fetch_install_info_from_install_url_result.h"
 #include "chrome/browser/web_applications/scheduler/fetch_installability_for_chrome_management_result.h"
+#include "chrome/browser/web_applications/scheduler/install_migrate_to_app_result.h"
 #include "chrome/browser/web_applications/scheduler/manifest_silent_update_result.h"
+#include "chrome/browser/web_applications/scheduler/navigate_and_trigger_install_dialog_result.h"
 #include "chrome/browser/web_applications/scheduler/web_app_install_from_migrate_from_field_result.h"
 #include "chrome/browser/web_applications/ui_manager/update_dialog_types.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
@@ -89,11 +93,6 @@ struct IsolatedWebAppUpdatePrepareAndStoreCommandSuccess;
 struct SynchronizeOsOptions;
 struct WebAppIconDiagnosticResult;
 struct WebAppInstallInfo;
-enum class FetchManifestAndUpdateResult;
-
-namespace proto {
-enum WebAppMigrationBehavior : int;
-}  // namespace proto
 
 #if BUILDFLAG(IS_CHROMEOS)
 class CleanupBundleCacheSuccess;
@@ -288,9 +287,6 @@ class WebAppCommandScheduler {
   // command was able to trigger the install dialog. This opens a new tab,
   // navigates to `install_url`, and if the site is installable, it triggers
   // the install dialog for the user.
-  using NavigateAndTriggerInstallDialogCommandCallback =
-      base::OnceCallback<void(
-          NavigateAndTriggerInstallDialogCommandResult result)>;
   void ScheduleNavigateAndTriggerInstallDialog(
       const GURL& install_url,
       const GURL& origin_url,
@@ -680,10 +676,17 @@ class WebAppCommandScheduler {
                          WebInstallFromUrlCommandCallback installed_callback,
                          const base::Location& location = FROM_HERE);
 
-  // Feches the install_url, validates that an installable manifest with a
-  // manifest id exists and matches the given one. Then, locks the app lock for
-  // the app and and updates the app if it is installed. This assumes it is a
-  // trusted update, so trusted icons are copied from all manifest icons.
+  // Fetches the `install_url`, validates that an installable manifest with a
+  // manifest ID exists and matches the given one. Then, locks the app lock for
+  // the app and updates the app if it is installed.
+  //
+  // If `force_trusted_silent_update` is true, the update is assumed to be for
+  // a trusted manifest (e.g. policy, preinstalled), and all manifest icons
+  // will be saved as trusted icons. Identity changes will be applied silently.
+  //
+  // If `force_trusted_silent_update` is false, the update is treated as a
+  // normal user-installed app update. Identity changes will be recorded as
+  // pending updates.
   //
   // Note: Callers may want to check if the app is installed first before
   // calling this to not waste resources loading the install url in the
@@ -691,7 +694,9 @@ class WebAppCommandScheduler {
   void FetchManifestAndUpdate(
       const GURL& install_url,
       const webapps::ManifestId& manifest_id,
-      base::OnceCallback<void(FetchManifestAndUpdateResult)> callback,
+      std::optional<base::Time> previous_time_for_silent_icon_update,
+      bool force_trusted_silent_update,
+      FetchManifestAndUpdateCallback callback,
       const base::Location& location = FROM_HERE);
 
   base::WeakPtr<WebAppCommandScheduler> GetWeakPtr();
@@ -710,6 +715,16 @@ class WebAppCommandScheduler {
   // WebAppIdentityUpdate instance.
   void ReadAppUpdateDataFromDisk(
       const webapps::AppId& app_id,
+      base::OnceCallback<void(std::optional<WebAppIdentityUpdate>)> callback,
+      const base::Location& location = FROM_HERE);
+
+  // Reads pending app migration information like icons to show on the dialog
+  // from disk, and uses that with web app metadata to construct a
+  // WebAppIdentityUpdate instance.
+  void ReadAppMigrationDataFromDisk(
+      const webapps::AppId& old_app_id,
+      const webapps::AppId& new_app_id,
+      bool is_forced_migration_on_startup,
       base::OnceCallback<void(std::optional<WebAppIdentityUpdate>)> callback,
       const base::Location& location = FROM_HERE);
 
@@ -734,12 +749,21 @@ class WebAppCommandScheduler {
       WebAppInstallFromMigrateFromFieldCallback callback,
       const base::Location& location = FROM_HERE);
 
+  // Schedules a command to install an app from a "migrate_to" field in a
+  // manifest.
+  void ScheduleInstallMigrateToApp(
+      const webapps::ManifestId& source_manifest_id,
+      const webapps::ManifestId& target_manifest_id,
+      const GURL& target_install_url,
+      InstallMigrateToAppResultCallback callback,
+      const base::Location& location = FROM_HERE);
+
   // Schedules the command to finish an app migration by removing the source app
   // and fully installing the migrated app.
   void ApplyManifestMigration(
       const webapps::AppId& source_app_id,
       const webapps::AppId& destination_app_id,
-      const proto::WebAppMigrationBehavior migration_behavior,
+      const MigrationBehavior migration_behavior,
       std::unique_ptr<ScopedKeepAlive> keep_alive,
       std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive,
       ApplyManifestMigrationResultCallback callback,

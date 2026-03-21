@@ -39,6 +39,8 @@ using perfetto::protos::pbzero::ChromeTrackEvent;
 namespace {
 const void* const kUserDataKey = &kUserDataKey;
 
+ServiceWorkerHost::FactoryCallback* g_factory_for_testing = nullptr;
+
 class ServiceWorkerHostList : public base::SupportsUserData::Data {
  public:
   std::vector<std::unique_ptr<ServiceWorkerHost>> list;
@@ -81,6 +83,13 @@ ServiceWorkerHost::~ServiceWorkerHost() {
 }
 
 // static
+base::AutoReset<ServiceWorkerHost::FactoryCallback*>
+ServiceWorkerHost::SetFactoryForTesting(FactoryCallback* factory) {
+  return base::AutoReset<ServiceWorkerHost::FactoryCallback*>(
+      &g_factory_for_testing, factory);
+}
+
+// static
 void ServiceWorkerHost::BindReceiver(
     int render_process_id,
     mojo::PendingAssociatedReceiver<mojom::ServiceWorkerHost> receiver) {
@@ -92,8 +101,11 @@ void ServiceWorkerHost::BindReceiver(
   }
   auto* service_worker_host_list = ServiceWorkerHostList::Get(
       render_process_host, /*create_if_not_exists=*/true);
-  service_worker_host_list->list.push_back(std::make_unique<ServiceWorkerHost>(
-      render_process_host, std::move(receiver)));
+  service_worker_host_list->list.push_back(
+      g_factory_for_testing
+          ? g_factory_for_testing->Run(render_process_host, std::move(receiver))
+          : std::make_unique<ServiceWorkerHost>(render_process_host,
+                                                std::move(receiver)));
 }
 
 // static
@@ -144,6 +156,7 @@ void ServiceWorkerHost::RemoteDisconnected() {
 
 void ServiceWorkerHost::DidInitializeServiceWorkerContext(
     const ExtensionId& extension_id,
+    const base::UnguessableToken& activation_token,
     int64_t service_worker_version_id,
     int worker_thread_id,
     const blink::ServiceWorkerToken& service_worker_token,
@@ -187,8 +200,8 @@ void ServiceWorkerHost::DidInitializeServiceWorkerContext(
 
   ServiceWorkerTaskQueue::Get(browser_context)
       ->RendererDidInitializeServiceWorkerContext(
-          render_process_id, extension_id, service_worker_version_id,
-          worker_thread_id, service_worker_token);
+          render_process_id, extension_id, activation_token,
+          service_worker_version_id, worker_thread_id, service_worker_token);
   EventRouter::Get(browser_context)
       ->BindServiceWorkerEventDispatcher(render_process_id.GetUnsafeValue(),
                                          worker_thread_id,
@@ -200,7 +213,8 @@ void ServiceWorkerHost::DidStartServiceWorkerContext(
     const base::UnguessableToken& activation_token,
     const GURL& service_worker_scope,
     int64_t service_worker_version_id,
-    int worker_thread_id) {
+    int worker_thread_id,
+    const blink::ServiceWorkerToken& service_worker_token) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   content::BrowserContext* browser_context = GetBrowserContext();
   if (!browser_context) {
@@ -221,7 +235,8 @@ void ServiceWorkerHost::DidStartServiceWorkerContext(
   ServiceWorkerTaskQueue::Get(browser_context)
       ->RendererDidStartServiceWorkerContext(
           render_process_id, extension_id, activation_token,
-          service_worker_scope, service_worker_version_id, worker_thread_id);
+          service_worker_scope, service_worker_version_id, worker_thread_id,
+          service_worker_token);
 }
 
 void ServiceWorkerHost::DidStopServiceWorkerContext(
@@ -229,7 +244,8 @@ void ServiceWorkerHost::DidStopServiceWorkerContext(
     const base::UnguessableToken& activation_token,
     const GURL& service_worker_scope,
     int64_t service_worker_version_id,
-    int worker_thread_id) {
+    int worker_thread_id,
+    const blink::ServiceWorkerToken& service_worker_token) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   content::BrowserContext* browser_context = GetBrowserContext();
   if (!browser_context) {
@@ -251,7 +267,8 @@ void ServiceWorkerHost::DidStopServiceWorkerContext(
   ServiceWorkerTaskQueue::Get(browser_context)
       ->RendererDidStopServiceWorkerContext(
           render_process_id, extension_id, activation_token,
-          service_worker_scope, service_worker_version_id, worker_thread_id);
+          service_worker_scope, service_worker_version_id, worker_thread_id,
+          service_worker_token);
 }
 
 void ServiceWorkerHost::RequestWorker(mojom::RequestParamsPtr params,

@@ -1195,7 +1195,6 @@
       }
     ]
   },
-  "linux-processor-perf": {},
   "linux-r350-perf": {
     "isolated_scripts": [
       {
@@ -1244,6 +1243,7 @@
       }
     ]
   },
+  "linux-r350-processor-perf": {},
   "mac-arm-builder-perf": {},
   "mac-arm-builder-perf-pgo": {},
   "mac-builder-perf": {},
@@ -2069,7 +2069,7 @@
           "hard_timeout": 14400,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 1
+          "shards": 28
         },
         "test": "performance_test_suite",
         "trigger_script": {

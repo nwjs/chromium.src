@@ -127,6 +127,14 @@ export class SitePermissionsEditPermissionsDialogElement extends
   private unsavedExtensionsIdToHostAccess_:
       Map<string, chrome.developerPrivate.HostAccess> = new Map();
 
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('extensions')) {
+      this.onExtensionsUpdated_();
+    }
+  }
+
   override firstUpdated(changedProperties: PropertyValues<this>) {
     super.firstUpdated(changedProperties);
 
@@ -140,14 +148,6 @@ export class SitePermissionsEditPermissionsDialogElement extends
         this.originalSiteSet === EXTENSION_SPECIFIED);
   }
 
-  override willUpdate(changedProperties: PropertyValues<this>) {
-    super.willUpdate(changedProperties);
-
-    if (changedProperties.has('extensions')) {
-      this.onExtensionsUpdated_();
-    }
-  }
-
   private onExtensionsUpdated_() {
     this.extensionsIdToInfo_ = new Map();
     for (const extension of this.extensions) {
@@ -156,7 +156,7 @@ export class SitePermissionsEditPermissionsDialogElement extends
     this.updateExtensionSiteAccessData_(this.siteSet_);
   }
 
-  protected onSiteSetChanged_(
+  protected onSiteSetSelectedChanged_(
       e: CustomEvent<{value: chrome.developerPrivate.SiteSet}>) {
     this.siteSet_ = e.detail.value;
     this.updateExtensionSiteAccessData_(this.siteSet_);

@@ -5,15 +5,15 @@
 #ifndef CHROME_BROWSER_EXTENSIONS_API_CHROME_DEVICE_PERMISSIONS_PROMPT_H_
 #define CHROME_BROWSER_EXTENSIONS_API_CHROME_DEVICE_PERMISSIONS_PROMPT_H_
 
-#include "extensions/browser/api/device_permissions_prompt.h"
+#include "extensions/browser/api/usb_device_permissions_prompt.h"
 
-class ChromeDevicePermissionsPrompt
-    : public extensions::DevicePermissionsPrompt {
+class ChromeUsbDevicePermissionsPrompt
+    : public extensions::UsbDevicePermissionsPrompt {
  public:
-  explicit ChromeDevicePermissionsPrompt(content::WebContents* web_contents)
-      : extensions::DevicePermissionsPrompt(web_contents) {}
+  explicit ChromeUsbDevicePermissionsPrompt(content::WebContents* web_contents)
+      : extensions::UsbDevicePermissionsPrompt(web_contents) {}
 
-  ~ChromeDevicePermissionsPrompt() override = default;
+  ~ChromeUsbDevicePermissionsPrompt() override = default;
 
  private:
   void ShowDialog() override;

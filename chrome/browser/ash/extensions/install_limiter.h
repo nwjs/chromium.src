@@ -14,8 +14,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/extensions/crx_installer.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "extensions/browser/crx_installer.h"
 
 class Profile;
 
@@ -23,7 +23,7 @@ namespace extensions {
 
 // InstallLimiter defers big app installs after all small app installs and then
 // runs big app installs one by one. This improves first-time login experience.
-// See http://crbug.com/166296
+// See http://crbug.com/40957781
 class InstallLimiter : public KeyedService {
  public:
   static InstallLimiter* Get(Profile* profile);

@@ -4,8 +4,11 @@
 
 package org.chromium.content.browser.webcontents;
 
+import static org.chromium.build.NullUtil.assertNonNull;
+
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
@@ -21,6 +24,7 @@ import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.Page;
 import org.chromium.content_public.browser.Visibility;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
@@ -35,8 +39,9 @@ import java.util.Iterator;
 @JNINamespace("content")
 @NullMarked
 class WebContentsObserverProxy extends WebContentsObserver {
-    private long mNativeWebContentsObserverProxy;
     private final ObserverList<WebContentsObserver> mObservers;
+
+    private long mNativeWebContentsObserverProxy;
     private int mObserverCallsCurrentlyHandling;
 
     /**
@@ -46,9 +51,9 @@ class WebContentsObserverProxy extends WebContentsObserver {
      *
      * @param webContents The WebContents instance to observe.
      */
-    public WebContentsObserverProxy(WebContentsImpl webContents) {
+    public WebContentsObserverProxy(WebContents webContents) {
         ThreadUtils.assertOnUiThread();
-        mNativeWebContentsObserverProxy = WebContentsObserverProxyJni.get().init(this, webContents);
+        mNativeWebContentsObserverProxy = WebContentsObserverProxyJni.get().init(webContents);
         mObservers = new ObserverList<WebContentsObserver>();
         mObserverCallsCurrentlyHandling = 0;
     }
@@ -565,9 +570,15 @@ class WebContentsObserverProxy extends WebContentsObserver {
         }
     }
 
+    @CalledByNative
+    private static WebContentsObserverProxy getFromWebContents(
+            @JniType("content::WebContents*") WebContents webContents) {
+        return assertNonNull(((WebContentsImpl) webContents).getWebContentsObserverProxy());
+    }
+
     @NativeMethods
     interface Natives {
-        long init(WebContentsObserverProxy self, WebContentsImpl webContents);
+        long init(@JniType("content::WebContents*") WebContents webContents);
 
         void destroy(long nativeWebContentsObserverProxy);
     }

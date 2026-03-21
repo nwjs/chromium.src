@@ -5590,6 +5590,30 @@ TEST_P(PaintPropertyTreeBuilderTest, ImageBorderRadius) {
       border_radius_clip);
 }
 
+TEST_P(PaintPropertyTreeBuilderTest, BackdropFilterWhenPrinting) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="target" style="backdrop-filter: blur(5px)"></div>
+  )HTML");
+
+  // When printing backdrop filter should be ignored.
+  gfx::SizeF page_size(100, 100);
+  GetFrame().StartPrinting(WebPrintParams(page_size));
+  GetDocument().View()->UpdateLifecyclePhasesForPrinting();
+
+  auto* properties = PaintPropertiesForElement("target");
+  ASSERT_TRUE(properties);
+  ASSERT_TRUE(properties->Effect());
+  EXPECT_FALSE(properties->Effect()->BackdropFilter());
+
+  GetFrame().EndPrinting();
+  UpdateAllLifecyclePhasesForTest();
+
+  properties = PaintPropertiesForElement("target");
+  ASSERT_TRUE(properties);
+  ASSERT_TRUE(properties->Effect());
+  EXPECT_TRUE(properties->Effect()->BackdropFilter());
+}
+
 TEST_P(PaintPropertyTreeBuilderTest, FrameClipWhenPrinting) {
   SetBodyInnerHTML("<iframe></iframe>");
   SetChildFrameHTML("");
@@ -7593,6 +7617,27 @@ TEST_P(PaintPropertyTreeBuilderTest,
   EXPECT_EQ(TransformPaintPropertyNode::BackfaceVisibility::kVisible,
             target_transform->GetBackfaceVisibilityForTesting());
   EXPECT_NE(0, target_transform->RenderingContextId());
+}
+
+TEST_P(PaintPropertyTreeBuilderTest, ClipPathWithMaskDoNotCreateExpandedRect) {
+  SetBodyInnerHTML(R"HTML(
+    <div id='target' style='width:200px; height:200px;
+        clip-path: inset(10px); mask-image: linear-gradient(red, red)'>
+    </div>
+  )HTML");
+
+  const auto* properties = PaintPropertiesForElement("target");
+  ASSERT_TRUE(properties);
+
+  // Should have a MaskClip for the CSS mask.
+  const auto* mask_clip = properties->MaskClip();
+  ASSERT_TRUE(mask_clip);
+
+  // The MaskClip should not be marked as a composited clip-path animation.
+  EXPECT_FALSE(mask_clip->IsForCompositeClipPathAnimation());
+
+  // The expanded and precise layout clip rects should be equal.
+  EXPECT_EQ(mask_clip->LayoutClipRect(), mask_clip->PreciseLayoutClipRect());
 }
 
 }  // namespace blink

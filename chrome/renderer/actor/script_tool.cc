@@ -4,6 +4,7 @@
 
 #include "chrome/renderer/actor/script_tool.h"
 
+#include <memory>
 #include <optional>
 
 #include "base/notimplemented.h"
@@ -17,6 +18,7 @@
 #include "third_party/blink/public/mojom/content_extraction/script_tools.mojom.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
+#include "third_party/blink/public/web/web_script_tool_types.h"
 #include "ui/events/base_event_utils.h"
 
 namespace actor {
@@ -25,24 +27,24 @@ namespace {
 mojom::ActionResultPtr OnToolExecuted(
     const std::string& name,
     const std::string& input_arguments,
-    base::expected<blink::WebString, blink::WebDocument::ScriptToolError>
-        response) {
+    std::unique_ptr<blink::WebScriptToolDeclaration> tool,
+    base::expected<blink::WebString, blink::WebScriptToolError> response) {
   if (!response.has_value()) {
     mojom::ActionResultCode code;
     switch (response.error().code) {
-      case blink::WebDocument::ScriptToolError::kInvalidToolName:
+      case blink::WebScriptToolErrorCode::kInvalidToolName:
         code = mojom::ActionResultCode::kScriptToolInvalidName;
         break;
-      case blink::WebDocument::ScriptToolError::kInvalidInputArguments:
+      case blink::WebScriptToolErrorCode::kInvalidInputArguments:
         code = mojom::ActionResultCode::kScriptToolInvalidInputArguments;
         break;
-      case blink::WebDocument::ScriptToolError::kMissingRequiredSubmitButton:
+      case blink::WebScriptToolErrorCode::kMissingRequiredSubmitButton:
         code = mojom::ActionResultCode::kScriptToolMissingRequiredSubmitButton;
         break;
-      case blink::WebDocument::ScriptToolError::kToolInvocationFailed:
+      case blink::WebScriptToolErrorCode::kToolInvocationFailed:
         code = mojom::ActionResultCode::kScriptToolInvocationFailed;
         break;
-      case blink::WebDocument::ScriptToolError::kToolCancelled:
+      case blink::WebScriptToolErrorCode::kToolCancelled:
         code = mojom::ActionResultCode::kScriptToolCancelled;
         break;
     }
@@ -52,8 +54,17 @@ mojom::ActionResultPtr OnToolExecuted(
 
   auto result = MakeOkResult();
   auto script_tool_response = mojom::ScriptToolResponse::New();
-  script_tool_response->name = name;
   script_tool_response->input_arguments = input_arguments;
+  script_tool_response->tool = blink::mojom::ScriptTool::New();
+  script_tool_response->tool->name = name;
+  script_tool_response->tool->description = tool->description.Utf8();
+  script_tool_response->tool->input_schema = tool->input_schema.Utf8();
+  if (tool->read_only.has_value()) {
+    script_tool_response->tool->annotations =
+        blink::mojom::ScriptToolAnnotations::New();
+    script_tool_response->tool->annotations->read_only =
+        tool->read_only.value();
+  }
   if (!response->IsEmpty()) {
     script_tool_response->result = response->Utf8();
   }

@@ -34,6 +34,12 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_observer.h"
+#include "chrome/browser/ui/side_panel/side_panel_native_view.h"
+#include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
@@ -47,12 +53,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_content_proxy.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_id.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_header.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
@@ -89,7 +90,7 @@ namespace {
 std::unique_ptr<SidePanelEntry> CreateEntry(const SidePanelEntry::Key& key) {
   return std::make_unique<SidePanelEntry>(
       key, base::BindRepeating([](SidePanelEntryScope&) {
-        return std::make_unique<views::View>();
+        return SidePanelNativeView(std::make_unique<views::View>());
       }),
       /*default_content_width_callback=*/base::NullCallback());
 }
@@ -112,7 +113,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights),
         base::BindRepeating([](SidePanelEntryScope&) {
-          return std::make_unique<views::View>();
+          return SidePanelNativeView(std::make_unique<views::View>());
         }),
         /*default_content_width_callback=*/base::NullCallback()));
     contextual_registries_.push_back(registry);
@@ -126,7 +127,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kLens),
         base::BindRepeating([](SidePanelEntryScope&) {
-          return std::make_unique<views::View>();
+          return SidePanelNativeView(std::make_unique<views::View>());
         }),
         /*default_content_width_callback=*/base::NullCallback()));
     contextual_registries_.push_back(browser()
@@ -139,7 +140,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kLensOverlayResults),
         base::BindRepeating([](SidePanelEntryScope&) {
-          return std::make_unique<views::View>();
+          return SidePanelNativeView(std::make_unique<views::View>());
         }),
         /*open_in_new_tab_url_callback=*/base::NullCallback(),
         base::BindRepeating([]() {
@@ -150,7 +151,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights),
         base::BindRepeating([](SidePanelEntryScope&) {
-          return std::make_unique<views::View>();
+          return SidePanelNativeView(std::make_unique<views::View>());
         }),
         /*default_content_width_callback=*/base::NullCallback()));
 
@@ -164,7 +165,7 @@ class SidePanelCoordinatorTest : public InProcessBrowserTest {
     registry->Register(std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
         base::BindRepeating([](SidePanelEntryScope&) {
-          return std::make_unique<views::View>();
+          return SidePanelNativeView(std::make_unique<views::View>());
         }),
         /*default_content_width_callback=*/base::NullCallback()));
     contextual_registries_.push_back(registry);
@@ -766,16 +767,16 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelAlignment) {
                 .contents_height_side_panel()
                 ->horizontal_alignment(),
             SidePanel::HorizontalAlignment::kRight);
-  // Toolbar height side panel should have the opposite alignment.
-  EXPECT_FALSE(browser()
-                   ->GetBrowserView()
-                   .toolbar_height_side_panel()
-                   ->IsRightAligned());
+  // Toolbar height side panel should have the same alignment.
+  EXPECT_TRUE(browser()
+                  ->GetBrowserView()
+                  .toolbar_height_side_panel()
+                  ->IsRightAligned());
   EXPECT_EQ(browser()
                 ->GetBrowserView()
                 .toolbar_height_side_panel()
                 ->horizontal_alignment(),
-            SidePanel::HorizontalAlignment::kLeft);
+            SidePanel::HorizontalAlignment::kRight);
 
   browser()->GetBrowserView().GetProfile()->GetPrefs()->SetBoolean(
       prefs::kSidePanelHorizontalAlignment, false);
@@ -788,16 +789,16 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelAlignment) {
                 .contents_height_side_panel()
                 ->horizontal_alignment(),
             SidePanel::HorizontalAlignment::kLeft);
-  // Toolbar height side panel should have the opposite alignment.
-  EXPECT_TRUE(browser()
-                  ->GetBrowserView()
-                  .toolbar_height_side_panel()
-                  ->IsRightAligned());
+  // Toolbar height side panel should have the same alignment.
+  EXPECT_FALSE(browser()
+                   ->GetBrowserView()
+                   .toolbar_height_side_panel()
+                   ->IsRightAligned());
   EXPECT_EQ(browser()
                 ->GetBrowserView()
                 .toolbar_height_side_panel()
                 ->horizontal_alignment(),
-            SidePanel::HorizontalAlignment::kRight);
+            SidePanel::HorizontalAlignment::kLeft);
 }
 
 // Verify that right and left alignment works the same as when in LTR mode.
@@ -817,16 +818,16 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelAlignmentRTL) {
                 .contents_height_side_panel()
                 ->horizontal_alignment(),
             SidePanel::HorizontalAlignment::kRight);
-  // Toolbar height side panel should have the opposite alignment.
-  EXPECT_FALSE(browser()
-                   ->GetBrowserView()
-                   .toolbar_height_side_panel()
-                   ->IsRightAligned());
+  // Toolbar height side panel should have the same alignment.
+  EXPECT_TRUE(browser()
+                  ->GetBrowserView()
+                  .toolbar_height_side_panel()
+                  ->IsRightAligned());
   EXPECT_EQ(browser()
                 ->GetBrowserView()
                 .toolbar_height_side_panel()
                 ->horizontal_alignment(),
-            SidePanel::HorizontalAlignment::kLeft);
+            SidePanel::HorizontalAlignment::kRight);
 
   browser()->GetBrowserView().GetProfile()->GetPrefs()->SetBoolean(
       prefs::kSidePanelHorizontalAlignment, false);
@@ -839,16 +840,16 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, ChangeSidePanelAlignmentRTL) {
                 .contents_height_side_panel()
                 ->horizontal_alignment(),
             SidePanel::HorizontalAlignment::kLeft);
-  // Toolbar height side panel should have the opposite alignment.
-  EXPECT_TRUE(browser()
-                  ->GetBrowserView()
-                  .toolbar_height_side_panel()
-                  ->IsRightAligned());
+  // Toolbar height side panel should have the same alignment.
+  EXPECT_FALSE(browser()
+                   ->GetBrowserView()
+                   .toolbar_height_side_panel()
+                   ->IsRightAligned());
   EXPECT_EQ(browser()
                 ->GetBrowserView()
                 .toolbar_height_side_panel()
                 ->horizontal_alignment(),
-            SidePanel::HorizontalAlignment::kRight);
+            SidePanel::HorizontalAlignment::kLeft);
 }
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
@@ -1937,8 +1938,9 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       std::make_unique<TestSidePanelObserver>(contextual_registries_[0]);
   auto entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
-      base::BindRepeating(
-          [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
       /*default_content_width_callback=*/base::NullCallback());
   entry->AddObserver(observer.get());
   contextual_registries_[0]->Register(std::move(entry));
@@ -1968,8 +1970,9 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       std::make_unique<TestSidePanelObserver>(contextual_registries_[0]);
   auto entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
-      base::BindRepeating(
-          [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
       /*default_content_width_callback=*/base::NullCallback());
   entry->AddObserver(observer.get());
   contextual_registries_[0]->Register(std::move(entry));
@@ -2000,7 +2003,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       base::BindRepeating(
           [](int* count, SidePanelEntryScope&) {
             (*count)++;
-            return std::make_unique<views::View>();
+            return SidePanelNativeView(std::make_unique<views::View>());
           },
           &count),
       /*default_content_width_callback=*/base::NullCallback()));
@@ -2286,8 +2289,9 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest, HeaderlessSidePanel) {
                        ->side_panel_registry();
   std::unique_ptr<SidePanelEntry> entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
-      base::BindRepeating(
-          [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
       /*default_content_width_callback=*/base::NullCallback());
   entry->set_should_show_header(false);
   registry->Register(std::move(entry));
@@ -2314,8 +2318,9 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
                        ->side_panel_registry();
   std::unique_ptr<SidePanelEntry> entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
-      base::BindRepeating(
-          [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
       /*default_content_width_callback=*/base::NullCallback());
   entry->set_should_show_header(false);
   registry->Register(std::move(entry));
@@ -2427,8 +2432,9 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<SidePanelEntry> entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
-      base::BindRepeating(
-          [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
       /*default_content_width_callback=*/base::NullCallback());
   registry->Register(std::move(entry));
   coordinator()->SetNoDelaysForTesting(true);
@@ -2464,8 +2470,9 @@ IN_PROC_BROWSER_TEST_F(
   std::unique_ptr<SidePanelEntry> entry = std::make_unique<SidePanelEntry>(
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
-      base::BindRepeating(
-          [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
       /*default_content_width_callback=*/base::NullCallback());
   registry->Register(std::move(entry));
   coordinator()->SetNoDelaysForTesting(true);
@@ -2537,7 +2544,7 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
     std::unique_ptr<SidePanelEntry> entry1 = std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights),
         base::BindRepeating([](SidePanelEntryScope&) {
-          auto view = std::make_unique<views::View>();
+          auto view = SidePanelNativeView(std::make_unique<views::View>());
           SidePanelUtil::GetSidePanelContentProxy(view.get())
               ->SetAvailable(false);
           return view;
@@ -2551,7 +2558,7 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
     std::unique_ptr<SidePanelEntry> entry2 = std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kLens),
         base::BindRepeating([](SidePanelEntryScope&) {
-          auto view = std::make_unique<views::View>();
+          auto view = SidePanelNativeView(std::make_unique<views::View>());
           SidePanelUtil::GetSidePanelContentProxy(view.get())
               ->SetAvailable(false);
           return view;
@@ -2564,7 +2571,7 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
     std::unique_ptr<SidePanelEntry> entry3 = std::make_unique<SidePanelEntry>(
         SidePanelEntry::Key(SidePanelEntry::Id::kAboutThisSite),
         base::BindRepeating([](SidePanelEntryScope&) {
-          auto view = std::make_unique<views::View>();
+          auto view = SidePanelNativeView(std::make_unique<views::View>());
           SidePanelUtil::GetSidePanelContentProxy(view.get())
               ->SetAvailable(true);
           return view;
@@ -2587,7 +2594,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorLoadingContentTest,
       browser()->GetBrowserView().contents_height_side_panel()->GetVisible());
   // A loading entry's view should be stored as the cached view and be
   // unavailable.
-  views::View* loading_content = loading_content_entry1_->CachedView();
+  views::View* loading_content = loading_content_entry1_->CachedView().get();
   EXPECT_NE(loading_content, nullptr);
   SidePanelContentProxy* loading_content_proxy =
       SidePanelUtil::GetSidePanelContentProxy(loading_content);
@@ -2599,7 +2606,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorLoadingContentTest,
 
   // Switch to another entry that has loading content.
   coordinator()->Show(loading_content_entry2_->key().id());
-  loading_content = loading_content_entry2_->CachedView();
+  loading_content = loading_content_entry2_->CachedView().get();
   EXPECT_NE(loading_content, nullptr);
   loading_content_proxy =
       SidePanelUtil::GetSidePanelContentProxy(loading_content);
@@ -2625,7 +2632,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorLoadingContentTest,
 
   // Switch to loading_content_entry1_ that has loading content.
   coordinator()->Show(loading_content_entry1_->key().id());
-  views::View* loading_content1 = loading_content_entry1_->CachedView();
+  views::View* loading_content1 = loading_content_entry1_->CachedView().get();
   EXPECT_NE(loading_content1, nullptr);
   SidePanelContentProxy* loading_content_proxy1 =
       SidePanelUtil::GetSidePanelContentProxy(loading_content1);
@@ -2640,7 +2647,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorLoadingContentTest,
   // While that entry is loading, switch to a different entry with content that
   // needs to load.
   coordinator()->Show(loading_content_entry2_->key().id());
-  views::View* loading_content2 = loading_content_entry2_->CachedView();
+  views::View* loading_content2 = loading_content_entry2_->CachedView().get();
   EXPECT_NE(loading_content2, nullptr);
   SidePanelContentProxy* loading_content_proxy2 =
       SidePanelUtil::GetSidePanelContentProxy(loading_content2);
@@ -2679,7 +2686,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorLoadingContentTest,
       browser()->GetBrowserView().contents_height_side_panel()->GetVisible());
   // A loading entry's view should be stored as the cached view and be
   // unavailable.
-  views::View* loading_content = loading_content_entry1_->CachedView();
+  views::View* loading_content = loading_content_entry1_->CachedView().get();
   EXPECT_NE(loading_content, nullptr);
   SidePanelContentProxy* loading_content_proxy1 =
       SidePanelUtil::GetSidePanelContentProxy(loading_content);
@@ -2694,7 +2701,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorLoadingContentTest,
 
   // Switch to loading_content_entry2_ that has loading content.
   coordinator()->Show(loading_content_entry2_->key().id());
-  loading_content = loading_content_entry2_->CachedView();
+  loading_content = loading_content_entry2_->CachedView().get();
   EXPECT_NE(loading_content, nullptr);
   SidePanelContentProxy* loading_content_proxy2 =
       SidePanelUtil::GetSidePanelContentProxy(loading_content);
@@ -2828,7 +2835,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntryId::kAboutThisSite),
       base::BindRepeating([](SidePanelEntryScope&) {
-        auto view = std::make_unique<views::View>();
+        auto view = SidePanelNativeView(std::make_unique<views::View>());
         view->SetPaintToLayer();
         view->layer()->SetFillsBoundsOpaquely(false);
         return view;
@@ -2877,7 +2884,7 @@ IN_PROC_BROWSER_TEST_F(
     ShowFromAnimationAnimatesContentViewInTheCorrectDirection_RightAligned) {
   // Set the toolbar height side panel to be right aligned.
   browser()->GetBrowserView().GetProfile()->GetPrefs()->SetBoolean(
-      prefs::kSidePanelHorizontalAlignment, false);
+      prefs::kSidePanelHorizontalAlignment, true);
   ASSERT_TRUE(browser()
                   ->GetBrowserView()
                   .toolbar_height_side_panel()
@@ -2894,7 +2901,7 @@ IN_PROC_BROWSER_TEST_F(
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntryId::kAboutThisSite),
       base::BindRepeating([](SidePanelEntryScope&) {
-        auto view = std::make_unique<views::View>();
+        auto view = SidePanelNativeView(std::make_unique<views::View>());
         view->SetPaintToLayer();
         view->layer()->SetFillsBoundsOpaquely(false);
         return view;
@@ -2955,7 +2962,7 @@ IN_PROC_BROWSER_TEST_F(
     ShowFromAnimationAnimatesContentViewInTheCorrectDirection_LeftAligned) {
   // Set the toolbar height side panel to be left aligned.
   browser()->GetBrowserView().GetProfile()->GetPrefs()->SetBoolean(
-      prefs::kSidePanelHorizontalAlignment, true);
+      prefs::kSidePanelHorizontalAlignment, false);
   ASSERT_FALSE(browser()
                    ->GetBrowserView()
                    .toolbar_height_side_panel()
@@ -2972,7 +2979,7 @@ IN_PROC_BROWSER_TEST_F(
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntryId::kAboutThisSite),
       base::BindRepeating([](SidePanelEntryScope&) {
-        auto view = std::make_unique<views::View>();
+        auto view = SidePanelNativeView(std::make_unique<views::View>());
         view->SetPaintToLayer();
         view->layer()->SetFillsBoundsOpaquely(false);
         return view;
@@ -3046,7 +3053,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntryId::kAboutThisSite),
       base::BindRepeating([](SidePanelEntryScope&) {
-        auto view = std::make_unique<views::View>();
+        auto view = SidePanelNativeView(std::make_unique<views::View>());
         view->SetPaintToLayer();
         view->layer()->SetFillsBoundsOpaquely(false);
         return view;
@@ -3108,7 +3115,7 @@ IN_PROC_BROWSER_TEST_F(
       SidePanelEntry::PanelType::kToolbar,
       SidePanelEntry::Key(SidePanelEntryId::kAboutThisSite),
       base::BindRepeating([](SidePanelEntryScope&) {
-        auto view = std::make_unique<views::View>();
+        auto view = SidePanelNativeView(std::make_unique<views::View>());
         view->SetPaintToLayer();
         view->layer()->SetFillsBoundsOpaquely(false);
         return view;
@@ -3125,7 +3132,7 @@ IN_PROC_BROWSER_TEST_F(
           SidePanelEntry::PanelType::kToolbar,
           SidePanelEntry::Key(SidePanelEntryId::kShoppingInsights),
           base::BindRepeating([](SidePanelEntryScope&) {
-            auto view = std::make_unique<views::View>();
+            auto view = SidePanelNativeView(std::make_unique<views::View>());
             view->SetPaintToLayer();
             view->layer()->SetFillsBoundsOpaquely(false);
             return view;
@@ -3167,4 +3174,61 @@ IN_PROC_BROWSER_TEST_F(
             nullptr);
   ASSERT_EQ(
       toolbar_height_side_panel->GetContentParentView()->children().size(), 1);
+}
+
+IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorTest,
+                       ToolbarHeightSidePanelClampsToToolbar) {
+  Init();
+
+  // Register a toolbar-height side panel entry.
+  auto* registry = browser()
+                       ->GetActiveTabInterface()
+                       ->GetTabFeatures()
+                       ->side_panel_registry();
+  registry->Deregister(
+      SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights));
+  registry->Register(std::make_unique<SidePanelEntry>(
+      SidePanelEntry::PanelType::kToolbar,
+      SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights),
+      base::BindRepeating([](SidePanelEntryScope&) {
+        return SidePanelNativeView(std::make_unique<views::View>());
+      }),
+      /*default_content_width_callback=*/base::NullCallback()));
+
+  coordinator()->Show(SidePanelEntry::Id::kShoppingInsights);
+
+  // Ensure the side panel is visible and laid out.
+  auto* browser_view = &browser()->GetBrowserView();
+  coordinator()->DisableAnimationsForTesting();
+  views::test::RunScheduledLayout(browser_view);
+
+  auto* side_panel = browser_view->toolbar_height_side_panel();
+  ASSERT_TRUE(side_panel->GetVisible());
+
+  // Set the browser window to a specific width.
+  // We need enough width for the toolbar minimum size + some side panel width.
+  int toolbar_min_width = browser_view->toolbar()->GetMinimumSize().width();
+
+  // Set window width to toolbar_min + 400.
+  // This ensures remainder >= min_side_panel_width (approx 377), so it stays
+  // on the same row, but is small enough to clamp a larger desired width.
+  int target_window_width = toolbar_min_width + 400;
+
+  // Resize the browser window.
+  gfx::Rect bounds = browser_view->GetWidget()->GetWindowBoundsInScreen();
+  bounds.set_width(target_window_width);
+  browser_view->GetWidget()->SetBounds(bounds);
+  views::test::RunScheduledLayout(browser_view);
+
+  // Try to set side panel to 600.
+  int desired_width = 600;
+  side_panel->SetPanelWidth(desired_width);
+  views::test::RunScheduledLayout(browser_view);
+
+  // It should be clamped.
+  EXPECT_LT(side_panel->width(), desired_width);
+
+  // Verify it is taking up the remaining space roughly.
+  // It should be around 400 - padding.
+  EXPECT_GT(side_panel->width(), 300);
 }

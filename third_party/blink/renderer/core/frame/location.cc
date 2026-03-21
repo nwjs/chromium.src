@@ -85,7 +85,7 @@ inline const KURL& Location::Url() const {
   if (!url.IsValid()) {
     // Use "about:blank" while the page is still loading (before we have a
     // frame).
-    return BlankURL();
+    return BlankUrl();
   }
 
   return url;
@@ -291,6 +291,17 @@ void Location::SetLocation(const String& url,
                   completed_url.GetString(), "'."}));
     }
     return;
+  }
+  if (!incumbent_window->GetFrame()->IsDescendantOf(dom_window_->GetFrame()) &&
+      dom_window_->GetFrame()->Parent() &&
+      !incumbent_window->GetSecurityOrigin()->IsSameOriginWith(
+          dom_window_->GetFrame()
+              ->Parent()
+              ->GetSecurityContext()
+              ->GetSecurityOrigin())) {
+    UseCounter::Count(
+        incumbent_window,
+        WebFeature::kNonParentOriginInitiatedNavigationOfSubframe);
   }
   if (exception_state && !completed_url.IsValid()) {
     exception_state->ThrowDOMException(

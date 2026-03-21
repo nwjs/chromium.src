@@ -103,14 +103,17 @@ class RequestPinExceptFirstQuotaBucketMapper final
 
   void GetBucketsForArgs(const base::ListValue& args,
                          QuotaLimitHeuristic::BucketList* buckets) override {
-    if (args.empty())
+    if (args.empty()) {
       return;
+    }
     const base::DictValue* details = args.front().GetIfDict();
-    if (!details)
+    if (!details) {
       return;
+    }
     std::optional<int> sign_request_id = details->FindInt("signRequestId");
-    if (!sign_request_id.has_value())
+    if (!sign_request_id.has_value()) {
       return;
+    }
     if (*sign_request_id > biggest_request_id_) {
       // Either it's the first request with the newly issued requestId, or it's
       // an invalid requestId (bigger than the real one). Return a new bucket in
@@ -143,7 +146,7 @@ scoped_refptr<net::X509Certificate> ParseCertificateDer(
   }
 
   // Allow UTF-8 inside PrintableStrings in client certificates. See
-  // crbug.com/770323 and crbug.com/788655.
+  // crbug.com/41347446 and crbug.com/41357486.
   net::X509Certificate::UnsafeCreateOptions options;
   options.printable_string_is_utf8 = true;
   scoped_refptr<net::X509Certificate> certificate =
@@ -178,8 +181,9 @@ bool ParseCertificateInfo(
     std::string* out_error_message) {
   out_info->certificate =
       ParseCertificateDer(info.certificate, out_error_message);
-  if (!out_info->certificate)
+  if (!out_info->certificate) {
     return false;
+  }
 
   out_info->supported_algorithms.reserve(info.supported_hashes.size());
   for (const api_cp::Hash hash : info.supported_hashes) {
@@ -226,8 +230,9 @@ bool ParseClientCertificateInfo(
   }
   out_info->certificate =
       ParseCertificateDer(info.certificate_chain[0], out_error_message);
-  if (!out_info->certificate)
+  if (!out_info->certificate) {
     return false;
+  }
 
   out_info->supported_algorithms.reserve(info.supported_algorithms.size());
   for (const api_cp::Algorithm algorithm : info.supported_algorithms) {
@@ -454,8 +459,9 @@ ExtensionFunction::ResponseAction CertificateProviderRequestPinFunction::Run() {
 
   int attempts_left = -1;
   if (params->details.attempts_left) {
-    if (*params->details.attempts_left < 0)
+    if (*params->details.attempts_left < 0) {
       return RespondNow(Error(kCertificateProviderInvalidAttemptsLeft));
+    }
     attempts_left = *params->details.attempts_left;
   }
 
@@ -580,8 +586,9 @@ CertificateProviderInternalReportSignatureFunction::Run() {
 
   std::vector<uint8_t> signature;
   // If an error occurred, |signature| will not be set.
-  if (params->signature)
+  if (params->signature) {
     signature.assign(params->signature->begin(), params->signature->end());
+  }
 
   if (!service->ReplyToSignRequest(extension_id(), params->request_id,
                                    signature)) {

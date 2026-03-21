@@ -123,6 +123,11 @@ void LogPixCodeCopied(ukm::SourceId ukm_source_id) {
       .Record(ukm::UkmRecorder::Get());
 }
 
+void LogPixCodeCopiedInIframe() {
+  base::UmaHistogramBoolean("FacilitatedPayments.Pix.PixCodeCopied.Iframe",
+                            /*sample=*/true);
+}
+
 void LogPaymentLinkDetected(ukm::SourceId ukm_source_id) {
   base::UmaHistogramBoolean("FacilitatedPayments.PaymentLinkDetected",
                             /*sample=*/true);
@@ -404,6 +409,15 @@ void LogPixTransactionResultAndLatency(PurchaseActionResult result,
       base::StrCat({"FacilitatedPayments.Pix.Transaction.",
                     GetPurchaseActionResultString(result), ".Latency"}),
       duration);
+}
+
+void LogPixTransactionResultPerFrameType(bool pix_code_is_in_iframe,
+                                         PurchaseActionResult result) {
+  base::UmaHistogramBoolean(
+      base::StrCat({"FacilitatedPayments.Pix.Transaction",
+                    pix_code_is_in_iframe ? ".Iframe" : ".MainFrame", ".",
+                    GetPurchaseActionResultString(result)}),
+      /*sample=*/true);
 }
 
 void LogEwalletInitiatePurchaseActionResultAndLatency(

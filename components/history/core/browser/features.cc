@@ -115,17 +115,11 @@ BASE_FEATURE(kRazeOldHistoryDatabase,
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-// Enables the Browsing History Actor Integration M1 feature. This feature
-// introduces new ui and functionality related to the history integration in
-// Chrome.
-BASE_FEATURE(kBrowsingHistoryActorIntegrationM1,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables Milestone 2 of History-Actor integration, this includes hiding
 // actor-initiated visits from non-primary sources (Omnibox, MVT) and updating
 // the deduplication logic of actor visits.
 BASE_FEATURE(kBrowsingHistoryActorIntegrationM2,
-             base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
+             base::FeatureState::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Milestone 3 of History-Actor integration, this includes improvements
 // in history entry grouping and filtering.
@@ -136,13 +130,6 @@ BASE_FEATURE(kBrowsingHistoryActorIntegrationM3,
 // grouping entries by hostname and title per day.
 BASE_FEATURE(kBrowsingHistorySimilarVisitsGrouping,
              base::FeatureState::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether Browsing History Actor Integration M1 or any dependent feature is
-// enabled.
-bool IsBrowsingHistoryActorIntegrationM1Enabled() {
-  return base::FeatureList::IsEnabled(kBrowsingHistoryActorIntegrationM1) ||
-         base::FeatureList::IsEnabled(kBrowsingHistoryActorIntegrationM2);
-}
 
 // Whether Browsing History Actor Integration M2 or any dependent feature is
 // enabled.

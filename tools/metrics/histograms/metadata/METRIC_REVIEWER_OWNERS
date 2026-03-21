@@ -97,7 +97,6 @@ gavinwill@chromium.org
 chadduffin@chromium.org
 crisrael@google.com
 enlightened@chromium.org
-hsuregan@google.com
 jiajunz@google.com
 jorgelo@chromium.org
 julietlevesque@google.com
@@ -153,6 +152,8 @@ eirage@chromium.org
 lizeb@chromium.org
 # data
 tbansal@chromium.org
+# desktop
+erikchen@chromium.org
 # dev
 changhaohan@chromium.org
 # diagnostics
@@ -196,6 +197,7 @@ rizvis@google.com
 thesalsa@google.com
 # gcm
 peter@chromium.org
+rushans@google.com
 # geolocation
 reillyg@chromium.org
 # glic
@@ -282,7 +284,6 @@ nidhijaju@chromium.org
 toyoshim@chromium.org
 # network
 chadduffin@chromium.org
-hsuregan@google.com
 jiajunz@google.com
 khorimoto@chromium.org
 matthewmwang@chromium.org
@@ -408,6 +409,8 @@ schenney@chromium.org
 # renderer
 schenney@chromium.org
 # safe_browsing
+bcb@chromium.org
+andysjlim@chromium.org
 drubery@chromium.org
 jacastro@chromium.org
 pkotwicz@google.com

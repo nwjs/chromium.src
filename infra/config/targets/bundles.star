@@ -1050,7 +1050,7 @@ targets.bundle(
         "bf_cache_android_browsertests",
         "bfcache_generic_gtests",
         "webview_instrumentation_test_apk_bfcache_mutations",
-        "webview_cts_tests_bfcache_mutations",
+        "webview_64_cts_tests_bfcache_mutations",
     ],
     per_test_modifications = {
         "bf_cache_android_browsertests": targets.mixin(
@@ -1058,7 +1058,7 @@ targets.bundle(
                 shards = 2,
             ),
         ),
-        "webview_cts_tests_bfcache_mutations": targets.mixin(
+        "webview_64_cts_tests_bfcache_mutations": targets.mixin(
             args = [
                 "--store-tombstones",
             ],
@@ -4732,7 +4732,7 @@ targets.bundle(
         "webcodecs_tests": [
             targets.mixin(
                 args = [
-                    "--extra-browser-args=--use-cmd-decoder=validating --disable-features=SkiaGraphite",
+                    "--extra-browser-args=--use-cmd-decoder=validating --disable-skia-graphite",
                 ],
             ),
         ],
@@ -4884,7 +4884,7 @@ targets.bundle(
         "webrtc_tests": [
             targets.mixin(
                 args = [
-                    "--extra-browser-args=--use-cmd-decoder=validating --disable-features=SkiaGraphite",
+                    "--extra-browser-args=--use-cmd-decoder=validating --disable-skia-graphite",
                 ],
             ),
         ],
@@ -5079,8 +5079,8 @@ targets.bundle(
         targets.bundle(
             targets = "ios_common_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
@@ -5089,8 +5089,8 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
@@ -5100,8 +5100,8 @@ targets.bundle(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
@@ -5111,16 +5111,16 @@ targets.bundle(
                 "record_failed_tests",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
             targets = "ios_screen_size_dependent_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
-                "SIM_IPHONE_SE_3RD_GEN_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
+                "SIM_IPHONE_SE_3RD_GEN_26_4",
             ],
         ),
         targets.bundle(
@@ -5129,8 +5129,8 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
     ],
@@ -5142,8 +5142,8 @@ targets.bundle(
         targets.bundle(
             targets = "ios_common_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
@@ -5152,8 +5152,8 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
@@ -5162,16 +5162,16 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
         targets.bundle(
             targets = "ios_screen_size_dependent_tests",
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
-                "SIM_IPHONE_SE_3RD_GEN_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
+                "SIM_IPHONE_SE_3RD_GEN_26_4",
             ],
         ),
         targets.bundle(
@@ -5180,8 +5180,8 @@ targets.bundle(
                 "xcodebuild_sim_runner",
             ],
             variants = [
-                "SIM_IPAD_AIR_6TH_GEN_26_2",
-                "SIM_IPHONE_16_26_2",
+                "SIM_IPAD_AIR_6TH_GEN_26_4",
+                "SIM_IPHONE_16_26_4",
             ],
         ),
     ],
@@ -5233,7 +5233,7 @@ targets.bundle(
         targets.bundle(
             targets = "ios_blink_tests",
             variants = [
-                "SIM_IPHONE_15_26_2",
+                "SIM_IPHONE_15_26_4",
             ],
         ),
     ],
@@ -5278,7 +5278,6 @@ targets.bundle(
         "liburlpattern_unittests",
         "media_unittests",
         "media_unittests_skia_graphite_dawn",
-        "media_unittests_skia_graphite_metal",
         "midi_unittests",
         "mojo_unittests",
         "native_theme_unittests",
@@ -5374,12 +5373,6 @@ targets.bundle(
             ],
         ),
         "media_unittests_skia_graphite_dawn": targets.mixin(
-            args = [
-                "--test-launcher-bot-mode",
-                "--test-launcher-filter-file=testing/buildbot/filters/ios.media_unittests.filter",
-            ],
-        ),
-        "media_unittests_skia_graphite_metal": targets.mixin(
             args = [
                 "--test-launcher-bot-mode",
                 "--test-launcher-filter-file=testing/buildbot/filters/ios.media_unittests.filter",

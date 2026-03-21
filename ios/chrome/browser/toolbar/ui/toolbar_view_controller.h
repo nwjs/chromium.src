@@ -7,6 +7,7 @@
 
 #import <UIKit/UIKit.h>
 
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_element.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_consumer.h"
 
 @protocol ActivityServiceCommands;
@@ -19,7 +20,8 @@
 @protocol ToolbarMutator;
 
 // View controller for the toolbar.
-@interface ToolbarViewController : UIViewController <ToolbarConsumer>
+@interface ToolbarViewController
+    : UIViewController <FullscreenUIElement, ToolbarConsumer>
 
 // Handler for the browser coordinator commands.
 @property(nonatomic, weak) id<BrowserCoordinatorCommands>
@@ -40,9 +42,6 @@
 // Factory used to create the buttons.
 @property(nonatomic, strong) ToolbarButtonFactory* buttonFactory;
 
-// The height of the toolbar.
-@property(nonatomic, readonly) CGFloat toolbarHeight;
-
 // The height delegate.
 @property(nonatomic, weak) id<ToolbarHeightDelegate> toolbarHeightDelegate;
 
@@ -54,6 +53,14 @@
 
 // The location bar in this toolbar.
 @property(nonatomic, strong) UIViewController* locationBarViewController;
+
+// Initializer for the toolbar, in `incognito` or not.
+- (instancetype)initInIncognito:(BOOL)incognito NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithCoder:(NSCoder*)coder NS_UNAVAILABLE;
+- (instancetype)initWithNibName:(NSString*)nibNameOrNil
+                         bundle:(NSBundle*)nibBundleOrNil NS_UNAVAILABLE;
 
 // Shows/Hides the location bar.
 - (void)setLocationBarHidden:(BOOL)hidden;

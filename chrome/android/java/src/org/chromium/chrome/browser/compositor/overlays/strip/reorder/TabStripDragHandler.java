@@ -46,6 +46,7 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabGroupMetadata;
+import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tasks.tab_management.MultiThumbnailCardProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabDragHandlerBase;
 import org.chromium.ui.base.MimeTypeUtils;
@@ -291,53 +292,26 @@ public class TabStripDragHandler extends TabDragHandlerBase {
 
     @Override
     public boolean onDrag(View view, DragEvent dragEvent) {
-        boolean res = false;
         switch (dragEvent.getAction()) {
             case DragEvent.ACTION_DRAG_STARTED:
-                res = onDragStart(dragEvent.getX(), dragEvent.getClipDescription());
-                break;
+                return onDragStart(dragEvent.getX(), dragEvent.getClipDescription());
             case DragEvent.ACTION_DRAG_ENDED:
-                res = onDragEnd(dragEvent.getResult());
-                break;
+                return onDragEnd(dragEvent.getResult());
             case DragEvent.ACTION_DRAG_ENTERED:
                 // We'll trigger #onDragEnter when handling the following ACTION_DRAG_LOCATION so we
                 // have position data available (and can check if we've entered the tab strip).
-                res = false;
-                break;
+                return false;
             case DragEvent.ACTION_DRAG_EXITED:
-                if (mHoveringInStrip) res = onDragExit();
-                break;
+                // When leaving from the non-strip region (i.e. the toolbar region), the #onDragExit
+                // will already have been processed, so skip triggering it here.
+                if (mHoveringInStrip) return onDragExit();
+                return false;
             case DragEvent.ACTION_DRAG_LOCATION:
-                boolean isCurrYInTabStrip = didOccurInTabStrip(dragEvent.getY());
-                if (isCurrYInTabStrip) {
-                    if (!mHoveringInStrip) {
-                        // dragged onto strip from outside controls OR from toolbar.
-                        res = onDragEnter(dragEvent.getX());
-                    } else {
-                        // drag moved within strip.
-                        res = onDragLocation(dragEvent.getX(), dragEvent.getY());
-                    }
-                    mLastXDp = dragEvent.getX() * mPxToDp;
-                } else if (mHoveringInStrip) {
-                    // drag moved from within to outside strip.
-                    res = onDragExit();
-                }
-                break;
+                return onDragLocation(dragEvent.getX(), dragEvent.getY());
             case DragEvent.ACTION_DROP:
-                if (didOccurInTabStrip(dragEvent.getY())) {
-                    res = onDrop(dragEvent);
-                } else {
-                    DragDropMetricUtils.recordDragDropResult(
-                            DragDropResult.IGNORED_TOOLBAR,
-                            mIsAppInDesktopWindowSupplier.get(),
-                            isTabGroupDrop(),
-                            isMultiTabDrop());
-                    res = false;
-                }
-                if (res) DragDropGlobalState.notifyChromeHandledDrop(dragEvent);
-                break;
+                return onDrop(dragEvent);
         }
-        return res;
+        return false;
     }
 
     /** Cleans up internal state. */
@@ -396,7 +370,34 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         return true;
     }
 
+    /**
+     * The Android view we register this handler to is larger than the tab strip itself, so we need
+     * to fake enter/location/exit events based on the true position of the event.
+     *
+     * @param xPx The x-position in px.
+     * @param yPx The y-position in px.
+     * @return Whether or not the drag event was handled.
+     */
     private boolean onDragLocation(float xPx, float yPx) {
+        boolean res = false;
+        boolean isCurrYInTabStrip = didOccurInTabStrip(yPx);
+        if (isCurrYInTabStrip) {
+            if (!mHoveringInStrip) {
+                // dragged onto strip from outside controls OR from toolbar.
+                res = onDragEnter(xPx);
+            } else {
+                // drag moved within strip.
+                res = onDragLocationInStrip(xPx, yPx);
+            }
+            mLastXDp = xPx * mPxToDp;
+        } else if (mHoveringInStrip) {
+            // drag moved from within to outside strip.
+            res = onDragExit();
+        }
+        return res;
+    }
+
+    private boolean onDragLocationInStrip(float xPx, float yPx) {
         float xDp = xPx * mPxToDp;
         float yDp = yPx * mPxToDp;
         mStripLayoutHelperSupplier
@@ -405,7 +406,30 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         return true;
     }
 
+    /**
+     * The Android view we register this handler to is larger than the tab strip itself, so we need
+     * to check the drop location before processing it.
+     *
+     * @param dropEvent The {@link DragEvent} representing the drop event.
+     * @return Whether or not the drag event was handled.
+     */
     private boolean onDrop(DragEvent dropEvent) {
+        boolean res;
+        if (didOccurInTabStrip(dropEvent.getY())) {
+            res = onDropInStrip(dropEvent);
+        } else {
+            DragDropMetricUtils.recordDragDropResult(
+                    DragDropResult.IGNORED_TOOLBAR,
+                    mIsAppInDesktopWindowSupplier.get(),
+                    isTabGroupDrop(),
+                    isMultiTabDrop());
+            res = false;
+        }
+        if (res) DragDropGlobalState.notifyChromeHandledDrop(dropEvent);
+        return res;
+    }
+
+    private boolean onDropInStrip(DragEvent dropEvent) {
         StripLayoutHelper helper = mStripLayoutHelperSupplier.get();
         helper.stopReorderMode(false);
         if (isDragSource()) {
@@ -446,22 +470,27 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         recordTabRemovedFromGroupUserAction();
 
         // Move tab to another window.
+        int destWindowId = mMultiInstanceManager.getCurrentInstanceId();
         if (!tabDraggedBelongToCurrentModel) {
             // Reject cross-model drops if incognito is opened as a new window.
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) return false;
 
-            mMultiInstanceManager.moveTabsToWindow(
-                    getActivity(),
+            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+                    destWindowId,
                     Collections.singletonList(tabBeingDragged),
-                    getTabModelSelector().getModel(tabBeingDragged.isIncognito()).getCount());
+                    getTabModelSelector().getModel(tabBeingDragged.isIncognito()).getCount(),
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
             showDroppedDifferentModelToast(getActivity());
         } else {
             // Reparent tab at drop index and merge to group on destination if needed.
             int tabIndex =
                     helper.getTabIndexForTabDrop(
                             dropEvent.getX() * mPxToDp, tabBeingDragged.getIsPinned());
-            mMultiInstanceManager.moveTabsToWindow(
-                    getActivity(), Collections.singletonList(tabBeingDragged), tabIndex);
+            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+                    destWindowId,
+                    Collections.singletonList(tabBeingDragged),
+                    tabIndex,
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
             helper.maybeMergeToGroupOnDrop(
                     Collections.singletonList(tabBeingDragged.getId()),
                     tabIndex,
@@ -475,7 +504,6 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         return true;
     }
 
-    // TODO(crbug.com/437417213): Handle pinned tab.
     private boolean handleMultiTabDrop(DragEvent dropEvent, StripLayoutHelper helper) {
         DragDropGlobalState globalState = getDragDropGlobalState(dropEvent);
         assertNonNull(globalState);
@@ -486,23 +514,29 @@ public class TabStripDragHandler extends TabDragHandlerBase {
         boolean tabsDraggedBelongToCurrentModel =
                 doesBelongToCurrentModel(tabsBeingDragged.get(0).isIncognitoBranded());
         // Move tabs to another window.
+        int destWindowId = mMultiInstanceManager.getCurrentInstanceId();
         if (!tabsDraggedBelongToCurrentModel) {
             // Reject cross-model drops if incognito is opened as a new window.
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) return false;
 
-            mMultiInstanceManager.moveTabsToWindow(
-                    getActivity(),
+            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+                    destWindowId,
                     tabsBeingDragged,
                     getTabModelSelector()
                             .getModel(tabsBeingDragged.get(0).isIncognito())
-                            .getCount());
+                            .getCount(),
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
             showDroppedDifferentModelToast(getActivity());
         } else {
             // Reparent tabs at drop index.
             int tabIndex =
                     helper.getTabIndexForTabDrop(
                             dropEvent.getX() * mPxToDp, isDraggingPinnedItem());
-            mMultiInstanceManager.moveTabsToWindow(getActivity(), tabsBeingDragged, tabIndex);
+            mMultiInstanceManager.moveTabsToWindowByIdChecked(
+                    destWindowId,
+                    tabsBeingDragged,
+                    tabIndex,
+                    /* destGroupTabId= */ TabList.INVALID_TAB_INDEX);
             List<Integer> tabsBeingDraggedIds = new ArrayList<>();
             for (Tab tab : tabsBeingDragged) {
                 tabsBeingDraggedIds.add(tab.getId());
@@ -534,12 +568,13 @@ public class TabStripDragHandler extends TabDragHandlerBase {
                 doesBelongToCurrentModel(tabGroupMetadata.isIncognito);
 
         // Move tab group to another window.
+        int windowId = mMultiInstanceManager.getCurrentInstanceId();
         if (!tabGroupDraggedBelongToCurrentModel) {
             // Reject cross-model drops if incognito is opened as a new window.
             if (IncognitoUtils.shouldOpenIncognitoAsWindow()) return false;
 
-            mMultiInstanceManager.moveTabGroupToWindow(
-                    getActivity(),
+            mMultiInstanceManager.moveTabGroupToWindowByIdChecked(
+                    windowId,
                     tabGroupMetadata,
                     getTabModelSelector().getModel(tabGroupMetadata.isIncognito).getCount());
             showDroppedDifferentModelToast(getActivity());
@@ -547,7 +582,8 @@ public class TabStripDragHandler extends TabDragHandlerBase {
             // Reparent tab group at drop index.
             int tabIndex =
                     helper.getTabIndexForTabDrop(dropEvent.getX() * mPxToDp, /* isPinned= */ false);
-            mMultiInstanceManager.moveTabGroupToWindow(getActivity(), tabGroupMetadata, tabIndex);
+            mMultiInstanceManager.moveTabGroupToWindowByIdChecked(
+                    windowId, tabGroupMetadata, tabIndex);
         }
         DragDropMetricUtils.recordDragDropType(
                 DragDropType.TAB_STRIP_TO_TAB_STRIP,

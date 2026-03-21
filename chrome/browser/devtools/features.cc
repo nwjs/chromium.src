@@ -122,7 +122,7 @@ const base::FeatureParam<DevToolsFreestylerUserTier>
         &devtools_freestyler_user_tier_options};
 
 // Whether the DevTools AI Code Generation is enabled.
-BASE_FEATURE(kDevToolsAiCodeGeneration, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDevToolsAiCodeGeneration, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kDevToolsAiCodeGenerationModelId{
     &kDevToolsAiCodeGeneration, "aida_model_id",
     /*default_value=*/""};
@@ -132,6 +132,20 @@ const base::FeatureParam<double> kDevToolsAiCodeGenerationTemperature{
 const base::FeatureParam<DevToolsFreestylerUserTier>
     kDevToolsAiCodeGenerationUserTier{
         &kDevToolsAiCodeGeneration, "user_tier",
+        /*default_value=*/DevToolsFreestylerUserTier::kPublic,
+        &devtools_freestyler_user_tier_options};
+
+// Whether the DevTools AI Code Completion for Styles pane is enabled.
+BASE_FEATURE(kDevToolsAiCodeCompletionStyles, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<std::string> kDevToolsAiCodeCompletionStylesModelId{
+    &kDevToolsAiCodeCompletionStyles, "aida_model_id",
+    /*default_value=*/""};
+const base::FeatureParam<double> kDevToolsAiCodeCompletionStylesTemperature{
+    &kDevToolsAiCodeCompletionStyles, "aida_temperature",
+    /*default_value=*/-1};
+const base::FeatureParam<DevToolsFreestylerUserTier>
+    kDevToolsAiCodeCompletionStylesUserTier{
+        &kDevToolsAiCodeCompletionStyles, "user_tier",
         /*default_value=*/DevToolsFreestylerUserTier::kPublic,
         &devtools_freestyler_user_tier_options};
 
@@ -181,17 +195,6 @@ const base::FeatureParam<bool> kDevToolsGdpProfilesStarterBadgeEnabled{
     &kDevToolsGdpProfiles, "starter_badge_enabled",
     /*default_value=*/true};
 
-BASE_FEATURE(kDevToolsIndividualRequestThrottling,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Whether the AI Prompt API (https://developer.chrome.com/docs/ai/prompt-api)
-// is available in DevTools.
-BASE_FEATURE(kDevToolsAiPromptApi, base::FEATURE_DISABLED_BY_DEFAULT);
-// Whether the Prompt API is allowed to run on devices without a dedicated GPU.
-const base::FeatureParam<bool> kDevToolsAiPromptApiAllowWithoutGpu{
-    &kDevToolsAiPromptApi, "allow_without_gpu",
-    /*default_value=*/false};
-
 // Whether Network panel should use Durable Messages to preserve network bodies.
 BASE_FEATURE(kDevToolsEnableDurableMessages, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -202,10 +205,10 @@ BASE_FEATURE(kDevToolsAcceptDebuggingConnections,
 // Whether the policy dialog should be shown instead of greying out the
 // Developer Tools toggle.
 // TODO(crbug.com/442892562): Remove this flag once the feature is launched.
-BASE_FEATURE(kDevToolsShowPolicyDialog, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDevToolsShowPolicyDialog, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDevToolsAiAssistanceContextSelectionAgent,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether Console Insights Teasers are enabled.
 BASE_FEATURE(kDevToolsConsoleInsightsTeasers,
@@ -224,4 +227,7 @@ BASE_FEATURE(kDevToolsProtocolMonitor, base::FEATURE_DISABLED_BY_DEFAULT);
 // Whether to display the Gemini rebranding for AI Assistance.
 BASE_FEATURE(kDevToolsGeminiRebranding, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kDevToolsAiOriginTrialsApis, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDevToolsUseGcaApi, base::FEATURE_DISABLED_BY_DEFAULT);
 }  // namespace features

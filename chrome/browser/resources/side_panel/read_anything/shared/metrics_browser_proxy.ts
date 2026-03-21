@@ -3,17 +3,18 @@
 // found in the LICENSE file.
 
 enum UmaName {
-  NEW_PAGE = 'Accessibility.ReadAnything.NewPage',
-  LANGUAGE = 'Accessibility.ReadAnything.ReadAloud.Language',
-  VOICE = 'Accessibility.ReadAnything.ReadAloud.Voice',
-  TEXT_SETTINGS_CHANGE = 'Accessibility.ReadAnything.SettingsChange',
   HIGHLIGHT_GRANULARITY =
       'Accessibility.ReadAnything.ReadAloud.HighlightGranularity',
-  VOICE_SPEED = 'Accessibility.ReadAnything.ReadAloud.VoiceSpeed',
+  LANGUAGE = 'Accessibility.ReadAnything.ReadAloud.Language',
+  LINE_FOCUS_TOGGLE = 'Accessibility.ReadAnything.LineFocusKeyboardToggle',
+  NEW_PAGE = 'Accessibility.ReadAnything.NewPage',
+  SPEECH_ERROR = 'Accessibility.ReadAnything.SpeechError',
+  SPEECH_PLAYBACK = 'Accessibility.ReadAnything.SpeechPlaybackSession',
   SPEECH_SETTINGS_CHANGE =
       'Accessibility.ReadAnything.ReadAloud.SettingsChange',
-  SPEECH_PLAYBACK = 'Accessibility.ReadAnything.SpeechPlaybackSession',
-  SPEECH_ERROR = 'Accessibility.ReadAnything.SpeechError',
+  TEXT_SETTINGS_CHANGE = 'Accessibility.ReadAnything.SettingsChange',
+  VOICE = 'Accessibility.ReadAnything.ReadAloud.Voice',
+  VOICE_SPEED = 'Accessibility.ReadAnything.ReadAloud.VoiceSpeed',
 }
 
 // Enum for logging when we play speech on a page.
@@ -129,6 +130,7 @@ export interface MetricsBrowserProxy {
   recordHighlightGranularity(highlight: number): void;
   recordLanguage(lang: string): void;
   recordLineFocusSession(): void;
+  recordLineFocusToggled(enabled: boolean): void;
   recordNewPage(): void;
   recordNewPageWithSpeech(): void;
   recordSpeechError(error: ReadAnythingSpeechError): void;
@@ -140,6 +142,7 @@ export interface MetricsBrowserProxy {
   recordVoiceSpeed(index: number): void;
   recordVoiceType(voiceType: ReadAnythingVoiceType): void;
   recordExtensionState(): void;
+  recordCount(umaName: string, count: number): void;
 }
 
 export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
@@ -153,6 +156,10 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
 
   recordLineFocusSession() {
     chrome.readingMode.logLineFocusSession();
+  }
+
+  recordLineFocusToggled(enabled: boolean): void {
+    chrome.metricsPrivate.recordBoolean(UmaName.LINE_FOCUS_TOGGLE, enabled);
   }
 
   recordSpeechStopSource(source: number) {
@@ -218,6 +225,10 @@ export class MetricsBrowserProxyImpl implements MetricsBrowserProxy {
 
   recordExtensionState(): void {
     chrome.readingMode.logExtensionState();
+  }
+
+  recordCount(umaName: string, count: number) {
+    chrome.metricsPrivate.recordCount(umaName, count);
   }
 
   static getInstance(): MetricsBrowserProxy {

@@ -73,7 +73,6 @@
 #include "chrome/browser/ui/webui/ash/login/quick_start_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/user_creation_screen_handler.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/ash/scoped_test_system_nss_key_slot_mixin.h"
@@ -1778,7 +1777,7 @@ class WebviewClientCertsLoginTest : public WebviewClientCertsLoginTestBase {
 // the sign-in screen which is not the sign-in frame. In this case, the EULA
 // webview is used.
 // TODO(pmarko): This is DISABLED because the eula UI it depends on has been
-// deprecated and removed. https://crbug.com/849710.
+// deprecated and removed. https://crbug.com/41392843.
 IN_PROC_BROWSER_TEST_F(WebviewClientCertsLoginTest,
                        DISABLED_ClientCertRequestedInOtherWebView) {
   ASSERT_NO_FATAL_FAILURE(SetUpClientCertsInSystemSlot({kClientCert1Name}));

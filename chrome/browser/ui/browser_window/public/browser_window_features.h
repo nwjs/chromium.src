@@ -12,17 +12,14 @@
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 
-#if BUILDFLAG(ENABLE_GLIC)
 namespace glic {
 class GlicButtonController;
 class GlicIphController;
-class GlicLegacySidePanelCoordinator;
 }  // namespace glic
 
 namespace tabs {
 class GlicActorNudgeController;
 }  // namespace tabs
-#endif
 
 class ActorUiWindowController;
 class ContextHighlightWindowFeature;
@@ -43,6 +40,7 @@ class BrowserSyncedWindowDelegate;
 class BrowserUserEducationInterface;
 class BrowserView;
 class BrowserWindowInterface;
+class CallToActionLock;
 class ChromeLabsCoordinator;
 class ColorProviderBrowserHelper;
 class LocationBar;
@@ -92,6 +90,7 @@ class ToastController;
 class ToastService;
 class TranslateBubbleController;
 class UpgradeNotificationController;
+class VerticalTabIphController;
 class WebUIBrowserExclusiveAccessContext;
 class WebUIBrowserSidePanelUI;
 class ZoomBubbleCoordinator;
@@ -130,6 +129,10 @@ class DownloadToolbarUIController;
 class OverscrollPrefManager;
 #endif  // defined(USE_AURA)
 
+#if BUILDFLAG(ENABLE_EXTENSIONS) && (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC))
+class DefaultSearchExtensionControlledController;
+#endif
+
 namespace extensions {
 class BrowserExtensionWindowController;
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -140,7 +143,6 @@ class Mv2DisabledDialogController;
 }  // namespace extensions
 
 namespace tabs {
-class TabDeclutterController;
 class VerticalTabStripStateController;
 }  // namespace tabs
 
@@ -251,7 +253,7 @@ class BrowserWindowFeatures {
 
   BrowserActions* browser_actions() { return browser_actions_.get(); }
 
-  chrome::BrowserCommandController* browser_command_controller() {
+  chrome::BrowserCommandController* browser_command_controller() const {
     return browser_command_controller_.get();
   }
 
@@ -262,6 +264,10 @@ class BrowserWindowFeatures {
 
   ChromeLabsCoordinator* chrome_labs_coordinator() {
     return chrome_labs_coordinator_.get();
+  }
+
+  ImmersiveModeController* immersive_mode_controller() {
+    return immersive_mode_controller_.get();
   }
 
   media_router::CastBrowserController* cast_browser_controller() {
@@ -284,15 +290,9 @@ class BrowserWindowFeatures {
     return extension_installed_watcher_.get();
   }
 
-#if BUILDFLAG(ENABLE_GLIC)
-  glic::GlicLegacySidePanelCoordinator* glic_side_panel_coordinator() {
-    return glic_side_panel_coordinator_.get();
-  }
-
   glic::GlicIphController* glic_iph_controller() {
     return glic_iph_controller_.get();
   }
-#endif
 
   PinnedToolbarActionsController* pinned_toolbar_actions_controller() {
     return pinned_toolbar_actions_controller_.get();
@@ -321,10 +321,6 @@ class BrowserWindowFeatures {
 
   lens::LensRegionSearchController* lens_region_search_controller() {
     return lens_region_search_controller_.get();
-  }
-
-  tabs::TabDeclutterController* tab_declutter_controller() {
-    return tab_declutter_controller_.get();
   }
 
   tabs::GlicNudgeController* glic_nudge_controller() {
@@ -518,8 +514,6 @@ class BrowserWindowFeatures {
   GetUserDataFactoryForTesting();
 
  private:
-  class ExtensionKeybindingRegistryDelegateTabStrip;
-
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
   GetUserDataFactory();
 
@@ -575,8 +569,6 @@ class BrowserWindowFeatures {
   std::unique_ptr<extensions::Mv2DisabledDialogController>
       mv2_disabled_dialog_controller_;
 
-  std::unique_ptr<tabs::TabDeclutterController> tab_declutter_controller_;
-
   std::unique_ptr<tabs::VerticalTabStripStateController>
       vertical_tab_strip_state_controller_;
 
@@ -627,8 +619,6 @@ class BrowserWindowFeatures {
 
   // The class that registers for keyboard shortcuts for extension commands,
   // and its delegate.
-  std::unique_ptr<ExtensionKeybindingRegistryDelegateTabStrip>
-      extension_keybinding_delegate_;
   std::unique_ptr<ExtensionKeybindingRegistryViews>
       extension_keybinding_registry_;
 
@@ -643,6 +633,8 @@ class BrowserWindowFeatures {
   std::unique_ptr<ActorUiWindowController> actor_ui_window_controller_;
 
   std::unique_ptr<ActorBorderViewController> actor_border_view_controller_;
+
+  std::unique_ptr<CallToActionLock> call_to_action_lock_;
 
   std::unique_ptr<BrowserSelectFileDialogController>
       browser_select_file_dialog_controller_;
@@ -666,15 +658,11 @@ class BrowserWindowFeatures {
 
   std::unique_ptr<tabs::GlicNudgeController> glic_nudge_controller_;
 
-#if BUILDFLAG(ENABLE_GLIC)
   std::unique_ptr<tabs::GlicActorNudgeController> glic_actor_nudge_controller_;
   std::unique_ptr<ActorTaskListBubbleController>
       actor_task_list_bubble_controller_;
   std::unique_ptr<glic::GlicButtonController> glic_button_controller_;
   std::unique_ptr<glic::GlicIphController> glic_iph_controller_;
-  std::unique_ptr<glic::GlicLegacySidePanelCoordinator>
-      glic_side_panel_coordinator_;
-#endif
 
   std::unique_ptr<contextual_tasks::ActiveTaskContextProvider>
       contextual_tasks_active_task_context_provider_;
@@ -767,7 +755,12 @@ class BrowserWindowFeatures {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   std::unique_ptr<extensions::ExtensionBrowserWindowHelper>
       extension_browser_window_helper_;
-#endif
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+  std::unique_ptr<DefaultSearchExtensionControlledController>
+      default_search_extension_controlled_controller_;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // Listens for browser-related breadcrumb events to be added to crash reports.
   std::unique_ptr<BreadcrumbManagerBrowserAgent>
@@ -780,6 +773,8 @@ class BrowserWindowFeatures {
       split_tab_highlight_controller_;
 
   std::unique_ptr<SplitViewIphController> split_view_iph_controller_;
+
+  std::unique_ptr<VerticalTabIphController> vertical_tab_iph_controller_;
 
   std::unique_ptr<RecentActivityBubbleCoordinator>
       recent_activity_bubble_coordinator_;

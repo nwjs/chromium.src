@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Opname gestopt. Kan Game Dashboard niet gebruiken in de tabletmodus.</translation>
 <translation id="1024364763893396229">Je <ph name="NAME" /> opslaan</translation>
 <translation id="1032891413405719768">Batterij van stylus bijna leeg</translation>
-<translation id="1036073649888683237">Ga naar Instellingen om meldingen te beheren</translation>
 <translation id="1036348656032585052">Uitzetten</translation>
 <translation id="1037492556044956303"><ph name="DEVICE_NAME" /> toegevoegd</translation>
 <translation id="1038106730571050514">Suggesties bekijken</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">App installeren</translation>
 <translation id="2482878487686419369">Meldingen</translation>
 <translation id="2484513351006226581">Druk op <ph name="KEYBOARD_SHORTCUT" /> om van toetsenbordindeling te wisselen.</translation>
+<translation id="2485422356828889247">Installatie ongedaan maken</translation>
 <translation id="2486214324139475545">Voorbeeld van <ph name="DESK_NAME" />. Actief bureau.</translation>
 <translation id="2486405091093637109"><ph name="DISPLAY_NAME" /> is gewijzigd in een resolutie van <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Zonder bevestiging worden de vorige instellingen hersteld over <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Deelnemen</translation>

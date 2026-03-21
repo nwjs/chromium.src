@@ -42,7 +42,7 @@ each histogram. Maybe add here or add a new performance controls one
 </histogram>
 
 <histogram name="PerformanceControls.BatterySaver.SettingsChangeMode"
-    enum="BatterySaverModeState" expires_after="2026-05-03">
+    enum="BatterySaverModeState" expires_after="2026-08-23">
   <owner>charlesmeng@chromium.org</owner>
   <owner>chrome-performance-ui-sea@google.com</owner>
   <summary>
@@ -108,7 +108,7 @@ each histogram. Maybe add here or add a new performance controls one
 
 <histogram
     name="PerformanceControls.Intervention.BackgroundTab.{ResourceType}.HealthStatusChange.{Time}"
-    enum="InterventionHealthChange" expires_after="2026-06-14">
+    enum="InterventionHealthChange" expires_after="2026-08-16">
   <owner>stluong@chromium.org</owner>
   <owner>estalin@chromium.org</owner>
   <owner>chrome-performance-ui-sea@google.com</owner>
@@ -218,7 +218,7 @@ each histogram. Maybe add here or add a new performance controls one
 </histogram>
 
 <histogram name="PerformanceControls.Intervention.Dialog.TabsAfterRemovalCount"
-    units="tabs" expires_after="2026-03-01">
+    units="tabs" expires_after="2026-09-08">
   <owner>stluong@chromium.org</owner>
   <owner>estalin@chromium.org</owner>
   <owner>chrome-performance-ui-sea@google.com</owner>
@@ -257,7 +257,7 @@ each histogram. Maybe add here or add a new performance controls one
 </histogram>
 
 <histogram name="PerformanceControls.Intervention.SettingsChangeNotification"
-    enum="BooleanEnabled" expires_after="2026-03-08">
+    enum="BooleanEnabled" expires_after="2026-09-08">
   <owner>stluong@chromium.org</owner>
   <owner>estalin@chromium.org</owner>
   <owner>chrome-performance-ui-sea@google.com</owner>
@@ -270,7 +270,7 @@ each histogram. Maybe add here or add a new performance controls one
 </histogram>
 
 <histogram name="PerformanceControls.Intervention.SuggestedTabShownCount"
-    units="count" expires_after="2026-03-01">
+    units="count" expires_after="2026-09-08">
   <owner>stluong@chromium.org</owner>
   <owner>estalin@chromium.org</owner>
   <owner>chrome-performance-ui-sea@google.com</owner>

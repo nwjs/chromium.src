@@ -21,7 +21,7 @@ import '../internal/icons.html.js';
 
 // </if>
 
-import type {CrMenuSelector} from 'chrome://resources/cr_elements/cr_menu_selector/cr_menu_selector.js';
+import type {CrMenuSelectorElement} from 'chrome://resources/cr_elements/cr_menu_selector/cr_menu_selector.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -38,7 +38,7 @@ import {getTemplate} from './settings_menu.html.js';
 export interface SettingsMenuElement {
   $: {
     autofill: HTMLLinkElement,
-    menu: CrMenuSelector,
+    menu: CrMenuSelectorElement,
     people: HTMLLinkElement,
     yourSavedInfo: HTMLLinkElement,
   };
@@ -146,7 +146,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
     this.setSelectedPath_(path);
 
     const route = Router.getInstance().getRouteForPath(path);
-    assert(route, 'settings-menu has an entry with an invalid route.');
+    assert(route, `settings-menu encountered invalid path '${path}'`);
     Router.getInstance().navigateTo(
         route, /* dynamicParams */ undefined, /* removeSearch */ true);
   }

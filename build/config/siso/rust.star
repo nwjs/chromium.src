@@ -204,10 +204,8 @@ def __step_config(ctx, step_config):
     ] + rust_toolchain
     rust_indirect_inputs = {
         "includes": [
-            "*.h",
             "*.o",
             "*.rlib",
-            "*.rs",
             "*.so",
         ],
     }
@@ -220,7 +218,6 @@ def __step_config(ctx, step_config):
             "handler": "rust_link_handler",
             "deps": "none",  # disable gcc scandeps
             "remote": remote_link,
-            "canonicalize_dir": True,
             "timeout": "2m",
             "platform_ref": platform_ref,
         },
@@ -232,7 +229,6 @@ def __step_config(ctx, step_config):
             "handler": "rust_link_handler",
             "deps": "none",  # disable gcc scandeps
             "remote": remote_link,
-            "canonicalize_dir": True,
             "timeout": "2m",
             "platform_ref": platform_ref,
         },
@@ -243,7 +239,6 @@ def __step_config(ctx, step_config):
             "indirect_inputs": rust_indirect_inputs,
             "handler": "rust_link_handler",
             "deps": "none",  # disable gcc scandeps
-            "canonicalize_dir": True,
             "remote": remote_link,
             "timeout": "2m",
             "platform_ref": platform_ref,
@@ -255,7 +250,6 @@ def __step_config(ctx, step_config):
             "indirect_inputs": rust_indirect_inputs,
             "deps": "none",  # disable gcc scandeps
             "remote": remote,
-            "canonicalize_dir": True,
             "timeout": "2m",
             "platform_ref": platform_ref,
         },
@@ -266,7 +260,6 @@ def __step_config(ctx, step_config):
             "indirect_inputs": rust_indirect_inputs,
             "deps": "none",  # disable gcc scandeps
             "remote": remote,
-            "canonicalize_dir": True,
             "timeout": "2m",
             "platform_ref": platform_ref,
         },
@@ -279,7 +272,6 @@ def __step_config(ctx, step_config):
             ],
             "handler": "rust_build_handler",
             "remote": remote and config.get(ctx, "cog"),
-            "canonicalize_dir": True,
             "timeout": "2m",
         },
         {
@@ -290,8 +282,18 @@ def __step_config(ctx, step_config):
                 "third_party/rust-toolchain/lib/rustlib:rlib",
             ],
             "remote": remote and config.get(ctx, "cog"),
-            "canonicalize_dir": True,
             "timeout": "2m",
+        },
+        {
+            "name": "rust/clippy",
+            "command_prefix": "python3 ../../build/rust/gni_impl/clippy_wrapper.py",
+            "inputs": rust_inputs + [
+                "third_party/rust-toolchain/bin/clippy-driver",
+                "build/rust/gni_impl/clippy_wrapper.py",
+            ],
+            "indirect_inputs": rust_indirect_inputs,
+            # TODO: Enable remote execution after enablling clippy by default.
+            "remote": False,
         },
         {
             # rust/bindgen fails remotely when *.d does not exist.

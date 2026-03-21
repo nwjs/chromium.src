@@ -1,0 +1,71 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.tab_bottom_sheet;
+
+import static org.chromium.build.NullUtil.assumeNonNull;
+
+import org.jni_zero.CalledByNative;
+import org.jni_zero.NativeMethods;
+
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetManager.NativeInterfaceDelegate;
+
+/** Interface for native methods to interact with the tab bottom sheet. */
+@NullMarked
+public class TabBottomSheetNativeInterface implements NativeInterfaceDelegate {
+
+    private final long mNativePtr;
+    private final Tab mTab;
+
+    /** Constructor. */
+    @CalledByNative
+    private TabBottomSheetNativeInterface(long nativePtr, Tab tab) {
+        mNativePtr = nativePtr;
+        mTab = tab;
+    }
+
+    @CalledByNative
+    private void destroy() {
+        TabBottomSheetManager tabBottomSheetManager = getTabBottomSheetManager(mTab);
+        if (tabBottomSheetManager != null) {
+            tabBottomSheetManager.detachNativeInterfaceDelegate(this);
+        }
+    }
+
+    // Native calls for glic.
+    @CalledByNative
+    public boolean show(CoBrowseViews coBrowseViews) {
+        TabBottomSheetManager tabBottomSheetManager = getTabBottomSheetManager(mTab);
+        if (tabBottomSheetManager != null && coBrowseViews != null) {
+            return tabBottomSheetManager.tryToShowBottomSheet(this, coBrowseViews);
+        }
+        return false;
+    }
+
+    @CalledByNative
+    public void close() {
+        TabBottomSheetManager tabBottomSheetManager = getTabBottomSheetManager(mTab);
+        if (tabBottomSheetManager != null) {
+            tabBottomSheetManager.tryToCloseBottomSheet();
+        }
+    }
+
+    private @Nullable TabBottomSheetManager getTabBottomSheetManager(Tab tab) {
+        return TabBottomSheetUtils.getManagerFromWindow(assumeNonNull(tab.getWindowAndroid()));
+    }
+
+    // Delegate methods.
+    @Override
+    public void onBottomSheetClosed() {
+        TabBottomSheetNativeInterfaceJni.get().onClose(mNativePtr);
+    }
+
+    @NativeMethods
+    interface Natives {
+        void onClose(long nativeGlicSidePanelCoordinatorAndroid);
+    }
+}

@@ -176,23 +176,18 @@ CompositorGpuThread::GetSharedContextState() {
 #else
       /*vulkan_context_provider=*/nullptr,
 #endif
-      /*metal_context_provider=*/nullptr,
 #if BUILDFLAG(SKIA_USE_DAWN)
       dawn_context_provider_.get(),
 #else
       /*dawn_context_provider=*/nullptr,
 #endif
-      /*peak_memory_monitor=*/
       gpu_channel_manager_->peak_memory_monitor(),
       /*direct_rendering_display_compositor_enabled=*/true,
       /*created_on_compositor_gpu_thread=*/true);
 
-  auto gles2_feature_info = base::MakeRefCounted<gpu::gles2::FeatureInfo>(
-      workarounds, gpu_feature_info);
-
   // Initialize GL.
-  if (!shared_context_state->InitializeGL(gpu_preferences,
-                                          std::move(gles2_feature_info))) {
+  if (!shared_context_state->InitializeGL(gpu_preferences, workarounds,
+                                          gpu_feature_info)) {
     LOG(ERROR) << "Failed to initialize GL for DrDC SharedContextState";
     return nullptr;
   }

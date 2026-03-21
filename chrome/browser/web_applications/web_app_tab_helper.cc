@@ -33,10 +33,13 @@
 #include "components/page_load_metrics/browser/metrics_web_contents_observer.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/webapps/browser/launch_queue/launch_queue.h"
+#include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/site_instance.h"
+#include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/common/features.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom-shared.h"
@@ -46,6 +49,29 @@
 #endif
 
 namespace web_app {
+
+namespace {
+
+std::optional<webapps::AppId> FindTabAppIdForUrlInScope(
+    WebAppRegistrar& registrar,
+    const GURL& url) {
+  // 1. Check for IWAs or Isolated Sub-Apps, strictly excluding scope
+  // extensions.
+  std::optional<webapps::AppId> app_id = registrar.FindBestAppWithUrlInScope(
+      url, WebAppFilter::IsIsolatedApp() | WebAppFilter::IsIsolatedSubApp(),
+      {.exclude_scope_extensions = true});
+  if (app_id) {
+    return app_id;
+  }
+  // 2. Fallback to regular apps in Chrome, excluding IWAs, allowing scope
+  // extensions.
+  return registrar.FindBestAppWithUrlInScope(
+      url,
+      WebAppFilter::InstalledInChrome() &
+          !(WebAppFilter::IsIsolatedApp() | WebAppFilter::IsIsolatedSubApp()));
+}
+
+}  // namespace
 
 // static
 void WebAppTabHelper::Create(tabs::TabInterface* tab,
@@ -137,6 +163,7 @@ void WebAppTabHelper::SetState(std::optional<webapps::AppId> app_id,
              *app_id, WebAppFilter::IsAppSurfaceableToUser()) ||
          provider_->registrar_unsafe().IsUninstalling(*app_id));
 
+
   if (app_id_ == app_id && window_app_id_ == window_app_id) {
     // This can be triggered for navigations that are happening in the same app
     // window, like if a navigation is captured in an open window causing a page
@@ -148,7 +175,15 @@ void WebAppTabHelper::SetState(std::optional<webapps::AppId> app_id,
 
   std::optional<webapps::AppId> previous_app_id = std::move(app_id_);
   app_id_ = std::move(app_id);
+
+  std::optional<webapps::AppId> previous_window_app_id =
+      std::move(window_app_id_);
   window_app_id_ = std::move(window_app_id);
+
+  if (base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi) &&
+      (previous_window_app_id != window_app_id_)) {
+    MaybeShowBlockedMigrationInfoBar();
+  }
 
   if (previous_app_id != app_id_) {
     OnAssociatedAppChanged(previous_app_id, app_id_);
@@ -188,8 +223,7 @@ void WebAppTabHelper::ReadyToCommitNavigation(
     content::NavigationHandle* navigation_handle) {
   if (navigation_handle->IsInPrimaryMainFrame()) {
     const GURL& url = navigation_handle->GetURL();
-    SetAppId(provider_->registrar_unsafe().FindBestAppWithUrlInScope(
-        url, web_app::WebAppFilter::InstalledInChrome()));
+    SetAppId(FindTabAppIdForUrlInScope(provider_->registrar_unsafe(), url));
   }
 
   // If navigating to a Web App (including navigation in sub frames), let
@@ -240,9 +274,10 @@ WebAppTabHelper::WebAppTabHelper(tabs::TabInterface* tab,
       tab->GetBrowserWindowInterface()->GetProfile());
   CHECK(provider_);
   observation_.Observe(&provider_->install_manager());
-  SetState(provider_->registrar_unsafe().FindBestAppWithUrlInScope(
-               contents->GetLastCommittedURL(),
-               web_app::WebAppFilter::InstalledInChrome()),
+  registrar_observation_.Observe(&provider_->registrar_unsafe());
+
+  SetState(FindTabAppIdForUrlInScope(provider_->registrar_unsafe(),
+                                     contents->GetLastCommittedURL()),
            /*window_app_id=*/std::nullopt);
 }
 
@@ -279,10 +314,9 @@ bool WebAppTabHelper::CanBeUsedForFocusExisting() const {
 void WebAppTabHelper::OnWebAppInstalled(
     const webapps::AppId& installed_app_id) {
   // Check if current web_contents url is in scope for the newly installed app.
-  std::optional<webapps::AppId> app_id =
-      provider_->registrar_unsafe().FindBestAppWithUrlInScope(
-          web_contents()->GetLastCommittedURL(),
-          web_app::WebAppFilter::InstalledInChrome());
+  std::optional<webapps::AppId> app_id = FindTabAppIdForUrlInScope(
+      provider_->registrar_unsafe(), web_contents()->GetLastCommittedURL());
+
   if (app_id == installed_app_id) {
     SetAppId(app_id);
   }
@@ -298,6 +332,18 @@ void WebAppTabHelper::OnWebAppWillBeUninstalled(
 void WebAppTabHelper::OnWebAppInstallManagerDestroyed() {
   observation_.Reset();
   SetAppId(std::nullopt);
+}
+
+void WebAppTabHelper::OnWebAppPendingMigrationInfoChanged(
+    const webapps::AppId& app_id,
+    bool has_pending_migration) {
+  if (app_id == window_app_id_) {
+    MaybeShowBlockedMigrationInfoBar();
+  }
+}
+
+void WebAppTabHelper::OnAppRegistrarDestroyed() {
+  registrar_observation_.Reset();
 }
 
 void WebAppTabHelper::OnAssociatedAppChanged(
@@ -421,9 +467,10 @@ void WebAppTabHelper::MaybeSchedulePreinstallUpdate() {
   if (in_scope_app == window_app_id()) {
     return;
   }
-  provider_->scheduler().FetchManifestAndUpdate(app_for_updating->install_url,
-                                                app_for_updating->manifest_id,
-                                                base::DoNothing());
+  provider_->scheduler().FetchManifestAndUpdate(
+      app_for_updating->install_url, app_for_updating->manifest_id,
+      /*previous_time_for_silent_icon_update=*/std::nullopt,
+      /*force_trusted_silent_update=*/true, base::DoNothing());
 }
 
 void WebAppTabHelper::MaybeRecordManifestAppliedUseCounter() {
@@ -448,5 +495,26 @@ void WebAppTabHelper::OnManifestSpecifiedOnPrimaryPage(
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(WebAppTabHelper);
+
+void WebAppTabHelper::MaybeShowBlockedMigrationInfoBar() {
+  bool should_show = false;
+  if (window_app_id_.has_value()) {
+    const WebApp* app =
+        provider_->registrar_unsafe().GetAppById(window_app_id_.value());
+    if (app && app->pending_migration_info().has_value() &&
+        provider_->registrar_unsafe().IsInstalledByPolicy(
+            window_app_id_.value())) {
+      should_show = true;
+    }
+  }
+
+  if (should_show) {
+    provider_->ui_manager().MaybeCreateWebAppBlockedMigrationInfoBar(
+        web_contents());
+  } else {
+    provider_->ui_manager().MaybeRemoveWebAppBlockedMigrationInfoBar(
+        web_contents());
+  }
+}
 
 }  // namespace web_app

@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU FYI Mac arm64 Builder",
-              "project": "chromium-m146"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -31,7 +31,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Mac FYI Retina Release (Apple M2)",
-              "project": "chromium-m146"
+              "project": "chromium"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -52,7 +52,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU FYI Mac arm64 Builder",
-                "project": "chromium-m146"
+                "project": "chromium"
               },
               "run_tests_serially": true
             }
@@ -63,12 +63,16 @@
         {
           "bucket": "ci",
           "builder": "Mac FYI Retina Release (Apple M2)",
-          "project": "chromium-m146"
+          "project": "chromium"
         }
       ],
       "mirroring_builder_group_and_names": [
         {
           "builder": "gpu-fyi-cq-mac-arm64",
+          "group": "tryserver.chromium.mac"
+        },
+        {
+          "builder": "gpu-fyi-try-mac-arm64-apple-m2-retina-rel",
           "group": "tryserver.chromium.mac"
         }
       ],
@@ -84,11 +88,11 @@
   },
   "builder_group": "chromium.gpu.fyi",
   "gardener_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ],
   "perf_dashboard_machine_group": "ChromiumGPUFYI",
   "recipe": "chromium",
   "sheriff_rotations": [
-    "chrome_browser_release"
+    "chromium.gpu"
   ]
 }

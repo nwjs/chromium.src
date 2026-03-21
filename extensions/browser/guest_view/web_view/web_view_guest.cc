@@ -50,6 +50,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/storage_partition.h"
@@ -696,7 +697,6 @@ void WebViewGuest::ClearDataInternal(base::Time remove_since,
   DCHECK(partition);
   partition->ClearData(
       storage_partition_removal_mask,
-      content::StoragePartition::QUOTA_MANAGED_STORAGE_MASK_ALL,
       /*filter_builder=*/nullptr,
       content::StoragePartition::StorageKeyPolicyMatcherFunction(),
       std::move(cookie_delete_filter), perform_cleanup, remove_since,
@@ -828,16 +828,9 @@ bool WebViewGuest::HandleKeyboardEvent(
   return GuestViewBase::HandleKeyboardEvent(source, event);
 }
 
-bool WebViewGuest::PreHandleGestureEvent(WebContents* source,
-                                         const blink::WebGestureEvent& event) {
-  CHECK(!base::FeatureList::IsEnabled(features::kGuestViewMPArch));
-
-  return !allow_scaling_ && GuestViewBase::PreHandleGestureEvent(source, event);
-}
-
 void WebViewGuest::LoadAbort(bool is_top_level,
                              const GURL& url,
-                             int error_code) {
+                             net::Error error_code) {
   base::DictValue args;
   args.Set(guest_view::kIsTopLevel, is_top_level);
   args.Set(guest_view::kUrl, url.possibly_invalid_spec());
@@ -857,7 +850,7 @@ content::GuestPageHolder* WebViewGuest::GuestCreateNewWindow(
       GuestViewManager::FromBrowserContext(browser_context());
   // Set the attach params to use the same partition as the opener.
   const auto storage_partition_config =
-      site_instance->GetStoragePartitionConfig();
+      site_instance->GetSecurityPrincipal().GetStoragePartitionConfig();
   const std::string storage_partition_id =
       GetStoragePartitionIdFromPartitionConfig(storage_partition_config);
   base::DictValue create_params;
@@ -933,8 +926,10 @@ void WebViewGuest::CreateNewGuestWebViewWindow(
   GuestViewManager* guest_manager =
       GuestViewManager::FromBrowserContext(browser_context());
   // Set the attach params to use the same partition as the opener.
-  const auto storage_partition_config =
-      web_contents()->GetSiteInstance()->GetStoragePartitionConfig();
+  const auto storage_partition_config = web_contents()
+                                            ->GetSiteInstance()
+                                            ->GetSecurityPrincipal()
+                                            .GetStoragePartitionConfig();
   const std::string storage_partition_id =
       GetStoragePartitionIdFromPartitionConfig(storage_partition_config);
   base::DictValue create_params;
@@ -1253,7 +1248,7 @@ void WebViewGuest::DidFinishNavigation(
       // If a load is blocked, either by WebRequest or security checks, the
       // navigation may or may not have committed. So if we don't see an error
       // code, mark it as blocked.
-      int error_code = navigation_handle->GetNetErrorCode();
+      net::Error error_code = navigation_handle->GetNetErrorCode();
       if (error_code == net::OK) {
         error_code = net::ERR_BLOCKED_BY_CLIENT;
       }
@@ -1454,12 +1449,13 @@ void WebViewGuest::RenderFrameCreated(
     return;
   }
 
-  CHECK_EQ(render_frame_host->GetProcess()->IsForGuestsOnly(),
-           render_frame_host->GetSiteInstance()->IsGuest());
+  CHECK_EQ(
+      render_frame_host->GetProcess()->IsForGuestsOnly(),
+      render_frame_host->GetSiteInstance()->GetSecurityPrincipal().IsGuest());
 
   // TODO(mcnee): Throughout this file, many of the SiteInstance `IsGuest()`
   // checks appear redundant. Could they be CHECKs instead?
-  if (!render_frame_host->GetSiteInstance()->IsGuest()) {
+  if (!render_frame_host->GetSiteInstance()->GetSecurityPrincipal().IsGuest()) {
     return;
   }
 
@@ -1479,7 +1475,7 @@ void WebViewGuest::RenderFrameDeleted(
     return;
   }
 
-  if (!render_frame_host->GetSiteInstance()->IsGuest()) {
+  if (!render_frame_host->GetSiteInstance()->GetSecurityPrincipal().IsGuest()) {
     return;
   }
 
@@ -1494,12 +1490,13 @@ void WebViewGuest::RenderFrameHostChanged(content::RenderFrameHost* old_host,
     return;
   }
 
-  if (!old_host || !old_host->GetSiteInstance()->IsGuest()) {
+  if (!old_host ||
+      !old_host->GetSiteInstance()->GetSecurityPrincipal().IsGuest()) {
     return;
   }
 
   // A guest RenderFrameHost cannot navigate to a non-guest RenderFrameHost.
-  DCHECK(new_host->GetSiteInstance()->IsGuest());
+  DCHECK(new_host->GetSiteInstance()->GetSecurityPrincipal().IsGuest());
 
   // If we've swapped from a non-live guest RenderFrameHost, we won't hear a
   // RenderFrameDeleted for that RenderFrameHost.  This ensures that it's
@@ -1523,11 +1520,12 @@ void WebViewGuest::ReportFrameNameChange(const std::string& name) {
 
 void WebViewGuest::PushWebViewStateToIOThread(
     content::RenderFrameHost* guest_host) {
-  if (!guest_host->GetSiteInstance()->IsGuest()) {
+  if (!guest_host->GetSiteInstance()->GetSecurityPrincipal().IsGuest()) {
     NOTREACHED();
   }
-  auto storage_partition_config =
-      guest_host->GetSiteInstance()->GetStoragePartitionConfig();
+  auto storage_partition_config = guest_host->GetSiteInstance()
+                                      ->GetSecurityPrincipal()
+                                      .GetStoragePartitionConfig();
 
   WebViewRendererState::WebViewInfo web_view_info;
   web_view_info.embedder_process_id = owner_rfh()->GetProcess()->GetID();
@@ -2100,7 +2098,7 @@ void WebViewGuest::EnterFullscreenModeForTab(
   // TODO(lazyboy): Right now the guest immediately goes fullscreen within its
   // bounds. If the embedder denies the permission then we will see a flicker.
   // Once we have the ability to "cancel" a renderer/ fullscreen request:
-  // http://crbug.com/466854 this won't be necessary and we should be
+  // http://crbug.com/41162545 this won't be necessary and we should be
   // Calling SetFullscreenState(true) once the embedder allowed the request.
   // Otherwise we would cancel renderer/ fullscreen if the embedder denied.
   SetFullscreenState(true);
@@ -2256,7 +2254,8 @@ void WebViewGuest::RequestNewWindowPermission(
   // Retrieve the opener partition info if we have it.
   const auto storage_partition_config = new_guest->GetGuestMainFrame()
                                             ->GetSiteInstance()
-                                            ->GetStoragePartitionConfig();
+                                            ->GetSecurityPrincipal()
+                                            .GetStoragePartitionConfig();
   std::string storage_partition_id =
       GetStoragePartitionIdFromPartitionConfig(storage_partition_config);
 

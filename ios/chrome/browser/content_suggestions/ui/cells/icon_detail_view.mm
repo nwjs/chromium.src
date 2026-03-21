@@ -8,16 +8,17 @@
 
 #import "base/check.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/public/magic_stack_constants.h"
-#import "ios/chrome/browser/content_suggestions/ui/cells/icon_detail_view_configuration.h"
+#import "ios/chrome/browser/content_suggestions/ui/cells/icon_detail_view_config.h"
 #import "ios/chrome/browser/content_suggestions/ui/cells/icon_view.h"
 #import "ios/chrome/browser/content_suggestions/ui/cells/icon_view_configuration.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_updating.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/elements/gradient/gradient_view.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
-#import "ios/chrome/common/ui/elements/gradient_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
 namespace {
@@ -92,26 +93,23 @@ UIImageView* CheckmarkIcon() {
 // The `has_background_image` argument indicates whether the icon is displayed
 // with a background image. This information is used to adjust the size of the
 // badge icon.
-UIImageView* BadgeIcon(
-    const IconDetailViewConfiguration* icon_detail_view_configuration) {
-  CHECK(icon_detail_view_configuration);
+UIImageView* BadgeIcon(const IconDetailViewConfig* icon_detail_view_config) {
+  CHECK(icon_detail_view_config);
   UIImageSymbolConfiguration* config = [UIImageSymbolConfiguration
       configurationWithWeight:UIImageSymbolWeightMedium];
 
   UIImageSymbolConfiguration* color_config = [UIImageSymbolConfiguration
-      configurationWithPaletteColors:icon_detail_view_configuration
-                                         .badgeColorPalette];
+      configurationWithPaletteColors:icon_detail_view_config.badgeColorPalette];
 
   config = [config configurationByApplyingConfiguration:color_config];
 
-  UIImage* image =
-      icon_detail_view_configuration.badgeUsesDefaultSymbol
-          ? DefaultSymbolWithConfiguration(
-                icon_detail_view_configuration.badgeSymbolName, config)
-          : CustomSymbolWithConfiguration(
-                icon_detail_view_configuration.badgeSymbolName, config);
+  UIImage* image = icon_detail_view_config.badgeUsesDefaultSymbol
+                       ? DefaultSymbolWithConfiguration(
+                             icon_detail_view_config.badgeSymbolName, config)
+                       : CustomSymbolWithConfiguration(
+                             icon_detail_view_config.badgeSymbolName, config);
 
-  if (!icon_detail_view_configuration.badgeColorPalette) {
+  if (!icon_detail_view_config.badgeColorPalette) {
     image = MakeSymbolMulticolor(image);
   }
 
@@ -120,9 +118,8 @@ UIImageView* BadgeIcon(
   badge_icon.translatesAutoresizingMaskIntoConstraints = NO;
 
   // Calculate badge size based on container size and background image presence.
-  CGFloat badge_size =
-      icon_detail_view_configuration.badgeShapeConfig.size /
-      (icon_detail_view_configuration.backgroundImage ? 1.15 : 1.5);
+  CGFloat badge_size = icon_detail_view_config.badgeShapeConfig.size /
+                       (icon_detail_view_config.backgroundImage ? 1.15 : 1.5);
 
   [NSLayoutConstraint activateConstraints:@[
     [badge_icon.widthAnchor constraintEqualToConstant:badge_size],
@@ -237,9 +234,12 @@ UIView* BadgeIconInContainer(UIImageView* icon,
 
 }  // namespace
 
+@interface IconDetailView () <NewTabPageColorUpdating>
+@end
+
 @implementation IconDetailView {
   // Configuration for this view.
-  IconDetailViewConfiguration* _configuration;
+  IconDetailViewConfig* _config;
   // UI tap gesture recognizer. This recognizer detects taps on the view
   // and triggers the appropriate action.
   UITapGestureRecognizer* _tapGestureRecognizer;
@@ -247,16 +247,16 @@ UIView* BadgeIconInContainer(UIImageView* icon,
   UIView* _imageContainerView;
 }
 
-- (instancetype)initWithConfiguration:
-    (IconDetailViewConfiguration*)configuration {
+- (instancetype)initWithConfig:(IconDetailViewConfig*)config {
   if ((self = [super initWithFrame:CGRectZero])) {
-    CHECK(configuration);
-    _configuration = [configuration copy];
+    CHECK(config);
+    _config = [config copy];
 
     if (IsNTPBackgroundCustomizationEnabled()) {
       [self registerForTraitChanges:@[ NewTabPageTrait.class ]
                          withAction:@selector(applyBackgroundColors)];
     }
+    [self applyBackgroundColors];
   }
   return self;
 }
@@ -272,18 +272,21 @@ UIView* BadgeIconInContainer(UIImageView* icon,
 #pragma mark - UIAccessibility
 
 - (NSString*)accessibilityLabel {
-  return [NSString stringWithFormat:@"%@, %@", _configuration.titleText,
-                                    _configuration.descriptionText];
+  return [NSString
+      stringWithFormat:@"%@, %@", _config.titleText, _config.descriptionText];
 }
 
-#pragma mark - Private
+#pragma mark - NewTabPageColorUpdating
 
 - (void)applyBackgroundColors {
   NewTabPageColorPalette* colorPalette =
       [self.traitCollection objectForNewTabPageTrait];
   _imageContainerView.backgroundColor =
       colorPalette.tertiaryColor ?: [UIColor colorNamed:kGrey100Color];
+  _config.ntpBackgroundColorPalette = colorPalette;
 }
+
+#pragma mark - Private
 
 // Creates and configures the subviews for the `IconDetailView`. This method
 // sets up the icon, title, description, and optional chevron, arranging them
@@ -296,7 +299,7 @@ UIView* BadgeIconInContainer(UIImageView* icon,
   }
 
   self.translatesAutoresizingMaskIntoConstraints = NO;
-  self.accessibilityIdentifier = _configuration.accessibilityIdentifier;
+  self.accessibilityIdentifier = _config.accessibilityIdentifier;
   self.isAccessibilityElement = YES;
   self.accessibilityTraits = UIAccessibilityTraitButton;
 
@@ -304,14 +307,12 @@ UIView* BadgeIconInContainer(UIImageView* icon,
   // chevron.
   NSMutableArray* arrangedSubviews = [[NSMutableArray alloc] init];
 
-  IconView* icon = [[IconView alloc]
-      initWithConfiguration:[_configuration iconViewConfiguration:YES]];
-  UIView* image = icon;
+  UIView* image;
 
-  if (_configuration.backgroundImage) {
+  if (_config.backgroundImage) {
     UIImageView* backgroundImageView = [[UIImageView alloc] init];
 
-    backgroundImageView.image = _configuration.backgroundImage;
+    backgroundImageView.image = _config.backgroundImage;
     backgroundImageView.contentMode = UIViewContentModeScaleAspectFill;
     backgroundImageView.translatesAutoresizingMaskIntoConstraints = NO;
     backgroundImageView.layer.borderWidth = 0;
@@ -331,9 +332,6 @@ UIView* BadgeIconInContainer(UIImageView* icon,
     gradientOverlay.layer.zPosition = 1;
 
     [NSLayoutConstraint activateConstraints:@[
-      [image.heightAnchor
-          constraintEqualToConstant:kBackgroundImageWidthHeight],
-      [image.widthAnchor constraintEqualToAnchor:image.heightAnchor],
       [backgroundImageView.heightAnchor
           constraintEqualToConstant:kBackgroundImageWidthHeight],
       [backgroundImageView.widthAnchor
@@ -344,24 +342,26 @@ UIView* BadgeIconInContainer(UIImageView* icon,
           constraintEqualToAnchor:gradientOverlay.heightAnchor],
     ]];
 
-    [image addSubview:backgroundImageView];
     [backgroundImageView addSubview:gradientOverlay];
+    image = backgroundImageView;
+  } else {
+    image = [[IconView alloc]
+        initWithConfiguration:[_config iconViewConfiguration:YES]];
   }
 
   image.translatesAutoresizingMaskIntoConstraints = NO;
 
-  BOOL isHeroLayout =
-      _configuration.layoutType == IconDetailViewLayoutType::kHero;
+  BOOL isHeroLayout = _config.layoutType == IconDetailViewLayoutType::kHero;
 
   // When the item is displayed in a hero-style layout, the icon is more
   // prominently displayed via an icon container view.
   if (isHeroLayout) {
     _imageContainerView =
         [self imageInContainer:image
-             useLargeContainer:(_configuration.backgroundImage != nil)];
+             useLargeContainer:(_config.backgroundImage != nil)];
 
     // Display a green checkmark when the layout is hero-cell complete.
-    if (_configuration.showCheckmark) {
+    if (_config.showCheckmark) {
       UIImageView* checkmark = CheckmarkIcon();
 
       [_imageContainerView addSubview:checkmark];
@@ -377,19 +377,18 @@ UIView* BadgeIconInContainer(UIImageView* icon,
     }
 
     // Create the Badge Icon, if applicable.
-    if (_configuration.badgeSymbolName.length != 0) {
-      UIImageView* badge = BadgeIcon(_configuration);
+    if (_config.badgeSymbolName.length != 0) {
+      UIImageView* badge = BadgeIcon(_config);
 
-      UIView* badgeWithContainer =
-          BadgeIconInContainer(badge, _configuration.badgeBackgroundColor,
-                               _configuration.badgeShapeConfig);
+      UIView* badgeWithContainer = BadgeIconInContainer(
+          badge, _config.badgeBackgroundColor, _config.badgeShapeConfig);
 
       [_imageContainerView addSubview:badgeWithContainer];
 
       // Calculate the offset to equally space the badge from the right and
       // bottom.
-      CGFloat badgeOffset = _configuration.badgeShapeConfig.size /
-                            (_configuration.backgroundImage ? 5.0 : 3.0);
+      CGFloat badgeOffset =
+          _config.badgeShapeConfig.size / (_config.backgroundImage ? 5.0 : 3.0);
 
       [NSLayoutConstraint activateConstraints:@[
         [badgeWithContainer.bottomAnchor
@@ -450,7 +449,6 @@ UIView* BadgeIconInContainer(UIImageView* icon,
   contentStack.spacing = kContentStackSpacing;
 
   [self addSubview:contentStack];
-
   AddSameConstraints(contentStack, self);
 
   // Set up the tap gesture recognizer.
@@ -502,11 +500,11 @@ UIView* BadgeIconInContainer(UIImageView* icon,
 - (UILabel*)createTitleLabel {
   UILabel* label = [[UILabel alloc] init];
 
-  label.text = _configuration.titleText;
+  label.text = _config.titleText;
   label.translatesAutoresizingMaskIntoConstraints = NO;
   label.numberOfLines = 0;
   label.lineBreakMode = NSLineBreakByWordWrapping;
-  if (_configuration.layoutType == IconDetailViewLayoutType::kHero) {
+  if (_config.layoutType == IconDetailViewLayoutType::kHero) {
     label.font =
         PreferredFontForTextStyle(UIFontTextStyleFootnote, UIFontWeightSemibold,
                                   kMaxTextSizeForStyleFootnote);
@@ -526,7 +524,7 @@ UIView* BadgeIconInContainer(UIImageView* icon,
 - (UILabel*)createDescriptionLabel {
   UILabel* label = [[UILabel alloc] init];
 
-  label.text = _configuration.descriptionText;
+  label.text = _config.descriptionText;
   label.numberOfLines = 2;
   label.lineBreakMode = NSLineBreakByTruncatingTail;
   label.font = PreferredFontForTextStyle(UIFontTextStyleFootnote, std::nullopt,

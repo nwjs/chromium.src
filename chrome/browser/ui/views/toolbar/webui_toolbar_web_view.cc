@@ -8,12 +8,16 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/state_transitions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/time.h"
 #include "base/trace_event/named_trigger.h"
+#include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "chrome/browser/profiles/profile.h"
@@ -26,11 +30,12 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
+#include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/toolbar/webui_split_tabs_control.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
-#include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
+#include "chrome/browser/ui/webui/webui_toolbar/adapters/navigation_controls_state_fetcher_impl.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
@@ -119,13 +124,27 @@ END_METADATA
 
 WebUIToolbarWebView::WebUIToolbarWebView(
     BrowserWindowInterface* browser,
-    chrome::BrowserCommandController* controller)
+    chrome::BrowserCommandController* controller,
+    std::unique_ptr<WebUILocationBar> location_bar)
     : browser_(browser),
       controller_(controller),
       reload_control_(this),
       split_tabs_control_(this),
-      clock_(base::DefaultTickClock::GetInstance()) {
+      location_bar_(std::move(location_bar)),
+      back_control_(this, BackForwardButton::Direction::kBack),
+      forward_control_(this, BackForwardButton::Direction::kForward),
+      clock_(base::DefaultTickClock::GetInstance()),
+      touch_ui_subscription_(ui::TouchUiController::Get()->RegisterCallback(
+          base::BindRepeating(&WebUIToolbarWebView::OnTouchUiChanged,
+                              base::Unretained(this)))) {
   base::trace_event::EmitNamedTrigger("webui-toolbar-constructor");
+  last_queued_state_.split_tabs_control_state =
+      toolbar_ui_api::mojom::SplitTabsControlState::New();
+  last_queued_state_.reload_control_state =
+      toolbar_ui_api::mojom::ReloadControlState::New();
+  last_queued_state_.layout_constants_version = 0;
+  last_queued_state_.back_forward_control_state = GetBackForwardState();
+
   if (auto* manager = InitialWebUIWindowMetricsManager::From(browser_)) {
     manager->OnReloadButtonCreated();
   }
@@ -141,7 +160,6 @@ WebUIToolbarWebView::WebUIToolbarWebView(
 
   web_contents->SetPageBaseBackgroundColor(SK_ColorTRANSPARENT);
   web_contents->SetIgnoreZoomGestures(true);
-  web_view->SetID(VIEW_ID_RELOAD_BUTTON);
 
   // We must save the pointer to the WebView so we can load the URL after the
   // view is added to a widget.
@@ -156,9 +174,13 @@ WebUIToolbarWebView::~WebUIToolbarWebView() = default;
 
 void WebUIToolbarWebView::AddedToWidget() {
   CHECK(web_view_);
-  if (reload_control_.is_initialized()) {
+
+  // If initialization has already started or completed, do not run it again.
+  if (initialization_state_ != InitializationState::kUninitialized) {
     return;
   }
+
+  SetInitializationState(InitializationState::kPending);
 
   // Ensure the browser window interface is associated with the WebContents
   // before the WebUI acts on it.
@@ -185,6 +207,9 @@ gfx::Size WebUIToolbarWebView::CalculatePreferredSize(
   button_count += features::IsWebUIReloadButtonEnabled();
   button_count += features::IsWebUISplitTabsButtonEnabled() &&
                   split_tabs_control_.IsVisible();
+  button_count += features::IsWebUIBackForwardButtonEnabled();
+  button_count += features::IsWebUIBackForwardButtonEnabled() &&
+                  forward_control_.GetVisible();
 
   const int size = GetLayoutConstant(LayoutConstant::kToolbarButtonHeight);
   int width = button_count * size;
@@ -192,11 +217,21 @@ gfx::Size WebUIToolbarWebView::CalculatePreferredSize(
     width += (button_count - 1) *
              GetLayoutConstant(LayoutConstant::kToolbarIconDefaultMargin);
   }
+
+  if (location_bar_) {
+    // TODO(http://crbug.com/470042732): Where is the 4px margin from?
+    width += 4 + location_bar_->PreferredSize().width();
+  }
+
+  if (features::IsWebUIBackForwardButtonEnabled()) {
+    width += back_button_leading_margin_;
+  }
+
   return gfx::Size(width, size);
 }
 
 void WebUIToolbarWebView::HandleContextMenu(
-    browser_controls_api::mojom::ContextMenuType menu_type,
+    toolbar_ui_api::mojom::ContextMenuType menu_type,
     gfx::Point viewport_coordinate_css_pixels,
     ui::mojom::MenuSourceType source) {
   CHECK(web_view_);
@@ -212,19 +247,27 @@ void WebUIToolbarWebView::HandleContextMenu(
           .OffsetFromOrigin();
 
   switch (menu_type) {
-    case browser_controls_api::mojom::ContextMenuType::kReload:
+    case toolbar_ui_api::mojom::ContextMenuType::kBack:
+      back_control_.HandleContextMenu(GetWidget(), screen_location, source);
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::kForward:
+      forward_control_.HandleContextMenu(GetWidget(), screen_location, source);
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::kReload:
       reload_control_.HandleContextMenu(GetWidget(), screen_location, source);
       break;
-    case browser_controls_api::mojom::ContextMenuType::kSplitTabsAction:
-    case browser_controls_api::mojom::ContextMenuType::kSplitTabsContext:
+    case toolbar_ui_api::mojom::ContextMenuType::kSplitTabsAction:
+    case toolbar_ui_api::mojom::ContextMenuType::kSplitTabsContext:
       split_tabs_control_.HandleContextMenu(menu_type, screen_location, source);
       break;
-    case browser_controls_api::mojom::ContextMenuType::kUnspecified:
+    case toolbar_ui_api::mojom::ContextMenuType::kUnspecified:
       NOTREACHED() << "Unexpected ClickDispositionFlag::kUnspecified.";
   }
 }
 
 void WebUIToolbarWebView::OnPageInitialized() {
+  SetInitializationState(InitializationState::kInitialized);
+
   if (features::IsWebUIReloadButtonEnabled() &&
       !reload_control_.is_initialized()) {
     reload_control_.Init();
@@ -237,15 +280,67 @@ ReloadControl* WebUIToolbarWebView::GetReloadControl() {
   return &reload_control_;
 }
 
+browser_controls_api::BrowserControlsService::BrowserControlsServiceDelegate*
+WebUIToolbarWebView::GetBrowserControlsDelegate() {
+  return this;
+}
+
+toolbar_ui_api::ToolbarUIService::ToolbarUIServiceDelegate*
+WebUIToolbarWebView::GetToolbarUIServiceDelegate() {
+  return this;
+}
+
+std::unique_ptr<toolbar_ui_api::NavigationControlsStateFetcher>
+WebUIToolbarWebView::GetNavigationControlsStateFetcher() {
+  return std::make_unique<toolbar_ui_api::NavigationControlsStateFetcherImpl>(
+      base::BindRepeating(&WebUIToolbarWebView::GetNavigationControlsState,
+                          base::Unretained(this)));
+}
+
+toolbar_ui_api::mojom::NavigationControlsStatePtr
+WebUIToolbarWebView::GetNavigationControlsState() {
+  return last_queued_state_.Clone();
+}
+
+void WebUIToolbarWebView::DidStartNavigation(
+    content::NavigationHandle* navigation_handle) {
+  if (!navigation_handle->IsInPrimaryMainFrame()) {
+    return;
+  }
+  // Transition back to pending if we are already initialized (e.g. reload).
+  if (initialization_state_ == InitializationState::kInitialized) {
+    SetInitializationState(InitializationState::kPending);
+  }
+}
+
 void WebUIToolbarWebView::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInPrimaryMainFrame() ||
       !navigation_handle->HasCommitted()) {
     return;
   }
-  if (auto* ui = GetWebUIToolbarUI()) {
-    ui->SetDelegate(this);
+  auto* ui = GetWebUIToolbarUI();
+  CHECK(ui) << "Could not find the web ui for the toolbar";
+  ui->Init(this);
+}
+
+void WebUIToolbarWebView::SetBackButtonLeadingMargin(int margin) {
+  back_button_leading_margin_ = margin;
+  OnBackForwardStateChanged();
+  PreferredSizeChanged();
+}
+
+void WebUIToolbarWebView::SetBackForwardEnabled(int command_id, bool enabled) {
+  if (command_id == IDC_BACK) {
+    back_control_.SetEnabled(enabled);
+  } else {
+    forward_control_.SetEnabled(enabled);
   }
+}
+
+void WebUIToolbarWebView::SetForwardVisible(bool visible) {
+  forward_control_.SetVisible(visible);
+  PreferredSizeChanged();
 }
 
 void WebUIToolbarWebView::DidFirstVisuallyNonEmptyPaint() {
@@ -322,6 +417,19 @@ void WebUIToolbarWebView::RecoverFromRendererCrashOrUnresponsiveness() {
                                                     /*check_for_repost=*/false);
 }
 
+void WebUIToolbarWebView::SetInitializationState(
+    InitializationState new_state) {
+  using State = WebUIToolbarWebView::InitializationState;
+  static const base::NoDestructor<base::StateTransitions<State>> transitions(
+      base::StateTransitions<State>({
+          {State::kUninitialized, {State::kPending}},
+          {State::kPending, {State::kInitialized}},
+          {State::kInitialized, {State::kPending}},
+      }));
+  CHECK(transitions->IsTransitionValid(initialization_state_, new_state));
+  initialization_state_ = new_state;
+}
+
 void WebUIToolbarWebView::SetDidFirstNonEmptyPaintCallbackForTesting(
     base::OnceClosure callback) {
   if (callback.is_null()) {
@@ -345,6 +453,63 @@ WebUIToolbarUI* WebUIToolbarWebView::GetWebUIToolbarUI() {
   }
   auto* controller = web_ui->GetController();
   return controller ? controller->GetAs<WebUIToolbarUI>() : nullptr;
+}
+
+void WebUIToolbarWebView::PermitLaunchUrl() {
+  ExternalProtocolHandler::PermitLaunchUrl();
+}
+
+void WebUIToolbarWebView::OnReloadControlStateChanged(
+    toolbar_ui_api::mojom::ReloadControlStatePtr state) {
+  if (*state != *last_queued_state_.reload_control_state) {
+    last_queued_state_.reload_control_state = std::move(state);
+    PostPushNavigationState();
+  }
+}
+
+void WebUIToolbarWebView::OnSplitTabsControlStateChanged(
+    toolbar_ui_api::mojom::SplitTabsControlStatePtr state) {
+  if (*state != *last_queued_state_.split_tabs_control_state) {
+    last_queued_state_.split_tabs_control_state = std::move(state);
+    PostPushNavigationState();
+  }
+}
+
+void WebUIToolbarWebView::OnBackForwardStateChanged() {
+  auto state = GetBackForwardState();
+  if (*state != *last_queued_state_.back_forward_control_state) {
+    last_queued_state_.back_forward_control_state = std::move(state);
+    PostPushNavigationState();
+  }
+}
+
+void WebUIToolbarWebView::OnTouchUiChanged() {
+  ++last_queued_state_.layout_constants_version;
+  PostPushNavigationState();
+}
+
+void WebUIToolbarWebView::PostPushNavigationState() {
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(&WebUIToolbarWebView::PushNavigationState,
+                                weak_ptr_factory_.GetWeakPtr(),
+                                ++current_state_generation_));
+}
+
+void WebUIToolbarWebView::PushNavigationState(uint64_t state_generation) {
+  if (state_generation == current_state_generation_) {
+    if (WebUIToolbarUI* web_ui = GetWebUIToolbarUI()) {
+      web_ui->OnNavigationControlsStateChanged(last_queued_state_.Clone());
+    }
+  }
+}
+
+toolbar_ui_api::mojom::BackForwardControlStatePtr
+WebUIToolbarWebView::GetBackForwardState() const {
+  auto state = toolbar_ui_api::mojom::BackForwardControlState::New();
+  state->back_button_state = back_control_.GetButtonState();
+  state->forward_button_state = forward_control_.GetButtonState();
+  state->back_button_leading_margin = back_button_leading_margin_;
+  return state;
 }
 
 BEGIN_METADATA(WebUIToolbarWebView)

@@ -561,11 +561,9 @@ TEST_F(WebAppRegistrarTest, CanFindAppsInScope) {
       web_app::WebAppFilter::InstalledInOperatingSystemForTesting());
   EXPECT_EQ(0u, in_scope.size());
   EXPECT_FALSE(registrar().DoesScopeContainAnyApp(
-      origin_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                     proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      origin_scope, web_app::WebAppFilter::InstalledInChrome()));
   EXPECT_FALSE(registrar().DoesScopeContainAnyApp(
-      app3_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app3_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   auto app1 = test::CreateWebApp(app1_scope);
   RegisterAppUnsafe(std::move(app1));
@@ -574,18 +572,15 @@ TEST_F(WebAppRegistrarTest, CanFindAppsInScope) {
       origin_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app1_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      origin_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                     proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      origin_scope, web_app::WebAppFilter::InstalledInChrome()));
   EXPECT_FALSE(registrar().DoesScopeContainAnyApp(
-      app3_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app3_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   in_scope = registrar().FindAllAppsNestedInUrl(
       app1_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app1_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      app1_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app1_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   auto app2 = test::CreateWebApp(app2_scope);
   RegisterAppUnsafe(std::move(app2));
@@ -594,25 +589,21 @@ TEST_F(WebAppRegistrarTest, CanFindAppsInScope) {
       origin_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app1_id, app2_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      origin_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                     proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      origin_scope, web_app::WebAppFilter::InstalledInChrome()));
   EXPECT_FALSE(registrar().DoesScopeContainAnyApp(
-      app3_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app3_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   in_scope = registrar().FindAllAppsNestedInUrl(
       app1_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app1_id, app2_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      app1_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app1_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   in_scope = registrar().FindAllAppsNestedInUrl(
       app2_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app2_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      app2_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app2_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   auto app3 = test::CreateWebApp(app3_scope);
   RegisterAppUnsafe(std::move(app3));
@@ -621,15 +612,13 @@ TEST_F(WebAppRegistrarTest, CanFindAppsInScope) {
       origin_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app1_id, app2_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      origin_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                     proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      origin_scope, web_app::WebAppFilter::InstalledInChrome()));
 
   in_scope = registrar().FindAllAppsNestedInUrl(
       app3_scope, web_app::WebAppFilter::InstalledInChrome());
   EXPECT_THAT(in_scope, testing::UnorderedElementsAre(app3_id));
   EXPECT_TRUE(registrar().DoesScopeContainAnyApp(
-      app3_scope, {proto::InstallState::INSTALLED_WITH_OS_INTEGRATION,
-                   proto::InstallState::INSTALLED_WITHOUT_OS_INTEGRATION}));
+      app3_scope, web_app::WebAppFilter::InstalledInChrome()));
 }
 
 TEST_F(WebAppRegistrarTest, CanFindAppWithUrlInScope) {
@@ -1115,7 +1104,7 @@ TEST_F(WebAppRegistrarTest,
       test::CreateWebApp(GURL("isolated-app://random_name"));
   const webapps::AppId app_id = web_app->app_id();
 
-  web_app->SetDisplayMode(DisplayMode::kBorderless);
+  web_app->SetDisplayMode(DisplayMode::kUnframed);
   web_app->SetUserDisplayMode(mojom::UserDisplayMode::kBrowser);
   web_app->SetInstallState(proto::INSTALLED_WITH_OS_INTEGRATION);
   web_app->SetIsolationData(
@@ -1126,7 +1115,7 @@ TEST_F(WebAppRegistrarTest,
 
   RegisterAppUnsafe(std::move(web_app));
 
-  EXPECT_EQ(DisplayMode::kBorderless,
+  EXPECT_EQ(DisplayMode::kUnframed,
             registrar().GetAppEffectiveDisplayMode(app_id));
 }
 
@@ -1235,13 +1224,16 @@ TEST_F(WebAppRegistrarTest, TestIsDefaultManagementInstalled) {
   RegisterAppUnsafe(std::move(web_app2));
 
   // Currently default installed.
-  EXPECT_TRUE(registrar().IsInstalledByDefaultManagement(app_id1));
+  EXPECT_TRUE(registrar().AppMatches(
+      app_id1, WebAppFilter::InstalledByDefaultManagement()));
   // Currently installed by source other than installed.
-  EXPECT_FALSE(registrar().IsInstalledByDefaultManagement(app_id2));
+  EXPECT_FALSE(registrar().AppMatches(
+      app_id2, WebAppFilter::InstalledByDefaultManagement()));
 
   // Uninstalling the previously default installed app.
   Uninstall(app_id1);
-  EXPECT_FALSE(registrar().IsInstalledByDefaultManagement(app_id1));
+  EXPECT_FALSE(registrar().AppMatches(
+      app_id1, WebAppFilter::InstalledByDefaultManagement()));
 }
 
 // This test uses SetLinkCapturingUserPreference, which is not appropriate for
@@ -1476,9 +1468,6 @@ TEST_F(WebAppRegistrarTest, InnerAndOuterScopeIntentPicker) {
 }
 
 TEST_F(WebAppRegistrarTest, GetAllAppsControllingUrl_ScopeExtensions) {
-  base::test::ScopedFeatureList feature_list(
-      features::kPwaNavigationCapturingWithScopeExtensions);
-
   StartWebAppProvider();
 
   auto web_app_info = WebAppInstallInfo::CreateWithStartUrlForTesting(
@@ -1912,8 +1901,8 @@ class WebAppRegistrarDisplayModeTest
       case DisplayMode::kStandalone:
       case DisplayMode::kFullscreen:
         return DisplayMode::kStandalone;
-      case DisplayMode::kBorderless:
-        return DisplayMode::kBorderless;
+      case DisplayMode::kUnframed:
+        return DisplayMode::kUnframed;
       case DisplayMode::kWindowControlsOverlay:
         return DisplayMode::kWindowControlsOverlay;
       case DisplayMode::kTabbed:
@@ -1934,8 +1923,8 @@ class WebAppRegistrarDisplayModeTest
       case DisplayMode::kFullscreen:
       case DisplayMode::kTabbed:
         return DisplayMode::kStandalone;
-      case DisplayMode::kBorderless:
-        return DisplayMode::kBorderless;
+      case DisplayMode::kUnframed:
+        return DisplayMode::kUnframed;
       case DisplayMode::kWindowControlsOverlay:
         return DisplayMode::kWindowControlsOverlay;
       case DisplayMode::kUndefined:
@@ -2038,7 +2027,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                                          DisplayMode::kMinimalUi,
                                          DisplayMode::kStandalone,
                                          DisplayMode::kFullscreen,
-                                         DisplayMode::kBorderless,
+                                         DisplayMode::kUnframed,
                                          DisplayMode::kPictureInPicture,
                                          DisplayMode::kWindowControlsOverlay,
                                          DisplayMode::kTabbed),
@@ -2052,7 +2041,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                                return "Standalone";
                              case DisplayMode::kFullscreen:
                                return "Fullscreen";
-                             case DisplayMode::kBorderless:
+                             case DisplayMode::kUnframed:
                                return "Borderless";
                              case DisplayMode::kPictureInPicture:
                                return "PictureInPicture";
@@ -2064,7 +2053,6 @@ INSTANTIATE_TEST_SUITE_P(All,
                                NOTREACHED();
                            }
                          });
-
 
 class WebAppRegistrarParameterizedTest
     : public WebAppRegistrarTest,

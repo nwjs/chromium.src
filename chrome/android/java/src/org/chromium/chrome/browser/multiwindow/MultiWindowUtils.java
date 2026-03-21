@@ -23,6 +23,8 @@ import android.graphics.Rect;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Build.VERSION_CODES_FULL;
+import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.provider.Browser;
 import android.text.TextUtils;
 import android.util.Pair;
@@ -84,6 +86,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -98,6 +101,9 @@ import java.util.function.Supplier;
 public class MultiWindowUtils implements ActivityStateListener {
     public static final int INVALID_TASK_ID = MultiInstanceManager.INVALID_TASK_ID;
 
+    private static final int HIGH_INSTANCE_LIMIT_MEMORY_THRESHOLD_MB = 6500;
+    public static final String PERSISTENT_STATE_ID = "persistent_state_id";
+
     static final String HISTOGRAM_NUM_ACTIVITIES_DESKTOP_WINDOW =
             "Android.MultiInstance.NumActivities.DesktopWindow";
     static final String HISTOGRAM_NUM_INSTANCES_DESKTOP_WINDOW =
@@ -106,18 +112,20 @@ public class MultiWindowUtils implements ActivityStateListener {
             "Android.MultiInstance.NumActivities.DesktopWindow.Incognito";
     static final String HISTOGRAM_NUM_INSTANCES_DESKTOP_WINDOW_INCOGNITO =
             "Android.MultiInstance.NumInstances.DesktopWindow.Incognito";
+    static final String HISTOGRAM_PERSISTENT_STATE_ID_VERIFICATION =
+            "Android.MultiInstance.PersistAcrossReboots.IdVerification";
     static final String OPEN_ADJACENTLY_PARAM = "open_adjacently";
+
+    static @Nullable Integer sMaxInstancesForTesting;
 
     private static MultiWindowUtils sInstance = new MultiWindowUtils();
     protected static @Nullable Supplier<Activity> sActivitySupplierForTesting;
 
-    private static @Nullable Integer sMaxInstancesForTesting;
     private static @Nullable Integer sIncognitoInstanceCountForTesting;
     private static @Nullable Integer sInstanceCountForTesting;
     private static @Nullable Boolean sMultiInstanceApi31EnabledForTesting;
-    private final boolean mMultiInstanceApi31Enabled;
     private static @Nullable Boolean sIsMultiInstanceApi31Enabled;
-
+    private static @Nullable Set<Integer> sAppTaskIdsForTesting;
 
     // Used to keep track of whether ChromeTabbedActivity2 is running. A tri-state Boolean is
     // used in case both activities die in the background and MultiWindowUtils is recreated.
@@ -141,9 +149,29 @@ public class MultiWindowUtils implements ActivityStateListener {
         int MULTI_WINDOW = 1;
     }
 
-    protected MultiWindowUtils() {
-        mMultiInstanceApi31Enabled = isMultiInstanceApi31Enabled();
+    // LINT.IfChange(persistent_state_id_verification)
+    @IntDef({
+        PersistentStateIdVerification.NO_PERSISTENT_STATE_NOR_ID,
+        PersistentStateIdVerification.MISSING_PERSISTENT_STATE,
+        PersistentStateIdVerification.MISSING_PERSISTENT_STATE_ID,
+        PersistentStateIdVerification.PERSISTENT_STATE_MATCH,
+        PersistentStateIdVerification.PERSISTENT_STATE_MISMATCH,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface PersistentStateIdVerification {
+        // These values are used for UMA. Don't reuse or reorder values.
+        // If you add something, update NUM_ENTRIES.
+        int NO_PERSISTENT_STATE_NOR_ID = 0;
+        int MISSING_PERSISTENT_STATE = 1;
+        int MISSING_PERSISTENT_STATE_ID = 2;
+        int PERSISTENT_STATE_MATCH = 3;
+        int PERSISTENT_STATE_MISMATCH = 4;
+        int NUM_ENTRIES = 5;
     }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:persistent_state_id_verification)
+
+    protected MultiWindowUtils() {}
 
     /**
      * @return Whether the feature flag is on to enable instance switcher UI/menu.
@@ -197,20 +225,16 @@ public class MultiWindowUtils implements ActivityStateListener {
             return TabWindowManager.MAX_SELECTORS_LEGACY;
         }
 
-        if (!ChromeFeatureList.sDisableInstanceLimit.isEnabled()) {
-            return TabWindowManager.MAX_SELECTORS_S;
-        }
-
         if (DeviceInfo.isDesktop()) {
-            return TabWindowManager.MAX_SELECTORS;
+            return TabWindowManager.MAX_SELECTORS_1000;
         }
 
-        int memoryThresholdMb = ChromeFeatureList.sDisableInstanceLimitMemoryThresholdMb.getValue();
         boolean isAboveMemoryThreshold =
                 SysUtils.amountOfPhysicalMemoryKB()
-                        >= memoryThresholdMb * ConversionUtils.KILOBYTES_PER_MEGABYTE;
+                        >= HIGH_INSTANCE_LIMIT_MEMORY_THRESHOLD_MB
+                                * ConversionUtils.KILOBYTES_PER_MEGABYTE;
         if (isAboveMemoryThreshold) {
-            return ChromeFeatureList.sDisableInstanceLimitMaxCount.getValue();
+            return TabWindowManager.MAX_SELECTORS_20;
         }
         return TabWindowManager.MAX_SELECTORS_S;
     }
@@ -383,7 +407,8 @@ public class MultiWindowUtils implements ActivityStateListener {
     public @Nullable Class<? extends Activity> getOpenInOtherWindowActivity(
             @Nullable Activity current) {
         // Use always ChromeTabbedActivity when multi-instance support in S+ is enabled.
-        if (mMultiInstanceApi31Enabled) return ChromeTabbedActivity.class;
+        if (isMultiInstanceApi31Enabled()) return ChromeTabbedActivity.class;
+
         if (current instanceof ChromeTabbedActivity2) {
             // If a second ChromeTabbedActivity is created, MultiWindowUtils needs to listen for
             // activity state changes to facilitate determining which ChromeTabbedActivity should
@@ -430,45 +455,45 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
-     * Creates and returns an {@link Intent} that instantiates a new Chrome instance.
+     * Creates a new ChromeTabbedActivity to replace a ChromeTabbedActivity2 that survived an
+     * upgrade from Android R.
+     *
      * @param context The application context of the activity firing the intent.
-     * @param instanceId ID of the new Chrome instance to be created.
-     * @param preferNew {@code true} if the new instance should be instanted as a fresh
-     *        new one not loading any tabs from a persistent disk file.
-     * @param openAdjacently {@code true} if the new instance shall be created in
-     *        the adjacent window of split-screen mode.
-     * @param addTrustedIntentExtras (@code true} if the TRUSTED_APPLICATION_CODE_EXTRA will be
-     *         added to the intent to identify it as coming from a trusted source. This should be
-     *         set to 'false' if the Intent could be received by an app besides Chrome (e.g. when
-     *         attaching to ClipData for a drag event).
-     * @param source The source of the new window intent.
-     * @return The created intent.
+     * @param windowId The id of the instance for which a new activity will be created. Set this to
+     *     {@code #INVALID_WINDOW_ID} to create a brand new window.
+     * @param startActivityOptions The {@link Bundle} that will be used to start the activity.
      */
-    public static Intent createNewWindowIntent(
+    public static void relaunchChromeTabbedActivity2(
+            Context context, int windowId, Bundle startActivityOptions) {
+        Intent intent =
+                createNewWindowIntent(
+                        context,
+                        windowId,
+                        /* preferNew= */ windowId == INVALID_WINDOW_ID,
+                        /* openAdjacently= */ false,
+                        NewWindowAppSource.ANDROID_S_UPDATE);
+        context.startActivity(intent, startActivityOptions);
+    }
+
+    /* package */ static Intent createNewWindowIntent(
             Context context,
-            int instanceId,
+            int windowId,
             boolean preferNew,
             boolean openAdjacently,
-            boolean addTrustedIntentExtras,
             @NewWindowAppSource int source) {
         assert isMultiInstanceApi31Enabled();
         Intent intent = new Intent(context, ChromeTabbedActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-        if (instanceId != INVALID_WINDOW_ID) {
-            intent.putExtra(IntentHandler.EXTRA_WINDOW_ID, instanceId);
+        if (windowId != INVALID_WINDOW_ID) {
+            intent.putExtra(IntentHandler.EXTRA_WINDOW_ID, windowId);
         }
         if (preferNew) intent.putExtra(IntentHandler.EXTRA_PREFER_NEW, true);
         if (openAdjacently) intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
         intent.putExtra(Browser.EXTRA_APPLICATION_ID, context.getPackageName());
         intent.putExtra(Browser.EXTRA_CREATE_NEW_TAB, true);
-        if (addTrustedIntentExtras) {
-            IntentUtils.addTrustedIntentExtras(intent);
-        }
-        RecordHistogram.recordEnumeratedHistogram(
-                MultiInstanceManager.NEW_WINDOW_APP_SOURCE_HISTOGRAM,
-                source,
-                NewWindowAppSource.NUM_ENTRIES);
+        IntentUtils.addTrustedIntentExtras(intent);
+        intent.putExtra(IntentHandler.EXTRA_NEW_WINDOW_APP_SOURCE, source);
         return intent;
     }
 
@@ -511,10 +536,13 @@ public class MultiWindowUtils implements ActivityStateListener {
         if (sInstanceCountForTesting != null) {
             return sInstanceCountForTesting;
         }
+
+        if (!isMultiInstanceApi31Enabled()) return 0;
+
         if (!UiUtils.isRobustWindowManagementEnabled()) {
             type = PersistedInstanceType.ANY;
         }
-        Set<Integer> ids = MultiInstanceManagerApi31.getPersistedInstanceIds(type);
+        Set<Integer> ids = getPersistedInstanceIds(type);
         int count = 0;
         for (Integer id : ids) {
             if (isRestorableInstance(id)
@@ -543,11 +571,14 @@ public class MultiWindowUtils implements ActivityStateListener {
         if (sIncognitoInstanceCountForTesting != null) {
             return sIncognitoInstanceCountForTesting;
         }
+
+        if (!isMultiInstanceApi31Enabled()) return 0;
+
         int instanceType = PersistedInstanceType.OFF_THE_RECORD;
         if (activeOnly) {
             instanceType |= PersistedInstanceType.ACTIVE;
         }
-        Set<Integer> ids = MultiInstanceManagerApi31.getPersistedInstanceIds(instanceType);
+        Set<Integer> ids = getPersistedInstanceIds(instanceType);
         int count = 0;
         for (Integer id : ids) {
             if (isRestorableInstance(id)) {
@@ -566,8 +597,6 @@ public class MultiWindowUtils implements ActivityStateListener {
 
     static boolean isRestorableInstance(int index) {
         return MultiInstancePersistentStore.readNormalTabCount(index) != 0
-                || (IncognitoUtils.shouldOpenIncognitoAsWindow()
-                        && MultiInstancePersistentStore.readIncognitoTabCount(index) != 0)
                 || MultiInstancePersistentStore.readTaskId(index) != INVALID_TASK_ID;
     }
 
@@ -680,6 +709,56 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
+     * Verifies that the persistent state passed in Activity creation matches the persistent state
+     * associated with the current instance. This is to verify that the OS supplied the correct
+     * state, and not an outdated bundle.
+     *
+     * @param instanceId The id of the instance.
+     * @param persistentState The {@link PersistableBundle} passed to the instance in #onCreate().
+     */
+    public static void verifyLatestPersistentStateId(
+            int instanceId, @Nullable PersistableBundle persistentState) {
+        boolean containsPersistentStateId =
+                MultiInstancePersistentStore.containsLatestPersistentStateId(instanceId);
+        int latestPersistentStateId =
+                MultiInstancePersistentStore.readLatestPersistentStateId(instanceId);
+        if (persistentState == null || instanceId == INVALID_WINDOW_ID) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    HISTOGRAM_PERSISTENT_STATE_ID_VERIFICATION,
+                    containsPersistentStateId
+                            ? PersistentStateIdVerification.MISSING_PERSISTENT_STATE
+                            : PersistentStateIdVerification.NO_PERSISTENT_STATE_NOR_ID,
+                    PersistentStateIdVerification.NUM_ENTRIES);
+            return;
+        }
+
+        if (!containsPersistentStateId) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    HISTOGRAM_PERSISTENT_STATE_ID_VERIFICATION,
+                    PersistentStateIdVerification.MISSING_PERSISTENT_STATE_ID,
+                    PersistentStateIdVerification.NUM_ENTRIES);
+            return;
+        }
+
+        RecordHistogram.recordEnumeratedHistogram(
+                HISTOGRAM_PERSISTENT_STATE_ID_VERIFICATION,
+                latestPersistentStateId == persistentState.getInt(PERSISTENT_STATE_ID)
+                        ? PersistentStateIdVerification.PERSISTENT_STATE_MATCH
+                        : PersistentStateIdVerification.PERSISTENT_STATE_MISMATCH,
+                PersistentStateIdVerification.NUM_ENTRIES);
+    }
+
+    /**
+     * @param instanceId The id of the instance.
+     * @param latestPersistentStateId The id of the latest {@link PersistableBundle} associated with
+     *     this instance.
+     */
+    public static void writeLatestPersistentStateId(int instanceId, int latestPersistentStateId) {
+        MultiInstancePersistentStore.writeLatestPersistentStateId(
+                instanceId, latestPersistentStateId);
+    }
+
+    /**
      * Determines if multiple instances of Chrome are running.
      *
      * @param context The current Context, used to retrieve the ActivityManager system service.
@@ -717,6 +796,7 @@ public class MultiWindowUtils implements ActivityStateListener {
 
     /**
      * Determines the correct ChromeTabbedActivity class to use for an incoming intent.
+     *
      * @param intent The incoming intent that is starting ChromeTabbedActivity.
      * @param context The current Context, used to retrieve the ActivityManager system service.
      * @return The ChromeTabbedActivity to use for the incoming intent.
@@ -724,7 +804,7 @@ public class MultiWindowUtils implements ActivityStateListener {
     public Class<? extends ChromeTabbedActivity> getTabbedActivityForIntent(
             @Nullable Intent intent, Context context) {
         // 0. Use always ChromeTabbedActivity when multi-instance support in S+ is enabled.
-        if (mMultiInstanceApi31Enabled) return ChromeTabbedActivity.class;
+        if (isMultiInstanceApi31Enabled()) return ChromeTabbedActivity.class;
 
         // 1. Exit early if ChromeTabbedActivity2 isn't running.
         if (mTabbedActivity2TaskRunning != null && !mTabbedActivity2TaskRunning) {
@@ -888,23 +968,24 @@ public class MultiWindowUtils implements ActivityStateListener {
 
     /**
      * Records user actions and ukms associated with entering and exiting Android N multi-window
-     * mode.
-     * For second activity, records separate user actions for entering/exiting multi-window mode to
-     * avoid recording the same action twice when two instances are running, but still records same
-     * UKM since two instances have two different tabs.
+     * mode. For second activity, records separate user actions for entering/exiting multi-window
+     * mode to avoid recording the same action twice when two instances are running, but still
+     * records same UKM since two instances have two different tabs.
+     *
      * @param isInMultiWindowMode True if the activity is in multi-window mode.
      * @param isDeferredStartup True if the activity is deferred startup.
      * @param isFirstActivity True if the activity is the first activity in multi-window mode.
      * @param tab The current activity {@link Tab}.
      */
-    public void recordMultiWindowModeChanged(
+    public static void recordMultiWindowModeChanged(
             boolean isInMultiWindowMode,
             boolean isDeferredStartup,
             boolean isFirstActivity,
             @Nullable Tab tab) {
+        boolean isMultiInstanceApi31Enabled = isMultiInstanceApi31Enabled();
         if (isFirstActivity) {
             if (isInMultiWindowMode) {
-                if (mMultiInstanceApi31Enabled) {
+                if (isMultiInstanceApi31Enabled) {
                     SharedPreferencesManager prefs = ChromeSharedPreferences.getInstance();
                     long startTime = prefs.readLong(ChromePreferenceKeys.MULTI_WINDOW_START_TIME);
                     if (startTime == 0) {
@@ -916,14 +997,11 @@ public class MultiWindowUtils implements ActivityStateListener {
                     RecordUserAction.record("Android.MultiWindowMode.Enter2");
                 }
             } else {
-                if (mMultiInstanceApi31Enabled) {
+                if (isMultiInstanceApi31Enabled) {
                     SharedPreferencesManager prefs = ChromeSharedPreferences.getInstance();
                     long startTime = prefs.readLong(ChromePreferenceKeys.MULTI_WINDOW_START_TIME);
                     if (startTime > 0) {
-                        long current = TimeUtils.currentTimeMillis();
                         RecordUserAction.record("Android.MultiWindowMode.Exit2");
-                        RecordHistogram.recordLongTimesHistogram(
-                                "Android.MultiWindowMode.TotalDuration", current - startTime);
                         prefs.writeLong(ChromePreferenceKeys.MULTI_WINDOW_START_TIME, 0);
                     }
                 } else {
@@ -986,19 +1064,21 @@ public class MultiWindowUtils implements ActivityStateListener {
 
     private static int getLastAccessedWindowIdInternal(boolean includeRunningActivitiesOnly) {
         int lastAccessedWindowId = INVALID_WINDOW_ID;
+        if (!isMultiInstanceApi31Enabled()) return lastAccessedWindowId;
+
         long maxAccessedTime = 0;
 
         SparseIntArray windowIdsOfRunningTabbedActivities = null;
         if (includeRunningActivitiesOnly) {
-            windowIdsOfRunningTabbedActivities =
-                    MultiInstanceManagerApi31.getWindowIdsOfRunningTabbedActivities();
+            windowIdsOfRunningTabbedActivities = getWindowIdsOfRunningTabbedActivities();
         }
 
-        Set<Integer> persistedIds = MultiInstanceManagerApi31.getAllPersistedInstanceIds();
+        Set<Integer> persistedIds = getPersistedInstanceIds(PersistedInstanceType.ANY);
 
         for (int id : persistedIds) {
-            if (includeRunningActivitiesOnly && windowIdsOfRunningTabbedActivities != null) {
-                if (windowIdsOfRunningTabbedActivities.indexOfValue(id) < 0) continue;
+            if (includeRunningActivitiesOnly) {
+                int windowId = assumeNonNull(windowIdsOfRunningTabbedActivities).indexOfValue(id);
+                if (windowId < 0) continue;
             }
 
             long accessedTime = MultiInstancePersistentStore.readLastAccessedTime(id);
@@ -1011,13 +1091,64 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
+     * Gets instance ids filtered by one or more specified {@link PersistedInstanceType}s. To get
+     * all persisted ids irrespective of type, use {@link PersistedInstanceType.ANY}.
+     *
+     * @param type A bit-int representing one or more {@link PersistedInstanceType}s.
+     * @return A set of instance ids of the specified {@code type}.
+     */
+    /* package */ static Set<Integer> getPersistedInstanceIds(int type) {
+        Context context = ContextUtils.getApplicationContext();
+        Set<Integer> activeTaskIds = getAllAppTaskIds(context);
+
+        Set<Integer> allIds = MultiInstancePersistentStore.readAllInstanceIds();
+        if (type == PersistedInstanceType.ANY) return allIds;
+
+        Set<Integer> filteredIds = new HashSet<>();
+        boolean includeOtr = (type & PersistedInstanceType.OFF_THE_RECORD) != 0;
+        boolean includeRegular = (type & PersistedInstanceType.REGULAR) != 0;
+        boolean includeActive = (type & PersistedInstanceType.ACTIVE) != 0;
+        boolean includeInactive = (type & PersistedInstanceType.INACTIVE) != 0;
+        assert !includeActive || !includeInactive
+                : "To filter both ACTIVE and INACTIVE instance types, use"
+                        + " PersistedInstanceType.ANY.";
+        for (Integer id : allIds) {
+            int persistedTaskId = MultiInstancePersistentStore.readTaskId(id);
+
+            // Exclude ids not satisfying requirements.
+            int profileType = MultiInstancePersistentStore.readProfileType(id);
+            if (includeOtr && profileType != SupportedProfileType.OFF_THE_RECORD) continue;
+            if (includeRegular && profileType != SupportedProfileType.REGULAR) continue;
+            if (includeActive && !activeTaskIds.contains(persistedTaskId)) continue;
+            if (includeInactive && activeTaskIds.contains(persistedTaskId)) continue;
+
+            filteredIds.add(id);
+        }
+        return filteredIds;
+    }
+
+    private static SparseIntArray getWindowIdsOfRunningTabbedActivities() {
+        List<Activity> activities = ApplicationStatus.getRunningActivities();
+        var windowIdsOfRunningTabbedActivities = new SparseIntArray();
+        for (Activity activity : activities) {
+            if (!(activity instanceof ChromeTabbedActivity)) continue;
+            int windowId = TabWindowManagerSingleton.getInstance().getIdForWindow(activity);
+            windowIdsOfRunningTabbedActivities.put(windowId, windowId);
+        }
+        return windowIdsOfRunningTabbedActivities;
+    }
+
+    /**
      * Determines whether a new window should be opened adjacently or in full screen. This relies on
      * an experimental param set on the server-side, with behavior defaulting to adjacent launch.
      *
+     * @param activity The current activity.
      * @return {@code false} when a new window should be opened in full screen, {@code true}
      *     otherwise.
      */
-    public static boolean shouldOpenInAdjacentWindow() {
+    public static boolean shouldOpenInAdjacentWindow(Activity activity) {
+        // Always open adjacently if the current activity is in multi-windowing mode.
+        if (activity.isInMultiWindowMode()) return true;
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                 ChromeFeatureList.ROBUST_WINDOW_MANAGEMENT_EXPERIMENTAL,
                 OPEN_ADJACENTLY_PARAM,
@@ -1032,7 +1163,41 @@ public class MultiWindowUtils implements ActivityStateListener {
      * @return Whether the intent was launched successfully.
      */
     public static boolean launchIntentInInstance(Intent intent, int instanceId) {
-        return MultiInstanceManagerApi31.launchIntentInExistingActivity(intent, instanceId);
+        Activity activity = getActivityById(instanceId);
+        if (!(activity instanceof ChromeTabbedActivity)) return false;
+        int taskId = activity.getTaskId();
+        if (taskId == INVALID_TASK_ID) return false;
+
+        // Launch the intent in the existing activity and bring the task to foreground if it is
+        // alive. AppTask.startActivity() is used to robustly bring specific tasks to the front,
+        // which helps bypass Android's Background Activity Launch (BAL) restrictions when a
+        // notification is tapped while the target activity is backgrounded (minimized).
+        AppTask appTask = AndroidTaskUtils.getAppTaskFromId(activity, taskId);
+        if (appTask != null) {
+            intent.setClass(ContextUtils.getApplicationContext(), activity.getClass());
+            if (isMultiInstanceApi31Enabled()) {
+                // Remove NEW_TASK to prevent the OS from spawning a duplicate instance,
+                // and strictly target the existing activity class.
+                intent.removeFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                appTask.startActivity(ContextUtils.getApplicationContext(), intent, null);
+            } else {
+                // On older Android versions or devices where multi-instance is not enabled, the OS
+                // enforces strict singleTask checks on AppTask.startActivity() and throws an
+                // exception if the task is not empty. However, since these versions do not support
+                // multiple tasks for the same ChromeTabbedActivity class, we can safely fallback
+                // to Context.startActivity() with NEW_TASK, which will inherently route to the
+                // correct task and still bypass BAL restrictions.
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                IntentUtils.safeStartActivity(ContextUtils.getApplicationContext(), intent);
+            }
+            return true;
+        }
+
+        // Fallback: If the OS lost the AppTask record but our Activity is still alive,
+        // manually inject the intent and attempt a best effort move to front.
+        ((ChromeTabbedActivity) activity).onNewIntent(intent);
+        ApiCompatibilityUtils.moveTaskToFront(activity, taskId, 0);
+        return true;
     }
 
     /**
@@ -1046,7 +1211,18 @@ public class MultiWindowUtils implements ActivityStateListener {
      */
     public static void launchIntentInMaybeClosedWindow(
             Context context, Intent intent, @WindowId int windowId) {
-        MultiInstanceManagerApi31.launchIntentInUnknown(context, intent, windowId);
+        if (!isMultiInstanceApi31Enabled()) return;
+
+        // TODO(https://crbug.com/415375532): Remove the need for this to be a public method, and
+        // fold all of this functionality into a shared single public method with
+        // #launchIntentInInstance.
+        if (launchIntentInInstance(intent, windowId)) return;
+
+        intent.putExtra(Browser.EXTRA_APPLICATION_ID, context.getPackageName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+        intent.putExtra(IntentHandler.EXTRA_WINDOW_ID, windowId);
+        IntentUtils.safeStartActivity(context, intent);
     }
 
     /**
@@ -1058,9 +1234,7 @@ public class MultiWindowUtils implements ActivityStateListener {
      */
     public static int getInstanceIdForLinkIntent(Activity activity) {
         // INVALID_WINDOW_ID indicates that a new instance will be used to launch the link intent.
-        int instanceCount =
-                getInstanceCountWithFallback(
-                        MultiInstanceManagerApi31.PersistedInstanceType.ACTIVE);
+        int instanceCount = getInstanceCountWithFallback(PersistedInstanceType.ACTIVE);
         if (instanceCount < getMaxInstances()) return INVALID_WINDOW_ID;
         int windowId = TabWindowManagerSingleton.getInstance().getIdForWindow(activity);
         assert windowId != INVALID_WINDOW_ID
@@ -1079,6 +1253,8 @@ public class MultiWindowUtils implements ActivityStateListener {
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             @InstanceAllocationType int instanceAllocationType,
             boolean isColdStart) {
+        if (!isMultiInstanceApi31Enabled()) return;
+
         // Emit the histogram only for an activity that starts in a desktop window.
         if (!AppHeaderUtils.isAppInDesktopWindow(desktopWindowStateManager)) return;
 
@@ -1088,21 +1264,21 @@ public class MultiWindowUtils implements ActivityStateListener {
         // Emit histograms for running activity count.
         RecordHistogram.recordExactLinearHistogram(
                 HISTOGRAM_NUM_ACTIVITIES_DESKTOP_WINDOW,
-                MultiInstanceManagerApi31.getRunningTabbedActivityCount(),
-                TabWindowManager.MAX_SELECTORS + 1);
+                getRunningTabbedActivityCount(),
+                TabWindowManager.MAX_SELECTORS_1000 + 1);
 
         // Emit histograms for total instance count.
         RecordHistogram.recordExactLinearHistogram(
                 HISTOGRAM_NUM_INSTANCES_DESKTOP_WINDOW,
                 getInstanceCountWithFallback(PersistedInstanceType.ANY),
-                TabWindowManager.MAX_SELECTORS + 1);
+                TabWindowManager.MAX_SELECTORS_1000 + 1);
 
         // Emit histograms for running Incognito activity count.
         if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {
             RecordHistogram.recordExactLinearHistogram(
                     HISTOGRAM_NUM_ACTIVITIES_DESKTOP_WINDOW_INCOGNITO,
                     getIncognitoInstanceCount(/* activeOnly= */ true),
-                    TabWindowManager.MAX_SELECTORS + 1);
+                    TabWindowManager.MAX_SELECTORS_1000 + 1);
         }
 
         // Emit histograms for total Incognito instance count.
@@ -1110,7 +1286,7 @@ public class MultiWindowUtils implements ActivityStateListener {
             RecordHistogram.recordExactLinearHistogram(
                     HISTOGRAM_NUM_INSTANCES_DESKTOP_WINDOW_INCOGNITO,
                     getIncognitoInstanceCount(/* activeOnly= */ false),
-                    TabWindowManager.MAX_SELECTORS + 1);
+                    TabWindowManager.MAX_SELECTORS_1000 + 1);
         }
     }
 
@@ -1161,13 +1337,12 @@ public class MultiWindowUtils implements ActivityStateListener {
             @Nullable MessageDispatcher messageDispatcher,
             Context context,
             Runnable primaryActionRunnable) {
-        if (messageDispatcher == null) return false;
+        if (messageDispatcher == null || !isMultiInstanceApi31Enabled()) return false;
 
         // Show the message only when robust window management is disabled and the number of
         // persisted instances exceeds the instance limit.
         if (UiUtils.isRobustWindowManagementEnabled()
-                || getInstanceCountWithFallback(MultiInstanceManagerApi31.PersistedInstanceType.ANY)
-                        <= getMaxInstances()) {
+                || getInstanceCountWithFallback(PersistedInstanceType.ANY) <= getMaxInstances()) {
             return false;
         }
 
@@ -1288,6 +1463,55 @@ public class MultiWindowUtils implements ActivityStateListener {
                 display.getDisplayId(),
                 DisplayUtil.clampWindowToDisplay(localBounds, display));
         return true;
+    }
+
+    /* package */ static @Nullable Activity getActivityById(int windowId) {
+        if (sActivitySupplierForTesting != null) {
+            return sActivitySupplierForTesting.get();
+        }
+        TabWindowManager windowManager = TabWindowManagerSingleton.getInstance();
+        for (Activity activity : ApplicationStatus.getRunningActivities()) {
+            if (windowId == windowManager.getIdForWindow(activity)) return activity;
+        }
+        return null;
+    }
+
+    /* package */ static int getRunningTabbedActivityCount() {
+        int numActivities = 0;
+        List<Activity> activities = ApplicationStatus.getRunningActivities();
+        for (Activity activity : activities) {
+            if (activity instanceof ChromeTabbedActivity) numActivities++;
+        }
+        return numActivities;
+    }
+
+    /* package */ static Set<Integer> getAllAppTaskIds(Context context) {
+        if (sAppTaskIdsForTesting != null) {
+            return sAppTaskIdsForTesting;
+        }
+
+        ActivityManager activityManager =
+                (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<AppTask> appTasks = activityManager.getAppTasks();
+        Set<Integer> results = new HashSet<>();
+        for (AppTask task : appTasks) {
+            ActivityManager.RecentTaskInfo info = AndroidTaskUtils.getTaskInfoFromTask(task);
+            if (info != null) results.add(info.taskId);
+        }
+        return results;
+    }
+
+    /* package */ static void setAppTaskIdsForTesting(Set<Integer> appTaskIds) {
+        sAppTaskIdsForTesting = appTaskIds;
+        ResettersForTesting.register(() -> sAppTaskIdsForTesting = null);
+    }
+
+    /* package */ static void addAppTaskIdForTesting(int appTaskId) {
+        if (sAppTaskIdsForTesting == null) {
+            sAppTaskIdsForTesting = new HashSet<>();
+        }
+        sAppTaskIdsForTesting.add(appTaskId);
+        ResettersForTesting.register(() -> sAppTaskIdsForTesting = null);
     }
 
     public static void setInstanceForTesting(MultiWindowUtils instance) {

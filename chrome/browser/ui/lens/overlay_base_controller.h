@@ -15,12 +15,13 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/lens/lens_overlay_blur_layer_delegate.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/views/frame/immersive_mode_controller.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
@@ -40,7 +41,8 @@ class OverlayBaseController : public content::WebContentsDelegate,
                               public views::ViewObserver,
                               public views::WidgetObserver,
                               public content::RenderProcessHostObserver,
-                              public ImmersiveModeController::Observer {
+                              public ImmersiveModeController::Observer,
+                              public content::WebContentsObserver {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
 
@@ -186,7 +188,9 @@ class OverlayBaseController : public content::WebContentsDelegate,
     kErrorScreenshotCreationFailed,
     kOverlayRendererClosedNormally,
     kOverlayRendererClosedUnexpectedly,
-    kUnexpectedSidePanelOpen
+    kUnexpectedSidePanelOpen,
+    kPageRendererClosedNormally,
+    kPageRendererClosedUnexpectedly
   };
 
   // Request synchronous close of the overlay.
@@ -218,6 +222,9 @@ class OverlayBaseController : public content::WebContentsDelegate,
   // Whether we should blur the host view.
   virtual bool UseOverlayBlur() = 0;
 
+  // Notify the page was navigated.
+  virtual void NotifyPageNavigated() = 0;
+
   // Notification that the overlay is closing soon.
   virtual void NotifyOverlayClosing() = 0;
 
@@ -226,6 +233,9 @@ class OverlayBaseController : public content::WebContentsDelegate,
 
   // Notification that the tab was foregrounded.
   virtual void NotifyTabWillEnterBackground() = 0;
+
+  // Returns if the overlay view can be shared between multiple tabs.
+  virtual bool IsOverlayViewShared() const = 0;
 
   // If the side panel was closed, we wait for the reflow before beginning
   // the screenshot flow.
@@ -322,6 +332,12 @@ class OverlayBaseController : public content::WebContentsDelegate,
   // Close the preselection bubble.
   void ClosePreselectionBubbleImpl();
 
+  // content::WebContentsObserver:
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
+
   // Owns the this class via TabFeatures.
   raw_ptr<tabs::TabInterface> tab_;
 
@@ -373,6 +389,10 @@ class OverlayBaseController : public content::WebContentsDelegate,
 
   // Pointer to the web view within the overlay view if it exists.
   raw_ptr<views::WebView> overlay_web_view_;
+
+  // Pointer to the anchor view for the top left corner. Used to anchor the
+  // mobile Lens promo bubble.
+  raw_ptr<views::View> promo_anchor_ = nullptr;
 
   // Preselection toast bubble. Weak; owns itself. NULL when closed.
   raw_ptr<views::Widget> preselection_widget_ = nullptr;

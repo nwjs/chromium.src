@@ -33,9 +33,12 @@ export function getHtml(this: ContextualTasksAppElement) {
         ?hidden="${this.enableBasicMode_ && this.isInBasicMode_ && !this.enableBasicModeZOrder_}">
       <h1 class="thread-header" id="composeboxHeader">
           ${this.friendlyZeroStateGaiaName_
-            ? html`<span>${this.friendlyZeroStateTitleBeforeName_}</span><span
-              id="nameShimmer" class="name-shimmer">
-              ${this.friendlyZeroStateGaiaName_}</span><span>${this.friendlyZeroStateTitleAfterName_}</span>`
+            ? html`
+                <span>${this.friendlyZeroStateTitleBeforeName_}</span>
+                <span id="nameShimmer" class="name-shimmer">
+                  ${this.friendlyZeroStateGaiaName_}
+                </span>
+                <span>${this.friendlyZeroStateTitleAfterName_}</span>`
             : html`<span>${this.friendlyZeroStateTitle}</span>`
           }
           ${this.friendlyZeroStateSubtitle.length > 0 ?
@@ -43,17 +46,19 @@ export function getHtml(this: ContextualTasksAppElement) {
               ${this.friendlyZeroStateSubtitle}` : ''}
       </h1>
     </div>
+<if expr="not is_android">
     <contextual-tasks-composebox id="composebox"
           style="${this.getComposeboxBoundsStyles()}"
           ?hidden="${this.enableBasicMode_ && this.isInBasicMode_ && !this.enableBasicModeZOrder_}"
           .isZeroState="${this.isZeroState_}"
           .isSidePanel="${!this.isShownInTab_}"
           .isLensOverlayShowing="${this.isLensOverlayShowing_}"
-          .maybeShowOverlayHintText="${this.maybeShowOverlayHintText_}"
+          .isOverlayOpenForAimVisualSearch="${this.isOverlayOpenForAimVisualSearch_}"
           .enableNativeZeroStateSuggestions=
               "${this.enableNativeZeroStateSuggestions_}"
           .inputEnabled="${!this.isInputLocked_}">
     </contextual-tasks-composebox>
+</if>
   </div>
   <error-page id="errorPage"></error-page>
   <!--_html_template_end_-->`;

@@ -355,7 +355,12 @@ class PageLoadMetricsObserverInterface {
 
   // The callback is invoked when a soft navigation is detected.
   // See https://bit.ly/soft-navigation for more details.
-  virtual void OnSoftNavigationUpdated(const mojom::SoftNavigationMetrics&) = 0;
+  virtual void OnSoftNavigation() = 0;
+
+  // The callback is invoked when one or more soft largest contentful
+  // paint candidates arrive in the browser process.
+  virtual void OnSoftNavigationLargestContentfulPaint(
+      uint64_t num_soft_lcps) = 0;
 
   // OnInputTimingUpdate is triggered when an updated InputTiming is available
   // at the subframe level. This method may be called multiple times over the
@@ -365,7 +370,9 @@ class PageLoadMetricsObserverInterface {
       const std::vector<mojom::EventTimingPtr>& event_timings) = 0;
 
   // OnPageEventTimingUpdate is triggered when an updated InputTiming is
-  // available at the page level.
+  // available at the page level. |num_interactions| is the number of NEW
+  // unique interactions since the last update. This value can be 0 if the
+  // update only contains duration changes for previously seen interactions.
   virtual void OnPageEventTimingUpdate(uint64_t num_interactions) = 0;
 
   // OnPageRenderDataChanged is triggered when an updated PageRenderData is

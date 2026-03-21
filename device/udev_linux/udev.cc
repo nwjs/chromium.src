@@ -31,6 +31,10 @@ const char* udev_device_get_devtype(udev_device* udev_device) {
   return UdevLoader::Get()->udev_device_get_devtype(udev_device);
 }
 
+const char* udev_device_get_driver(struct udev_device* udev_device) {
+  return UdevLoader::Get()->udev_device_get_driver(udev_device);
+}
+
 udev_device* udev_device_get_parent(udev_device* udev_device) {
   return UdevLoader::Get()->udev_device_get_parent(udev_device);
 }
@@ -163,6 +167,10 @@ std::string UdevDeviceGetPropertyValue(udev_device* udev_device,
 std::string UdevDeviceGetSysattrValue(udev_device* udev_device,
                                       const char* key) {
   return StringOrEmptyIfNull(udev_device_get_sysattr_value(udev_device, key));
+}
+
+std::string UdevDeviceGetAction(udev_device* udev_device) {
+  return StringOrEmptyIfNull(udev_device_get_action(udev_device));
 }
 
 std::string UdevDeviceRecursiveGetSysattrValue(udev_device* udev_device,

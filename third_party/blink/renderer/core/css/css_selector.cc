@@ -406,6 +406,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdViewTransitionNew;
     case kPseudoOverscrollAreaParent:
       return kPseudoIdOverscrollAreaParent;
+    case kPseudoAnimatedImage:
     case kPseudoActive:
     case kPseudoActiveOption:
     case kPseudoActiveViewTransition:
@@ -431,6 +432,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoEmpty:
     case kPseudoEnabled:
     case kPseudoEnd:
+    case kPseudoFiltered:
     case kPseudoFirstChild:
     case kPseudoFirstOfType:
     case kPseudoFirstPage:
@@ -509,6 +511,7 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
     case kPseudoTargetCurrent:
     case kPseudoTargetBefore:
     case kPseudoTargetAfter:
+    case kPseudoTextField:
     case kPseudoToolFormActive:
     case kPseudoToolSubmitActive:
     case kPseudoUnknown:
@@ -591,6 +594,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
      CSSSelector::kPseudoHostHasNonAutoAppearance},
     {"-internal-spatial-navigation-focus",
      CSSSelector::kPseudoSpatialNavigationFocus},
+    {"-internal-text-field", CSSSelector::kPseudoTextField},
     {"-internal-video-persistent", CSSSelector::kPseudoVideoPersistent},
     {"-internal-video-persistent-ancestor",
      CSSSelector::kPseudoVideoPersistentAncestor},
@@ -611,6 +615,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"active-option", CSSSelector::kPseudoActiveOption},
     {"active-view-transition", CSSSelector::kPseudoActiveViewTransition},
     {"after", CSSSelector::kPseudoAfter},
+    {"animated-image", CSSSelector::kPseudoAnimatedImage},
     {"any-link", CSSSelector::kPseudoAnyLink},
     {"autofill", CSSSelector::kPseudoAutofill},
     {"backdrop", CSSSelector::kPseudoBackdrop},
@@ -631,6 +636,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"enabled", CSSSelector::kPseudoEnabled},
     {"end", CSSSelector::kPseudoEnd},
     {"file-selector-button", CSSSelector::kPseudoFileSelectorButton},
+    {"filtered", CSSSelector::kPseudoFiltered},
     {"first", CSSSelector::kPseudoFirstPage},
     {"first-child", CSSSelector::kPseudoFirstChild},
     {"first-letter", CSSSelector::kPseudoFirstLetter},
@@ -793,8 +799,6 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
   }
 
   if (match->type == CSSSelector::kPseudoPermissionGranted &&
-      !RuntimeEnabledFeatures::PermissionElementEnabled(
-          document ? document->GetExecutionContext() : nullptr) &&
       !RuntimeEnabledFeatures::GeolocationElementEnabled(
           document ? document->GetExecutionContext() : nullptr) &&
       !RuntimeEnabledFeatures::UserMediaElementEnabled(
@@ -853,8 +857,14 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
     return CSSSelector::kPseudoUnknown;
   }
 
-  if (match->type == CSSSelector::kPseudoActiveOption &&
-      !RuntimeEnabledFeatures::CustomizableComboboxEnabled()) {
+  if ((match->type == CSSSelector::kPseudoActiveOption ||
+       match->type == CSSSelector::kPseudoFiltered) &&
+      !RuntimeEnabledFeatures::CustomizableComboboxEnabled() &&
+      !RuntimeEnabledFeatures::FilterableSelectEnabled()) {
+    return CSSSelector::kPseudoUnknown;
+  }
+  if (match->type == CSSSelector::kPseudoAnimatedImage &&
+      !RuntimeEnabledFeatures::CSSImageAnimationEnabled()) {
     return CSSSelector::kPseudoUnknown;
   }
 
@@ -1001,6 +1011,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoActiveOption:
     case kPseudoActiveViewTransition:
     case kPseudoActiveViewTransitionType:
+    case kPseudoAnimatedImage:
     case kPseudoAny:
     case kPseudoAnyLink:
     case kPseudoAutofill:
@@ -1020,6 +1031,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoEmpty:
     case kPseudoEnabled:
     case kPseudoEnd:
+    case kPseudoFiltered:
     case kPseudoFirstChild:
     case kPseudoFirstOfType:
     case kPseudoFocus:
@@ -1087,6 +1099,7 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
     case kPseudoTargetCurrent:
     case kPseudoTargetBefore:
     case kPseudoTargetAfter:
+    case kPseudoTextField:
     case kPseudoUnknown:
     case kPseudoUnparsed:
     case kPseudoUserInvalid:
@@ -1790,6 +1803,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     //
     // All non-structural pseudo-classes should be allowed, and structural
     // pseudo-classes should be forbidden.
+    case kPseudoAnimatedImage:
     case kPseudoAutofill:
     case kPseudoAutofillPreviewed:
     case kPseudoAutofillSelected:
@@ -1805,6 +1819,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoDisabled:
     case kPseudoDrag:
     case kPseudoEnabled:
+    case kPseudoFiltered:
     case kPseudoFocus:
     case kPseudoFocusVisible:
     case kPseudoFocusWithin:
@@ -1862,6 +1877,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoTargetCurrent:
     case kPseudoTargetBefore:
     case kPseudoTargetAfter:
+    case kPseudoTextField:
     case kPseudoToolFormActive:
     case kPseudoToolSubmitActive:
     case kPseudoVideoPersistent:
@@ -2144,6 +2160,7 @@ CSSSelector::RelationType ConvertRelationToRelative(
 // static
 bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
   switch (type) {
+    case CSSSelector::kPseudoAnimatedImage:
     case CSSSelector::kPseudoActive:
     case CSSSelector::kPseudoActiveOption:
     case CSSSelector::kPseudoActiveViewTransition:
@@ -2160,6 +2177,7 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
     case CSSSelector::kPseudoDrag:
     case CSSSelector::kPseudoEmpty:
     case CSSSelector::kPseudoEnabled:
+    case CSSSelector::kPseudoFiltered:
     case CSSSelector::kPseudoFirstChild:
     case CSSSelector::kPseudoFirstOfType:
     case CSSSelector::kPseudoFocus:
@@ -2212,6 +2230,7 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
     case CSSSelector::kPseudoTargetAfter:
     case CSSSelector::kPseudoTargetBefore:
     case CSSSelector::kPseudoTargetCurrent:
+    case CSSSelector::kPseudoTextField:
     case CSSSelector::kPseudoToolFormActive:
     case CSSSelector::kPseudoToolSubmitActive:
     case CSSSelector::kPseudoUserInvalid:

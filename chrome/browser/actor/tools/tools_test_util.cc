@@ -58,6 +58,24 @@ actor_login::Credential MakeTestCredential(
   return credential;
 }
 
+actor_login::Credential MakeTestCredentialFederated(
+    const std::u16string& username,
+    const GURL& url) {
+  actor_login::Credential credential = MakeTestCredential(
+      username, url, /*immediately_available_to_login=*/true);
+  credential.type = actor_login::CredentialType::kFederated;
+
+  actor_login::FederationDetail& federation_detail =
+      credential.federation_detail.emplace();
+  federation_detail.idp_origin = url::Origin::Create(url);
+  federation_detail.account_id = base::ToString(username);
+
+  // In the federated case, the URL is formatted for display. Just using the
+  // host here is close enough for testing.
+  credential.source_site_or_app = base::UTF8ToUTF16(url.host());
+  return credential;
+}
+
 MockActorLoginService::MockActorLoginService() = default;
 
 MockActorLoginService::~MockActorLoginService() = default;
@@ -182,6 +200,10 @@ ExecutionEngine& ActorToolsTest::execution_engine() {
   return actor_task().GetExecutionEngine();
 }
 
+ActorKeyedService& ActorToolsTest::actor_keyed_service() const {
+  return *ActorKeyedService::Get(GetProfile());
+}
+
 ActorTask& ActorToolsTest::actor_task() const {
   CHECK(task_id_);
   return *ActorKeyedService::Get(GetProfile())->GetTask(task_id_);
@@ -211,6 +233,14 @@ void ActorToolsTest::GetPageApc() {
 
 gfx::RectF GetBoundingClientRect(content::RenderFrameHost& rfh,
                                  std::string_view query) {
+  // getBoundingClientRect() returns CSS pixel coordinates.
+  //
+  // CSS pixels are numerically equal to DIPs only when page zoom is 1.0. If a
+  // caller needs DIP-space values, convert from CSS pixels appropriately first.
+  // Callers that compare this geometry to APC (which uses visual-viewport-
+  // relative device pixels / BlinkSpace) must then convert into APC geometry
+  // coordinates.
+  // See optimization_guide::FindNodeAtPoint() for details.
   double width =
       content::EvalJs(
           &rfh, content::JsReplace(

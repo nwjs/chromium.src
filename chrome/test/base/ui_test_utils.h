@@ -196,6 +196,7 @@ Browser* WaitForBrowserToOpen();
 // Blocks until a Browser is removed from the BrowserList. If |browser| is null,
 // the removal of any browser will suffice; otherwise the removed browser must
 // match |browser|.
+// DEPRECATED: Please use BrowserDestroyedObserver.
 void WaitForBrowserToClose(BrowserWindowInterface* browser = nullptr);
 
 // Download the given file and waits for the download to complete.
@@ -360,11 +361,22 @@ void WaitForBrowserSetLastActive(
     BrowserWindowInterface* browser,
     bool wait_for_set_last_active_observed = false);
 
+// DEPRECATED - DO NOT USE. This function exists only to assist with deprecation
+// of existing tests incorrectly manipulating browser activation state. If you
+// want to write tests that handle browser activation, please create an
+// interactive ui test and activate the browser's ui::BaseWindow.
+//
+// This function fakes the activation state managed by `browser`. It does not
+// change the activation state of the underlying ui::BaseWindow. This creates
+// inconsistencies in tests and may yield unexpected results.
+void DeprecatedFakeActivateBrowser(BrowserWindowInterface* browser);
+
 // Send the given text to the omnibox and wait until it's updated.
 void SendToOmniboxAndSubmit(
     BrowserWindowInterface* browser,
     std::string_view input,
-    base::TimeTicks match_selection_timestamp = base::TimeTicks());
+    base::TimeTicks match_selection_timestamp = base::TimeTicks(),
+    bool wait_for_autocomplete_done = true);
 
 // Gets the first browser that is not in the specified set.
 Browser* GetBrowserNotInSet(
@@ -553,16 +565,23 @@ class TabAddedWaiter : public TabStripModelObserver {
       nullptr;
 };
 
-// Similar to TabAddedWaiter, but will observe tabs added to all Browser
-// objects, and can return the last tab that was added.
+// Similar to `TabAddedWaiter`, but will observe tabs added to all Browser
+// objects, and can return the 1st tab that was added. Will optionally verify
+// the expected number of tabs were added.
 class AllBrowserTabAddedWaiter : public TabStripModelObserver,
                                  public BrowserCollectionObserver {
  public:
-  AllBrowserTabAddedWaiter();
+  // A null `expected_count` means the test expects at least 1 tab to be added.
+  // A non-null value means the test expects exactly that many tabs to be added.
+  explicit AllBrowserTabAddedWaiter(
+      std::optional<size_t> expected_count = std::nullopt);
   AllBrowserTabAddedWaiter(const AllBrowserTabAddedWaiter&) = delete;
   AllBrowserTabAddedWaiter& operator=(const AllBrowserTabAddedWaiter&) = delete;
   ~AllBrowserTabAddedWaiter() override;
 
+  // If `expected_count_` is provided, waits for that many tabs to be added.
+  // Otherwise, waits for at least 1 tab to be added. Returns the `WebContents`
+  // of the 1st tab added.
   content::WebContents* Wait();
 
   // TabStripModelObserver:
@@ -576,10 +595,9 @@ class AllBrowserTabAddedWaiter : public TabStripModelObserver,
 
  private:
   base::RunLoop run_loop_{base::RunLoop::Type::kNestableTasksAllowed};
-
-  // The last tab that was added.
-  raw_ptr<content::WebContents, AcrossTasksDanglingUntriaged> web_contents_ =
-      nullptr;
+  std::optional<size_t> expected_count_;
+  std::vector<raw_ptr<content::WebContents, AcrossTasksDanglingUntriaged>>
+      web_contents_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};
 };
@@ -614,8 +632,15 @@ class BrowserDestroyedObserver : public BrowserCollectionObserver {
   void OnBrowserClosed(BrowserWindowInterface* browser) override;
 
  private:
-  bool was_removed_ = false;
+  // True if a closed event has been observed for `browser_`.
+  bool browser_was_closed_ = false;
+
+  // WeakPtr captured when the target browser was closed.
+  base::WeakPtr<BrowserWindowInterface> browser_;
+
+  // SessionID of the target browser.
   const std::optional<SessionID> session_id_;
+
   base::RunLoop run_loop_{base::RunLoop::Type::kNestableTasksAllowed};
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};

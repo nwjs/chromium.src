@@ -150,13 +150,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/waap/waap_ui_metrics_service.cc:InitialWebUIView) -->
 
-<enum name="OpenLinkAs">
-  <int value="0" label="Open Link as Profile displayed."/>
-  <int value="1" label="Open Link as Profile clicked."/>
-  <int value="2" label="Open Link in Incognito Window displayed."/>
-  <int value="3" label="Open Link in Incognito Window clicked."/>
-</enum>
-
 <!-- LINT.IfChange(PinInfoBarUserInteraction) -->
 
 <enum name="PinInfoBarUserInteraction">
@@ -368,6 +361,7 @@ chromium-metrics-reviews@google.com.
   <int value="158" label="IDC_CONTENT_CONTEXT_ARCHIVE_GLIC"/>
   <int value="159" label="IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_GEMINI"/>
   <int value="160" label="IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_DEVTOOLS"/>
+  <int value="161" label="IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:RenderViewContextMenuItem) -->
@@ -380,6 +374,19 @@ chromium-metrics-reviews@google.com.
   </int>
   <int value="3" label="FALLBACKS">
     Call to GetFallbackFonts(...) was required find the appropriate font.
+  </int>
+</enum>
+
+<enum name="SnackbarDismissalReason">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Action button"/>
+  <int value="2" label="Timeout"/>
+  <int value="3" label="Swipe"/>
+  <int value="4" label="Dismissed by caller"/>
+  <int value="5" label="Replaced by action snackbar"/>
+  <int value="6" label="Others">
+    The snackbar was cleared by other events, such as activity being stopped or
+    manually cleared by the manager.
   </int>
 </enum>
 
@@ -465,6 +472,9 @@ chromium-metrics-reviews@google.com.
   <int value="79" label="UMA_FUSEBOX_UPLOAD_FAILED"/>
   <int value="80" label="UMA_BOOKMARK_LINK_COPIED"/>
   <int value="81" label="UMA_BOOKMARK_LINK_COPIED_NON_SELECTION"/>
+  <int value="82" label="UMA_CROSS_DEVICE_SETTING_IMPORT"/>
+  <int value="83" label="UMA_CROSS_DEVICE_SETTING_UNDO"/>
+  <int value="84" label="UMA_CROSS_DEVICE_SETTING_REDO"/>
 </enum>
 
 <enum name="WebUIPreloadReason">
@@ -648,26 +658,6 @@ chromium-metrics-reviews@google.com.
   <int value="2136345292" label="/privacy"/>
 </enum>
 
-<enum name="WebUITabStripCloseActions">
-  <int value="0" label="Tap on tab counter"/>
-  <int value="1" label="Tap outside tab strip (deprecated)"/>
-  <int value="2" label="Tab selected in tab strip"/>
-  <int value="3" label="Tap in tab's content area"/>
-  <int value="4"
-      label="Omnibox focused (either by tap or by creating a new tab)"/>
-</enum>
-
-<enum name="WebUITabStripCloseTabActions">
-  <int value="0" label="Tap on close button"/>
-  <int value="1" label="Swiped to close"/>
-</enum>
-
-<enum name="WebUITabStripOpenActions">
-  <int value="0" label="Tap on tab counter"/>
-  <int value="1" label="Dragged open from toolbar"/>
-  <int value="2" label="Tab from other window dragged over toolbar"/>
-</enum>
-
 <enum name="WebUIUrlHashes">
   <int value="-2137891043" label="chrome-untrusted://scanner-feedback/"/>
   <int value="-2117475303" label="chrome://comments-side-panel.top-chrome/"/>
@@ -684,6 +674,7 @@ chromium-metrics-reviews@google.com.
   <int value="-2024468885" label="chrome://ntp-tiles-internals/"/>
   <int value="-2020874093" label="chrome://lock-reauth/"/>
   <int value="-2008798042" label="chrome://extended-updates-dialog/"/>
+  <int value="-1995370569" label="chrome://private-ai-internals/"/>
   <int value="-1977692791" label="chrome://crash/"/>
   <int value="-1970917350" label="chrome-untrusted://compose/"/>
   <int value="-1969079493"
@@ -792,6 +783,7 @@ chromium-metrics-reviews@google.com.
   <int value="-853789543" label="chrome://bluetooth-pairing/"/>
   <int value="-833683433" label="chrome://on-device-internals/"/>
   <int value="-823585847" label="chrome://chrome-signin/"/>
+  <int value="-780324767" label="chrome://webnn-internals/"/>
   <int value="-769094624" label="chrome://borealis-credits/"/>
   <int value="-756514973" label="chrome://version/"/>
   <int value="-753390931" label="chrome://interstitials/"/>
@@ -840,6 +832,7 @@ chromium-metrics-reviews@google.com.
   <int value="-359703631" label="chrome://slow_trace/"/>
   <int value="-336117866" label="chrome://focus-mode-media/"/>
   <int value="-332876060" label="chrome://autofill-ml-internals/"/>
+  <int value="-251863235" label="chrome-untrusted://glic/"/>
   <int value="-245337017" label="chrome://user-actions/"/>
   <int value="-233401490" label="chrome://accessory-update/"/>
   <int value="-222190329" label="chrome://dino/"/>
@@ -869,7 +862,6 @@ chromium-metrics-reviews@google.com.
   <int value="48333657" label="chrome://about/"/>
   <int value="57900378" label="chrome://conch/"/>
   <int value="58807865" label="chrome://local-state/"/>
-  <int value="67875391" label="chrome://legion-internals/"/>
   <int value="71502624" label="chrome://history-sync-optin/"/>
   <int value="84832110" label="chrome://fileicon/"/>
   <int value="104579118" label="chrome://boca-app/"/>
@@ -928,6 +920,7 @@ chromium-metrics-reviews@google.com.
   <int value="745470397" label="chrome://parent-access/"/>
   <int value="749881882" label="chrome://webuijserror/"/>
   <int value="754315733" label="chrome://theme/"/>
+  <int value="757366070" label="chrome://content-annotator-internals/"/>
   <int value="762064551" label="chrome://graduation/"/>
   <int value="770641362" label="chrome://shortcut-customization/"/>
   <int value="784140714" label="chrome://predictors/"/>
@@ -997,6 +990,7 @@ chromium-metrics-reviews@google.com.
   <int value="1399992914" label="chrome://java-crash/"/>
   <int value="1403605293" label="chrome://internet-detail-dialog/ (duplicate)"/>
   <int value="1411665301" label="chrome://lock-network/"/>
+  <int value="1423937437" label="chrome://chrome-finds-internals/"/>
   <int value="1427179406" label="chrome://gcm-internals/"/>
   <int value="1437913193" label="chrome://file-manager/"/>
   <int value="1446796271" label="chrome-untrusted://focus-mode-player/"/>
@@ -1153,7 +1147,7 @@ chromium-metrics-reviews@google.com.
   <int value="90" label="Show Lens overlay"/>
   <int value="91" label="Open extension settings (Safety Hub)"/>
   <int value="92" label="Show customize chrome side panel"/>
-  <int value="93" label="Show tab search declutter page"/>
+  <int value="93" label="Show tab search declutter page (Deprecated)"/>
   <int value="94" label="Open glic"/>
   <int value="95" label="Find Extensions"/>
   <int value="96" label="Show signin page"/>

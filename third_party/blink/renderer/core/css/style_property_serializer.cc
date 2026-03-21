@@ -94,6 +94,26 @@ StringView PlatformEnumToCSSValueString(T e) {
   return GetCSSValueNameAs<StringView>(PlatformEnumToCSSValueID(e));
 }
 
+String SerializeBorderValues(const std::array<String, 3>& values) {
+  static constexpr std::array<const char*, 3> kInitialValues = {
+      "medium",
+      "none",
+      "currentcolor",
+  };
+  StringBuilder result;
+  for (wtf_size_t i = 0; i < values.size(); ++i) {
+    const String& value = values[i];
+    if (value.IsNull() || value == kInitialValues[i]) {
+      continue;
+    }
+    if (!result.empty()) {
+      result.Append(' ');
+    }
+    result.Append(value);
+  }
+  return result.ReleaseString();
+}
+
 }  // namespace
 
 StylePropertySerializer::CSSPropertyValueSetForSerializer::
@@ -114,6 +134,9 @@ StylePropertySerializer::CSSPropertyValueSetForSerializer::
       }
       if (static_cast<unsigned>(all_index_) >= i) {
         continue;
+      }
+      if (IsCSSPropertyIDWithName(property.PropertyID())) {
+        longhand_after_all_.set(GetCSSPropertyIDIndex(property.PropertyID()));
       }
       if (property.Value() == all_property.Value() &&
           property.IsImportant() == all_property.IsImportant()) {
@@ -141,7 +164,7 @@ StylePropertySerializer::CSSPropertyValueSetForSerializer::PropertyCount()
     // When expanding all:* we need to serialize all properties set by the "all"
     // property, but also still walk the actual property set to include any
     // custom property declarations.
-    count += kIntLastCSSProperty - kIntFirstCSSProperty + 1;
+    count += kAllLonghandCount;
   }
   return count;
 }
@@ -149,25 +172,18 @@ StylePropertySerializer::CSSPropertyValueSetForSerializer::PropertyCount()
 StylePropertySerializer::PropertyValueForSerializer
 StylePropertySerializer::CSSPropertyValueSetForSerializer::PropertyAt(
     unsigned index) const {
-  if (IsIndexInPropertySet(index)) {
+  if (!HasExpandedAllProperty()) {
+    DCHECK(IsIndexInPropertySet(index));
     return StylePropertySerializer::PropertyValueForSerializer(
         property_set_->PropertyAt(index));
   }
 
-  // When expanding "all" into longhands, PropertyAt() is called with indices
-  // outside the size of the property_set_ to serialize all longshands.
-  DCHECK(HasExpandedAllProperty());
-  CSSPropertyID property_id = IndexToPropertyID(index);
-  DCHECK(IsCSSPropertyIDWithName(property_id));
-  if (longhand_property_used_.test(GetCSSPropertyIDIndex(property_id))) {
-    // A property declaration for property_id overrides the "all" declaration.
-    // Access that declaration from the property set.
-    int real_index = property_set_->FindPropertyIndex(property_id);
-    DCHECK_NE(real_index, -1);
+  if (IsIndexInPropertySet(index)) {
     return StylePropertySerializer::PropertyValueForSerializer(
-        property_set_->PropertyAt(real_index));
+        property_set_->PropertyAt(index - kAllLonghandCount));
   }
 
+  CSSPropertyID property_id = IndexToPropertyID(index);
   const CSSPropertyValue& property = property_set_->PropertyAt(all_index_);
   return StylePropertySerializer::PropertyValueForSerializer(
       CSSProperty::Get(property_id).GetCSSPropertyName(), property.Value(),
@@ -196,11 +212,29 @@ bool StylePropertySerializer::CSSPropertyValueSetForSerializer::
         GetCSSPropertyIDIndex(property.PropertyID()));
   }
 
-  // Custom property declarations are never overridden by "all" and are only
-  // traversed for the indices into the property set.
   if (IsIndexInPropertySet(index)) {
-    return property_set_->PropertyAt(index).PropertyID() ==
-           CSSPropertyID::kVariable;
+    const CSSPropertyValue& property =
+        property_set_->PropertyAt(index - kAllLonghandCount);
+    // Custom property declarations are never overridden by "all" and are only
+    // traversed in the in-set range.
+    if (property.PropertyID() == CSSPropertyID::kVariable) {
+      return true;
+    }
+    if (property.PropertyID() == CSSPropertyID::kAll) {
+      return false;
+    }
+    if (!IsCSSPropertyIDWithName(property.PropertyID())) {
+      return false;
+    }
+    if (property.IsAffectedByAll()) {
+      return longhand_after_all_.test(
+          GetCSSPropertyIDIndex(property.PropertyID()));
+    }
+    // The all property is a shorthand that resets all CSS properties except
+    // direction and unicode-bidi. It only accepts the CSS-wide keywords.
+    // c.f. https://drafts.csswg.org/css-cascade/#all-shorthand
+    return longhand_property_used_.test(
+        GetCSSPropertyIDIndex(property.PropertyID()));
   }
 
   CSSPropertyID property_id = IndexToPropertyID(index);
@@ -220,7 +254,12 @@ bool StylePropertySerializer::CSSPropertyValueSetForSerializer::
   // direction and unicode-bidi. It only accepts the CSS-wide keywords.
   // c.f. https://drafts.csswg.org/css-cascade/#all-shorthand
   if (!property_class.IsAffectedByAll()) {
-    return longhand_property_used_.test(GetCSSPropertyIDIndex(property_id));
+    return false;
+  }
+
+  // Skip properties that appear after "all" in the property set.
+  if (longhand_after_all_.test(GetCSSPropertyIDIndex(property_id))) {
+    return false;
   }
 
   return true;
@@ -232,7 +271,15 @@ int StylePropertySerializer::CSSPropertyValueSetForSerializer::
   if (!HasExpandedAllProperty()) {
     return property_set_->FindPropertyIndex(property_id);
   }
-  return GetCSSPropertyIDIndex(property_id) + property_set_->PropertyCount();
+
+  if (IsCSSPropertyIDWithName(property_id) &&
+      longhand_after_all_.test(GetCSSPropertyIDIndex(property_id))) {
+    int real_index = property_set_->FindPropertyIndex(property_id);
+    DCHECK_GE(real_index, 0);
+    return static_cast<int>(kAllLonghandCount) + real_index;
+  }
+
+  return GetCSSPropertyIDIndex(property_id);
 }
 
 const CSSValue*
@@ -341,7 +388,7 @@ String StylePropertySerializer::AsText() const {
       continue;
     }
 
-    Vector<StylePropertyShorthand, 4> shorthands;
+    MatchingShorthandsVector shorthands;
     getMatchingShorthandsForLonghand(property_id, &shorthands);
     bool serialized_as_shorthand = false;
     for (const StylePropertyShorthand& shorthand : shorthands) {
@@ -538,13 +585,13 @@ String StylePropertySerializer::SerializeShorthand(
     case CSSPropertyID::kBorderImage:
       return BorderImagePropertyValue();
     case CSSPropertyID::kBorderTop:
-      return GetShorthandValue(borderTopShorthand());
+      return GetShorthandValueForBorder(borderTopShorthand());
     case CSSPropertyID::kBorderRight:
-      return GetShorthandValue(borderRightShorthand());
+      return GetShorthandValueForBorder(borderRightShorthand());
     case CSSPropertyID::kBorderBottom:
-      return GetShorthandValue(borderBottomShorthand());
+      return GetShorthandValueForBorder(borderBottomShorthand());
     case CSSPropertyID::kBorderLeft:
-      return GetShorthandValue(borderLeftShorthand());
+      return GetShorthandValueForBorder(borderLeftShorthand());
     case CSSPropertyID::kBorderBlock:
       return BorderPropertyValue(borderBlockWidthShorthand(),
                                  borderBlockStyleShorthand(),
@@ -604,6 +651,18 @@ String StylePropertySerializer::SerializeShorthand(
     case CSSPropertyID::kRowRuleInset:
       return GetShorthandValueForGapDecorationsRuleInset(
           rowRuleInsetShorthand(), CSSGapDecorationPropertyDirection::kRow);
+    case CSSPropertyID::kColumnRuleInsetEnd:
+      return GetShorthandValueForGapDecorationsRuleInsetStartEnd(
+          columnRuleInsetEndShorthand());
+    case CSSPropertyID::kColumnRuleInsetStart:
+      return GetShorthandValueForGapDecorationsRuleInsetStartEnd(
+          columnRuleInsetStartShorthand());
+    case CSSPropertyID::kRowRuleInsetEnd:
+      return GetShorthandValueForGapDecorationsRuleInsetStartEnd(
+          rowRuleInsetEndShorthand());
+    case CSSPropertyID::kRowRuleInsetStart:
+      return GetShorthandValueForGapDecorationsRuleInsetStartEnd(
+          rowRuleInsetStartShorthand());
     case CSSPropertyID::kColumnRuleInteriorInset:
       return GetShorthandValueForGapDecorationsRuleEdgeInteriorInset(
           columnRuleInteriorInsetShorthand(),
@@ -702,6 +761,12 @@ String StylePropertySerializer::SerializeShorthand(
     case CSSPropertyID::kRuleInset:
       return GetShorthandValueForBidirectionalGapRuleInset(
           ruleInsetShorthand());
+    case CSSPropertyID::kRuleInsetEnd:
+      return GetShorthandValueForBidirectionalGapRuleInsetStartEnd(
+          ruleInsetEndShorthand());
+    case CSSPropertyID::kRuleInsetStart:
+      return GetShorthandValueForBidirectionalGapRuleInsetStartEnd(
+          ruleInsetStartShorthand());
     case CSSPropertyID::kRuleStyle:
       return GetShorthandValueForBidirectionalGapRules(ruleStyleShorthand());
     case CSSPropertyID::kRuleVisibilityItems:
@@ -2088,6 +2153,20 @@ String StylePropertySerializer::GetShorthandValue(
   return result.ReleaseString();
 }
 
+String StylePropertySerializer::GetShorthandValueForBorder(
+    const StylePropertyShorthand& shorthand) const {
+  DCHECK_EQ(shorthand.length(), 3u);
+
+  std::array<String, 3> values;
+  for (size_t i = 0; i < shorthand.length(); i++) {
+    const CSSValue* value =
+        property_set_.GetPropertyCSSValue(*shorthand.properties()[i]);
+    values[i] = value->CssText();
+  }
+
+  return SerializeBorderValues(values);
+}
+
 String StylePropertySerializer::GetShorthandValueForRule(
     const StylePropertyShorthand& row_rule_shorthand,
     const StylePropertyShorthand& column_rule_shorthand) const {
@@ -2202,6 +2281,37 @@ String StylePropertySerializer::
     }
   }
   return result.ReleaseString();
+}
+
+String
+StylePropertySerializer::GetShorthandValueForBidirectionalGapRuleInsetStartEnd(
+    const StylePropertyShorthand& shorthand) const {
+  CHECK_EQ(shorthand.length(), 4u);
+
+  const CSSValue* column_edge_inset_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[0]);
+  const CSSValue* column_interior_inset_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[1]);
+  const CSSValue* row_edge_inset_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[2]);
+  const CSSValue* row_interior_inset_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[3]);
+
+  // The shorthand is bi-directional and all four longhands must be equal.
+  //
+  // https://drafts.csswg.org/css-gaps-1/#inset
+  if (!base::ValuesEquivalent(column_edge_inset_value,
+                              column_interior_inset_value) ||
+      !base::ValuesEquivalent(column_edge_inset_value, row_edge_inset_value) ||
+      !base::ValuesEquivalent(column_edge_inset_value,
+                              row_interior_inset_value)) {
+    return String();
+  }
+
+  if (!column_edge_inset_value->IsInitialValue()) {
+    return column_edge_inset_value->CssText();
+  }
+  return String();
 }
 
 String StylePropertySerializer::GetShorthandValueForBidirectionalGapRules(
@@ -2452,6 +2562,28 @@ String StylePropertySerializer::
   }
 
   return result.ReleaseString();
+}
+
+String
+StylePropertySerializer::GetShorthandValueForGapDecorationsRuleInsetStartEnd(
+    const StylePropertyShorthand& shorthand) const {
+  CHECK(RuntimeEnabledFeatures::CSSGapDecorationEnabled());
+  CHECK_EQ(shorthand.length(), 2u);
+
+  const CSSValue* edge_inset_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[0]);
+  const CSSValue* interior_inset_value =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[1]);
+
+  // All values must be specified.
+  CHECK(edge_inset_value && interior_inset_value);
+
+  // The shorthand can only be serialized if both values are equal.
+  if (edge_inset_value != interior_inset_value) {
+    return String();
+  }
+
+  return edge_inset_value->CssText();
 }
 
 String StylePropertySerializer::GetShorthandValueForGapDecorationsRuleInset(
@@ -2919,22 +3051,17 @@ String StylePropertySerializer::BorderPropertyValue(
     }
   }
 
-  const StylePropertyShorthand shorthand_properties[3] = {width, style, color};
-  StringBuilder result;
-  for (const auto& shorthand_property : shorthand_properties) {
-    const String value = GetCommonValue(shorthand_property);
+  const std::array<StylePropertyShorthand, 3> shorthands = {width, style,
+                                                            color};
+  std::array<String, 3> values;
+  for (wtf_size_t i = 0; i < shorthands.size(); i++) {
+    String value = GetCommonValue(shorthands[i]);
     if (value.IsNull()) {
       return String();
     }
-    if (value == "initial") {
-      continue;
-    }
-    if (!result.empty()) {
-      result.Append(' ');
-    }
-    result.Append(value);
+    values[i] = std::move(value);
   }
-  return result.empty() ? String() : result.ReleaseString();
+  return SerializeBorderValues(values);
 }
 
 String StylePropertySerializer::BorderImagePropertyValue() const {

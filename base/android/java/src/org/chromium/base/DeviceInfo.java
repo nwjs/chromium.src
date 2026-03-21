@@ -47,6 +47,7 @@ public final class DeviceInfo {
     private static boolean sInitialized;
     private static @Nullable Boolean sIsXrForTesting;
     private static @Nullable Boolean sIsRetailDemoModeForTesting;
+    private static @Nullable Boolean sIsDesktopForTesting;
     private final IDeviceInfo mIDeviceInfo;
     private @Nullable Boolean mIsRetailDemoMode;
     private @Nullable ApplicationInfo mGmsAppInfo;
@@ -124,6 +125,20 @@ public final class DeviceInfo {
         return getInstance().mIDeviceInfo.isAutomotive;
     }
 
+    /**
+     * Checks whether the current device is a foldable device.
+     *
+     * <p><b>Limitation:</b> This implementation relies entirely on the presence of the {@code
+     * PackageManager.FEATURE_SENSOR_HINGE_ANGLE} system feature to identify foldables. Because this
+     * feature was officially introduced in Android 11 (API level 30), early foldable devices that
+     * launched on Android 9 or 10 (such as the original Samsung Galaxy Fold, Z Fold2, and Z Flip)
+     * use proprietary implementations instead of the standard AOSP hinge sensor feature.
+     * Consequently, this method will incorrectly return {@code false} for those specific legacy
+     * devices.
+     *
+     * @return {@code true} if the device is recognized by the OS as having a hinge angle sensor,
+     *     {@code false} otherwise (including on legacy Samsung foldables).
+     */
     public static boolean isFoldable() {
         return getInstance().mIDeviceInfo.isFoldable;
     }
@@ -188,6 +203,14 @@ public final class DeviceInfo {
     public static void setIsRetailDemoModeForTesting(boolean value) {
         sIsRetailDemoModeForTesting = value;
         ResettersForTesting.register(() -> sIsRetailDemoModeForTesting = null);
+    }
+
+    public static void setIsDesktopForTesting(boolean isDesktop) {
+        sIsDesktopForTesting = isDesktop;
+        ResettersForTesting.register(() -> sIsDesktopForTesting = null);
+        if (sIsNativeLoaded) {
+            sendToNative(getInstance().mIDeviceInfo);
+        }
     }
 
     private static DeviceInfo getInstance() {
@@ -283,8 +306,12 @@ public final class DeviceInfo {
         }
 
         mIDeviceInfo.isDesktop =
-                (BuildConfig.IS_DESKTOP_ANDROID && pm.hasSystemFeature(PackageManager.FEATURE_PC))
-                        || CommandLine.getInstance().hasSwitch(BaseSwitches.FORCE_DESKTOP_ANDROID);
+                (sIsDesktopForTesting != null)
+                        ? sIsDesktopForTesting
+                        : (BuildConfig.IS_DESKTOP_ANDROID
+                                        && pm.hasSystemFeature(PackageManager.FEATURE_PC))
+                                || CommandLine.getInstance()
+                                        .hasSwitch(BaseSwitches.FORCE_DESKTOP_ANDROID);
 
         // Detect whether device is foldable.
         mIDeviceInfo.isFoldable =

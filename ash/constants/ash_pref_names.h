@@ -2744,18 +2744,360 @@ inline constexpr char kQuickInsertFeatureTourCompletedPref[] =
 inline constexpr char kSchedulerConfiguration[] =
     "chromeos.scheduler_configuration";
 
+// Keeps local state of app list while sync service is not available.
+inline constexpr char kAppListLocalState[] = "app_list.local_state";
+inline constexpr char kAppListPreferredOrder[] = "app_list.preferred_order";
+
+// A dictionary containing weekly time intervals to automatically sleep and wake
+// up the device.
+inline constexpr char kDeviceWeeklyScheduledSuspend[] =
+    "device_weekly_scheduled_suspend";
+
+// Boolean pref recording whether cookie and data would be used only for
+// essential purposes.
+inline constexpr char kEssentialSearchEnabled[] = "essential_search_enabled";
+// Boolean pref recording the last applied value for kEssentialSearchEnabled
+// prefs.
+inline constexpr char kLastEssentialSearchValue[] =
+    "last_essential_search_value";
+
+// Indicates that factory reset was requested from options page or reset screen.
+inline constexpr char kFactoryResetRequested[] = "FactoryResetRequested";
+
+// Presence of this value indicates that a TPM firmware update has been
+// requested. The value indicates the requested update mode.
+inline constexpr char kFactoryResetTPMFirmwareUpdateMode[] =
+    "FactoryResetTPMFirmwareUpdateMode";
+
+// Indicates that when a factory reset is requested by setting
+// |kFactoryResetRequested|, the user should only have the option to powerwash
+// and cannot cancel the dialog otherwise.
+inline constexpr char kForceFactoryReset[] = "ForceFactoryReset";
+
+//-----------------------------------------------------------------------------
+// Kiosk related Prefs
+//-----------------------------------------------------------------------------
+
+// A boolean pref to change the kiosk active WiFi credentials scope from in
+// session level to the device level.
+inline constexpr char kKioskActiveWiFiCredentialsScopeChangeEnabled[] =
+    "kiosk_active_wifi_credentials_scope_change_enabled";
+
+// A boolean pref which determines whether kiosk application level logs would be
+// collected and stored.
+inline constexpr char kKioskApplicationLogCollectionEnabled[] =
+    "kiosk_application_log_collection_enabled";
+
+// Pref name for providing additional urls which can access browser permissions
+// already available to the kiosk web apps.
+inline constexpr char kKioskBrowserPermissionsAllowedForOrigins[] =
+    "policy.kiosk_browser_permissions_allowed_for_origins";
+
+// A boolean pref which determines whether Chrome Apps are allowed in Kiosk
+// sessions.
+inline constexpr char kKioskChromeAppsForceAllowed[] =
+    "kiosk_chrome_apps_force_allowed";
+
+// A dictionary containing kiosk metrics latest session related information.
+// For example, kiosk session start times, number of network drops.
+// This setting resides in local state.
+inline constexpr char kKioskMetrics[] = "kiosk-metrics";
+
+// A boolean pref which determines whether kiosk troubleshooting tools are
+// enabled.
+inline constexpr char kKioskTroubleshootingToolsEnabled[] =
+    "kiosk_troubleshooting_tools_enabled";
+
+// Pref name to toggle the network prompt at web app kiosk launch when the
+// device is offline and the web app is not offline enabled.
+inline constexpr char kKioskWebAppOfflineEnabled[] =
+    "policy.kiosk_web_app_offline_enabled";
+
+// A boolean pref which determines whether a Web Kiosk can open more than one
+// browser window.
+inline constexpr char kNewWindowsInKioskAllowed[] =
+    "new_windows_in_kiosk_allowed";
+
 //-----------------------------------------------------------------------------
 // Language related Prefs
 //-----------------------------------------------------------------------------
+
+// A list pref set to the allowed input methods (see policy
+// "AllowedInputMethods").
+inline constexpr char kLanguageAllowedInputMethods[] =
+    "settings.language.allowed_input_methods";
+
+// A boolean pref that enforces allowed input methods to be enabled (see policy
+// "AllowedInputMethodsForceEnabled").
+inline constexpr char kLanguageAllowedInputMethodsForceEnabled[] =
+    "settings.language.allowed_input_methods_force_enabled";
 
 // A string pref set to the current input method.
 inline constexpr char kLanguageCurrentInputMethod[] =
     "settings.language.current_input_method";
 
+// A string pref (comma-separated list) set to the extension and ARC IMEs to be
+// enabled.
+inline constexpr char kLanguageEnabledImes[] =
+    "settings.language.enabled_extension_imes";
+inline constexpr char kLanguageEnabledImesSyncable[] =
+    "settings.language.enabled_extension_imes_syncable";
+
+// A boolean pref set to true if the IME menu is activated.
+inline constexpr char kLanguageImeMenuActivated[] =
+    "settings.language.ime_menu_activated";
+
+// A dictionary of input method IDs and their settings. Each value is itself a
+// dictionary of key / value string pairs, with each pair representing a setting
+// and its value.
+inline constexpr char kLanguageInputMethodSpecificSettings[] =
+    "settings.language.input_method_specific_settings";
+
 // A string pref (comma-separated list) that corresponds to the set of enabled
 // 1P input method engine IDs.
 inline constexpr char kLanguagePreloadEngines[] =
     "settings.language.preload_engines";
+inline constexpr char kLanguagePreloadEnginesSyncable[] =
+    "settings.language.preload_engines_syncable";
+
+// A string pref set to the previous input method.
+inline constexpr char kLanguagePreviousInputMethod[] =
+    "settings.language.previous_input_method";
+
+// A boolean pref to indicate whether we still need to add the globally synced
+// input methods. False after the initial post-OOBE sync.
+inline constexpr char kLanguageShouldMergeInputMethods[] =
+    "settings.language.merge_input_methods";
+
+//-----------------------------------------------------------------------------
+// Clock/Timezone related Prefs
+//-----------------------------------------------------------------------------
+
+// This setting controls what information is sent to the server to get
+// device location to resolve time zone outside of user session. Values must
+// match TimeZoneResolverManager::TimeZoneResolveMethod enum.
+inline constexpr char kResolveDeviceTimezoneByGeolocationMethod[] =
+    "settings.resolve_device_timezone_by_geolocation_method";
+
+// This setting controls what information is sent to the server to get
+// device location to resolve time zone in user session. Values must
+// match TimeZoneResolverManager::TimeZoneResolveMethod enum.
+inline constexpr char kResolveTimezoneByGeolocationMethod[] =
+    "settings.resolve_timezone_by_geolocation_method";
+
+// This setting is true when kResolveTimezoneByGeolocation value
+// has been migrated to kResolveTimezoneByGeolocationMethod.
+inline constexpr char kResolveTimezoneByGeolocationMigratedToMethod[] =
+    "settings.resolve_timezone_by_geolocation_migrated_to_method";
+
+// This setting controls initial device timezone that is used before user
+// session started. It is controlled by device owner.
+inline constexpr char kSigninScreenTimezone[] =
+    "settings.signin_screen_timezone";
+
+// This is policy-controlled preference.
+// It has values defined in policy enum
+// SystemTimezoneAutomaticDetectionProto_AutomaticTimezoneDetectionType;
+inline constexpr char kSystemTimezoneAutomaticDetectionPolicy[] =
+    "settings.resolve_device_timezone_by_geolocation_policy";
+
+// A boolean pref set to true if time should be displayed in 24-hour clock.
+inline constexpr char kUse24HourClock[] = "settings.clock.use_24hour_clock";
+
+// A string pref containing Timezone ID for this user.
+inline constexpr char kUserTimezone[] = "settings.timezone";
+
+//-----------------------------------------------------------------------------
+// File manager/file system related Prefs
+//-----------------------------------------------------------------------------
+
+// Map of default tasks, associated by MIME type.
+inline constexpr char kDefaultTasksByMimeType[] =
+    "filebrowser.tasks.default_by_mime_type";
+
+// Map of default tasks, associated by file suffix.
+inline constexpr char kDefaultTasksBySuffix[] =
+    "filebrowser.tasks.default_by_suffix";
+
+// Maps file extensions to handlers according to the
+// DefaultHandlersForFileExtensions policy.
+inline constexpr char kDefaultHandlersForFileExtensions[] =
+    "filebrowser.default_handlers_for_file_extensions";
+
+// Pref that contains the value of the default location/volume that the user
+// should see in the Files App. Normally this is MyFiles. If
+// LocalUserFilesAllowed is False, this might be Google Drive or OneDrive,
+// depending on the value of the DownloadDirectory policy.
+inline constexpr char kFilesAppDefaultLocation[] =
+    "filebrowser.default_location";
+
+// Pref that contains the value of the LocalUserFilesAllowed policy.
+inline constexpr char kLocalUserFilesAllowed[] =
+    "filebrowser.local_user_files_allowed";
+
+// Pref that contains the value of the LocalUserFilesMigrationDestination
+// policy.
+inline constexpr char kLocalUserFilesMigrationDestination[] =
+    "filebrowser.local_user_files_migration_destination";
+
+// Boolean pref indicating whether a user is allowed to use the Network File
+// Shares for Chrome OS feature.
+inline constexpr char kNetworkFileSharesAllowed[] =
+    "network_file_shares.allowed";
+
+// Whether we should always move office files to Google Drive without prompting
+// the user first.
+inline constexpr char kOfficeFilesAlwaysMoveToDrive[] =
+    "filebrowser.office.always_move_to_drive";
+
+inline constexpr char kOfficeFilesAlwaysMoveToDriveSyncable[] =
+    "filebrowser.office.always_move_to_drive_syncable";
+
+// Whether we should always move office files to OneDrive without prompting the
+// user first.
+inline constexpr char kOfficeFilesAlwaysMoveToOneDrive[] =
+    "filebrowser.office.always_move_to_onedrive";
+
+inline constexpr char kOfficeFilesAlwaysMoveToOneDriveSyncable[] =
+    "filebrowser.office.always_move_to_onedrive_syncable";
+
+// The timestamp of the latest office file automatically moved to OneDrive.
+inline constexpr char kOfficeFileMovedToOneDrive[] =
+    "filebrowser.office.file_moved_one_drive";
+
+// The timestamp of the latest office file automatically moved to Google Drive.
+inline constexpr char kOfficeFileMovedToGoogleDrive[] =
+    "filebrowser.office.file_moved_google_drive";
+
+// Whether the move confirmation dialog has been shown before for uploading
+// cloud files to Drive.
+inline constexpr char kOfficeMoveConfirmationShownForCloudToDrive[] =
+    "filebrowser.office.move_confirmation_shown_for_cloud_to_drive";
+
+inline constexpr char kOfficeMoveConfirmationShownForCloudToDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_cloud_to_drive_syncable";
+
+// Whether the move confirmation dialog has been shown before for uploading
+// cloud files to OneDrive.
+inline constexpr char kOfficeMoveConfirmationShownForCloudToOneDrive[] =
+    "filebrowser.office.move_confirmation_shown_for_cloud_to_onedrive";
+
+inline constexpr char kOfficeMoveConfirmationShownForCloudToOneDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_cloud_to_onedrive_syncable";
+
+// Whether the move confirmation dialog has been shown before for Google Drive.
+inline constexpr char kOfficeMoveConfirmationShownForDrive[] =
+    "filebrowser.office.move_confirmation_shown_for_drive";
+
+inline constexpr char kOfficeMoveConfirmationShownForDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_drive_syncable";
+
+// Whether the move confirmation dialog has been shown before for uploading
+// local files to Drive.
+inline constexpr char kOfficeMoveConfirmationShownForLocalToDrive[] =
+    "filebrowser.office.move_confirmation_shown_for_local_to_drive";
+
+inline constexpr char kOfficeMoveConfirmationShownForLocalToDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_local_to_drive_syncable";
+
+// Whether the move confirmation dialog has been shown before for uploading
+// local files to OneDrive.
+inline constexpr char kOfficeMoveConfirmationShownForLocalToOneDrive[] =
+    "filebrowser.office.move_confirmation_shown_for_local_to_onedrive";
+
+inline constexpr char kOfficeMoveConfirmationShownForLocalToOneDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_local_to_onedrive_syncable";
+
+// Whether the move confirmation dialog has been shown before for OneDrive.
+inline constexpr char kOfficeMoveConfirmationShownForOneDrive[] =
+    "filebrowser.office.move_confirmation_shown_for_onedrive";
+
+inline constexpr char kOfficeMoveConfirmationShownForOneDriveSyncable[] =
+    "filebrowser.office.move_confirmation_shown_for_onedrive_syncable";
+
+//-----------------------------------------------------------------------------
+// Printing related Prefs
+//-----------------------------------------------------------------------------
+
+// Boolean flag which represents whether the user's print job history can be
+// deleted.
+inline constexpr char kDeletePrintJobHistoryAllowed[] =
+    "printing.delete_print_job_history_allowed";
+
+// A pref holding the list of allowed printing color mode as a bitmask composed
+// of |printing::ColorModeRestriction| values. 0 is no restriction.
+inline constexpr char kPrintingAllowedColorModes[] =
+    "printing.allowed_color_modes";
+
+// A pref holding the list of allowed printing duplex mode as a bitmask composed
+// of |printing::DuplexModeRestriction| values. 0 is no restriction.
+inline constexpr char kPrintingAllowedDuplexModes[] =
+    "printing.allowed_duplex_modes";
+
+// A pref holding the allowed PIN printing modes.
+inline constexpr char kPrintingAllowedPinModes[] = "printing.allowed_pin_modes";
+
+// A pref holding the default color mode.
+inline constexpr char kPrintingColorDefault[] = "printing.color_default";
+
+// A pref holding the default duplex mode.
+inline constexpr char kPrintingDuplexDefault[] = "printing.duplex_default";
+
+// Indicates how many sheets is allowed to use for a single print job.
+inline constexpr char kPrintingMaxSheetsAllowed[] =
+    "printing.max_sheets_allowed";
+
+// A pref holding the default PIN mode.
+inline constexpr char kPrintingPinDefault[] = "printing.pin_default";
+
+// Boolean flag which represents whether username and filename should be sent
+// to print server.
+inline constexpr char kPrintingSendUsernameAndFilenameEnabled[] =
+    "printing.send_username_and_filename_enabled";
+
+// Indicates how long print jobs metadata is stored on the device, in days.
+inline constexpr char kPrintJobHistoryExpirationPeriod[] =
+    "printing.print_job_history_expiration_period";
+
+//-----------------------------------------------------------------------------
+// Native printing related Prefs
+//-----------------------------------------------------------------------------
+
+// List of print servers ids that are allowed in the device policy. List of
+// strings.
+inline constexpr char kDeviceExternalPrintServersAllowlist[] =
+    "native_printing.device_external_print_servers_allowlist";
+
+// List of print servers ids that are allowed in the user policy. List of
+// strings. Note that this used to be `kExternalPrintServersWhitelist`, hence
+// the difference between the variable name and the string value.
+inline constexpr char kExternalPrintServersAllowlist[] =
+    "native_printing.external_print_servers_whitelist";
+
+// List of printers configured by policy.
+inline constexpr char kRecommendedPrinters[] =
+    "native_printing.recommended_printers";
+
+// Enum designating the type of restrictions bulk printers are using.
+inline constexpr char kRecommendedPrintersAccessMode[] =
+    "native_printing.recommended_printers_access_mode";
+
+// List of printer ids that are allowed.  List of strings. Note that this
+// used to be `kRecommendedNativePrintersWhitelist`, hence the difference
+// between the variable name and the string value.
+inline constexpr char kRecommendedPrintersAllowlist[] =
+    "native_printing.recommended_printers_whitelist";
+
+// List of printer ids which are explicitly disallowed.  List of strings. Note
+// that this used to be `kRecommendedPrintersBlacklist`, hence the difference
+// between the variable name and the string value.
+inline constexpr char kRecommendedPrintersBlocklist[] =
+    "native_printing.recommended_printers_blacklist";
+
+// A Boolean flag which represents whether or not users are allowed to configure
+// and use their own printers.
+inline constexpr char kUserPrintersAllowed[] =
+    "native_printing.user_native_printers_allowed";
 
 // NOTE: New prefs should start with the "ash." prefix. Existing prefs moved
 // into this file should not be renamed, since they may be synced.

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 
+#include <algorithm>
 #include <numeric>
 
 #include "cc/paint/paint_flags.h"
@@ -26,6 +27,7 @@
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/cascading_property.h"
 #include "ui/views/controls/focus_ring.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 

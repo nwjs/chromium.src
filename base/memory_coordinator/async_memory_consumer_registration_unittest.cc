@@ -4,6 +4,7 @@
 
 #include "base/memory_coordinator/async_memory_consumer_registration.h"
 
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -25,9 +26,9 @@ namespace {
 
 class TestAsyncMemoryConsumer : public MemoryConsumer {
  public:
-  explicit TestAsyncMemoryConsumer(std::string_view consumer_id,
-                                   MemoryConsumerTraits traits)
-      : async_memory_consumer_registration_(consumer_id, traits, this) {}
+  explicit TestAsyncMemoryConsumer(std::string_view consumer_name,
+                                   std::optional<MemoryConsumerTraits> traits)
+      : async_memory_consumer_registration_(consumer_name, traits, this) {}
 
   MOCK_METHOD(void, OnUpdateMemoryLimit, (), (override));
   MOCK_METHOD(void, OnReleaseMemory, (), (override));
@@ -55,7 +56,7 @@ TEST_F(AsyncMemoryConsumerRegistrationTest, RegisterOnAnotherSequence) {
   auto async_task_runner = ThreadPool::CreateSequencedTaskRunner({});
 
   SequenceBound<TestAsyncMemoryConsumer> consumer(async_task_runner, "consumer",
-                                                  MemoryConsumerTraits{});
+                                                  std::nullopt);
 
   ASSERT_TRUE(test::RunUntil([&]() { return registry.size() == 1u; }));
 

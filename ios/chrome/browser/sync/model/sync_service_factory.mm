@@ -8,6 +8,7 @@
 
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
+#import "base/functional/callback_helpers.h"
 #import "base/no_destructor.h"
 #import "base/time/time.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
@@ -27,6 +28,7 @@
 #import "components/sync/engine/net/http_bridge.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_service_impl.h"
+#import "components/sync/service/syncable_service_based_data_type_controller.h"
 #import "components/sync_preferences/pref_service_syncable.h"
 #import "components/variations/service/google_groups_manager.h"
 #import "ios/chrome/browser/bookmarks/model/account_bookmark_sync_service_factory.h"
@@ -39,6 +41,8 @@
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/gcm/model/ios_chrome_gcm_profile_service_factory.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service.h"
+#import "ios/chrome/browser/home_customization/model/home_background_customization_service_factory.h"
 #import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_account_password_store_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_receiver_service_factory.h"
@@ -126,17 +130,12 @@ syncer::DataTypeController::TypeVector CreateControllers(
           profile, ServiceAccessType::IMPLICIT_ACCESS));
   builder.SetPrefService(profile->GetPrefs());
   builder.SetPrefServiceSyncable(profile->GetSyncablePrefs());
-  // TODO(crbug.com/330201909) implement for iOS.
-  builder.SetProductSpecificationsService(nullptr);
   builder.SetSendTabToSelfSyncService(
       SendTabToSelfSyncServiceFactory::GetForProfile(profile));
   builder.SetSessionSyncService(
       SessionSyncServiceFactory::GetForProfile(profile));
   builder.SetSharingMessageBridge(
-      base::FeatureList::IsEnabled(
-          send_tab_to_self::kSendTabToSelfIOSPushNotifications)
-          ? IOSSharingMessageBridgeFactory::GetForProfile(profile)
-          : nullptr);
+      IOSSharingMessageBridgeFactory::GetForProfile(profile));
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   builder.SetFamilyLinkSettingsService(
       supervised_user::FamilyLinkSettingsServiceFactory::GetForProfile(
@@ -150,6 +149,28 @@ syncer::DataTypeController::TypeVector CreateControllers(
 
   syncer::DataTypeController::TypeVector controllers = builder.Build(
       /*disabled_types=*/{}, sync_service, ::GetChannel());
+
+  if (base::FeatureList::IsEnabled(syncer::kSyncThemesIos)) {
+    HomeBackgroundCustomizationService* service =
+        HomeBackgroundCustomizationServiceFactory::GetForProfile(profile);
+    // TODO(crbug.com/481713548): Log metrics indicating service
+    // unavailability.
+    CHECK(service);
+
+    syncer::SyncableService* theme_service = service->GetThemeSyncableService();
+    // TODO(crbug.com/481713548): Log metrics indicating service
+    // unavailability.
+    CHECK(theme_service);
+
+    controllers.push_back(
+        std::make_unique<syncer::SyncableServiceBasedDataTypeController>(
+            syncer::THEMES_IOS,
+            DataTypeStoreServiceFactory::GetForProfile(profile)
+                ->GetStoreFactory(),
+            theme_service->AsWeakPtr(), base::DoNothing(),
+            syncer::SyncableServiceBasedDataTypeController::DelegateMode::
+                kTransportModeWithSingleModel));
+  }
 
   return controllers;
 }
@@ -307,10 +328,7 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(IOSChromePasswordSenderServiceFactory::GetInstance());
   DependsOn(IOSChromeProfilePasswordStoreFactory::GetInstance());
   DependsOn(IOSPasskeyModelFactory::GetInstance());
-  if (base::FeatureList::IsEnabled(
-          send_tab_to_self::kSendTabToSelfIOSPushNotifications)) {
-    DependsOn(IOSSharingMessageBridgeFactory::GetInstance());
-  }
+  DependsOn(IOSSharingMessageBridgeFactory::GetInstance());
   DependsOn(IOSTrustedVaultServiceFactory::GetInstance());
   DependsOn(IOSUserEventServiceFactory::GetInstance());
   DependsOn(PlusAddressSettingServiceFactory::GetInstance());
@@ -320,6 +338,7 @@ SyncServiceFactory::SyncServiceFactory()
   DependsOn(supervised_user::FamilyLinkSettingsServiceFactory::GetInstance());
   DependsOn(SyncInvalidationsServiceFactory::GetInstance());
   DependsOn(tab_groups::TabGroupSyncServiceFactory::GetInstance());
+  DependsOn(HomeBackgroundCustomizationServiceFactory::GetInstance());
 }
 
 SyncServiceFactory::~SyncServiceFactory() {}

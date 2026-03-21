@@ -165,8 +165,9 @@ class ExtensionManagementTest : public extensions::ExtensionBrowserTest {
     extensions::ExtensionHost* ext_host =
         manager->GetBackgroundHostForExtension(extension->id());
     EXPECT_TRUE(ext_host);
-    if (!ext_host)
+    if (!ext_host) {
       return false;
+    }
 
     std::string version_from_bg =
         content::EvalJs(ext_host->host_contents(), "version()").ExtractString();
@@ -328,10 +329,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, DisableEnable) {
 }
 
 #if BUILDFLAG(IS_WIN)
-// Fails consistently on Windows XP, see: http://crbug.com/120640.
+// Fails consistently on Windows XP, see: http://crbug.com/40765075.
 #define MAYBE_AutoUpdate DISABLED_AutoUpdate
 #else
-// See http://crbug.com/103371 and http://crbug.com/120640.
+// See http://crbug.com/40111471 and http://crbug.com/40765075.
 #if defined(ADDRESS_SANITIZER)
 #define MAYBE_AutoUpdate DISABLED_AutoUpdate
 #else
@@ -429,7 +430,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest, MAYBE_AutoUpdate) {
 }
 
 #if BUILDFLAG(IS_WIN)
-// Fails consistently on Windows XP, see: http://crbug.com/120640.
+// Fails consistently on Windows XP, see: http://crbug.com/40765075.
 #define MAYBE_AutoUpdateDisabledExtensions DISABLED_AutoUpdateDisabledExtensions
 #else
 #if defined(ADDRESS_SANITIZER)
@@ -804,7 +805,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementTest,
 }
 #endif
 
-// See http://crbug.com/103371 and http://crbug.com/120640.
+// See http://crbug.com/40111471 and http://crbug.com/40765075.
 #if defined(ADDRESS_SANITIZER) || BUILDFLAG(IS_WIN)
 #define MAYBE_PolicyOverridesUserInstall DISABLED_PolicyOverridesUserInstall
 #else

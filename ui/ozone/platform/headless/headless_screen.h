@@ -30,7 +30,9 @@ class HeadlessScreen : public PlatformScreen,
 
   // Overridden from display::HeadlessScreenManager::Delegate:
   int64_t AddDisplay(const display::Display& display) override;
+  void UpdateDisplay(const display::Display& display) override;
   void RemoveDisplay(int64_t display_id) override;
+  void SetPrimaryDisplay(int64_t display_id) override;
 
   // Overridden from ui::PlatformScreen:
   const std::vector<display::Display>& GetAllDisplays() const override;

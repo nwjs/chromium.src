@@ -21,6 +21,7 @@
 #include "base/i18n/file_util_icu.h"
 #include "base/notreached.h"
 #include "base/strings/string_util.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_traits.h"
@@ -1104,9 +1105,8 @@ void FileSystemAccessManagerImpl::DeserializeHandle(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!bits.empty());
 
-  std::string bits_as_string(bits.begin(), bits.end());
   FileSystemAccessHandleData data;
-  if (!data.ParseFromString(bits_as_string)) {
+  if (!data.ParseFromString(base::as_string_view(bits))) {
     // Drop `token`, and directly return.
     return;
   }
@@ -1567,18 +1567,6 @@ void FileSystemAccessManagerImpl::DidChooseEntries(
         std::vector<blink::mojom::FileSystemAccessEntryPtr>());
     return;
   }
-
-#if BUILDFLAG(IS_ANDROID)
-  // Use Content-URIs rather than Virtual Document Paths in FSA.
-  // TODO(crbug.com/7556471): This can be removed if SelectFileDialog is
-  // changed back to return CU rather than VDP from crrev.com/c/7130102.
-  for (auto& entry : entries) {
-    auto content_uri = base::ResolveToContentUri(entry.path);
-    if (content_uri) {
-      entry.path = *content_uri;
-    }
-  }
-#endif
 
   if (!permission_context_) {
     DidVerifySensitiveDirectoryAccess(

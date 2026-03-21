@@ -43,7 +43,7 @@ bool NativeMessagePort::IsValidPort() {
   return true;
 }
 
-void NativeMessagePort::DispatchOnMessage(const Message& message) {
+void NativeMessagePort::DispatchOnMessage(Message message) {
   DCHECK(thread_checker_.CalledOnValidThread());
   dispatcher_->DispatchOnMessage(message.data());
 }
@@ -54,8 +54,7 @@ void NativeMessagePort::PostMessageFromNativeHost(const std::string& message) {
     // Native messaging always uses JSON since a native host doesn't understand
     // structured cloning serialization.
     weak_channel_delegate_->PostMessage(
-        port_id_, Message(message, mojom::SerializationFormat::kJson,
-                          false /* user_gesture */));
+        port_id_, Message(message, /*user_gesture=*/false));
   }
 }
 

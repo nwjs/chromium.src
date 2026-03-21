@@ -184,6 +184,11 @@ if (!is_android && !is_mac) {
       deps += [ "//components/exo/wayland:ui_controls_protocol_stub" ]
     }
 
+    if (!is_mac) {
+      data_deps +=
+          [ "//third_party/search_engines_data:prepopulated_engines_file" ]
+    }
+
     if (is_win) {
       sources += [
         "app/chrome_exe.rc",
@@ -236,7 +241,7 @@ if (!is_android && !is_mac) {
         "//ui/gl",
       ]
 
-      data_deps = [
+      data_deps += [
         "//chrome/app/version_assembly:version_assembly_manifest",
         "//chrome/browser/web_applications/chrome_pwa_launcher",
         "//chrome/chrome_proxy",
@@ -453,6 +458,7 @@ if (is_win || (is_linux && !is_component_build)) {
         ":chrome_dll_manifest",
         ":chrome_dll_version",
         "//chrome/app/theme:chrome_unscaled_resources",
+        "//chrome/browser/win:isolated_browser_support",
         "//chrome/install_static:install_static_util",
         "//chrome/install_static:secondary_module",
         "//chrome/chrome_elf",
@@ -1241,6 +1247,9 @@ if (is_win || (is_linux && !is_component_build)) {
       bundle_deps += [ ":angle_binaries" ]
     }
 
+    bundle_deps +=
+        [ "//third_party/search_engines_data:prepopulated_engines_bundle_data" ]
+
     configs += [ ":chrome_dll_symbol_order" ]
     if (false && !is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
@@ -1489,6 +1498,7 @@ group("dependencies") {
     "//chrome/browser",
     "//chrome/browser:buildflags",
     "//chrome/browser:shell_integration",
+    "//chrome/browser/diagnostics",
     "//chrome/browser/policy:path_parser",
     "//chrome/child",
     "//chrome/common",

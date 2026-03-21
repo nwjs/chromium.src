@@ -232,9 +232,12 @@ enum class PixCodeValidationResult {
 // Converts `PaymentLinkValidator::Scheme` to a string for logging.
 std::string SchemeToString(PaymentLinkValidator::Scheme scheme);
 
-// Log when a Pix code is copied to the clippboard on an allowlisted merchant
+// Log when a Pix code is copied to the clippboard on any merchant
 // website.
 void LogPixCodeCopied(ukm::SourceId ukm_source_id);
+
+// Log that a Pix code is copied to the clipboard within any iframe.
+void LogPixCodeCopiedInIframe();
 
 // Log when a given payment link in a certain page for an eWallet push payment
 // flow is detected.
@@ -373,6 +376,11 @@ void LogPixInitiatePurchaseActionResultAndLatency(PurchaseActionResult result,
 // Chrome receives `PurchaseActionResult` from the payments backend.
 void LogPixTransactionResultAndLatency(PurchaseActionResult result,
                                        base::TimeDelta duration);
+
+// Logs the result of the Pix transaction, broken down by whether the purchase
+// action was invoked in the iframe or main frame.
+void LogPixTransactionResultPerFrameType(bool pix_code_is_in_iframe,
+                                         PurchaseActionResult result);
 
 // Log the result and latency for the InitiatePurchaseAction call made to the
 // payments platform (client) during eWallet payflow.

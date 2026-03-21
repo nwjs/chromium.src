@@ -3,10 +3,18 @@
 // found in the LICENSE file.
 
 //! FOR_RELASE: Docs
+
+chromium::import! {
+    "//mojo/public/rust/system";
+}
+
 use crate::ast::*;
 use crate::pack::pack_mojom_type;
 use ordered_float::OrderedFloat;
 use std::collections::HashMap;
+
+use system::message_pipe::MessageEndpoint;
+use system::mojo_types::UntypedHandle;
 
 /// This trait allows a type to be serialized/deserialized into a Mojom message.
 pub trait MojomParse:
@@ -132,6 +140,9 @@ mojomparse_leaf_impl!(OrderedFloat<f64>, Float64);
 mojomparse_leaf_impl!(bool, Bool);
 mojomparse_leaf_impl!(String, String);
 
+mojomparse_leaf_impl!(UntypedHandle, Handle);
+mojomparse_leaf_impl!(MessageEndpoint, Handle);
+
 // Implement MojomParse for any type that implements PrimitiveEnum and the other
 // requirements for MojomParse. All requirements are derived by
 // #[derive(PrimitiveEnum)]. Note that logically we could implement
@@ -188,22 +199,28 @@ impl<T: MojomParse, const N: usize> TryFrom<MojomValue> for [T; N] {
     type Error = anyhow::Error;
 
     fn try_from(value: MojomValue) -> anyhow::Result<Self> {
-        // FOR_RELEASE: Don't clone here, it's just for the error message
-        if let MojomValue::Array(v) = value.clone() {
-            let vec_of_t: Vec<T> = v.into_iter().map(T::try_from).collect::<anyhow::Result<_>>()?;
-            let arr_of_t: [T; N] = Self::try_from(vec_of_t).or(Err(anyhow::anyhow!(
-                "Wrong number of values to construct {} from this MojomValue: {:?}",
-                std::any::type_name::<Self>(),
-                value
-            )))?;
-            Ok(arr_of_t)
-        } else {
+        let MojomValue::Array(v) = value else {
             anyhow::bail!(
                 "Cannot construct a value of type {} from this MojomValue: {:?}",
                 std::any::type_name::<Self>(),
                 value
             );
-        }
+        };
+
+        if v.len() != N {
+            anyhow::bail!(
+                "Wrong number of values to construct {} from this MojomValue: {:?}",
+                std::any::type_name::<Self>(),
+                MojomValue::Array(v)
+            )
+        };
+
+        // FOR_RELEASE: Get itertools approved and use collect_array here.
+        let vec_of_t: Vec<T> = v.into_iter().map(T::try_from).collect::<anyhow::Result<_>>()?;
+        // Unwrap will succeed because we just checked the length above.
+        // We can't just use `unwrap` because `T` may not be `Debug`.
+        let arr_of_t: [T; N] = Self::try_from(vec_of_t).unwrap_or_else(|_| unreachable!());
+        Ok(arr_of_t)
     }
 }
 

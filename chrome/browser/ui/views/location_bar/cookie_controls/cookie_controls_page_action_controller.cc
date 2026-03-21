@@ -25,6 +25,7 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/strings/grit/privacy_sandbox_strings.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/vector_icons.h"
@@ -189,9 +190,6 @@ void CookieControlsPageActionController::OnCookieControlsIconStatusChanged(
     bool should_highlight) {
   const bool controls_state_changed =
       controls_state != icon_status_.controls_state;
-  const bool should_update_icon =
-      controls_state_changed ||
-      should_highlight != icon_status_.should_highlight;
   icon_status_ = CookieControlsIconStatus{
       .icon_visible = icon_visible,
       .controls_state = controls_state,
@@ -199,9 +197,6 @@ void CookieControlsPageActionController::OnCookieControlsIconStatusChanged(
   };
 
   UpdateIconVisibility();
-  if (!should_update_icon) {
-    return;
-  }
 
   page_action_controller_->OverrideImage(
       kActionShowCookieControls, ui::ImageModel::FromVectorIcon(GetVectorIcon(
@@ -281,12 +276,20 @@ void CookieControlsPageActionController::OnShowPromoResult(
         page_action_controller_->AddActivity(kActionShowCookieControls);
     return;
   }
-  // If we attempted to show the IPH but failed, instead try animating.
-  page_action_controller_->ShowSuggestionChip(
-      kActionShowCookieControls, page_actions::SuggestionChipConfig{
-                                     .should_animate = true,
-                                     .should_announce_chip = true,
-                                 });
+
+  // If the request to show the IPH failed then animate the chip in as a
+  // fallback to get attention. The exception to this is if the IPH is already
+  // showing or if the request failed because another "show" request is already
+  // queued. If there's already a request queued, then wait for its response
+  // before making a decision.
+  if (!iph_activity_ &&
+      result.failure() != user_education::FeaturePromoResult::kAlreadyQueued) {
+    page_action_controller_->ShowSuggestionChip(
+        kActionShowCookieControls, page_actions::SuggestionChipConfig{
+                                       .should_animate = true,
+                                       .should_announce_chip = true,
+                                   });
+  }
 }
 
 void CookieControlsPageActionController::OnIPHClosed() {

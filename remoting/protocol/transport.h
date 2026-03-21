@@ -12,9 +12,9 @@
 #include "net/base/ip_endpoint.h"
 #include "remoting/protocol/errors.h"
 
-namespace jingle_xmpp {
-class XmlElement;
-}  // namespace jingle_xmpp
+namespace remoting {
+struct JingleTransportInfo;
+}  // namespace remoting
 
 namespace remoting::protocol {
 
@@ -49,11 +49,10 @@ struct TransportRoute {
 // Implementations should provide other methods to send and receive data.
 class Transport {
  public:
-  typedef base::RepeatingCallback<void(
-      std::unique_ptr<jingle_xmpp::XmlElement> transport_info)>
-      SendTransportInfoCallback;
+  using SendTransportInfoCallback =
+      base::RepeatingCallback<void(std::unique_ptr<JingleTransportInfo>)>;
 
-  virtual ~Transport() {}
+  virtual ~Transport() = default;
 
   // Sets the object responsible for delivering outgoing transport-info messages
   // to the peer.
@@ -61,7 +60,7 @@ class Transport {
       Authenticator* authenticator,
       SendTransportInfoCallback send_transport_info_callback) = 0;
   virtual bool ProcessTransportInfo(
-      jingle_xmpp::XmlElement* transport_info) = 0;
+      const JingleTransportInfo& transport_info) = 0;
 };
 
 }  // namespace remoting::protocol

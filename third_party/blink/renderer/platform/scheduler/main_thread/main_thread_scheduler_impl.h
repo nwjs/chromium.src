@@ -90,6 +90,7 @@ FORWARD_DECLARE_TEST(MainThreadSchedulerImplTest,
 }  // namespace main_thread_scheduler_impl_unittest
 
 PLATFORM_EXPORT BASE_DECLARE_FEATURE(kLowerPriorityForCompositorGestures);
+PLATFORM_EXPORT BASE_DECLARE_FEATURE(kBusyLoopAggressiveAfterCommittedLoad);
 
 class AgentGroupSchedulerImpl;
 class CPUTimeBudgetPool;
@@ -427,6 +428,11 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     return main_thread_only().current_task_start_time;
   }
 
+  // TODO(crbug.com/470337728): Remove these functions when
+  // kWebRtcUseMediaThreadTypes is enabled by default.
+  void IncreaseDefaultThreadTypeUsageCount();
+  void DecreaseDefaultThreadTypeUsageCount();
+
  protected:
   // ThreadSchedulerBase implementation:
   Vector<base::OnceClosure>& GetOnTaskCompletionCallbacks() override;
@@ -683,6 +689,8 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   bool AllPagesFrozen() const;
 
+  void MaybeSetBusyLoop();
+
   // Indicates that scheduler has been shutdown.
   // It should be accessed only on the main thread, but couldn't be a member
   // of MainThreadOnly struct because last might be destructed before we
@@ -691,6 +699,9 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   bool has_ipc_callback_set_ = false;
   bool IsIpcTrackingEnabledForAllPages();
+
+  // Updates the thread type lease based on the current use case.
+  void MaybeUpdateThreadTypeLease();
 
   // This controller should be initialized before any TraceableVariables
   // because they require one to initialize themselves.
@@ -848,6 +859,16 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     // enabled.
     std::unique_ptr<ThreadAffinityBoost> affinity_boost = nullptr;
 #endif  // BUILDFLAG(IS_ANDROID)
+
+    // Multiplier to apply to the message busy loop maximum duration
+    float busy_loop_scale_factor = 0.f;
+
+    // When busy looping is enabled, and the feature
+    // kBusyLoopAggressiveAfterCommittedLoad is enabled, holds the time of the
+    // last commit (unless it's too far in the past). When `is_null()`, this
+    // either means that the feature is not enabled, or the commit is too far in
+    // the past.
+    base::TimeTicks last_committed_load_time;
   };
 
   struct AnyThread {
@@ -928,6 +949,10 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   WeakPersistent<AgentGroupScheduler> current_agent_group_scheduler_;
 
   PerformanceHelper performance_helper_;
+
+  std::optional<base::PlatformThread::RaiseThreadTypeLease>
+      raise_thread_type_lease_;
+  size_t default_thread_type_usage_count_ = 0;
 
   // This is accessed from both the main and IO (IPC) threads. It's incremented
   // when an urgent IPC task is posted and decremented when that IPC task runs

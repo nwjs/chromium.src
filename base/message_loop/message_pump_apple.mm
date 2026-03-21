@@ -15,6 +15,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "base/apple/call_with_eh_frame.h"
 #include "base/apple/scoped_cftyperef.h"
@@ -22,6 +23,7 @@
 #include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/feature_list.h"
+#include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_policy.h"
 #include "base/memory/stack_allocated.h"
@@ -541,6 +543,8 @@ void MessagePumpCFRunLoopBase::PreWaitObserver(CFRunLoopObserverRef observer,
     // amount of matching Pop/Push in between when running work items).
     self->PopWorkItemScope();
 
+    self->sleeping_nesting_levels_.push(self->nesting_level_);
+
     // Attempt to do some idle work before going to sleep.
     self->RunIdleWork();
 
@@ -569,6 +573,11 @@ void MessagePumpCFRunLoopBase::AfterWaitObserver(CFRunLoopObserverRef observer,
     // Emerging from sleep, any work happening after this (outside of a
     // RunWork()) should be considered native work. Matching PopWorkItemScope()
     // is in BeforeWait().
+    if (self->sleeping_nesting_levels_.empty() ||
+        self->sleeping_nesting_levels_.top() != self->nesting_level_) {
+      return;
+    }
+    self->sleeping_nesting_levels_.pop();
     self->PushWorkItemScope();
   });
 }
@@ -632,6 +641,12 @@ void MessagePumpCFRunLoopBase::EnterExitObserver(CFRunLoopObserverRef observer,
 
       // Current work item tracking needs to go away since execution will stop.
       self->PopWorkItemScope();
+
+      // If the loop is exiting, it can't be sleeping anymore.
+      if (!self->sleeping_nesting_levels_.empty() &&
+          self->sleeping_nesting_levels_.top() == self->nesting_level_) {
+        self->sleeping_nesting_levels_.pop();
+      }
 
       --self->nesting_level_;
       break;
@@ -785,7 +800,8 @@ int ScopedPumpMessagesInPrivateModes::GetModeMaskForTest() {
 }
 
 MessagePumpNSApplication::MessagePumpNSApplication()
-    : MessagePumpCFRunLoopBase(kNSApplicationModalSafeModeMask) {
+    : MessagePumpCFRunLoopBase(kNSApplicationModalSafeModeMask),
+      nested_event_mask_(NSEventMaskAny) {
   DCHECK_EQ(nullptr, g_app_pump);
   g_app_pump = this;
 }
@@ -796,7 +812,7 @@ MessagePumpNSApplication::~MessagePumpNSApplication() {
 }
 
 void MessagePumpNSApplication::DoRun(Delegate* delegate) {
-  bool last_running_own_loop_ = running_own_loop_;
+  bool last_running_own_loop = running_own_loop_;
 
   // NSApp must be initialized by calling:
   // [{some class which implements CrAppProtocol} sharedApplication]
@@ -813,7 +829,7 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     running_own_loop_ = true;
     while (keep_running()) {
       OptionalAutoreleasePool autorelease_pool(this);
-      NSEvent* event = [NSApp nextEventMatchingMask:NSEventMaskAny
+      NSEvent* event = [NSApp nextEventMatchingMask:nested_event_mask_
                                           untilDate:NSDate.distantFuture
                                              inMode:NSDefaultRunLoopMode
                                             dequeue:YES];
@@ -823,7 +839,7 @@ void MessagePumpNSApplication::DoRun(Delegate* delegate) {
     }
   }
 
-  running_own_loop_ = last_running_own_loop_;
+  running_own_loop_ = last_running_own_loop;
 }
 
 bool MessagePumpNSApplication::DoQuit() {
@@ -907,6 +923,19 @@ bool MessagePumpCrApplication::ShouldCreateAutoreleasePool() {
     return false;
   }
   return MessagePumpNSApplication::ShouldCreateAutoreleasePool();
+}
+
+ScopedRestrictNSEventMask::ScopedRestrictNSEventMask(uint64_t mask) {
+  // An NSEventTypeApplicationDefined event is used to wake the message pump, so
+  // must always be included.
+  mask |= NSEventMaskApplicationDefined;
+  CHECK(g_app_pump);
+  old_mask_ = std::exchange(g_app_pump->nested_event_mask_, mask);
+}
+
+ScopedRestrictNSEventMask::~ScopedRestrictNSEventMask() {
+  CHECK(g_app_pump);
+  g_app_pump->nested_event_mask_ = old_mask_;
 }
 
 #endif  // BUILDFLAG(IS_IOS)

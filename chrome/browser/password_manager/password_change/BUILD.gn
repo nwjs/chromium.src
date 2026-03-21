@@ -16,6 +16,8 @@ source_set("password_change") {
     "change_password_form_waiter.h",
     "cross_origin_navigation_observer.cc",
     "cross_origin_navigation_observer.h",
+    "detached_web_contents.cc",
+    "detached_web_contents.h",
     "form_filling_helper.cc",
     "form_filling_helper.h",
     "login_state_checker.cc",
@@ -27,6 +29,13 @@ source_set("password_change") {
     "typing_helper.cc",
     "typing_helper.h",
   ]
+
+  if (!is_android) {
+    sources += [
+      "password_change_from_checkup_delegate.cc",
+      "password_change_from_checkup_delegate.h",
+    ]
+  }
 
   deps = [
     "//chrome/browser:browser_process",
@@ -49,6 +58,16 @@ source_set("password_change") {
     "//services/metrics/public/cpp:metrics_cpp",
     "//ui/accessibility:ax_base",
   ]
+
+  if (!is_android) {
+    deps += [
+      "//chrome/browser/actor",
+      "//chrome/browser/glic",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//components/tabs:public",
+    ]
+  }
 }
 
 source_set("unit_tests") {

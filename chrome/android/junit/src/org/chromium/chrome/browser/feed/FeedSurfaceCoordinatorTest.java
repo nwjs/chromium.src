@@ -51,7 +51,6 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -60,6 +59,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
@@ -69,6 +69,7 @@ import org.chromium.chrome.browser.feed.sections.SectionHeaderListProperties;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridge;
 import org.chromium.chrome.browser.feed.webfeed.WebFeedBridgeJni;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.cards.SignInPromo;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
@@ -215,6 +216,7 @@ public class FeedSurfaceCoordinatorTest {
     @Mock private Tracker mTracker;
     @Mock private ScrollableContainerDelegate mScrollableContainerDelegate;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
+    @Mock private ModuleRegistry mModuleRegistry;
     @Captor private ArgumentCaptor<EdgeToEdgePadAdjuster> mEdgePadAdjusterCaptor;
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -564,7 +566,7 @@ public class FeedSurfaceCoordinatorTest {
                 View.MeasureSpec.makeMeasureSpec(oldWidth, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(oldHeight, View.MeasureSpec.EXACTLY));
         rootView.layout(0, 0, oldWidth, oldHeight);
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         // Verify that the RecyclerView has been laid out with the correct dimensions before
         // resizing.
@@ -592,7 +594,7 @@ public class FeedSurfaceCoordinatorTest {
         assertEquals(View.INVISIBLE, recyclerView.getVisibility());
         assertEquals(View.VISIBLE, snapshotOverlay.getVisibility());
         // Let the posted tasks run, which should hide the overlay and show the RecyclerView.
-        ShadowLooper.runUiThreadTasks();
+        RobolectricUtil.runAllBackgroundAndUi();
 
         // After the delay, RecyclerView should be visible again, and the snapshot overlay gone.
         assertEquals(View.VISIBLE, recyclerView.getVisibility());
@@ -643,8 +645,9 @@ public class FeedSurfaceCoordinatorTest {
                 null,
                 false,
                 /* viewportView= */ null,
-                mFeedActionDelegate,
+                () -> mFeedActionDelegate,
                 mTabStripHeightSupplier,
-                mEdgeToEdgeSupplier);
+                mEdgeToEdgeSupplier,
+                mModuleRegistry);
     }
 }

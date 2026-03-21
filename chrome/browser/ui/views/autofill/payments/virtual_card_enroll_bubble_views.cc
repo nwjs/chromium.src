@@ -53,11 +53,10 @@ std::unique_ptr<views::Label> GetBadgeView() {
 }
 
 VirtualCardEnrollBubbleViews::VirtualCardEnrollBubbleViews(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     content::WebContents* web_contents,
     VirtualCardEnrollBubbleController* controller)
-    : AutofillLocationBarBubble(anchor_view, web_contents),
-      controller_(controller) {
+    : AutofillLocationBarBubble(anchor, web_contents), controller_(controller) {
   DCHECK(controller);
   SetButtonLabel(ui::mojom::DialogButton::kOk,
                  controller->GetUiModel().accept_action_text());
@@ -187,6 +186,8 @@ void VirtualCardEnrollBubbleViews::Init() {
       provider->GetDistanceMetric(views::DISTANCE_RELATED_CONTROL_HORIZONTAL));
   description_view->SetMainAxisAlignment(
       views::BoxLayout::MainAxisAlignment::kStart);
+  description_view->SetCrossAxisAlignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
 
   const VirtualCardEnrollmentFields virtual_card_enrollment_fields =
       controller_->GetUiModel().enrollment_fields();

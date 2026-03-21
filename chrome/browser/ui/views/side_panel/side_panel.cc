@@ -14,16 +14,17 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/side_panel/side_panel_metrics.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/themed_background.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_animation_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_animation_ids.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_resize_area.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -84,12 +85,10 @@ SidePanel::HorizontalAlignment GetHorizontalAlignment(
     bool use_default_horizontal_alignment) {
   bool is_right_aligned =
       pref_service->GetBoolean(prefs::kSidePanelHorizontalAlignment);
-  is_right_aligned = type == SidePanelEntry::PanelType::kToolbar
-                         ? !is_right_aligned
-                         : is_right_aligned;
-  return is_right_aligned == use_default_horizontal_alignment
-             ? SidePanel::HorizontalAlignment::kRight
-             : SidePanel::HorizontalAlignment::kLeft;
+  is_right_aligned =
+      use_default_horizontal_alignment ? is_right_aligned : !is_right_aligned;
+  return is_right_aligned ? SidePanel::HorizontalAlignment::kRight
+                          : SidePanel::HorizontalAlignment::kLeft;
 }
 
 // This border paints the toolbar color around the side panel content and draws
@@ -297,6 +296,14 @@ class ContentParentView : public views::View, public views::ViewObserver {
     if (views::IsViewClass<views::WebView>(child)) {
       views::AsViewClass<views::WebView>(child)->holder()->SetCornerRadii(
           GetRoundedCorners());
+    }
+    // Try to detect if the child is a views::View wrapper of a WebView. If so,
+    // round its corners.
+    if (child->children().size() == 1 &&
+        views::IsViewClass<views::WebView>(child->children()[0])) {
+      views::AsViewClass<views::WebView>(child->children()[0])
+          ->holder()
+          ->SetCornerRadii(GetRoundedCorners());
     }
     if (child->layer()) {
       child->layer()->SetIsFastRoundedCorner(true);
@@ -679,9 +686,8 @@ double SidePanel::GetAnimationValue() const {
   return GetAnimationValueFor(kSidePanelBoundsAnimation);
 }
 
-void SidePanel::OnAnimationSequenceProgressed(
-    const SidePanelAnimationCoordinator::SidePanelAnimationId& animation_id,
-    double animation_value) {
+void SidePanel::OnAnimationSequenceProgressed(SidePanelAnimationId animation_id,
+                                              double animation_value) {
   if (animation_id == kSidePanelBoundsAnimation) {
     if (last_animation_values_[animation_id] != animation_value) {
       last_animation_values_[animation_id] = animation_value;
@@ -787,7 +793,7 @@ void SidePanel::RecordMetricsIfResized() {
 
     int side_panel_contents_width = width() - GetBorderInsets().width();
     int browser_window_width = browser_view_->width();
-    SidePanelUtil::RecordSidePanelResizeMetrics(
+    SidePanelMetrics::RecordSidePanelResizeMetrics(
         type_, id.value(), side_panel_contents_width, browser_window_width);
     did_resize_ = false;
   }
@@ -903,8 +909,7 @@ void SidePanel::UpdateVisibility(bool should_be_open, bool animate_transition) {
 }
 
 double SidePanel::GetAnimationValueFor(
-    const SidePanelAnimationCoordinator::SidePanelAnimationId& animation_id)
-    const {
+    SidePanelAnimationId animation_id) const {
   if (ShouldShowAnimation()) {
     return animation_coordinator_->GetAnimationValueFor(animation_id);
   } else {
@@ -919,7 +924,8 @@ bool SidePanel::ShouldShowAnimation() const {
   // Don't show open/close animations for the toolbar height panel on Windows
   // due to jank. The "show from" animation should still run which is the only
   // time |content_starting_bounds_| has a value.
-  if (type_ == SidePanelEntry::PanelType::kToolbar) {
+  if (type_ == SidePanelEntry::PanelType::kToolbar &&
+      !features::UseSidePanelFlyoverAnimation()) {
     should_show_animations &= content_starting_bounds_.has_value();
   }
 #endif

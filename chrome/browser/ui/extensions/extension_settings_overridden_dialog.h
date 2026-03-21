@@ -8,8 +8,8 @@
 #include <memory>
 #include <string>
 
-#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/raw_ref.h"
 #include "chrome/browser/ui/extensions/settings_overridden_dialog_controller.h"
 #include "extensions/common/extension_id.h"
 
@@ -62,7 +62,7 @@ class ExtensionSettingsOverriddenDialog
     ShowParams content;
   };
 
-  ExtensionSettingsOverriddenDialog(Params params, Profile* profile);
+  ExtensionSettingsOverriddenDialog(Params params, Profile& profile);
   ExtensionSettingsOverriddenDialog(const ExtensionSettingsOverriddenDialog&) =
       delete;
   ExtensionSettingsOverriddenDialog& operator=(
@@ -71,11 +71,31 @@ class ExtensionSettingsOverriddenDialog
 
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
+  // Returns true if the extension with the given `id` has already had settings
+  // overridden dialog shown for.
+  static bool HasShownFor(Profile& profile, const extensions::ExtensionId& id);
+
+  // Returns true if the extension with the given `id` has already been
+  // acknowledged.
+  static bool HasAcknowledgedExtension(
+      Profile& profile,
+      const extensions::ExtensionId& id,
+      const std::string& extension_acknowledged_preference_name);
+
+  // Returns true if a simple overridden extension should get a dialog shown.
+  static bool ShouldShowForSimpleOverrideExtension(
+      Profile& profile,
+      const extensions::Extension& extension);
+
   // SettingsOverriddenDialogController:
   bool ShouldShow() override;
   ShowParams GetShowParams() override;
   void OnDialogShown() override;
   void HandleDialogResult(DialogResult result) override;
+
+  // Sets a callback to be invoked when the dialog result is handled.
+  using DialogResultCallback = base::OnceCallback<void(DialogResult)>;
+  void SetDialogResultCallback(DialogResultCallback callback);
 
  private:
   // Disables the extension that controls the setting.
@@ -85,18 +105,12 @@ class ExtensionSettingsOverriddenDialog
   // prompting.
   void AcknowledgeControllingExtension();
 
-  // Returns true if the extension with the given |id| has already been
-  // acknowledged.
-  bool HasAcknowledgedExtension(const extensions::ExtensionId& id);
-
-  // Returns true if a simple overridden extension should get a dialog shown.
-  bool ShouldShowForSimpleOverrideExtension(
-      const extensions::Extension& extension);
-
   const Params params_;
 
   // The profile associated with the controller.
-  const raw_ptr<Profile> profile_;
+  const raw_ref<Profile> profile_;
+
+  DialogResultCallback dialog_result_callback_;
 };
 
 #endif  // CHROME_BROWSER_UI_EXTENSIONS_EXTENSION_SETTINGS_OVERRIDDEN_DIALOG_H_

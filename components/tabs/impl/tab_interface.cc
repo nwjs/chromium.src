@@ -19,13 +19,18 @@ WEB_CONTENTS_USER_DATA_KEY_IMPL(TabLookupFromWebContents);
 // static
 TabInterface* TabInterface::GetFromContents(
     content::WebContents* web_contents) {
-  return TabLookupFromWebContents::FromWebContents(web_contents)->model();
+  if (TabLookupFromWebContents::FromWebContents(web_contents))
+    return TabLookupFromWebContents::FromWebContents(web_contents)->model();
+  else
+    return nullptr;
 }
 
 // static
 const TabInterface* TabInterface::GetFromContents(
     const content::WebContents* web_contents) {
+  if (TabLookupFromWebContents::FromWebContents(web_contents))
   return TabLookupFromWebContents::FromWebContents(web_contents)->model();
+  return nullptr;
 }
 
 // static

@@ -44,8 +44,6 @@ enum class ContextUploadStatus {
   kUploadReplaced = 8,
 };
 
-using FileUploadStatus = ContextUploadStatus;
-
 // For upload error notifications and metrics.
 enum class ContextUploadErrorType {
   // Unknown.
@@ -63,8 +61,6 @@ enum class ContextUploadErrorType {
   // Image processing error.
   kImageProcessingError = 6,
 };
-
-using FileUploadErrorType = ContextUploadErrorType;
 
 // Struct containing file information for a file upload.
 struct FileInfo {
@@ -127,6 +123,13 @@ struct FileInfo {
   // Whether or not this file was superceded by a new file upload with the same
   // context id.
   bool is_superceded = false;
+
+  // Whether or not this file is an implicit upload.
+  // e.g. a viewport screenshot from the Lens overlay contextual searchbox.
+  bool is_implicit_upload = false;
+
+  // The mime type string of the file, if known.
+  std::optional<std::string> mime_type_string;
 };
 
 // LINT.IfChange(ContextualSearchErrorPage)

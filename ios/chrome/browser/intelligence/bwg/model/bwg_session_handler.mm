@@ -10,7 +10,7 @@
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_session_delegate.h"
-#import "ios/chrome/browser/intelligence/bwg/utils/bwg_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/bwg_commands.h"
@@ -79,6 +79,8 @@ IOSGeminiFirstPromptSubmissionMethod ConvertBWGInputTypeToHistogramEnum(
     case BWGInputTypeNanoBananaMakeThisImageLookLikeInstantFilm:
       return IOSGeminiFirstPromptSubmissionMethod::
           kNanoBananaMakeThisImageLookLikeInstantFilm;
+    case BWGInputTypeEditMenuPrompt:
+      return IOSGeminiFirstPromptSubmissionMethod::kEditMenuPrompt;
   }
 }
 
@@ -152,12 +154,10 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   _hasReceivedFirstResponse = NO;
   // Reset first prompt flag for new session.
   _hasSubmittedFirstPrompt = NO;
-
-  if (IsGeminiCrossTabEnabled()) {
-    [self dismissOtherActiveSessionsUsingClientID:clientID];
-  }
   // Reset prompt counters for new session.
   _totalPromptsInSession = 0;
+
+  [self dismissOtherActiveSessionsUsingClientID:clientID];
 }
 
 - (void)UIDidDisappearWithClientID:(NSString*)clientID

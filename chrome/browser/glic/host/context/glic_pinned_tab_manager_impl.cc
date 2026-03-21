@@ -528,10 +528,11 @@ void GlicPinnedTabManagerImpl::SendPinCandidatesUpdate() {
 
   std::vector<content::WebContents*> candidates = GetUnsortedPinCandidates();
   GlicPinCandidateComparator comparator(pin_candidates_options_->query);
-  std::sort(candidates.begin(), candidates.end(), std::ref(comparator));
   size_t limit =
       std::min(static_cast<size_t>(pin_candidates_options_->max_candidates),
                candidates.size());
+  std::partial_sort(candidates.begin(), candidates.begin() + limit,
+                    candidates.end(), std::ref(comparator));
   std::vector<mojom::PinCandidatePtr> results;
   for (size_t i = 0; i < limit; ++i) {
     results.push_back(mojom::PinCandidate::New(
@@ -560,7 +561,9 @@ GlicPinnedTabManagerImpl::GetUnsortedPinCandidates() {
             continue;
           }
           auto* web_contents = tab->GetContents();
-          if (!web_contents->GetController().GetLastCommittedEntry()) {
+          // WebContents may be nullptr on Android.
+          if (!web_contents ||
+              !web_contents->GetController().GetLastCommittedEntry()) {
             continue;
           }
           if (!IsValidForSharing(web_contents)) {

@@ -17,6 +17,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/string_matching/fuzzy_tokenized_string_match.h"
 #include "chromeos/crosapi/mojom/launcher_search.mojom.h"
+#include "components/omnibox/browser/favicon_cache.h"
 #include "components/omnibox/browser/vector_icons.h"
 #include "components/search_engines/util.h"
 #include "components/strings/grit/components_strings.h"
@@ -70,14 +71,16 @@ const gfx::VectorIcon& TypeToVectorIcon(CrosApiSearchResult::OmniboxType type) {
 OmniboxResult::OmniboxResult(Profile* profile,
                              AppListControllerDelegate* list_controller,
                              crosapi::mojom::SearchResultPtr search_result,
-                             const std::u16string& query)
-    : consumer_receiver_(this, std::move(search_result->receiver)),
-      profile_(profile),
+                             const std::u16string& query,
+                             FaviconCache* favicon_cache)
+    : profile_(profile),
       list_controller_(list_controller),
       search_result_(std::move(search_result)),
       query_(query),
       contents_(search_result_->contents.value_or(u"")),
       description_(search_result_->description.value_or(u"")) {
+  CHECK(favicon_cache);
+
   SetDisplayType(DisplayType::kList);
   SetResultType(ResultType::kOmnibox);
   SetMetricsType(GetSearchResultType());
@@ -103,6 +106,7 @@ OmniboxResult::OmniboxResult(Profile* profile,
   SetSkipUpdateAnimation(search_result_->metrics_type ==
                          CrosApiSearchResult::MetricsType::kSearchWhatYouTyped);
 
+  FetchFavicon(favicon_cache);
   UpdateIcon();
   UpdateTitleAndDetails();
 
@@ -110,7 +114,7 @@ OmniboxResult::OmniboxResult(Profile* profile,
   // title is set.
   UpdateRelevance();
 
-  if (OptionalBoolIsTrue(search_result_->is_omnibox_search)) {
+  if (search_result_->is_omnibox_search) {
     InitializeButtonActions({ash::SearchResultActionType::kRemove});
   }
 
@@ -197,11 +201,27 @@ void OmniboxResult::OnColorModeChanged(bool dark_mode_enabled) {
     SetGenericIcon();
 }
 
-void OmniboxResult::OnFaviconReceived(const gfx::ImageSkia& icon) {
-  // By contract, this is never called with an empty |icon|.
-  DCHECK(!icon.isNull());
-  search_result_->favicon = icon;
-  SetIcon(IconInfo(ui::ImageModel::FromImageSkia(icon), kFaviconDimension));
+void OmniboxResult::FetchFavicon(FaviconCache* favicon_cache) {
+  CHECK(favicon_cache);
+  CHECK(search_result_->favicon.isNull());
+  if (IsEligibleForFavicon(search_result_->omnibox_type)) {
+    gfx::Image favicon = favicon_cache->GetFaviconForPageUrl(
+        search_result_->destination_url.value_or(GURL()),
+        base::BindOnce(&OmniboxResult::OnFetchedFavicon,
+                       weak_factory_.GetWeakPtr()));
+    if (!favicon.IsEmpty()) {
+      OnFetchedFavicon(favicon);
+    }
+  }
+}
+
+void OmniboxResult::OnFetchedFavicon(const gfx::Image& icon) {
+  CHECK(search_result_->favicon.isNull());
+  auto image_skia = icon.AsImageSkia();
+  search_result_->favicon = image_skia;
+  CHECK(!search_result_->favicon.isNull());
+  SetIcon(
+      IconInfo(ui::ImageModel::FromImageSkia(image_skia), kFaviconDimension));
 }
 
 void OmniboxResult::UpdateIcon() {
@@ -210,9 +230,9 @@ void OmniboxResult::UpdateIcon() {
     return;
   }
 
-  // Use a favicon if eligible. In the event that a favicon becomes available
-  // asynchronously, it will be sent to us over Mojo and we will update our
-  // icon.
+  // If we already have a favicon, use that.
+  // See also FetchFavicon, which takes care of the case where the favicon
+  // becomes available later.
   gfx::ImageSkia icon = search_result_->favicon;
   if (!icon.isNull()) {
     SetIcon(IconInfo(ui::ImageModel::FromImageSkia(icon), kFaviconDimension));
@@ -265,7 +285,7 @@ void OmniboxResult::UpdateTitleAndDetails() {
           IDS_APP_LIST_QUERY_SEARCH_ACCESSIBILITY_NAME, accessible_name,
           GetDefaultSearchEngineName(
               TemplateURLServiceFactory::GetForProfile(profile_))));
-    } else if (OptionalBoolIsTrue(search_result_->is_omnibox_search)) {
+    } else if (search_result_->is_omnibox_search) {
       // For non-rich-entity results, put the search engine into the details
       // field. Tags are not used since this does not change with the query.
       SetDetails(l10n_util::GetStringFUTF16(
@@ -286,8 +306,7 @@ void OmniboxResult::UpdateTitleAndDetails() {
 }
 
 bool OmniboxResult::IsUrlResultWithDescription() const {
-  return !(OptionalBoolIsTrue(search_result_->is_omnibox_search) ||
-           description_.empty());
+  return !(search_result_->is_omnibox_search || description_.empty());
 }
 
 bool OmniboxResult::IsRichEntity() const {

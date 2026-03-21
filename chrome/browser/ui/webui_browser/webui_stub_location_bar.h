@@ -17,13 +17,16 @@ class WebUIStubLocationBar : public LocationBar {
   ~WebUIStubLocationBar() override;
 
   // LocationBar:
-  void FocusLocation(bool is_user_initiated) override;
+  void FocusLocation(bool is_user_initiated,
+                     bool clear_focus_if_failed) override;
   void FocusSearch() override;
+  void UpdateFocusBehavior(bool toolbar_visible) override;
   void UpdateContentSettingsIcons() override;
   void SaveStateToContents(content::WebContents* contents) override;
   void Revert() override;
   OmniboxView* GetOmniboxView() override;
   OmniboxController* GetOmniboxController() override;
+  bool ShouldCloseOmniboxPopup(ui::MouseEvent* event) override;
   ChipController* GetChipController() override;
   content::WebContents* GetWebContents() override;
   LocationBarModel* GetLocationBarModel() override;
@@ -33,9 +36,10 @@ class WebUIStubLocationBar : public LocationBar {
   Browser* GetBrowser() override;
   void OnChanged() override;
   void UpdateWithoutTabRestore() override;
+  bool IsInitialized() const override;
   bool IsVisible() const override;
   bool IsDrawn() const override;
-  bool IsTopLevelFullscreen() const override;
+  bool IsFullscreen() const override;
   bool IsEditingOrEmpty() const override;
   void InvalidateLayout() override;
   gfx::Rect Bounds() const override;

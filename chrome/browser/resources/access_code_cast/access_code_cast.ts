@@ -118,6 +118,11 @@ export class AccessCodeCastElement extends AccessCodeCastElementBase {
     });
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.listenerIds.forEach(id => this.router.removeListener(id));
+  }
+
   override firstUpdated(changedProperties: PropertyValues<this>) {
     super.firstUpdated(changedProperties);
     this.setState(PageState.CODE_INPUT);
@@ -148,9 +153,8 @@ export class AccessCodeCastElement extends AccessCodeCastElementBase {
     }
   }
 
-  override disconnectedCallback() {
-    super.disconnectedCallback();
-    this.listenerIds.forEach(id => this.router.removeListener(id));
+  protected onCancelClick() {
+    this.cancelButtonPressed();
   }
 
   cancelButtonPressed() {
@@ -158,12 +162,24 @@ export class AccessCodeCastElement extends AccessCodeCastElementBase {
     BrowserProxy.getInstance().closeDialog();
   }
 
+  protected onBackClick() {
+    this.switchToCodeInput();
+  }
+
   switchToCodeInput() {
     this.setState(PageState.CODE_INPUT);
   }
 
+  protected onQrInputClick() {
+    this.switchToQrInput();
+  }
+
   switchToQrInput() {
     this.setState(PageState.QR_INPUT);
+  }
+
+  protected onCastClick() {
+    this.addSinkAndCast();
   }
 
   async addSinkAndCast() {
@@ -286,7 +302,7 @@ export class AccessCodeCastElement extends AccessCodeCastElementBase {
     }
   }
 
-  protected onAccessCodeChanged(e: CustomEvent<{value: string}>) {
+  protected onValueChanged(e: CustomEvent<{value: string}>) {
     this.accessCode = e.detail.value;
   }
 

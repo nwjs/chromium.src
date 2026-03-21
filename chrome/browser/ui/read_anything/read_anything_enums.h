@@ -7,7 +7,7 @@
 
 #include <optional>
 
-#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -24,6 +24,16 @@ enum class ReadAnythingOpenTrigger {
   kMaxValue = kReadAnythingTogglePresentationButton,
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:ReadAnythingOpenTrigger)
+
+enum class ReadAnythingCloseReason {
+  kClosedByUser = 0,
+  kTabSwitched = 1,
+  kPageChanged = 2,
+  kToggledPresentation = 3,
+  kRendererCrashed = 4,
+  kControllerDestroyed = 5,
+  kMaxValue = kControllerDestroyed,
+};
 
 namespace read_anything {
 

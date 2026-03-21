@@ -114,8 +114,10 @@ void GdmRemoteDisplayManager::OnGetAllRemoteDisplaysResult(
   auto [interfaces] = result.value();
 
   for (auto [display_path, interfaces_and_properties] : interfaces) {
+    // Don't notify observers of the pre-existing remote displays.
     OnInterfacesAddedInternal(display_path.Into<ObjectPath>(),
-                              interfaces_and_properties);
+                              interfaces_and_properties,
+                              /*notify_observer=*/false);
   }
 
   std::move(init_callback).Run(base::ok());
@@ -133,7 +135,8 @@ void GdmRemoteDisplayManager::OnCreateRemoteDisplayResult(
 
 void GdmRemoteDisplayManager::OnInterfacesAddedInternal(
     const ObjectPath& display_path,
-    GVariantRef<"a{sa{sv}}"> interfaces_and_properties) {
+    GVariantRef<"a{sa{sv}}"> interfaces_and_properties,
+    bool notify_observer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   auto properties = interfaces_and_properties.LookUp(
@@ -173,7 +176,9 @@ void GdmRemoteDisplayManager::OnInterfacesAddedInternal(
   RemoteDisplay& new_display = remote_displays_[display_path];
   new_display.remote_id = remote_id;
   new_display.session_id = session_id;
-  observer_->OnRemoteDisplayCreated(display_path, new_display);
+  if (notify_observer) {
+    observer_->OnRemoteDisplayCreated(display_path, new_display);
+  }
 
   // Subscribe to property changes for this remote display.
   remote_display_property_subscription_ =
@@ -190,7 +195,8 @@ void GdmRemoteDisplayManager::OnInterfacesAdded(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   auto [display_path, interfaces_and_properties] = args;
-  OnInterfacesAddedInternal(display_path, interfaces_and_properties);
+  OnInterfacesAddedInternal(display_path, interfaces_and_properties,
+                            /*notify_observer=*/true);
 }
 
 void GdmRemoteDisplayManager::OnInterfacesRemoved(
@@ -235,8 +241,7 @@ void GdmRemoteDisplayManager::OnRemoteDisplayPropertyChanged(
       return;
     }
     remote_display_it->second.session_id = session_id_boxed->value;
-    observer_->OnRemoteDisplaySessionChanged(display_path,
-                                             remote_display_it->second);
+    observer_->OnRemoteDisplayChanged(display_path, remote_display_it->second);
     return;
   }
 
@@ -247,8 +252,7 @@ void GdmRemoteDisplayManager::OnRemoteDisplayPropertyChanged(
                  << " (SessionId: " << remote_display_it->second.session_id
                  << ") is no longer associated with a login session.";
     remote_display_it->second.session_id = {};
-    observer_->OnRemoteDisplaySessionChanged(display_path,
-                                             remote_display_it->second);
+    observer_->OnRemoteDisplayChanged(display_path, remote_display_it->second);
   }
 }
 

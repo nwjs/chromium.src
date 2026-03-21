@@ -253,7 +253,7 @@ static constexpr std::string_view kTcpServerExchangePacketWithTcpScript = R"(
   });
 )";
 
-const std::string kMulticastFunctionsScript = R"(
+constexpr std::string_view kMulticastFunctionsScript = R"(
     const assertEq = (actual, expected) => {
       if (actual !== expected) {
         throw `Expected ${JSON.stringify(expected)},
@@ -756,11 +756,7 @@ class IsolatedWebAppApiTest : public web_app::IsolatedWebAppBrowserTestHarness {
   }
 };
 
-class IsolatedWebAppMulticastApiTest : public IsolatedWebAppApiTest {
- private:
-  base::test::ScopedFeatureList features_{
-      blink::features::kMulticastInDirectSockets};
-};
+using IsolatedWebAppMulticastApiTest = IsolatedWebAppApiTest;
 
 class IsolatedWebAppSharedWorkerApiTest
     : public web_app::IsolatedWebAppBrowserTestHarness {
@@ -797,8 +793,7 @@ class IsolatedWebAppSharedWorkerApiTest
   )";
 
   IsolatedWebAppSharedWorkerApiTest() {
-    features_.InitWithFeatures({blink::features::kDirectSocketsInSharedWorkers,
-                                blink::features::kMulticastInDirectSockets},
+    features_.InitWithFeatures({blink::features::kDirectSocketsInSharedWorkers},
                                {});
   }
 
@@ -865,9 +860,8 @@ class IsolatedWebAppServiceWorkerApiTest
   )";
 
   IsolatedWebAppServiceWorkerApiTest() {
-    features_.InitWithFeatures({blink::features::kDirectSocketsInServiceWorkers,
-                                blink::features::kMulticastInDirectSockets},
-                               {});
+    features_.InitWithFeatures(
+        {blink::features::kDirectSocketsInServiceWorkers}, {});
   }
 
   content::RenderFrameHost* InstallAndOpenIsolatedWebAppWithServiceWorkerScript(
@@ -1161,7 +1155,7 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
   content::RenderFrameHost* app_frame =
       InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
 
-  std::string script = kMulticastFunctionsScript + R"(
+  std::string script = std::string(kMulticastFunctionsScript) + R"(
 
     (async () => {
       const kRequiredDatagrams = 35;
@@ -1208,7 +1202,7 @@ IN_PROC_BROWSER_TEST_F(ChromeDirectSocketsUdpIsolatedWebAppMulticastTest,
   content::RenderFrameHost* app_frame =
       InstallAndOpenIsolatedWebApp(/*with_pna=*/true, /*with_multicast=*/true);
 
-  std::string script = kMulticastFunctionsScript + R"(
+  std::string script = std::string(kMulticastFunctionsScript) + R"(
     (async () => {
       const kRequiredDatagrams = 35;
       const kRequiredBytes = kRequiredDatagrams * (kRequiredDatagrams + 1) / 2;

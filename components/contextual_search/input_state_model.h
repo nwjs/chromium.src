@@ -69,6 +69,9 @@ class InputStateModel {
   // Gets additional query params for the current state.
   std::map<std::string, std::string> GetAdditionalQueryParams();
 
+  // Returns the current state.
+  const InputState& GetInputState() const;
+
   // Methods for testing.
   void set_state_for_testing(const InputState& state) { state_ = state; }
   const InputState& get_state_for_testing() { return state_; }
@@ -98,6 +101,12 @@ class InputStateModel {
   // Helper to check if search content sharing is enabled based on the
   // user preference from enterprise policy.
   bool IsSearchContentSharingEnabled() const;
+
+  // Returns the rule for a given `model`.
+  const omnibox::ModelRule* GetModelRule(ModelMode model) const;
+
+  // Returns a rule for a given `tool`.
+  const omnibox::ToolRule* GetToolRule(ToolMode tool) const;
 
   InputState state_;
   omnibox::RuleSet rule_set_;

@@ -12,26 +12,12 @@ namespace {
 const base::FeatureParam<bool>* GetPageActionsMigrationParam(
     PageActionIconType page_action) {
   switch (page_action) {
-    case PageActionIconType::kLensOverlay:
-      return &features::kPageActionsMigrationLensOverlay;
-    case PageActionIconType::kMemorySaver:
-      return &features::kPageActionsMigrationMemorySaver;
-    case PageActionIconType::kTranslate:
-      return &features::kPageActionsMigrationTranslate;
     case PageActionIconType::kIntentPicker:
       return &features::kPageActionsMigrationIntentPicker;
     case PageActionIconType::kZoom:
       return &features::kPageActionsMigrationZoom;
-    case PageActionIconType::kPaymentsOfferNotification:
-      return &features::kPageActionsMigrationOfferNotification;
     case PageActionIconType::kFileSystemAccess:
       return &features::kPageActionsMigrationFileSystemAccess;
-    case PageActionIconType::kPwaInstall:
-      return &features::kPageActionsMigrationPwaInstall;
-    case PageActionIconType::kPriceInsights:
-      return &features::kPageActionsMigrationPriceInsights;
-    case PageActionIconType::kDiscounts:
-      return &features::kPageActionsMigrationDiscounts;
     case PageActionIconType::kManagePasswords:
       return &features::kPageActionsMigrationManagePasswords;
     case PageActionIconType::kCookieControls:
@@ -42,8 +28,6 @@ const base::FeatureParam<bool>* GetPageActionsMigrationParam(
       return &features::kPageActionsMigrationFind;
     case PageActionIconType::kCollaborationMessaging:
       return &features::kPageActionsMigrationCollaborationMessaging;
-    case PageActionIconType::kPriceTracking:
-      return &features::kPageActionsMigrationPriceTracking;
     case PageActionIconType::kMandatoryReauth:
       return &features::kPageActionsMigrationAutofillMandatoryReauth;
     case PageActionIconType::kClickToCall:
@@ -79,9 +63,22 @@ bool IsPageActionMigrated(PageActionIconType page_action) {
 
   // Page actions on the new framework that don't have an implementation on the legacy path
   // and don't have a feature param.
-  if (page_action == PageActionIconType::kContextualSidePanel ||
-      page_action == PageActionIconType::kJsOptimizations) {
-    return true;
+  switch (page_action) {
+    case PageActionIconType::kLensOverlay:
+    case PageActionIconType::kMemorySaver:
+    case PageActionIconType::kTranslate:
+    case PageActionIconType::kPwaInstall:
+    case PageActionIconType::kPaymentsOfferNotification:
+    case PageActionIconType::kContextualSidePanel:
+    case PageActionIconType::kJsOptimizations:
+    case PageActionIconType::kIndigo:
+    case PageActionIconType::kRecordReplay:
+    case PageActionIconType::kPriceInsights:
+    case PageActionIconType::kDiscounts:
+    case PageActionIconType::kFederation:
+      return true;
+    default:
+      break;
   }
 
   const auto* feature_param = GetPageActionsMigrationParam(page_action);

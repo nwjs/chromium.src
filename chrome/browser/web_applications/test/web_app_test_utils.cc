@@ -54,6 +54,9 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolation_data.h"
 #include "chrome/browser/web_applications/model/app_installed_by.h"
 #include "chrome/browser/web_applications/model/display_override.h"
+#include "chrome/browser/web_applications/model/migration_behavior.h"
+#include "chrome/browser/web_applications/model/migration_source.h"
+#include "chrome/browser/web_applications/model/pending_migration_info.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app.pb.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -99,11 +102,8 @@
 #include "components/webapps/isolated_web_apps/types/update_channel.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/storage_partition.h"
-#include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
-#include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
-#include "third_party/blink/public/common/permissions_policy/policy_helper_public.h"
 #include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
@@ -258,38 +258,6 @@ apps::ShareTarget CreateRandomShareTarget(uint32_t suffix) {
   }
 
   return share_target;
-}
-
-network::ParsedPermissionsPolicy CreateRandomPermissionsPolicy(
-    RandomHelper& random) {
-  const int num_permissions_policy_declarations =
-      random.next_uint(test_features.size());
-
-  std::vector<std::string> available_features = test_features;
-
-  const auto suffix = random.next_uint();
-  std::default_random_engine rng;
-  std::shuffle(available_features.begin(), available_features.end(), rng);
-
-  network::ParsedPermissionsPolicy permissions_policy(
-      num_permissions_policy_declarations);
-  const auto& feature_name_map = blink::GetPermissionsPolicyNameToFeatureMap();
-  for (int i = 0; i < num_permissions_policy_declarations; ++i) {
-    permissions_policy[i].feature = feature_name_map.begin()->second;
-
-    for (unsigned int j = 0; j < random.next_uint(5); ++j) {
-      std::string suffix_str =
-          base::NumberToString(suffix) + base::NumberToString(j);
-
-      const auto origin =
-          url::Origin::Create(GURL("https://app-" + suffix_str + ".com/"));
-      permissions_policy[i].allowed_origins.emplace_back(
-          *network::OriginWithPossibleWildcards::FromOrigin(origin));
-      permissions_policy[i].matches_all_origins = random.next_bool();
-      permissions_policy[i].matches_opaque_src = random.next_bool();
-    }
-  }
-  return permissions_policy;
 }
 
 std::vector<apps::ProtocolHandlerInfo> CreateRandomProtocolHandlers(
@@ -696,38 +664,35 @@ std::vector<apps::IconInfo> CreateRandomIconMetadata(RandomHelper& random,
   return icons;
 }
 
-std::vector<proto::WebAppMigrationSource> CreateRandomMigrationSources(
+std::vector<MigrationSource> CreateRandomMigrationSources(
     RandomHelper& random) {
-  std::vector<proto::WebAppMigrationSource> sources;
+  std::vector<MigrationSource> sources;
   int num_sources = random.next_uint(3);
   for (int i = 0; i < num_sources; ++i) {
-    proto::WebAppMigrationSource source;
-    source.set_manifest_id("https://example.com/manifest_id_" +
-                           base::NumberToString(random.next_uint()));
-    source.set_behavior(random.next_bool()
-                            ? proto::WEB_APP_MIGRATION_BEHAVIOR_FORCE
-                            : proto::WEB_APP_MIGRATION_BEHAVIOR_SUGGEST);
+    GURL manifest_id("https://example.com/manifest_id_" +
+                     base::NumberToString(random.next_uint()));
+    MigrationBehavior behavior = random.next_enum<MigrationBehavior>();
+    std::optional<GURL> install_url;
     if (random.next_bool()) {
-      source.set_install_url("https://example.com/install_url_" +
-                             base::NumberToString(random.next_uint()));
+      install_url = GURL("https://example.com/install_url_" +
+                         base::NumberToString(random.next_uint()));
     }
-    sources.push_back(std::move(source));
+    sources.emplace_back(std::move(manifest_id), behavior,
+                         std::move(install_url));
   }
   return sources;
 }
 
-std::optional<proto::PendingMigrationInfo> CreateRandomPendingMigrationInfos(
+std::optional<PendingMigrationInfo> CreateRandomPendingMigrationInfos(
     RandomHelper& random) {
   if (!random.next_bool()) {
     return std::nullopt;
   }
-  proto::PendingMigrationInfo info;
-  info.set_manifest_id("https://example.com/manifest_id_" +
-                       base::NumberToString(random.next_uint()));
-  info.set_behavior(random.next_bool()
-                        ? proto::WEB_APP_MIGRATION_BEHAVIOR_FORCE
-                        : proto::WEB_APP_MIGRATION_BEHAVIOR_SUGGEST);
-  return info;
+  uint32_t random_id = random.next_uint();
+  webapps::ManifestId manifest_id(GURL("https://example.com/manifest_id_" +
+                                       base::NumberToString(random_id)));
+  MigrationBehavior behavior = random.next_enum<MigrationBehavior>();
+  return PendingMigrationInfo(manifest_id, behavior);
 }
 
 }  // namespace
@@ -750,6 +715,14 @@ std::unique_ptr<WebApp> CreateWebApp(const GURL& start_url,
   proto::os_state::WebAppOsIntegration os_state;
   web_app->SetCurrentOsIntegrationStates(os_state);
 
+  return web_app;
+}
+
+std::unique_ptr<WebApp> CreateWebAppFromSyncProto(
+    const sync_pb::WebAppSpecifics& sync_proto) {
+  CHECK(sync_proto.has_start_url() && GURL(sync_proto.start_url()).is_valid());
+  auto web_app = std::make_unique<WebApp>(sync_proto);
+  web_app->AddSource(WebAppManagement::kSync);
   return web_app;
 }
 
@@ -822,10 +795,6 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
 
   app->SetName(name);
   app->SetDescription(description);
-  if (relative_manifest_id) {
-    app->SetManifestId(
-        GenerateManifestId(relative_manifest_id.value(), start_url));
-  }
 
   if (random.next_bool()) {
     app->SetThemeColor(SkColorSetA(random.next_uint(), SK_AlphaOPAQUE));
@@ -929,25 +898,19 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
   // current platform's value only) so the test expectations are consistent
   // across platforms.
   {
-    // Copy proto, retaining existing fields (including unknown fields).
-    sync_pb::WebAppSpecifics sync_proto = app->sync_proto();
-    sync_proto.set_user_display_mode_default(
+    app->UpdateDefaultUserDisplayModeInSyncProto(
         user_display_modes[random.next_uint(3)]);
-    sync_proto.set_user_display_mode_cros(
+    app->UpdateCrOsUserDisplayModeInSyncProto(
         user_display_modes[random.next_uint(3)]);
-    CHECK(HasCurrentPlatformUserDisplayMode(sync_proto));
+    CHECK(HasCurrentPlatformUserDisplayMode(app->sync_proto()));
 
     if (random.next_bool()) {
-      sync_proto.set_user_launch_ordinal(
-          syncer::StringOrdinal::CreateInitialOrdinal().ToInternalValue());
+      app->SetUserPageOrdinal(syncer::StringOrdinal::CreateInitialOrdinal());
     }
 
     if (random.next_bool()) {
-      sync_proto.set_user_page_ordinal(
-          syncer::StringOrdinal::CreateInitialOrdinal().ToInternalValue());
+      app->SetUserLaunchOrdinal(syncer::StringOrdinal::CreateInitialOrdinal());
     }
-
-    app->SetSyncProto(std::move(sync_proto));
   }
 
   app->SetLastBadgingTime(random.next_time());
@@ -971,7 +934,7 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
   std::vector<DisplayOverride> override_items;
   for (DisplayMode display_mode : display_mode_override) {
     override_items.push_back(
-        display_mode == DisplayMode::kBorderless && random.next_bool()
+        display_mode == DisplayMode::kUnframed && random.next_bool()
             ? DisplayOverride::CreateUnframed(CreateRandomUrlPatterns(random))
             : DisplayOverride::Create(display_mode));
   }
@@ -1076,21 +1039,6 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
 
   app->SetWindowControlsOverlayEnabled(false);
 
-  {
-    // Copy proto, retaining existing fields (including unknown fields).
-    sync_pb::WebAppSpecifics sync_proto = app->sync_proto();
-    sync_proto.set_name("Sync" + name);
-    if (random.next_bool()) {
-      sync_proto.set_theme_color(
-          SkColorSetA(random.next_uint(), SK_AlphaOPAQUE));
-    }
-    sync_proto.set_scope(app->scope().spec());
-    for (const apps::IconInfo& icon_info : app->manifest_icons()) {
-      *(sync_proto.add_icon_infos()) = AppIconInfoToSyncProto(icon_info);
-    }
-    app->SetSyncProto(std::move(sync_proto));
-  }
-
   if (random.next_bool()) {
     if (random.next_bool()) {
       app->SetLaunchHandler(LaunchHandler(std::nullopt));
@@ -1101,11 +1049,6 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
   }
 
   app->SetManifestUpdateTime(random.next_time());
-
-
-  if (random.next_bool()) {
-    app->SetPermissionsPolicy(CreateRandomPermissionsPolicy(random));
-  }
 
   if (IsChromeOsDataMandatory()) {
     // Use a separate random generator for CrOS so the result is deterministic
@@ -1391,12 +1334,11 @@ std::unique_ptr<WebApp> CreateRandomWebApp(
   }
 
   app->SetUnvalidatedMigrationSources(CreateRandomMigrationSources(random));
-  std::vector<proto::WebAppMigrationSource> validated_sources;
-  std::ranges::copy_if(app->unvalidated_migration_sources(),
-                       std::back_inserter(validated_sources),
-                       [&random](const proto::WebAppMigrationSource&) {
-                         return random.next_bool();
-                       });
+  std::vector<MigrationSource> validated_sources;
+  std::ranges::copy_if(
+      app->unvalidated_migration_sources(),
+      std::back_inserter(validated_sources),
+      [&random](const MigrationSource&) { return random.next_bool(); });
   app->SetValidatedMigrationSources(std::move(validated_sources));
   app->SetPendingMigrationInfo(CreateRandomPendingMigrationInfos(random));
 

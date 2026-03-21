@@ -322,8 +322,9 @@ void CookiesEventRouter::BindToCookieManager(
   network::mojom::CookieManager* cookie_manager =
       profile->GetDefaultStoragePartition()
           ->GetCookieManagerForBrowserProcess();
-  if (!cookie_manager)
+  if (!cookie_manager) {
     return;
+  }
 
   cookie_manager->AddGlobalChangeListener(receiver->BindNewPipeAndPassRemote());
   receiver->set_disconnect_handler(
@@ -345,8 +346,9 @@ void CookiesEventRouter::DispatchEvent(content::BrowserContext* context,
                                        base::ListValue event_args,
                                        const GURL& cookie_domain) {
   EventRouter* router = context ? EventRouter::Get(context) : nullptr;
-  if (!router)
+  if (!router) {
     return;
+  }
   auto event = std::make_unique<Event>(histogram_value, event_name,
                                        std::move(event_args), context);
   event->event_url = cookie_domain;
@@ -362,14 +364,16 @@ ExtensionFunction::ResponseAction CookiesGetFunction::Run() {
 
   // Read/validate input parameters.
   std::string error;
-  if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error))
+  if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error)) {
     return RespondNow(Error(std::move(error)));
+  }
 
   std::string store_id = parsed_args_->details.store_id.value_or(std::string());
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
-  if (!cookie_manager)
+  if (!cookie_manager) {
     return RespondNow(Error(std::move(error)));
+  }
 
   if (parsed_args_->details.partition_key.has_value() &&
       !parsed_args_->details.partition_key->has_cross_site_ancestor
@@ -392,8 +396,9 @@ ExtensionFunction::ResponseAction CookiesGetFunction::Run() {
     return RespondNow(Error(std::move(partition_key.error())));
   }
 
-  if (!parsed_args_->details.store_id)
+  if (!parsed_args_->details.store_id) {
     parsed_args_->details.store_id = store_id;
+  }
 
   DCHECK(!url_.is_empty() && url_.is_valid());
   cookies_helpers::GetCookieListFromManager(
@@ -473,8 +478,9 @@ ExtensionFunction::ResponseAction CookiesGetAllFunction::Run() {
   std::string store_id = parsed_args_->details.store_id.value_or(std::string());
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
-  if (!cookie_manager)
+  if (!cookie_manager) {
     return RespondNow(Error(std::move(error)));
+  }
 
   // make sure user input is valid
   base::expected<std::optional<net::CookiePartitionKey>, std::string>
@@ -484,8 +490,9 @@ ExtensionFunction::ResponseAction CookiesGetAllFunction::Run() {
     return RespondNow(Error(std::move(partition_key.error())));
   }
 
-  if (!parsed_args_->details.store_id)
+  if (!parsed_args_->details.store_id) {
     parsed_args_->details.store_id = store_id;
+  }
 
   net::CookiePartitionKeyCollection cookie_partition_key_collection =
       cookies_helpers::CookiePartitionKeyCollectionFromApiPartitionKey(
@@ -578,14 +585,16 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
 
   // Read/validate input parameters.
   std::string error;
-  if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error))
+  if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error)) {
     return RespondNow(Error(std::move(error)));
+  }
 
   std::string store_id = parsed_args_->details.store_id.value_or(std::string());
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
-  if (!cookie_manager)
+  if (!cookie_manager) {
     return RespondNow(Error(std::move(error)));
+  }
 
   // cookies.set api allows for an partitionKey with a `top_level_site` present
   // but no value for `has_cross_site_ancestor`. If that is the case, the
@@ -617,8 +626,9 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
     return RespondNow(Error(std::move(net_partition_key.error())));
   }
 
-  if (!parsed_args_->details.store_id)
+  if (!parsed_args_->details.store_id) {
     parsed_args_->details.store_id = store_id;
+  }
 
   base::Time expiration_time;
   if (parsed_args_->details.expiration_date) {
@@ -755,14 +765,16 @@ ExtensionFunction::ResponseAction CookiesRemoveFunction::Run() {
 
   // Read/validate input parameters.
   std::string error;
-  if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error))
+  if (!ParseUrl(extension(), parsed_args_->details.url, &url_, true, &error)) {
     return RespondNow(Error(std::move(error)));
+  }
 
   std::string store_id = parsed_args_->details.store_id.value_or(std::string());
   network::mojom::CookieManager* cookie_manager = ParseStoreCookieManager(
       browser_context(), include_incognito_information(), &store_id, &error);
-  if (!cookie_manager)
+  if (!cookie_manager) {
     return RespondNow(Error(std::move(error)));
+  }
 
   base::expected<std::optional<net::CookiePartitionKey>, std::string>
       partition_key = cookies_helpers::ToNetCookiePartitionKey(
@@ -771,8 +783,9 @@ ExtensionFunction::ResponseAction CookiesRemoveFunction::Run() {
     return RespondNow(Error(std::move(partition_key.error())));
   }
 
-  if (!parsed_args_->details.store_id)
+  if (!parsed_args_->details.store_id) {
     parsed_args_->details.store_id = store_id;
+  }
 
   network::mojom::CookieDeletionFilterPtr filter(
       network::mojom::CookieDeletionFilter::New());

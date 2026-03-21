@@ -149,7 +149,6 @@ source_set("shared") {
     "//components/split_tabs",
     "//components/tab_groups",
     "//components/variations",
-    "//crypto",
     "//skia",
     "//ui/base",
     "//ui/gfx",
@@ -246,7 +245,13 @@ source_set("unit_tests") {
 bundle_data("unit_tests_bundle_data") {
   visibility = [ ":unit_tests" ]
   testonly = true
-  sources = [ "//components/test/data/sessions/last_session" ]
+  sources = [
+    "//components/test/data/sessions/Session-v1NoMarker",
+    "//components/test/data/sessions/Session-v2NoMarkerEncrypted",
+    "//components/test/data/sessions/Session-v3With2Appends",
+    "//components/test/data/sessions/Session-v3WithMarker",
+    "//components/test/data/sessions/Session-v4WithMarkerEncrypted",
+  ]
   outputs = [ "{{bundle_resources_dir}}/" +
               "{{source_root_relative_dir}}/{{source_file_part}}" ]
 }

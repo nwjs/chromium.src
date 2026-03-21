@@ -32,7 +32,7 @@ class AutofillDriver;
 struct AutofillErrorDialogContext;
 class AutofillOfferData;
 class AutofillOfferManager;
-enum class AutofillProgressDialogType;
+enum class AutofillProgressUiType;
 class AutofillSaveCardBottomSheetBridge;
 class AutofillSaveIbanBottomSheetBridge;
 class BnplIssuer;
@@ -157,6 +157,13 @@ class PaymentsAutofillClient : public RiskDataLoader {
     kCvcSaveOnly = 2,
   };
 
+  enum class SourceFeature {
+    // Default behavior for standard upload or local save.
+    kOfferSaveAfterFormSubmit,
+    // Triggered from the "Scan Card" flow.
+    kScanCardSaveAndFill,
+  };
+
   // Used for options of upload prompt.
   struct SaveCreditCardOptions {
     SaveCreditCardOptions& with_should_request_name_from_user(bool b) {
@@ -196,6 +203,11 @@ class PaymentsAutofillClient : public RiskDataLoader {
       return *this;
     }
 
+    SaveCreditCardOptions& with_source_feature(SourceFeature feature) {
+      source_feature = feature;
+      return *this;
+    }
+
     bool should_request_name_from_user = false;
     bool should_request_expiration_date_from_user = false;
     bool show_prompt = false;
@@ -204,6 +216,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
         false;
     std::optional<int> num_strikes;
     CardSaveType card_save_type = CardSaveType::kCardSaveOnly;
+    SourceFeature source_feature = SourceFeature::kOfferSaveAfterFormSubmit;
   };
 
   enum class SaveCardOfferUserDecision {
@@ -239,11 +252,17 @@ class PaymentsAutofillClient : public RiskDataLoader {
 
     // The user explicitly declined credit card Save and Fill dialog.
     kDeclined,
+
+    // Handles cases where the iOS 'Save and Fill' dialog was ignored.
+    // Because the dialog is modal, this typically indicates the user either
+    // closed the tab/browser or tapped outside the dialog, triggering an
+    // implicit dismissal.
+    kIgnored,
   };
 
   // Used to hold the data entered by the user in the Save and Fill dialog,
   // including card number, expiration date, name on card, and an optional
-  // security code.
+  // security code and nickname if it's on iOS platform.
   struct UserProvidedCardSaveAndFillDetails : public UserProvidedCardDetails {
     UserProvidedCardSaveAndFillDetails();
     UserProvidedCardSaveAndFillDetails(
@@ -254,6 +273,9 @@ class PaymentsAutofillClient : public RiskDataLoader {
 
     std::u16string card_number;
     std::optional<std::u16string> security_code;
+#if BUILDFLAG(IS_IOS)
+    std::optional<std::u16string> nickname;
+#endif
   };
 
   // Callback to run after the local/upload card Save and Fill dialog is shown.
@@ -451,7 +473,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Show/dismiss the progress dialog which contains a throbber and a text
   // message indicating that something is in progress.
   virtual void ShowAutofillProgressDialog(
-      AutofillProgressDialogType autofill_progress_dialog_type,
+      AutofillProgressUiType autofill_progress_dialog_type,
       base::OnceClosure cancel_callback) = 0;
   virtual void CloseAutofillProgressDialog(
       bool show_confirmation_before_closing,

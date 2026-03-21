@@ -17,14 +17,18 @@
 #include "base/component_export.h"
 #include "base/strings/string_util.h"
 #include "base/trace_event/base_tracing_forward.h"
+#include "base/types/pass_key.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "build/robolectric_buildflags.h"
+#include "net/base/cronet_buildflags.h"
 #include "url/scheme_host_port.h"
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)
+#if (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)) && \
+    !BUILDFLAG(CRONET_BUILD)
 #include "base/android/jni_android.h"
+#include "url/url_jni_headers/Origin_shared_jni.h"
 #endif
 
 class GURL;
@@ -38,6 +42,7 @@ class StorageKeyTest;
 
 namespace content {
 class SiteInfo;
+class SandboxedOpaqueOriginCreator;
 }  // namespace content
 
 namespace IPC {
@@ -177,6 +182,16 @@ class COMPONENT_EXPORT(URL) Origin {
   // (or precursor tuple) of `base_origin`, but will not be same origin
   // with `base_origin`, even if `base_origin` is already opaque.
   static Origin Resolve(const GURL& url, const Origin& base_origin);
+
+  // Creates an origin with the given nonce and tuple. This method can only be
+  // called by SandboxedOpaqueOriginCreator to ensure proper access
+  // control for nonce-based origins.
+  static Origin CreateWithNonce(
+      base::PassKey<content::SandboxedOpaqueOriginCreator>,
+      const base::UnguessableToken& nonce,
+      SchemeHostPort tuple) {
+    return Origin(Nonce(nonce), std::move(tuple));
+  }
 
   // Copyable and movable.
   Origin(const Origin&);
@@ -319,8 +334,9 @@ class COMPONENT_EXPORT(URL) Origin {
   // and precursor information.
   std::string GetDebugString(bool include_nonce = true) const;
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)
-  jni_zero::ScopedJavaLocalRef<jobject> ToJavaObject(JNIEnv* env) const;
+#if (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)) && \
+    !BUILDFLAG(CRONET_BUILD)
+  jni_zero::ScopedJavaLocalRef<JOrigin> ToJavaObject(JNIEnv* env) const;
   static Origin FromJavaObject(JNIEnv* env,
                                const jni_zero::JavaRef<jobject>& java_origin);
   static int64_t CreateNative(JNIEnv* env,
@@ -330,7 +346,7 @@ class COMPONENT_EXPORT(URL) Origin {
                               bool is_opaque,
                               uint64_t tokenHighBits,
                               uint64_t tokenLowBits);
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif
 
   void WriteIntoTrace(perfetto::TracedValue context) const;
 
@@ -339,7 +355,8 @@ class COMPONENT_EXPORT(URL) Origin {
   size_t EstimateMemoryUsage() const;
 
  private:
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)
+#if (BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_ROBOLECTRIC)) && \
+    !BUILDFLAG(CRONET_BUILD)
   friend Origin CreateOpaqueOriginForAndroid(
       const std::string& scheme,
       const std::string& host,
@@ -495,7 +512,7 @@ COMPONENT_EXPORT(URL) bool IsSameOriginWith(const GURL& a, const GURL& b);
 
 }  // namespace url
 
-#if BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID) && !BUILDFLAG(CRONET_BUILD)
 namespace jni_zero {
 
 // @JniType conversion function.

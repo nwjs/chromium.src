@@ -334,13 +334,15 @@ void TabLifecycleUnitSource::OnTabChangedAt(tabs::TabInterface* tab,
   content::WebContents* contents = tab->GetContents();
   TabLifecycleUnit* lifecycle_unit = GetTabLifecycleUnit(contents);
   // This can be called before OnTabStripModelChanged() and |lifecycle_unit|
-  // will be null in that case. http://crbug.com/877940
+  // will be null in that case. http://crbug.com/41410168
   if (!lifecycle_unit) {
     return;
   }
 
-  auto* audible_helper = RecentlyAudibleHelper::FromWebContents(contents);
-  lifecycle_unit->SetRecentlyAudible(audible_helper->WasRecentlyAudible());
+  if (auto* const audible_helper =
+          RecentlyAudibleHelper::FromWebContents(contents)) {
+    lifecycle_unit->SetRecentlyAudible(audible_helper->WasRecentlyAudible());
+  }
 }
 
 void TabLifecycleUnitSource::OnBrowserClosed(BrowserWindowInterface* browser) {

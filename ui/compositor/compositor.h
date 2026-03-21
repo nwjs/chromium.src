@@ -22,6 +22,7 @@
 #include "base/scoped_observation_traits.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/types/strong_alias.h"
 #include "build/build_config.h"
 #include "cc/metrics/events_metrics_manager.h"
 #include "cc/metrics/frame_sequence_tracker.h"
@@ -397,6 +398,7 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
 
   // LayerTreeHostClient implementation.
   void WillBeginMainFrame() override {}
+  void WillBeginImplCommit() override {}
   void DidBeginMainFrame() override;
   void OnDeferMainFrameUpdatesChanged(bool) override {}
   void OnDeferCommitsChanged(
@@ -633,7 +635,13 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   // The root of the Layer tree drawn by this compositor.
   raw_ptr<Layer> root_layer_ = nullptr;
 
-  base::ObserverList<CompositorObserver, true>::Unchecked observer_list_;
+  // TODO(crbug.com/484371187): Investigate if reentrancy can be removed.
+  base::ObserverList<
+      CompositorObserver,
+      /*check_empty=*/true,
+      base::ObserverListReentrancyPolicy::kAllowReentrancyUntriaged>::Unchecked
+      observer_list_;
+
   base::ObserverList<CompositorAnimationObserver>::Unchecked
       animation_observer_list_;
 

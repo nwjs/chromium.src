@@ -5,11 +5,12 @@
 import 'chrome://skills/skills_dialog_app.js';
 
 import type {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import type {Skill} from 'chrome://skills/skill.mojom-webui.js';
 import {SkillSource} from 'chrome://skills/skill.mojom-webui.js';
 import {DialogHandlerRemote} from 'chrome://skills/skills.mojom-webui.js';
-import {WindowProxyImpl} from 'chrome://skills/skills_dialog_app.js';
+import {MAX_NAME_CHAR_COUNT, MAX_PROMPT_CHAR_COUNT, WindowProxyImpl} from 'chrome://skills/skills_dialog_app.js';
 import type {SkillsDialogAppElement, WindowProxy} from 'chrome://skills/skills_dialog_app.js';
 import {SkillsDialogBrowserProxy} from 'chrome://skills/skills_dialog_browser_proxy.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -44,9 +45,14 @@ suite('SkillsDialogAppPage', function() {
   let testWindowProxy: TestWindowProxy;
 
   setup(async function() {
+    loadTimeData.overrideValues({
+      MAX_PROMPT_CHAR_COUNT: 20000,
+      MAX_NAME_CHAR_COUNT: 100,
+    });
     dialogHandler = TestMock.fromClass(DialogHandlerRemote);
     SkillsDialogBrowserProxy.setInstance(
         {handler: dialogHandler} as SkillsDialogBrowserProxy);
+    dialogHandler.setResultFor('submitSkill', Promise.resolve({success: true}));
     dialogHandler.setResultFor(
         'refineSkill', Promise.resolve({refinedSkill: {}}));
     dialogHandler.setResultFor(
@@ -111,7 +117,6 @@ suite('SkillsDialogAppPage', function() {
     };
     await setupDialogWithSkill(testSkill);
 
-    assertEquals('⚡', skillsDialogApp.$.emojiTrigger.value);
     assertEquals(testSkill.name, skillsDialogApp.$.nameText.value);
     assertEquals(testSkill.prompt, skillsDialogApp.$.instructionsText.value);
   });
@@ -178,11 +183,15 @@ suite('SkillsDialogAppPage', function() {
 
     // Click the save button and verify the proxy call.
     skillsDialogApp.$.saveButton.click();
+    await microtasksFinished();
     const submittedSkill = await dialogHandler.whenCalled('submitSkill');
     assertEquals('', submittedSkill.id);
     assertEquals(testName, submittedSkill.name);
     assertEquals(testPrompt, submittedSkill.prompt);
     assertEquals(SkillSource.kUserCreated, submittedSkill.source);
+
+    // Verify save error message is not shown.
+    assertTrue(skillsDialogApp.$.saveErrorContainer.hidden);
   });
 
   test('SubmitsRemixedSkill', async function() {
@@ -210,9 +219,9 @@ suite('SkillsDialogAppPage', function() {
     const submittedSkill = await dialogHandler.whenCalled('submitSkill');
     assertEquals('', submittedSkill.id);
     assertEquals(firstPartySkill.id, submittedSkill.sourceSkillId);
+    assertEquals(SkillSource.kDerivedFromFirstParty, submittedSkill.source);
     assertEquals(remixedName, submittedSkill.name);
     assertEquals(remixedPrompt, submittedSkill.prompt);
-    assertEquals(SkillSource.kDerivedFromFirstParty, submittedSkill.source);
   });
 
   test('EditUserCreatedSkill', async function() {
@@ -273,6 +282,88 @@ suite('SkillsDialogAppPage', function() {
     assertEquals(SkillSource.kDerivedFromFirstParty, submittedSkill.source);
   });
 
+  test('SaveButtonFails', async function() {
+    dialogHandler.setResultFor(
+        'submitSkill', Promise.resolve({success: false}));
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    skillsDialogApp = document.createElement('skills-dialog-app');
+    document.body.appendChild(skillsDialogApp);
+    await microtasksFinished();
+
+    // Verify save error message is not shown initially.
+    assertTrue(skillsDialogApp.$.saveErrorContainer.hidden);
+
+    // Populate the fields to enable the save button.
+    const testName = 'test skill';
+    const testPrompt = 'test prompt';
+    await updateName(testName);
+    await updateInstructions(testPrompt);
+
+    // Verify save error message is shown.
+    skillsDialogApp.$.saveButton.click();
+    await microtasksFinished();
+    await dialogHandler.whenCalled('submitSkill');
+    assertFalse(skillsDialogApp.$.saveErrorContainer.hidden);
+  });
+
+  test('HidesDeleteButtonForAddingSkill', function() {
+    assertTrue(skillsDialogApp.$.deleteButton.hidden);
+  });
+
+  test('DeleteSkill', async function() {
+    const testSkill: Skill = {
+      id: '123',
+      sourceSkillId: '',
+      name: 'test skill',
+      icon: '',
+      prompt: 'test prompt',
+      description: 'test description',
+      source: SkillSource.kUserCreated,
+      creationTime: {internalValue: 0n},
+      lastUpdateTime: {internalValue: 0n},
+    };
+    await setupDialogWithSkill(testSkill);
+
+    assertFalse(skillsDialogApp.$.deleteButton.hidden);
+
+    skillsDialogApp.$.deleteButton.click();
+    assertEquals(1, dialogHandler.getCallCount('deleteSkill'));
+  });
+
+  test('EmojiZeroStateVisibility', async function() {
+    // 1. Setup with empty icon
+    const emptyIconSkill: Skill = {
+      id: '',
+      sourceSkillId: '',
+      name: 'test skill',
+      icon: '',
+      prompt: 'test prompt',
+      description: 'test description',
+      source: SkillSource.kUserCreated,
+      creationTime: {internalValue: 0n},
+      lastUpdateTime: {internalValue: 0n},
+    };
+    await setupDialogWithSkill(emptyIconSkill);
+
+    const zeroStateIcon = skillsDialogApp.$.emojiZeroStateIcon;
+    const emojiTrigger = skillsDialogApp.$.emojiTrigger;
+
+    // Verify initial state: Icon should be visible (hidden=false) because icon
+    // is empty.
+    assertTrue(!!zeroStateIcon);
+    assertFalse(zeroStateIcon.hidden);
+    assertEquals('', emojiTrigger.value);
+
+    // 2. Set an icon
+    emojiTrigger.value = '🐶';
+    emojiTrigger.dispatchEvent(new InputEvent('input'));
+    await microtasksFinished();
+
+    // Verify state: Icon should be hidden
+    assertTrue(zeroStateIcon.hidden);
+    assertEquals('🐶', emojiTrigger.value);
+  });
+
   test('EmojiTriggerOpensPicker', async function() {
     const emojiTrigger = skillsDialogApp.$.emojiTrigger;
 
@@ -299,15 +390,24 @@ suite('SkillsDialogAppPage', function() {
     assertEquals('🐶', submittedSkill.icon);
   });
 
-  test('EmojiInputHandlesEmpty', async function() {
-    const emojiTrigger = skillsDialogApp.$.emojiTrigger;
+  test('EmojiInputHandlesEmptyAndAppliesDefaultOnSubmit', async function() {
+    const emptyIconSkill: Skill = {
+      id: 'empty-icon-skill',
+      sourceSkillId: 'sourceSkillId',
+      name: 'test skill',
+      icon: '',
+      prompt: 'test prompt',
+      description: 'test description',
+      source: SkillSource.kFirstParty,
+      creationTime: {internalValue: 0n},
+      lastUpdateTime: {internalValue: 0n},
+    };
+    await setupDialogWithSkill(emptyIconSkill);
 
-    emojiTrigger.value = '';
-    emojiTrigger.dispatchEvent(new InputEvent('input'));
-
-    await microtasksFinished();
-
-    assertEquals('⚡', emojiTrigger.value);
+    // Click the save button and verify the proxy call.
+    skillsDialogApp.$.saveButton.click();
+    const submittedSkill = await dialogHandler.whenCalled('submitSkill');
+    assertEquals('⚡', submittedSkill.icon);
   });
 
   test('EmojiPreventsManualTyping', async function() {
@@ -461,10 +561,10 @@ suite('SkillsDialogAppPage', function() {
 
     await microtasksFinished();
 
-    const emailElement = skillsDialogApp.$.accountEmail;
+    const accountInfoElement = skillsDialogApp.$.accountInfo;
 
-    assertTrue(!!emailElement);
-    assertEquals(testEmail, emailElement.textContent);
+    assertTrue(!!accountInfoElement);
+    assertTrue(accountInfoElement.textContent.includes(testEmail));
   });
 
   test('RefineShowsErrorOnFailure', async function() {
@@ -819,5 +919,40 @@ suite('SkillsDialogAppPage', function() {
         skillsDialogApp.shadowRoot.querySelector('#nameLoaderContainer');
     assertEquals(null, loader);
     assertEquals('Pre-existing Name', skillsDialogApp.$.nameText.value);
+  });
+
+  test('CharLimitErrorDisplaysCorrectly', async function() {
+    await updateName('test skill');
+
+    // 1. At or over limit: disabled.
+    const longPrompt = 'a'.repeat(MAX_PROMPT_CHAR_COUNT);
+    await updateInstructions(longPrompt);
+
+    // Check error message visibility
+    const charLimitErrorMessage = skillsDialogApp.$.errorMessage;
+    assertTrue(!!charLimitErrorMessage);
+    assertFalse(charLimitErrorMessage.hidden);
+    assertTrue(skillsDialogApp.$.textareaWrapper.hasAttribute('error'));
+
+    // 2. Under limit again: enabled.
+    await updateInstructions('a');
+    assertTrue(charLimitErrorMessage.hidden);
+    assertFalse(skillsDialogApp.$.textareaWrapper.hasAttribute('error'));
+  });
+
+  test('NameCharLimitErrorDisplaysCorrectly', async function() {
+    // 1. At or over limit: red border and custom error message appear.
+    const longName = 'a'.repeat(MAX_NAME_CHAR_COUNT);
+    await updateName(longName);
+
+    const nameErrorMessage = skillsDialogApp.$.nameErrorMessage;
+    assertTrue(!!nameErrorMessage);
+    assertFalse(nameErrorMessage.hidden);
+    assertTrue(skillsDialogApp.$.nameText.hasAttribute('invalid'));
+
+    // 2. Under limit again: returns to normal.
+    await updateName('Valid Name');
+    assertTrue(nameErrorMessage.hidden);
+    assertFalse(skillsDialogApp.$.nameText.hasAttribute('invalid'));
   });
 });

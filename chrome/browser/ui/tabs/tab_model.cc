@@ -102,7 +102,7 @@ void TabModel::OnRemovedFromModel() {
   will_be_detaching_ = false;
 
   // Opener stuff doesn't make sense to transfer between browsers.
-  opener_ = nullptr;
+  opener_handle_ = tabs::TabHandle::Null();
   reset_opener_on_active_tab_change_ = false;
 
   // Blocked state is preserved, at
@@ -113,6 +113,14 @@ void TabModel::OnRemovedFromModel() {
 
   // Remove visibility observers.
   WebContentsObserver::Observe(nullptr);
+}
+
+tabs::TabInterface* TabModel::opener() const {
+  return opener_handle_.Get();
+}
+
+void TabModel::set_opener(tabs::TabInterface* opener) {
+  opener_handle_ = opener ? opener->GetHandle() : tabs::TabHandle::Null();
 }
 
 TabCollection* TabModel::GetParentCollection(
@@ -156,6 +164,15 @@ void TabModel::SetGroup(std::optional<tab_groups::TabGroupId> group) {
 
   group_ = group;
   group_changed_callback_list_.Notify(this, group_);
+}
+
+void TabModel::SetBlocked(bool blocked) {
+  if (blocked_ == blocked) {
+    return;
+  }
+
+  blocked_ = blocked;
+  blocked_state_changed_callback_list_.Notify(this, blocked_);
 }
 
 void TabModel::WillBecomeHidden(base::PassKey<TabStripModel>) {
@@ -243,6 +260,11 @@ base::CallbackListSubscription TabModel::RegisterPinnedStateChanged(
 base::CallbackListSubscription TabModel::RegisterGroupChanged(
     TabInterface::GroupChangedCallback callback) {
   return group_changed_callback_list_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription TabModel::RegisterBlockedStateChanged(
+    TabInterface::BlockedStateChangedCallback callback) {
+  return blocked_state_changed_callback_list_.Add(std::move(callback));
 }
 
 bool TabModel::CanShowModalUI() const {

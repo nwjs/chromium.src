@@ -9,7 +9,6 @@
 <translation id="101823271612280837">Snimanje je zaustavljeno. Nije moguće koristiti kontrolnu tabla igre u načinu rada za tablet.</translation>
 <translation id="1024364763893396229">Sačuvajte uređaj <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Baterija pisaljke je slaba</translation>
-<translation id="1036073649888683237">Da upravljate obavještenjima, idite u Postavke</translation>
 <translation id="1036348656032585052">Isključi</translation>
 <translation id="1037492556044956303">Dodan je uređaj <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Prikažite prijedloge</translation>
@@ -427,6 +426,7 @@ Povezano je više uređaja (ukupno <ph name="DEVICECOUNT" />).</translation>
 <translation id="2478076885740497414">Instaliraj aplikaciju</translation>
 <translation id="2482878487686419369">Obavještenja</translation>
 <translation id="2484513351006226581">Pritisnite <ph name="KEYBOARD_SHORTCUT" /> da promijenite raspored tastature.</translation>
+<translation id="2485422356828889247">Deinstaliraj</translation>
 <translation id="2486214324139475545">Pregled radne površine <ph name="DESK_NAME" />. Aktivna radna površina.</translation>
 <translation id="2486405091093637109">Rezolucija ekrana "<ph name="DISPLAY_NAME" />" promijenila se u <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Ako ne potvrdite, prethodne postavke će se vratiti za <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Pridruži se</translation>

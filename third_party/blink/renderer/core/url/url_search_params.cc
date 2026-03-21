@@ -60,8 +60,9 @@ URLSearchParams* URLSearchParams::Create(const URLSearchParamsInit* init,
   switch (init->GetContentType()) {
     case URLSearchParamsInit::ContentType::kUSVString: {
       const String& query_string = init->GetAsUSVString();
-      if (query_string.StartsWith('?'))
+      if (query_string.starts_with('?')) {
         return MakeGarbageCollected<URLSearchParams>(query_string.Substring(1));
+      }
       return MakeGarbageCollected<URLSearchParams>(query_string);
     }
     case URLSearchParamsInit::ContentType::kUSVStringSequenceSequence:
@@ -135,8 +136,8 @@ void URLSearchParams::RunUpdateSteps() {
 static String DecodeString(String input) {
   // |DecodeURLMode::kUTF8| is used because "UTF-8 decode without BOM" should
   // be performed (see https://url.spec.whatwg.org/#concept-urlencoded-parser).
-  return DecodeURLEscapeSequences(input.Replace('+', ' '),
-                                  DecodeURLMode::kUTF8);
+  return DecodeUrlEscapeSequences(input.Replace('+', ' '),
+                                  DecodeUrlMode::kUtf8);
 }
 
 void URLSearchParams::SetInputWithoutUpdate(const String& query_string) {

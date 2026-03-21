@@ -693,14 +693,20 @@ class AutofillInteractiveTestBase : public AutofillUiTest {
 
   void CreateTestProfile() {
     AutofillProfile profile(AddressCountryCode(kDefaultAddressValues.country));
-    test::SetProfileInfo(
-        &profile, kDefaultAddressValues.first_name,
-        kDefaultAddressValues.middle_name, kDefaultAddressValues.last_name,
-        kDefaultAddressValues.email, kDefaultAddressValues.company,
-        kDefaultAddressValues.address1, kDefaultAddressValues.address2,
-        kDefaultAddressValues.city, kDefaultAddressValues.state,
-        kDefaultAddressValues.zip, kDefaultAddressValues.country,
-        kDefaultAddressValues.phone);
+    test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
+                                       .with_first_name(kDefaultAddressValues.first_name)
+                                       .with_middle_name(kDefaultAddressValues.middle_name)
+                                       .with_last_name(kDefaultAddressValues.last_name)
+                                       .with_email(kDefaultAddressValues.email)
+                                       .with_company(kDefaultAddressValues.company)
+                                       .with_address1(kDefaultAddressValues.address1)
+                                       .with_address2(kDefaultAddressValues.address2)
+                                       .with_city(kDefaultAddressValues.city)
+                                       .with_state(kDefaultAddressValues.state)
+                                       .with_zipcode(kDefaultAddressValues.zip)
+                                       .with_country(kDefaultAddressValues.country)
+                                       .with_phone(kDefaultAddressValues.phone)
+                                       .Build());
     profile.usage_history().set_use_count(
         9999999);  // We want this to be the first profile.
     AddTestProfile(browser()->profile(), profile);
@@ -708,10 +714,20 @@ class AutofillInteractiveTestBase : public AutofillUiTest {
 
   void CreateSecondTestProfile() {
     AutofillProfile profile(AddressCountryCode("US"));
-    test::SetProfileInfo(&profile, "Alice", "M.", "Wonderland",
-                         "alice@wonderland.com", "Magic", "333 Cat Queen St.",
-                         "Rooftop", "Liliput", "CA", "10003", "US",
-                         "15166900292");
+    test::SetProfileInfo(&profile, test::SetProfileInfoOptionsBuilder()
+                                       .with_first_name("Alice")
+                                       .with_middle_name("M.")
+                                       .with_last_name("Wonderland")
+                                       .with_email("alice@wonderland.com")
+                                       .with_company("Magic")
+                                       .with_address1("333 Cat Queen St.")
+                                       .with_address2("Rooftop")
+                                       .with_city("Liliput")
+                                       .with_state("CA")
+                                       .with_zipcode("10003")
+                                       .with_country("US")
+                                       .with_phone("15166900292")
+                                       .Build());
     AddTestProfile(browser()->profile(), profile);
   }
 
@@ -788,20 +804,8 @@ class AutofillInteractiveTestBase : public AutofillUiTest {
     ASSERT_TRUE(content::ExecJs(GetWebContents(), script));
 
     content::DOMMessageQueue msg_queue(GetWebContents());
-    for (char16_t character : value) {
-      ui::DomKey dom_key = ui::DomKey::FromCharacter(character);
-      const ui::PrintableCodeEntry* code_entry = std::ranges::find_if(
-          ui::kPrintableCodeMap,
-          [character](const ui::PrintableCodeEntry& entry) {
-            return entry.character[0] == character ||
-                   entry.character[1] == character;
-          });
-      ASSERT_TRUE(code_entry != std::end(ui::kPrintableCodeMap));
-      bool shift = code_entry->character[1] == character;
-      ui::DomCode dom_code = code_entry->dom_code;
-      content::SimulateKeyPress(GetWebContents(), dom_key, dom_code,
-                                ui::DomCodeToUsLayoutKeyboardCode(dom_code),
-                                false, shift, false, false);
+    for (char character : value) {
+      content::SimulateCharTyped(GetWebContents(), character);
     }
     std::string reply;
     ASSERT_TRUE(msg_queue.WaitForMessage(&reply));
@@ -1015,10 +1019,18 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, ModifyTextNotifiesObserver) {
   // OnAfterTextFieldValueChanged will eventually be called with the final text
   // "Montreal".
   EventWaiter<bool> waiter({true});
-  EXPECT_CALL(observer, OnAfterTextFieldValueChanged(_, _, _, _))
-      .WillRepeatedly([&](AutofillManager&, FormGlobalId, FieldGlobalId,
-                          std::u16string text_value) {
-        if (text_value == u"Montreal") {
+  EXPECT_CALL(observer, OnAfterTextFieldValueChanged)
+      .WillRepeatedly([&](AutofillManager& manager, FormGlobalId form_id,
+                          FieldGlobalId field_id) {
+        const FormStructure* form = manager.FindCachedFormById(form_id);
+        if (!form) {
+          return;
+        }
+        const AutofillField* field = form->GetFieldById(field_id);
+        if (!field) {
+          return;
+        }
+        if (field->value() == u"Montreal") {
           waiter.OnEvent(true);
         }
       });
@@ -1056,10 +1068,18 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
   autofill_manager->AddObserver(&observer);
 
   EventWaiter<bool> waiter({true});
-  EXPECT_CALL(observer, OnAfterTextFieldValueChanged(_, _, _, _))
-      .WillRepeatedly([&](AutofillManager&, FormGlobalId, FieldGlobalId,
-                          std::u16string text_value) {
-        if (text_value == u"My Address") {
+  EXPECT_CALL(observer, OnAfterTextFieldValueChanged)
+      .WillRepeatedly([&](AutofillManager& manager, FormGlobalId form_id,
+                          FieldGlobalId field_id) {
+        const FormStructure* form = manager.FindCachedFormById(form_id);
+        if (!form) {
+          return;
+        }
+        const AutofillField* field = form->GetFieldById(field_id);
+        if (!field) {
+          return;
+        }
+        if (field->value() == u"My Address") {
           waiter.OnEvent(true);
         }
       });

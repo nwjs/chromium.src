@@ -1211,9 +1211,8 @@ coverage_builder(
             short_name = "lnx-fuzz",
         ),
     ],
-    # TODO(crbug.com/449026537): Remove elevated timeout once performance
-    # improves.
-    execution_timeout = 32 * time.hour,
+    # TODO(crbug.com/449026537): Remove elevated timeout once performance improves.
+    execution_timeout = 48 * time.hour,
     notifies = ["chrome-fuzzing-core"],
     properties = {
         "collect_fuzz_coverage": True,
@@ -1347,6 +1346,9 @@ coverage_builder(
         ),
     ),
     gn_args = gn_args.config(
+        args = {
+            "enable_single_byte_coverage": True,
+        },
         configs = [
             "release_builder",
             "remoteexec",
@@ -1395,6 +1397,9 @@ coverage_builder(
                     shards = 50,
                 ),
             ),
+            "check_static_initializers": targets.remove(
+                reason = "Coverage instrumentation adds static initializers, so this test will always fail.",
+            ),
             "content_browsertests": targets.mixin(
                 args = [
                     "--no-sandbox",
@@ -1417,6 +1422,7 @@ coverage_builder(
             "not_site_per_process_blink_web_tests": targets.mixin(
                 args = [
                     "--additional-env-var=LLVM_PROFILE_FILE=${ISOLATED_OUTDIR}/profraw/default-%2m%c.profraw",
+                    "--timeout-multiplier=5",
                 ],
                 swarming = targets.swarming(
                     shards = 20,

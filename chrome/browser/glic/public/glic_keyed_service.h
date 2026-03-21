@@ -15,6 +15,7 @@
 #include "base/memory/memory_pressure_listener.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
+#include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_zero_state_suggestions_manager.h"
 #include "chrome/browser/glic/host/context/glic_sharing_manager_provider.h"
@@ -24,10 +25,12 @@
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
+#include "chrome/browser/glic/public/glic_passkeys.h"
 #include "chrome/common/actor.mojom-forward.h"
 #include "chrome/common/actor/task_id.h"
 #include "chrome/common/actor_webui.mojom-forward.h"
-#include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
+#include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
@@ -70,16 +73,6 @@ class GlicWebContentsWarmingPool;
 
 enum class GlicPrewarmingChecksResult;
 
-// LINT.IfChange(GlicPrewarmingFreSource)
-enum class GlicPrewarmingFreSource {
-  kWhatsNew = 0,
-  kNudge = 1,
-  kIph = 2,
-  kTest = 3,
-  kBrowserCommand = 4,
-  kMaxValue = kBrowserCommand,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicPrewarmingFreSource)
 
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
 class GlicActorTaskManager;
@@ -93,6 +86,7 @@ class GlicActorTaskManager;
 // preference for changes and cause the UI to respond to it.
 class GlicKeyedService : public KeyedService,
                          public GlicSharingManagerProvider,
+                         public base::SupportsUserData,
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
                          public Host::InstanceDelegate,
 #endif
@@ -114,6 +108,13 @@ class GlicKeyedService : public KeyedService,
   GlicKeyedService& operator=(const GlicKeyedService&) = delete;
   ~GlicKeyedService() override;
 
+#if BUILDFLAG(IS_ANDROID)
+  // Returns a Java object of the type GlicKeyedService for the given
+  // GlicKeyedService.
+  static base::android::ScopedJavaLocalRef<jobject> GetJavaObject(
+      GlicKeyedService* glic_keyed_service);
+#endif  // BUILDFLAG(IS_ANDROID)
+
   // Convenience method, may return nullptr.
   static GlicKeyedService* Get(content::BrowserContext* context);
 
@@ -129,11 +130,18 @@ class GlicKeyedService : public KeyedService,
   virtual void ToggleUI(BrowserWindowInterface* bwi,
                         bool prevent_close,
                         mojom::InvocationSource source,
-                        std::optional<std::string> prompt_suggestion,
-                        bool auto_send = false);
+                        std::optional<std::string> prompt_suggestion);
   void ToggleUI(BrowserWindowInterface* bwi,
                 bool prevent_close,
                 mojom::InvocationSource source);
+
+  // Invokes Glic with the given options and automatically submits the prompt.
+  // Access is restricted to authorized callers via InvokeWithAutoSubmitPasskey.
+  void InvokeWithAutoSubmit(InvokeWithAutoSubmitPasskey auto_submit_passkey,
+                            tabs::TabInterface* tab,
+                            GlicInvokeOptions options);
+
+  void Invoke(tabs::TabInterface* tab, GlicInvokeOptions options);
 
   // Show the panel with the given conversation id. Used only by web continuity.
   // Deprecated: See go/gic:invoke for full solution, this existing version will
@@ -301,7 +309,7 @@ class GlicKeyedService : public KeyedService,
 
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
   void CaptureRegion(
-      content::WebContents* web_contents,
+      tabs::TabInterface* tab,
       mojo::PendingRemote<mojom::CaptureRegionObserver> observer);
 #endif
 
@@ -324,7 +332,6 @@ class GlicKeyedService : public KeyedService,
 
   virtual void TryPreload();
   void TryPreloadAfterDelay();
-  virtual void TryPreloadFre(GlicPrewarmingFreSource source);
   void Reload(content::RenderFrameHost* render_frame_host);
   // Close the active embedder for an instance associated with this render frame
   // host.
@@ -402,6 +409,7 @@ class GlicKeyedService : public KeyedService,
   void RequestToShowAutofillSuggestionsDialog(
       actor::TaskId task_id,
       std::vector<autofill::ActorFormFillingRequest> requests,
+      base::WeakPtr<actor::AutofillSelectionDialogEventHandler> event_handler,
       AutofillSuggestionSelectedCallback callback) override;
 #endif
 
@@ -431,8 +439,6 @@ class GlicKeyedService : public KeyedService,
                         std::optional<std::string> conversation_id);
 
   void FinishPreload(GlicPrewarmingChecksResult reason);
-  void FinishPreloadFre(GlicPrewarmingFreSource source,
-                        GlicPrewarmingChecksResult result);
 
   // List of callbacks to be notified when the client requests a change to the
   // context access indicator status.

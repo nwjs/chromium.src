@@ -39,6 +39,8 @@ chromium-metrics-reviews@google.com.
   <int value="7"
       label="Change PIN request failed in enclave. This does not include
              cancellations."/>
+  <int value="8"
+      label="A PIN change request is triggered because the user has no UV"/>
 </enum>
 
 <!-- LINT.IfChange(CombinedSelectorAction) -->
@@ -487,6 +489,10 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="CreateResolvedNonGpm">
     WebAuthn credential create request was successfully resolved with different
     authenticator than Google Password Manager.
+  </int>
+  <int value="6" label="IncognitoInterstitialShown">
+    The Incognito interstitial warning was shown to the user during passkey
+    creation.
   </int>
 </enum>
 

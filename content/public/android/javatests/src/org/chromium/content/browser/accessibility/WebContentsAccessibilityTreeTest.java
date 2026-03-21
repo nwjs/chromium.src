@@ -28,6 +28,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.TestAnimations;
+import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
 import org.chromium.content_public.common.ContentSwitches;
@@ -258,6 +259,12 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    public void test_ariaAccordion() {
+        performAriaTest("aria-accordion.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_ariaAlertdialog() {
         performAriaTest("aria-alertdialog.html");
     }
@@ -296,6 +303,12 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_ariaBanner() {
         performAriaTest("aria-banner.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaBreadcrumb() {
+        performAriaTest("aria-breadcrumb.html");
     }
 
     @Test
@@ -657,6 +670,12 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_ariaListbox() {
         performAriaTest("aria-listbox.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_ariaListboxGrouped() {
+        performAriaTest("aria-listbox-grouped.html");
     }
 
     @Test
@@ -1681,6 +1700,13 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ContentInternalFeatures.ACCESSIBILITY_EXPOSE_NON_ATOMIC_TEXT_FIELD_CHILDREN)
+    public void test_contenteditableMultiNode() {
+        performHtmlTest("contenteditable-multi-node.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_continuations() {
         performHtmlTest("continuations.html");
     }
@@ -2400,6 +2426,12 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    public void test_nonTextSelection() {
+        performHtmlTest("non-text-selection.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_object() {
         performHtmlTest("object.html");
     }
@@ -2482,6 +2514,30 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_picture() {
         performHtmlTest("picture.html");
+    }
+
+    @Test
+    @SmallTest
+    public void testNameFromRelatedFieldset() {
+        performHtmlTest("name-from-related-fieldset.html");
+    }
+
+    @Test
+    @SmallTest
+    public void testNameFromRelatedLabelable() {
+        performHtmlTest("name-from-related-labelable.html");
+    }
+
+    @Test
+    @SmallTest
+    public void testNameFromRelatedSvg() {
+        performHtmlTest("name-from-related-svg.html");
+    }
+
+    @Test
+    @SmallTest
+    public void testNameFromRelatedTitle() {
+        performHtmlTest("name-from-related-title.html");
     }
 
     @Test

@@ -205,7 +205,8 @@ CSSStyleValue* CreateStyleValueWithPropertyInternal(CSSPropertyID property_id,
       }
       return CreateStyleValue(value);
     }
-    case CSSPropertyID::kTextDecorationLine: {
+    case CSSPropertyID::kTextDecorationLine:
+    case CSSPropertyID::kTextTransform: {
       if (value.IsIdentifierValue()) {
         return CreateStyleValue(value);
       }
@@ -396,7 +397,7 @@ CSSStyleValueVector StyleValueFactory::CoerceStyleValuesOrStrings(
         }
 
         DCHECK(!subvalues.Contains(nullptr));
-        style_values.AppendVector(subvalues);
+        style_values.append_range(subvalues);
         break;
       }
     }

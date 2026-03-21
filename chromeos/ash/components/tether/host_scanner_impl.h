@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
 #include "base/time/clock.h"
 #include "chromeos/ash/components/multidevice/remote_device_ref.h"
 #include "chromeos/ash/components/network/network_state_handler.h"
@@ -41,11 +42,6 @@ class HostScannerImpl
       public TetherAvailabilityOperationOrchestrator::Observer,
       public session_manager::SessionManagerObserver {
  public:
-  class Observer {
-   public:
-    void virtual ScanFinished() = 0;
-  };
-
   HostScannerImpl(
       std::unique_ptr<TetherAvailabilityOperationOrchestrator::Factory>
           tether_availability_operation_orchestrator_factory,
@@ -116,7 +112,11 @@ class HostScannerImpl
       tether_availability_operation_orchestrator_;
   std::unordered_set<std::string> tether_guids_in_cache_before_scan_;
 
-  base::ObserverList<Observer>::Unchecked observer_list_;
+  base::ObserverList<HostScanner::Observer> observer_list_;
+
+  base::ScopedObservation<session_manager::SessionManager,
+                          session_manager::SessionManagerObserver>
+      session_manager_observer_{this};
   base::WeakPtrFactory<HostScannerImpl> weak_ptr_factory_{this};
 };
 

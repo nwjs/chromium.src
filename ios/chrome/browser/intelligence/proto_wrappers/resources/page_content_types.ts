@@ -42,12 +42,6 @@ export interface Size {
   height: number;
 }
 
-// Definitions from url/mojom/url.mojom
-
-export interface Url {
-  url: string;
-}
-
 // Definitions from url/mojom/origin.mojom
 
 export interface Origin {
@@ -226,7 +220,7 @@ export enum PageContentTextSize {
 export interface PageContentTextStyle {
   textSize: PageContentTextSize;
   hasEmphasis: boolean;
-  color: number;
+  color?: number;
 }
 
 export interface PageContentTextInfo {
@@ -246,7 +240,7 @@ export enum PageContentAnchorRel {
 }
 
 export interface PageContentAnchorData {
-  url: Url;
+  url: string;
   rel: PageContentAnchorRel[];
 }
 
@@ -264,13 +258,28 @@ export interface PageContentCanvasData {
 }
 
 export interface PageContentVideoData {
-  url: Url;
+  url: string;
   sourceOrigin?: Origin;
 }
 
 export interface PageContentMeta {
   name: string;
   content: string;
+}
+
+// The numbers are aligned with the MediaDataType enum in
+// components/optimization_guide/proto/features/common_quality_data.proto.
+export enum PageContentMediaType {
+  MEDIA_DATA_TYPE_UNKNOWN = 0,
+  MEDIA_DATA_TYPE_VIDEO = 1,
+  MEDIA_DATA_TYPE_AUDIO = 2,
+}
+
+export interface PageContentMediaData {
+  mediaDataType: PageContentMediaType;
+  durationMilliseconds: number;
+  currentPositionMilliseconds: number;
+  isPlaying: boolean;
 }
 
 // Some fields aren't listed here because they are not supported on ios:
@@ -284,6 +293,10 @@ export interface PageContentFrameData {
   // Exclusive to ios which needs to get the full url from JS to get more than
   // the URL origin from the WebFrame data.
   sourceUrl?: string;
+  // Exclusive to ios which gets the document id from the remote token issued
+  // during iframe registration. Just populated for PageContentIframeContent.
+  documentId?: string;
+  mediaData?: PageContentMediaData;
 }
 
 // The numbers are aligned with the RedactedFrameMetadata enum in
@@ -327,7 +340,7 @@ export interface PageContentTableRowData {
 
 export interface PageContentFormData {
   formName?: string;
-  actionUrl?: Url;
+  actionUrl?: string;
 }
 
 export interface PageContentSelectOption {
@@ -353,6 +366,7 @@ export interface PageContentFormControlData {
   placeholder?: string;
   isChecked: boolean;
   isRequired: boolean;
+  isReadonly?: boolean;
   redactionDecision: PageContentRedactionDecision;
 }
 

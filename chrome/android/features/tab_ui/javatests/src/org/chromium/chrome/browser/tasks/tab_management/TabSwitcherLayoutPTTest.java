@@ -76,6 +76,7 @@ import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.mojo.system.Pair;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.PageTransition;
 
 import java.io.IOException;
@@ -99,7 +100,6 @@ import java.util.function.Supplier;
     ANDROID_ELEGANT_TEXT_HEIGHT,
     ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
     ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE,
     ChromeFeatureList.ANDROID_THEME_MODULE
 })
 public class TabSwitcherLayoutPTTest {
@@ -120,7 +120,7 @@ public class TabSwitcherLayoutPTTest {
     @Rule
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(11) // Update the empty thumbnail placeholder.
+                    .setRevision(14) // Setup list
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_MOBILE_HUB)
                     .build();
 
@@ -324,7 +324,6 @@ public class TabSwitcherLayoutPTTest {
     @MediumTest
     @Feature({"RenderTest"})
     @EnableFeatures(ChromeFeatureList.ANDROID_PINNED_TABS)
-    @DisabledTest(message = "crbug.com/444244174")
     public void testRenderGrid_PinnedTabs_Scrolled() throws IOException {
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();
         RegularNewTabPageStation pageStation =
@@ -400,6 +399,7 @@ public class TabSwitcherLayoutPTTest {
     @Test
     @MediumTest
     @EnableAnimations
+    @Restriction(DeviceFormFactor.DESKTOP) // Flaky on desktop crbug.com/485611939
     public void testTabToGridAndBack_SoftCleanup() {
         WebPageStation firstPage = mCtaTestRule.startOnBlankPage();
         ChromeTabbedActivity cta = mCtaTestRule.getActivity();

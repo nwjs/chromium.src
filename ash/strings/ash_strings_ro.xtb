@@ -9,7 +9,6 @@
 <translation id="101823271612280837">S-a oprit înregistrarea. Nu poți folosi Tabloul de bord al jocului în modul tabletă.</translation>
 <translation id="1024364763893396229">Salvează <ph name="NAME" /></translation>
 <translation id="1032891413405719768">Bateria creionului este descărcată</translation>
-<translation id="1036073649888683237">Pentru a gestiona notificările, accesează Setările</translation>
 <translation id="1036348656032585052">Dezactivează</translation>
 <translation id="1037492556044956303">S-a adăugat <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Afișează sugestii</translation>
@@ -427,6 +426,7 @@
 <translation id="2478076885740497414">Instalați aplicația</translation>
 <translation id="2482878487686419369">Notificări</translation>
 <translation id="2484513351006226581">Apasă <ph name="KEYBOARD_SHORTCUT" /> pentru a schimba aspectul tastaturii.</translation>
+<translation id="2485422356828889247">Dezinstalează</translation>
 <translation id="2486214324139475545">Previzualizare pentru <ph name="DESK_NAME" />. Desktop activ.</translation>
 <translation id="2486405091093637109">Rezoluția pentru <ph name="DISPLAY_NAME" /> a fost modificată la <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Dacă nu confirmi, vor fi restabilite setările anterioare în <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Urmează</translation>

@@ -8,7 +8,7 @@
 #import <UIKit/UIKit.h>
 
 enum class ContentSuggestionsModuleType;
-@class StandaloneModuleViewConfiguration;
+@class StandaloneModuleViewConfig;
 
 // Delegate protocol to relay information from the Magic Stack standalone
 // modules.
@@ -26,10 +26,7 @@ enum class ContentSuggestionsModuleType;
 @property(nonatomic, weak) id<StandaloneModuleViewTapDelegate> tapDelegate;
 
 // Configures this view with `config`.
-- (void)configureView:(StandaloneModuleViewConfiguration*)config;
-
-// Updates the product image view with a new `faviconImage`.
-- (void)updateProductImageViewWithFavicon:(UIImage*)faviconImage;
+- (void)configureView:(StandaloneModuleViewConfig*)config;
 
 @end
 

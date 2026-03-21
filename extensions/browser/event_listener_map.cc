@@ -45,8 +45,9 @@ std::unique_ptr<EventListener> EventListener::ForURL(
     std::optional<base::DictValue> filter) {
   // Use only the origin to identify the event listener, e.g. chrome://settings
   // for chrome://settings/accounts, to avoid multiple events being triggered
-  // for the same process. See crbug.com/536858 for details. // TODO(devlin): If
-  // we dispatched events to processes more intelligently this could be avoided.
+  // for the same process. See crbug.com/40437704 for details.
+  // TODO(devlin): If we dispatched events to processes more intelligently this
+  // could be avoided.
   return base::WrapUnique(new EventListener(
       event_name, ExtensionId(), url::Origin::Create(listener_url).GetURL(),
       process, process->GetBrowserContext(), false,
@@ -152,9 +153,7 @@ EventListener::EventListener(const std::string& event_name,
   }
 }
 
-EventListenerMap::EventListenerMap(Delegate* delegate)
-    : delegate_(delegate) {
-}
+EventListenerMap::EventListenerMap(Delegate* delegate) : delegate_(delegate) {}
 
 EventListenerMap::~EventListenerMap() = default;
 
@@ -382,8 +381,9 @@ std::set<const EventListener*> EventListenerMap::GetEventListeners(
       interested_listeners.insert(listener);
     }
   } else {
-    for (const auto& listener : listeners_[event.event_name])
+    for (const auto& listener : listeners_[event.event_name]) {
       interested_listeners.insert(listener.get());
+    }
   }
 
   return interested_listeners;

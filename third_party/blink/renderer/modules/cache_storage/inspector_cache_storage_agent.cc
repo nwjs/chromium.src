@@ -77,7 +77,7 @@ namespace {
 String BuildCacheId(const String& storage_key,
                     const std::optional<String>& storage_bucket_name,
                     const String& cache_name) {
-  DCHECK(storage_key.find('|') == kNotFound);
+  DCHECK(!storage_key.contains('|'));
   StringBuilder id;
   id.Append(storage_key);
   if (storage_bucket_name.has_value()) {
@@ -93,8 +93,7 @@ ProtocolResponse ParseCacheId(const String& id,
                               String* storage_key,
                               std::optional<String>* storage_bucket_name,
                               String* cache_name) {
-  Vector<String> id_parts;
-  id.Split('|', true, id_parts);
+  Vector<String> id_parts = id.Split('|');
   if (id_parts.size() == 2) {
     *storage_key = id_parts[0];
     *storage_bucket_name = std::nullopt;

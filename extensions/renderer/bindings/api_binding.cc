@@ -40,7 +40,7 @@ std::string GetJSEnumEntryName(const std::string& original) {
   // The webstorePrivate API has an empty enum value for a result.
   // TODO(devlin): Work with the webstore team to see if we can move them off
   // this - they also already have a "success" result that they can use.
-  // See crbug.com/709120.
+  // See crbug.com/40514370.
   if (original.empty())
     return original;
 
@@ -476,7 +476,7 @@ void APIBinding::DecorateTemplateWithProperties(
     // TODO(devlin): Availability should be specified in the features files,
     // not the API schema files.
     if (platforms) {
-      std::string this_platform = binding::GetPlatformString();
+      std::string_view this_platform = binding::GetPlatformString();
       auto is_this_platform = [&this_platform](const base::Value& platform) {
         return platform.is_string() && platform.GetString() == this_platform;
       };
@@ -543,7 +543,7 @@ void APIBinding::GetEventObject(
   v8::Isolate* isolate = info.GetIsolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context;
-  if (!info.HolderV2()->GetCreationContext(isolate).ToLocal(&context) ||
+  if (!info.Holder()->GetCreationContext(isolate).ToLocal(&context) ||
       !binding::IsContextValidOrThrowError(context)) {
     return;
   }
@@ -576,7 +576,7 @@ void APIBinding::GetCustomPropertyObject(
   v8::Isolate* isolate = info.GetIsolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context;
-  if (!info.HolderV2()->GetCreationContext(isolate).ToLocal(&context) ||
+  if (!info.Holder()->GetCreationContext(isolate).ToLocal(&context) ||
       !binding::IsContextValid(context)) {
     return;
   }

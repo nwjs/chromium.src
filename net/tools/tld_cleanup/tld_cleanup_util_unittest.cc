@@ -4,8 +4,14 @@
 
 #include "net/tools/tld_cleanup/tld_cleanup_util.h"
 
+#include <initializer_list>
+
+#include "base/base_paths.h"
 #include "base/files/file_path.h"
-#include "net/base/lookup_string_in_fixed_set.h"
+#include "base/files/file_util.h"
+#include "base/files/scoped_temp_dir.h"
+#include "base/path_service.h"
+#include "net/base/registry_controlled_domain_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -165,33 +171,57 @@ domain7, 5
 }
 
 TEST(TldCleanupUtilTest, RuleSerialize) {
+  using enum DomainRuleTag;
+  constexpr auto get_bitmask = [](std::initializer_list<DomainRuleTag> tags) {
+    return DomainRuleTags(tags).ToEnumBitmask();
+  };
+
   EXPECT_EQ(Rule(/*exception=*/false, /*wildcard=*/false, /*is_private=*/false)
                 .Serialize(),
-            kDafsaFound);
+            get_bitmask({}));
   EXPECT_EQ(Rule(/*exception=*/true, /*wildcard=*/false, /*is_private=*/false)
                 .Serialize(),
-            kDafsaExceptionRule);
+            get_bitmask({kException}));
   EXPECT_EQ(Rule(/*exception=*/false, /*wildcard=*/true, /*is_private=*/false)
                 .Serialize(),
-            kDafsaWildcardRule);
+            get_bitmask({kWildcard}));
   // `exception` takes precedence over `wildcard`.
   EXPECT_EQ(Rule(/*exception=*/true, /*wildcard=*/true, /*is_private=*/false)
                 .Serialize(),
-            kDafsaExceptionRule);
+            get_bitmask({kException}));
 
   EXPECT_EQ(Rule(/*exception=*/false, /*wildcard=*/false, /*is_private=*/true)
                 .Serialize(),
-            kDafsaFound | kDafsaPrivateRule);
+            get_bitmask({kPrivate}));
   EXPECT_EQ(Rule(/*exception=*/true, /*wildcard=*/false, /*is_private=*/true)
                 .Serialize(),
-            kDafsaExceptionRule | kDafsaPrivateRule);
+            get_bitmask({kException, kPrivate}));
   EXPECT_EQ(Rule(/*exception=*/false, /*wildcard=*/true, /*is_private=*/true)
                 .Serialize(),
-            kDafsaWildcardRule | kDafsaPrivateRule);
+            get_bitmask({kWildcard, kPrivate}));
   // `exception` takes precedence over `wildcard`.
   EXPECT_EQ(Rule(/*exception=*/true, /*wildcard=*/true, /*is_private=*/true)
                 .Serialize(),
-            kDafsaExceptionRule | kDafsaPrivateRule);
+            get_bitmask({kException, kPrivate}));
+}
+
+TEST(TldCleanupUtilTest, GperfIsUpToDate) {
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+
+  const base::FilePath source_dir =
+      base::PathService::CheckedGet(base::DIR_SRC_TEST_DATA_ROOT)
+          .AppendASCII("net")
+          .AppendASCII("base")
+          .AppendASCII("registry_controlled_domains");
+
+  const base::FilePath temp_file = temp_dir.GetPath().AppendASCII("temp.gperf");
+  ASSERT_EQ(NormalizeFile(source_dir.AppendASCII("effective_tld_names.dat"),
+                          temp_file),
+            NormalizeResult::kSuccess);
+
+  EXPECT_TRUE(base::ContentsEqual(
+      source_dir.AppendASCII("effective_tld_names.gperf"), temp_file));
 }
 
 }  // namespace net::tld_cleanup

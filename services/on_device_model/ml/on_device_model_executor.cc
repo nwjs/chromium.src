@@ -23,6 +23,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/thread_pool.h"
+#include "base/threading/hang_watcher.h"
 #include "base/timer/elapsed_timer.h"
 #include "base/trace_event/trace_event.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -134,8 +135,8 @@ class Responder final {
       base::OnceClosure on_complete,
       SessionAccessor::Ptr session)
       : responder_(std::move(responder)),
-        on_complete_(std::move(on_complete)),
-        session_(std::move(session)) {
+        session_(std::move(session)),
+        on_complete_(std::move(on_complete)) {
     responder_.set_disconnect_handler(
         base::BindOnce(&Responder::Cancel, base::Unretained(this)));
   }
@@ -213,10 +214,12 @@ class Responder final {
   }
 
   void Cancel() {
-    session_ = nullptr;
+    // Must call `cancel_` before `session_` is destroyed or else `session_`'s
+    // destructor will block cancel until the decode task is complete.
     if (cancel_) {
       cancel_();
     }
+    session_ = nullptr;
     if (!on_complete_.is_null()) {
       std::move(on_complete_).Run();
     }
@@ -227,9 +230,9 @@ class Responder final {
   int num_output_tokens_ = 0;
   std::string output_so_far_;
   mojo::Remote<on_device_model::mojom::StreamingResponder> responder_;
+  SessionAccessor::Ptr session_;
   ChromeMLCancelFn cancel_;
   base::OnceClosure on_complete_;
-  SessionAccessor::Ptr session_;
   base::WeakPtrFactory<Responder> weak_ptr_factory_{this};
 };
 
@@ -650,6 +653,10 @@ LoadModelResult OnDeviceModelExecutor::Init(
       .allow_fp16 = kAllowFp16.Get(),
       .performance_hint = params->performance_hint,
   };
+
+  // `SessionCreateModel` may take a long time to load the model. Deactivate
+  // hang watcher so it doesn't report it as a hang.
+  base::HangWatcher::InvalidateActiveExpectations();
   model_ = chrome_ml_->api().SessionCreateModel(
       &descriptor, reinterpret_cast<uintptr_t>(this),
       OnDeviceModelExecutor::Schedule);

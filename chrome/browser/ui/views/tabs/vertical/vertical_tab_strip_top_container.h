@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_VIEWS_TABS_VERTICAL_VERTICAL_TAB_STRIP_TOP_CONTAINER_H_
 
 #include "ui/views/layout/delegating_layout_manager.h"
+#include "ui/views/layout/layout_types.h"
 #include "ui/views/view.h"
 
 class TabStripComboButton;
@@ -20,14 +21,9 @@ namespace tabs {
 class VerticalTabStripStateController;
 }  // namespace tabs
 
-namespace tab_groups {
-class STGEverythingMenu;
-}
-
 namespace views {
 class ActionViewController;
 class LabelButton;
-class MenuButtonController;
 }  // namespace views
 
 // Top container of the vertical tab strip, manages the collapse and tab search
@@ -43,16 +39,15 @@ class VerticalTabStripTopContainer : public views::View,
       BrowserWindowInterface* browser);
   ~VerticalTabStripTopContainer() override;
 
+  // View:
+  void Layout(PassKey) override;
+
   // LayoutDelegate:
   views::ProposedLayout CalculateProposedLayout(
       const views::SizeBounds& size_bounds) const override;
 
   // Creates a TopContainerButton (Collapse Button).
-  views::LabelButton* AddTopContainerChildButtonFor(
-      actions::ActionId action_id);
-  // Creates FlatEdgeButton (Tab Groups & Tab Search).
-  std::unique_ptr<TabStripFlatEdgeButton> CreateFlatEdgeButtonFor(
-      actions::ActionId action_id);
+  views::LabelButton* AddChildButtonFor(actions::ActionId action_id);
 
   TabStripComboButton* GetComboButton();
   TabStripFlatEdgeButton* GetTabSearchButton();
@@ -70,12 +65,9 @@ class VerticalTabStripTopContainer : public views::View,
   void SetCaptionButtonWidthForLayout(int caption_button_width);
 
  private:
-  void ShowEverythingMenu();
-
-  void UpdateComboButtonVisibility();
-
-  void OnCollapsedStateChanged(
-      tabs::VerticalTabStripStateController* controller);
+  // Calculates the width of the visible buttons and returns the sum along with
+  // the padding between them.
+  int GetPreferredWidth() const;
 
   raw_ptr<tabs::VerticalTabStripStateController> state_controller_ = nullptr;
   raw_ptr<actions::ActionItem> root_action_item_ = nullptr;
@@ -84,10 +76,6 @@ class VerticalTabStripTopContainer : public views::View,
   raw_ptr<views::LabelButton> collapse_button_ = nullptr;
   raw_ptr<views::LabelButton> unfocus_button_ = nullptr;
 
-  raw_ptr<views::MenuButtonController> everything_menu_controller_ = nullptr;
-
-  base::CallbackListSubscription collapsed_state_changed_subscription_;
-  std::unique_ptr<tab_groups::STGEverythingMenu> everything_menu_;
   std::unique_ptr<views::ActionViewController> action_view_controller_;
 
   // This represents the toolbar (element containing toolbar buttons, omnibox,
@@ -98,6 +86,10 @@ class VerticalTabStripTopContainer : public views::View,
   // rendered inside of it becaused that area is reserved for outside UI
   // elements.
   int caption_button_width_ = 0;
+
+  // This is updated during layout calculation and then applied during layout.
+  mutable views::LayoutOrientation combo_button_orientation_ =
+      views::LayoutOrientation::kHorizontal;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_VERTICAL_VERTICAL_TAB_STRIP_TOP_CONTAINER_H_

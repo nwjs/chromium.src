@@ -19,6 +19,7 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/sharing_message/buildflags.h"
+#include "components/sharing_message/features.h"
 #include "components/sharing_message/pref_names.h"
 #include "components/sharing_message/sharing_constants.h"
 #include "components/sharing_message/sharing_device_registration_result.h"
@@ -222,6 +223,10 @@ SharingDeviceRegistrationImpl::GetEnabledFeatures() const {
 #if BUILDFLAG(ENABLE_DISCOVERY)
   enabled_features.insert(SharingSpecificFields::DISCOVERY);
 #endif
+  if (IsOneTimeTokenBackendNotificationSupported()) {
+    enabled_features.insert(
+        SharingSpecificFields::ONE_TIME_TOKEN_BACKEND_NOTIFICATION);
+  }
 
   return enabled_features;
 }
@@ -265,6 +270,11 @@ bool SharingDeviceRegistrationImpl::
     IsOptimizationGuidePushNotificationSupported() const {
   return optimization_guide::features::IsOptimizationHintsEnabled() &&
          optimization_guide::features::IsPushNotificationsEnabled();
+}
+
+bool SharingDeviceRegistrationImpl::IsOneTimeTokenBackendNotificationSupported()
+    const {
+  return base::FeatureList::IsEnabled(kOneTimeTokenBackendNotification);
 }
 
 void SharingDeviceRegistrationImpl::SetEnabledFeaturesForTesting(

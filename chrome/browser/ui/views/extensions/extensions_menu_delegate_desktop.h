@@ -62,7 +62,10 @@ class ExtensionsMenuDelegateDesktop : public ExtensionsMenuViewModel::Delegate,
                      int index) override;
   void OnActionRemoved(const ToolbarActionsModel::ActionId& action_id,
                        int index) override;
-  void OnActionUpdated(const ToolbarActionsModel::ActionId& action_id) override;
+  void OnActionUpdated(const ToolbarActionsModel::ActionId& action_id,
+                       int index) override;
+  void OnActionIconUpdated(const ToolbarActionsModel::ActionId& action_id,
+                           int index) override;
   void OnActionsInitialized() override;
   void OnToolbarPinnedActionsChanged() override;
   void OnUserPermissionsSettingsChanged() override;
@@ -72,6 +75,8 @@ class ExtensionsMenuDelegateDesktop : public ExtensionsMenuViewModel::Delegate,
   void OpenSitePermissionsPage(
       const extensions::ExtensionId& extension_id) override;
   void CloseBubble() override;
+  void OnActionButtonClicked(
+      const extensions::ExtensionId& extension_id) override;
   void OnSiteSettingsToggleButtonPressed(bool is_on) override;
   void OnSiteAccessSelected(
       const extensions::ExtensionId& extension_id,

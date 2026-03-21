@@ -19,12 +19,13 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/side_panel/side_panel_metrics.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_toolbar_pinning_controller.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -126,11 +127,10 @@ SidePanelHeaderController::CreatePinButton() {
   CHECK(!pin_button_);
   CHECK(side_panel_entry_);
 
-  auto button = std::make_unique<views::ToggleImageButton>(base::BindRepeating(
+  auto button = views::CreateVectorToggleImageButton(base::BindRepeating(
       &SidePanelHeaderController::UpdatePinState, base::Unretained(this)));
   pin_button_ = button.get();
 
-  views::ConfigureVectorImageButton(button.get());
   ConfigureControlButton(button.get());
 
   button->SetTooltipText(
@@ -148,12 +148,11 @@ SidePanelHeaderController::CreatePinButton() {
       dip_size);
 
   const gfx::VectorIcon& unpin_icon = kKeepOffIcon;
-  const ui::ImageModel& normal_image = ui::ImageModel::FromVectorIcon(
-      unpin_icon, kColorSidePanelHeaderButtonIcon, dip_size);
-  const ui::ImageModel& disabled_image = ui::ImageModel::FromVectorIcon(
-      unpin_icon, kColorSidePanelHeaderButtonIconDisabled, dip_size);
-  button->SetToggledImageModel(views::Button::STATE_NORMAL, normal_image);
-  button->SetToggledImageModel(views::Button::STATE_DISABLED, disabled_image);
+  views::SetToggledImageFromVectorIconWithColor(
+      button.get(), unpin_icon, dip_size,
+      {kColorSidePanelHeaderButtonIcon,
+       kColorSidePanelHeaderButtonIconDisabled});
+
   button->SetProperty(views::kElementIdentifierKey,
                       kSidePanelPinButtonElementId);
   button->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
@@ -184,6 +183,7 @@ SidePanelHeaderController::CreateOpenNewTabButton() {
                      side_panel_entry_->GetOpenInNewTabURL().is_valid());
   button->SetProperty(views::kElementIdentifierKey,
                       kSidePanelOpenInNewTabButtonElementId);
+  button->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
 
   open_new_tab_button_ = button.get();
   return button;
@@ -201,6 +201,7 @@ SidePanelHeaderController::CreateMoreInfoButton() {
       IDS_SIDE_PANEL_HEADER_MORE_INFO_BUTTON_TOOLTIP));
   button->SetProperty(views::kElementIdentifierKey,
                       kSidePanelMoreInfoButtonElementId);
+  button->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
 
   // A menu button controller is used so that the button remains pressed while
   // the menu is open.
@@ -228,6 +229,7 @@ SidePanelHeaderController::CreateCloseButton() {
       l10n_util::GetStringUTF16(IDS_ACCNAME_SIDE_PANEL_CLOSE));
   button->SetProperty(views::kElementIdentifierKey,
                       kSidePanelCloseButtonElementId);
+  button->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   close_button_ = button.get();
   return button;
 }
@@ -329,7 +331,7 @@ void SidePanelHeaderController::OpenInNewTab() {
 
   base::WeakPtr<SidePanelHeaderController> weak_this =
       weak_pointer_factor_.GetWeakPtr();
-  SidePanelUtil::RecordNewTabButtonClicked(side_panel_entry_->key().id());
+  SidePanelMetrics::RecordNewTabButtonClicked(side_panel_entry_->key().id());
   content::OpenURLParams params(new_tab_url, content::Referrer(),
                                 WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                 ui::PAGE_TRANSITION_AUTO_BOOKMARK,

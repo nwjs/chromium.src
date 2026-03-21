@@ -31,6 +31,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/strings/strcat.h"
 #include "base/trace_event/trace_event.h"
+#include "build/branding_buildflags.h"
 #include "build/buildflag.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
 #include "chrome/browser/ash/app_list/app_list_controller_delegate.h"
@@ -518,7 +519,7 @@ void AppListClientImpl::SetProfile(Profile* new_profile) {
   // If we are in guest mode, the new profile should be an OffTheRecord profile.
   // Otherwise, this may later hit a check (same condition as this one) in
   // Browser::Browser when opening links in a browser window (see
-  // http://crbug.com/460437).
+  // http://crbug.com/41158655).
   DCHECK(!profile_->IsGuestSession() || profile_->IsOffTheRecord())
       << "Guest mode must use OffTheRecord profile";
 
@@ -551,7 +552,7 @@ void AppListClientImpl::SetUpSearchUI() {
       profile_, current_model_updater_, this, GetNotifier());
 
   // Refresh the results used for the suggestion chips with empty query.
-  // This fixes crbug.com/999287.
+  // This fixes crbug.com/40642741.
   StartSearch(std::u16string());
 }
 

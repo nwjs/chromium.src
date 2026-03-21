@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include "base/base_export.h"
 #include "base/check_op.h"
@@ -59,12 +60,6 @@ class BASE_EXPORT PickleIterator {
   // The std::u16string_view data will only be valid for the lifetime of the
   // message.
   [[nodiscard]] bool ReadStringPiece16(std::u16string_view* result);
-
-  // A pointer to the data will be placed in |*data|, and the length will be
-  // placed in |*length|. The pointer placed into |*data| points into the
-  // message's buffer so it will be scoped to the lifetime of the message (or
-  // until the message data is mutated). Do not keep the pointer around!
-  [[nodiscard]] bool ReadData(const char** data, size_t* length);
 
   // Similar, but using span for convenience.
   [[nodiscard]] std::optional<span<const uint8_t>> ReadData();
@@ -193,7 +188,8 @@ class BASE_EXPORT Pickle {
   // initialization when the speed gain of not copying the data outweighs the
   // danger of dangling pointers. If a Pickle is obtained from this call, it is
   // a requirement that only const methods be called. The header padding size is
-  // deduced from the data length.
+  // deduced from the data length. `data` must represent a 4-byte-aligned memory
+  // range, or generally header-aligned if the pickle uses a custom header.
   // TODO(crbug.com/479750481): Deprecated. Use
   // PickleIterator::WithData() instead whenever possible.
   static Pickle WithUnownedBuffer(span<const uint8_t> data);
@@ -233,12 +229,6 @@ class BASE_EXPORT Pickle {
   // must own the underlying buffer (i.e. must not have been constructed with
   // `WithUnownedBuffer()`).
   span<uint8_t> AsWritableBytes();
-
-  // Handy method to simplify calling data() with a reinterpret_cast.
-  // TODO(crbug.com/478784025): Deprecated: use AsStringView() instead.
-  const char* data_as_char() const {
-    return reinterpret_cast<const char*>(data());
-  }
 
   // Handy method to access the underlying data in string_view form.
   std::string_view AsStringView() const { return as_string_view(AsBytes()); }
@@ -293,8 +283,6 @@ class BASE_EXPORT Pickle {
   // "Bytes" is a blob with no length. The caller must specify the length both
   // when reading and writing. It is normally used to serialize PoD types of a
   // known size. See also WriteData.
-  // TODO(https://crbug.com/40284755): Migrate callers to the span version.
-  void WriteBytes(const void* data, size_t length);
   void WriteBytes(span<const uint8_t> data);
 
   // WriteAttachment appends |attachment| to the pickle. It returns
@@ -325,13 +313,23 @@ class BASE_EXPORT Pickle {
   // to the Pickle constructor.
   template <class T>
   T* headerT() {
+    // This should ideally use std::is_pointer_interconvertible_base_of_v but it
+    // isn't currently supported in chromium.
+    static_assert(std::is_base_of_v<Header, T>,
+                  "T must be a subclass of Header");
+    // T must be a trivial type because Pickle manages memory as raw bytes and
+    // does not invoke constructors or destructors when moving or reallocating
+    // data. Standard layout is not required because this class supports custom
+    // headers that add members via inheritance, which technically violates the
+    // strict standard layout rules (members in multiple levels of the
+    // hierarchy).
+    static_assert(std::is_trivial_v<T>, "T must be a trivial class");
     DCHECK_EQ(header_size_, sizeof(T));
     return static_cast<T*>(header_);
   }
   template <class T>
   const T* headerT() const {
-    DCHECK_EQ(header_size_, sizeof(T));
-    return static_cast<const T*>(header_);
+    return const_cast<Pickle*>(this)->headerT<T>();
   }
 
   // The payload is the pickle data immediately following the header.

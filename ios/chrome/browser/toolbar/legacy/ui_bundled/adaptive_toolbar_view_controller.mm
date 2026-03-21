@@ -204,10 +204,10 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
   [self updateUIOnTraitChange:nil];
 
-  NSArray<UITrait>* traits = TraitCollectionSetForTraits(@[
+  NSArray<UITrait>* traits = @[
     UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class,
     UITraitPreferredContentSizeCategory.class
-  ]);
+  ];
   __weak __typeof(self) weakSelf = self;
   UITraitChangeHandler handler = ^(id<UITraitEnvironment> traitEnvironment,
                                    UITraitCollection* previousCollection) {
@@ -267,10 +267,6 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
     self.view.locationBarContainer.hidden = YES;
   }
   [self updateProgressBarVisibility];
-}
-
-- (void)setLocationBarHeight:(CGFloat)height {
-  [self.view setLocationBarHeight:height];
 }
 
 #pragma mark - LegacyToolbarConsumer
@@ -455,13 +451,6 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 // Updates `locationBarContainer` height and adjusts its corner radius for the
 // fullscreen `progress`
 - (void)updateLocationBarHeightForFullscreenProgress:(CGFloat)progress {
-  /// When multiline omnibox is enabled and focused, refrain from updating the
-  /// location bar container height, this is already handled by the toolbar
-  /// height delegate.
-  if (IsMultilineBrowserOmniboxEnabled() && _locationBarFocused) {
-    return;
-  }
-
   const CGFloat expandedHeight =
       LocationBarHeight(self.traitCollection.preferredContentSizeCategory);
   const CGFloat collapsedHeight =

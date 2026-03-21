@@ -14,7 +14,12 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
+#include "base/android/jni_array.h"
+#include "base/android/jni_string.h"
+#if !defined(NDEBUG)
+#include "components/signin/public/android/jni_headers/AccountCapabilities_jni.h"
 #endif
+#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace {
 using testing::Contains;
@@ -29,6 +34,32 @@ TEST_F(AccountCapabilitiesTest, GetSupportedAccountCapabilityNames) {
   // Check one of the existing expected account capabilities.
   EXPECT_THAT(names, Contains(kCanUseModelExecutionFeaturesName));
 }
+
+#if !defined(NDEBUG)
+TEST_F(AccountCapabilitiesTest,
+       GetSupportedAccountCapabilityNames_FlagDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(switches::kEnableFakeCapabilityForTesting);
+
+  auto names =
+      AccountCapabilities::GetSupportedAccountCapabilityNamesInternal();
+
+  // Check one of the existing expected account capabilities.
+  EXPECT_THAT(names, Not(Contains(kFakeCapabilityForTestingName)));
+}
+
+TEST_F(AccountCapabilitiesTest,
+       GetSupportedAccountCapabilityNames_FlagEnabled) {
+  base::test::ScopedFeatureList feature_list{
+      switches::kEnableFakeCapabilityForTesting};
+
+  auto names =
+      AccountCapabilities::GetSupportedAccountCapabilityNamesInternal();
+
+  // Check one of the existing expected account capabilities.
+  EXPECT_THAT(names, Contains(kFakeCapabilityForTestingName));
+}
+#endif  // !defined(NDEBUG)
 
 TEST_F(AccountCapabilitiesTest, CanFetchFamilyMemberInfo) {
   AccountCapabilities capabilities;
@@ -102,6 +133,22 @@ TEST_F(AccountCapabilitiesTest,
           .can_show_history_sync_opt_ins_without_minor_mode_restrictions(),
       signin::Tribool::kFalse);
 }
+
+#if BUILDFLAG(IS_IOS)
+TEST_F(AccountCapabilitiesTest, CanSignInToChrome) {
+  base::test::ScopedFeatureList feature_list{
+      switches::kEnforceCanSignInToChromeCapability};
+  AccountCapabilities capabilities;
+  EXPECT_EQ(capabilities.can_sign_in_to_chrome(), signin::Tribool::kUnknown);
+
+  AccountCapabilitiesTestMutator mutator(&capabilities);
+  mutator.set_can_sign_in_to_chrome(true);
+  EXPECT_EQ(capabilities.can_sign_in_to_chrome(), signin::Tribool::kTrue);
+
+  mutator.set_can_sign_in_to_chrome(false);
+  EXPECT_EQ(capabilities.can_sign_in_to_chrome(), signin::Tribool::kFalse);
+}
+#endif  // BUILDFLAG(IS_IOS)
 
 #if !BUILDFLAG(IS_IOS)
 TEST_F(AccountCapabilitiesTest, CanRunChromePrivacySandboxTrials) {
@@ -489,5 +536,76 @@ TEST_F(AccountCapabilitiesTest, ConversionWithJNI_TriboolUnknown) {
 
   EXPECT_EQ(capabilities, converted_back);
 }
+
+#if !defined(NDEBUG)
+TEST_F(AccountCapabilitiesTest, ConversionWithJNI_FlagGuardDisabled_JavaToCpp) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(switches::kEnableFakeCapabilityForTesting);
+
+  // C++ shouldn't support the fake capability.
+  EXPECT_THAT(AccountCapabilities::GetSupportedAccountCapabilityNamesInternal(),
+              Not(Contains(kFakeCapabilityForTestingName)));
+
+  // Create a Java AccountCapabilities object with a capability that is not
+  // supported in C++.
+  JNIEnv* env = base::android::AttachCurrentThread();
+  std::vector<std::string> java_capability_names;
+  java_capability_names.push_back(kFakeCapabilityForTestingName);
+  java_capability_names.push_back(kCanFetchFamilyMemberInfoCapabilityName);
+  std::vector<bool> java_capability_values;
+  java_capability_values.push_back(true);
+  java_capability_values.push_back(false);
+
+  base::android::ScopedJavaLocalRef<jobject> java_capabilities =
+      signin::Java_AccountCapabilities_Constructor(
+          env, base::android::ToJavaArrayOfStrings(env, java_capability_names),
+          base::android::ToJavaBooleanArray(env, java_capability_values));
+
+  AccountCapabilities cpp_capabilities =
+      AccountCapabilities::ConvertFromJavaAccountCapabilities(
+          env, java_capabilities);
+
+  // The fake capability should not be present in the C++ object.
+  EXPECT_EQ(cpp_capabilities.GetCapabilityByName(kFakeCapabilityForTestingName),
+            signin::Tribool::kUnknown);
+  // The known capability should be present.
+  EXPECT_EQ(cpp_capabilities.can_fetch_family_member_info(),
+            signin::Tribool::kFalse);
+}
+
+TEST_F(AccountCapabilitiesTest, ConversionWithJNI_FlagGuardDisabled_CppToJava) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(switches::kEnableFakeCapabilityForTesting);
+
+  // C++ shouldn't support the fake capability.
+  EXPECT_THAT(AccountCapabilities::GetSupportedAccountCapabilityNamesInternal(),
+              Not(Contains(kFakeCapabilityForTestingName)));
+
+  AccountCapabilities cpp_capabilities;
+  AccountCapabilitiesTestMutator mutator(&cpp_capabilities);
+  mutator.set_can_fetch_family_member_info(true);
+
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jobject> java_capabilities =
+      cpp_capabilities.ConvertToJavaAccountCapabilities(env);
+
+  // The fake capability is not supported in C++, so it shouldn't be in the
+  // converted Java object.
+  signin::Tribool fake_capability_in_java = static_cast<signin::Tribool>(
+      signin::Java_AccountCapabilities_getCapabilityByName(
+          env, java_capabilities,
+          base::android::ConvertUTF8ToJavaString(
+              env, kFakeCapabilityForTestingName)));
+  EXPECT_EQ(fake_capability_in_java, signin::Tribool::kUnknown);
+
+  // The known capability should be present.
+  signin::Tribool known_capability_in_java = static_cast<signin::Tribool>(
+      signin::Java_AccountCapabilities_getCapabilityByName(
+          env, java_capabilities,
+          base::android::ConvertUTF8ToJavaString(
+              env, kCanFetchFamilyMemberInfoCapabilityName)));
+  EXPECT_EQ(known_capability_in_java, signin::Tribool::kTrue);
+}
+#endif  // !defined(NDEBUG)
 
 #endif

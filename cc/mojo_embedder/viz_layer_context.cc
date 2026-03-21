@@ -48,6 +48,7 @@
 #include "ui/gfx/animation/keyframe/timing_function.h"
 #include "ui/gfx/geometry/cubic_bezier.h"
 #include "ui/gfx/geometry/transform_operation.h"
+#include "ui/latency/latency_info.h"
 
 namespace cc::mojo_embedder {
 
@@ -1361,7 +1362,8 @@ base::TimeTicks VizLayerContext::UpdateDisplayTreeFrom(
     gpu::SharedImageInterface* shared_image_interface,
     const gfx::Rect& viewport_damage_rect,
     const viz::LocalSurfaceId& target_local_surface_id,
-    bool frame_has_damage) {
+    bool frame_has_damage,
+    std::vector<ui::LatencyInfo> latency_info) {
   TRACE_EVENT0("viz", "VizLayerContext::UpdateDisplayTreeFrom");
 
   auto& property_trees = *tree.property_trees();
@@ -1377,9 +1379,7 @@ base::TimeTicks VizLayerContext::UpdateDisplayTreeFrom(
   update->max_page_scale_factor = tree.max_page_scale_factor();
   update->external_page_scale_factor = tree.external_page_scale_factor();
   update->frame_has_damage = frame_has_damage;
-  if (frame_has_damage) {
-    update->damage_reasons_bit_mask = host_impl_->LastFrameHasDamageData();
-  }
+  update->latency_info = std::move(latency_info);
   update->device_viewport = tree.GetDeviceViewport();
   update->device_scale_factor = tree.device_scale_factor();
   update->painted_device_scale_factor = tree.painted_device_scale_factor();
@@ -1426,6 +1426,15 @@ base::TimeTicks VizLayerContext::UpdateDisplayTreeFrom(
   update->outer_scroll = property_ids.outer_scroll;
 
   update->viewport_damage_rect = viewport_damage_rect;
+  if (tree.RootRenderSurface()) {
+    // Store the damage rect of the root render surface in the update.  This
+    // allows us to verify that it matches the viz service calculation.
+    // Note: The client might report damage outside the root surface content
+    // rect (e.g. from a filter), so we must intersect with the content rect.
+    gfx::Rect damage_rect = tree.RootRenderSurface()->GetDamageRect();
+    damage_rect.Intersect(tree.RootRenderSurface()->content_rect());
+    update->root_layer_damage_rect = damage_rect;
+  }
   update->full_tree_damaged = property_trees.full_tree_damaged();
   update->debug_state = host_impl_->debug_state();
 

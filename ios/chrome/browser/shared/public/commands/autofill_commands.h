@@ -10,6 +10,7 @@
 namespace autofill {
 struct AutofillErrorDialogContext;
 struct FormActivityParams;
+struct SaveEntityParams;
 class VirtualCardEnrollUiModel;
 }  // namespace autofill
 namespace web {
@@ -33,6 +34,10 @@ class WebState;
 
 // Shows the payments suggestion bottom sheet view controller.
 - (void)showPaymentsBottomSheet:(const autofill::FormActivityParams&)params;
+
+// Shows the scan card save and fill suggestion bottom sheet view controller.
+- (void)showScanCardSaveAndFillBottomSheet:
+    (const autofill::FormActivityParams&)params;
 
 // Shows the plus address bottom sheet view controller.
 - (void)showPlusAddressesBottomSheet;
@@ -61,6 +66,10 @@ class WebState;
 // Commands to manage the Autofill progress dialog.
 - (void)showAutofillProgressDialog;
 - (void)dismissAutofillProgressDialog;
+
+// Commands to manage the Autofill save entity dialog.
+- (void)showSaveEntityDialog:(autofill::SaveEntityParams)params;
+- (void)dismissSaveEntityDialog;
 
 @end
 

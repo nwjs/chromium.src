@@ -9,7 +9,6 @@
 <translation id="101823271612280837">S'ha aturat la gravació. No es pot utilitzar la funció Tauler de joc en mode de tauleta.</translation>
 <translation id="1024364763893396229">Desa el dispositiu <ph name="NAME" /></translation>
 <translation id="1032891413405719768">El llapis òptic té poca bateria</translation>
-<translation id="1036073649888683237">Per gestionar les notificacions, ves a Configuració</translation>
 <translation id="1036348656032585052">Desactiva</translation>
 <translation id="1037492556044956303">S'ha afegit <ph name="DEVICE_NAME" /></translation>
 <translation id="1038106730571050514">Mostra els suggeriments</translation>
@@ -427,6 +426,7 @@ Hi ha <ph name="DEVICECOUNT" /> dispositius connectats.</translation>
 <translation id="2478076885740497414">Instal·la l'aplicació</translation>
 <translation id="2482878487686419369">Notificacions</translation>
 <translation id="2484513351006226581">Prem <ph name="KEYBOARD_SHORTCUT" /> per canviar la disposició del teclat.</translation>
+<translation id="2485422356828889247">Desinstal·la</translation>
 <translation id="2486214324139475545">Previsualització de <ph name="DESK_NAME" />. Escriptori actiu.</translation>
 <translation id="2486405091093637109">"<ph name="DISPLAY_NAME" />" ha canviat a una resolució de <ph name="RESOLUTION" /> (<ph name="REFRESH_RATE" /> Hz). Si no ho confirmes, la configuració anterior es restaurarà d'aquí a <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="2487915095798731898">Vull entrar-hi</translation>

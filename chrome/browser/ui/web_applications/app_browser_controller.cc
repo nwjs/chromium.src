@@ -413,6 +413,7 @@ std::vector<actions::ActionId> AppBrowserController::GetTitleBarPageActions()
       kActionZoomNormal,
       kActionShowFileSystemAccess,
       kActionShowCookieControls,
+      kActionShowAddressesBubbleOrPage,
   };
 
 #if DCHECK_IS_ON()
@@ -440,6 +441,7 @@ AppBrowserController::GetTitleBarPageActionTypes() const {
   types_enabled.push_back(PageActionIconType::kFileSystemAccess);
   types_enabled.push_back(PageActionIconType::kCookieControls);
   types_enabled.push_back(PageActionIconType::kSaveCard);
+  types_enabled.push_back(PageActionIconType::kAutofillAddress);
 
   return types_enabled;
 }
@@ -500,7 +502,11 @@ bool AppBrowserController::HasPendingUpdateNotIgnoredByUser() const {
   return false;
 }
 
-void AppBrowserController::CreateMetadataAndTriggerAppUpdateDialog(
+bool AppBrowserController::HasPendingMigration() const {
+  return false;
+}
+
+void AppBrowserController::TriggerAppUpdateOrMigrationDialog(
     base::TimeTicks start_time) const {}
 
 bool AppBrowserController::IsPreventCloseEnabled() const {

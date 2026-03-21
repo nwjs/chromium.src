@@ -87,6 +87,18 @@ export class CalendarEventElement extends CalendarEventElementBase {
   protected intersectionObserver_: IntersectionObserver|null = null;
   protected accessor timeStatus_: string = '';
 
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('event')) {
+      this.formattedStartTime_ = this.computeFormattedStartTime_();
+    }
+
+    if (changedProperties.has('event') || changedProperties.has('expanded')) {
+      this.timeStatus_ = this.computeTimeStatus_();
+    }
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
 
@@ -107,18 +119,6 @@ export class CalendarEventElement extends CalendarEventElementBase {
         assert(lastAttachment);
         this.intersectionObserver_.observe(lastAttachment);
       }
-    }
-  }
-
-  override willUpdate(changedProperties: PropertyValues<this>) {
-    super.willUpdate(changedProperties);
-
-    if (changedProperties.has('event')) {
-      this.formattedStartTime_ = this.computeFormattedStartTime_();
-    }
-
-    if (changedProperties.has('event') || changedProperties.has('expanded')) {
-      this.timeStatus_ = this.computeTimeStatus_();
     }
   }
 
@@ -163,7 +163,7 @@ export class CalendarEventElement extends CalendarEventElementBase {
     return !attachment.resourceUrl;
   }
 
-  protected openAttachment_(e: Event) {
+  protected onAttachmentClick_(e: Event) {
     this.dispatchEvent(new Event('usage', {composed: true, bubbles: true}));
     recordCalendarAction(CalendarAction.ATTACHMENT_CLICKED, this.moduleName);
     const currentTarget = e.currentTarget as HTMLElement;
@@ -175,14 +175,14 @@ export class CalendarEventElement extends CalendarEventElementBase {
     }
   }
 
-  protected openVideoConference_() {
+  protected onVideoConferenceClick_() {
     this.dispatchEvent(new Event('usage', {composed: true, bubbles: true}));
     recordCalendarAction(
         CalendarAction.CONFERENCE_CALL_CLICKED, this.moduleName);
     WindowProxy.getInstance().navigate(this.event.conferenceUrl!);
   }
 
-  protected recordHeaderClick_() {
+  protected onHeaderClick_() {
     this.dispatchEvent(new Event('usage', {composed: true, bubbles: true}));
     let action = CalendarAction.BASIC_EVENT_HEADER_CLICKED;
     if (this.expanded) {

@@ -208,17 +208,9 @@ INSTANTIATE_COMMIT_TO_TREE_TEST_P(
     OccludedSurfaceThrottlingLayerTreeHostImplTest);
 
 // A test fixture for new animation timelines tests.
-class LayerTreeHostImplTimelinesTest : public LayerTreeHostImplTest {
- public:
-  void SetUp() override {
-    CreateHostImpl(DefaultSettings(), CreateLayerTreeFrameSink());
-
-    // TODO(bokan): Mac wheel scrolls don't cause smooth scrolling in the real
-    // world. In tests, we force it on for consistency. Can be removed when
-    // https://crbug.com/574283 is fixed.
-    host_impl_->set_force_smooth_wheel_scrolling_for_testing(true);
-  }
-};
+// TODO(487287578): Remove this once we've stabilized our use of
+// ScopedFeatureList on android-x86-rel.
+class LayerTreeHostImplTimelinesTest : public LayerTreeHostImplTest {};
 
 INSTANTIATE_ANIMATIONS_TREE_TEST_P(LayerTreeHostImplTimelinesTest);
 
@@ -6292,23 +6284,18 @@ class MissingTextureAnimatingLayer : public DidDrawCheckLayer {
       LayerTreeImpl* tree_impl,
       int id,
       bool tile_missing,
-      bool had_incomplete_tile,
       bool animating,
       scoped_refptr<AnimationTimeline> timeline) {
     return base::WrapUnique(new MissingTextureAnimatingLayer(
-        tree_impl, id, tile_missing, had_incomplete_tile, animating, timeline));
+        tree_impl, id, tile_missing, animating, timeline));
   }
 
   void AppendQuads(const AppendQuadsContext& context,
                    viz::CompositorRenderPass* render_pass,
                    AppendQuadsData* append_quads_data) override {
     LayerImpl::AppendQuads(context, render_pass, append_quads_data);
-    if (had_incomplete_tile_) {
-      append_quads_data->checkerboarded_needs_raster = true;
-    }
     if (tile_missing_) {
       append_quads_data->num_missing_tiles++;
-      append_quads_data->checkerboarded_needs_raster = true;
     }
   }
 
@@ -6316,12 +6303,9 @@ class MissingTextureAnimatingLayer : public DidDrawCheckLayer {
   MissingTextureAnimatingLayer(LayerTreeImpl* tree_impl,
                                int id,
                                bool tile_missing,
-                               bool had_incomplete_tile,
                                bool animating,
                                scoped_refptr<AnimationTimeline> timeline)
-      : DidDrawCheckLayer(tree_impl, id),
-        tile_missing_(tile_missing),
-        had_incomplete_tile_(had_incomplete_tile) {
+      : DidDrawCheckLayer(tree_impl, id), tile_missing_(tile_missing) {
     if (animating) {
       this->SetElementId(LayerIdToElementIdForTesting(id));
       AddAnimatedTransformToElementWithAnimation(this->element_id(), timeline,
@@ -6330,7 +6314,6 @@ class MissingTextureAnimatingLayer : public DidDrawCheckLayer {
   }
 
   bool tile_missing_;
-  bool had_incomplete_tile_;
 };
 
 struct PrepareToDrawSuccessTestCase {
@@ -6339,7 +6322,6 @@ struct PrepareToDrawSuccessTestCase {
 
   struct State {
     bool has_missing_tile = false;
-    bool has_incomplete_tile = false;
     bool is_animating = false;
   };
 
@@ -6357,99 +6339,109 @@ class LayerTreeHostImplPrepareToDrawTest : public LayerTreeHostImplTest {
                             const scoped_refptr<AnimationTimeline>& timeline,
                             const PrepareToDrawSuccessTestCase::State& state) {
     auto* layer = AddLayer<MissingTextureAnimatingLayer>(
-        root->layer_tree_impl(), state.has_missing_tile,
-        state.has_incomplete_tile, state.is_animating, timeline);
+        root->layer_tree_impl(), state.has_missing_tile, state.is_animating,
+        timeline);
     CopyProperties(root, layer);
-    if (state.is_animating)
+    if (state.is_animating) {
       CreateTransformNode(layer).has_potential_animation = true;
+    }
+
+    // Setup TileManager correctly by adding tiles to the layer, but only if
+    // we want to simulate missing tiles and we are in a mode where we can
+    // safely set a raster source on the active tree.
+    if (CommitsToActiveTree() &&
+        !host_impl_->GetSettings().trees_in_viz_in_viz_process &&
+        state.has_missing_tile) {
+      layer->SetBounds(gfx::Size(10, 10));
+      layer->SetDrawsContent(true);
+      layer->set_has_valid_tile_priorities(true);
+
+      layer->SetRasterSource(FakeRasterSource::CreateFilled(gfx::Size(10, 10)),
+                             Region());
+      layer->AddTiling(gfx::AxisTransform2d(1.f, gfx::Vector2dF()));
+      layer->CreateAllTiles();
+
+      // Update draw properties so TileManager sees the priorities.
+      UpdateDrawProperties(root->layer_tree_impl());
+    }
   }
 };
 
 INSTANTIATE_COMMIT_TO_TREE_TEST_P(LayerTreeHostImplPrepareToDrawTest);
 
 class DisabledForVizClientLayerTreeHostImplPrepareToDrawTest
-    : public LayerTreeHostImplPrepareToDrawTest {};
+    : public LayerTreeHostImplPrepareToDrawTest {
+ public:
+  bool InVizService() {
+    return host_impl_->GetSettings().trees_in_viz_in_viz_process;
+  }
+};
 
 INSTANTIATE_COMPOSITOR_FRAME_PRODUCING_TREE_TEST_P(
     DisabledForVizClientLayerTreeHostImplPrepareToDrawTest);
 
-// TODO(crbug.com/401566175) implement checkerboard tracking for TreesInViz
-// Client mode.
 TEST_P(DisabledForVizClientLayerTreeHostImplPrepareToDrawTest,
        PrepareToDrawSucceedsAndFails) {
   CreateHostImpl(DefaultSettings(), CreateLayerTreeFrameSink());
 
   std::vector<PrepareToDrawSuccessTestCase> cases;
   // 0. Default case.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   // 1. Animated layer first.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_before.is_animating = true;
   // 2. Animated layer between.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_between.is_animating = true;
   // 3. Animated layer last.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_after.is_animating = true;
   // 4. Missing tile first.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_before.has_missing_tile = true;
   // 5. Missing tile between.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_between.has_missing_tile = true;
   // 6. Missing tile last.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_after.has_missing_tile = true;
-  // 7. Incomplete tile first.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
-  cases.back().layer_before.has_incomplete_tile = true;
-  // 8. Incomplete tile between.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
-  cases.back().layer_between.has_incomplete_tile = true;
-  // 9. Incomplete tile last.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
-  cases.back().layer_after.has_incomplete_tile = true;
-  // 10. Animation with missing tile.
-  cases.push_back(PrepareToDrawSuccessTestCase(
-      CommitsToActiveTree() ? DrawResult::kSuccess
-                            : DrawResult::kAbortedCheckerboardAnimations));
+  // 7. Animation with missing tile.
+  cases.emplace_back(CommitsToActiveTree()
+                         ? DrawResult::kSuccess
+                         : DrawResult::kAbortedCheckerboardAnimations);
   cases.back().layer_between.has_missing_tile = true;
   cases.back().layer_between.is_animating = true;
-  // 11. Animation with incomplete tile.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
-  cases.back().layer_between.has_incomplete_tile = true;
-  cases.back().layer_between.is_animating = true;
-
-  // 12. High res required.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  // 8 . High res required.
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().high_res_required = true;
-  // 13. High res required with incomplete tile.
-  cases.push_back(
-      PrepareToDrawSuccessTestCase(DrawResult::kAbortedMissingHighResContent));
-  cases.back().high_res_required = true;
-  cases.back().layer_between.has_incomplete_tile = true;
-  // 14. High res required with missing tile.
-  cases.push_back(
-      PrepareToDrawSuccessTestCase(DrawResult::kAbortedMissingHighResContent));
+  // 9 . High res required with missing tile.
+  cases.emplace_back((InVizService() || !CommitsToActiveTree())
+                         ? DrawResult::kSuccess
+                         : DrawResult::kAbortedMissingHighResContent);
   cases.back().high_res_required = true;
   cases.back().layer_between.has_missing_tile = true;
-
-  // 15. High res required is higher priority than animating missing tiles.
-  cases.push_back(
-      PrepareToDrawSuccessTestCase(DrawResult::kAbortedMissingHighResContent));
+  // 10. High res required is higher priority than animating missing tiles.
+  cases.emplace_back(InVizService()
+                         ? DrawResult::kSuccess
+                         : (CommitsToActiveTree()
+                                ? DrawResult::kAbortedMissingHighResContent
+                                : DrawResult::kAbortedCheckerboardAnimations));
   cases.back().high_res_required = true;
   cases.back().layer_between.has_missing_tile = true;
   cases.back().layer_after.has_missing_tile = true;
   cases.back().layer_after.is_animating = true;
-  // 16. High res required is higher priority than animating missing tiles.
-  cases.push_back(
-      PrepareToDrawSuccessTestCase(DrawResult::kAbortedMissingHighResContent));
+  // 11. High res required is higher priority than animating missing tiles.
+  cases.emplace_back(InVizService()
+                         ? DrawResult::kSuccess
+                         : (CommitsToActiveTree()
+                                ? DrawResult::kAbortedMissingHighResContent
+                                : DrawResult::kAbortedCheckerboardAnimations));
   cases.back().high_res_required = true;
   cases.back().layer_between.has_missing_tile = true;
   cases.back().layer_before.has_missing_tile = true;
   cases.back().layer_before.is_animating = true;
-  // 17. checkerboarded animated content with a view transition save directive.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  // 12. checkerboarded animated content with a view transition save directive.
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().has_view_transition_save_directive = true;
   cases.back().layer_between.has_missing_tile = true;
   cases.back().layer_between.is_animating = true;
@@ -6512,17 +6504,13 @@ TEST_P(LayerTreeHostImplPrepareToDrawTest,
   std::vector<PrepareToDrawSuccessTestCase> cases;
 
   // 0. Default case.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   // 1. Animation with missing tile.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().layer_between.has_missing_tile = true;
   cases.back().layer_between.is_animating = true;
-  // 2. High res required with incomplete tile.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
-  cases.back().high_res_required = true;
-  cases.back().layer_between.has_incomplete_tile = true;
-  // 3. High res required with missing tile.
-  cases.push_back(PrepareToDrawSuccessTestCase(DrawResult::kSuccess));
+  // 2. High res required with missing tile.
+  cases.emplace_back(DrawResult::kSuccess);
   cases.back().high_res_required = true;
   cases.back().layer_between.has_missing_tile = true;
 
@@ -10792,9 +10780,13 @@ TEST_P(LayerTreeHostImplTest, HasTransparentBackground) {
   EXPECT_EQ(DrawResult::kSuccess, host_impl_->PrepareToDraw(&frame));
   {
     const auto& root_pass = frame.render_passes.back();
-    ASSERT_EQ(1u, root_pass->quad_list.size());
-    EXPECT_EQ(viz::DrawQuad::Material::kSolidColor,
-              root_pass->quad_list.front()->material);
+    if (host_impl_->settings().TreesInVizInClientProcess()) {
+      ASSERT_EQ(0u, root_pass->quad_list.size());
+    } else {
+      ASSERT_EQ(1u, root_pass->quad_list.size());
+      EXPECT_EQ(viz::DrawQuad::Material::kSolidColor,
+                root_pass->quad_list.front()->material);
+    }
   }
   host_impl_->DrawLayers(&frame);
   host_impl_->DidDrawAllLayers(frame);
@@ -14249,7 +14241,7 @@ TEST_P(LayerTreeHostImplTest, AnimatedScrollYielding) {
       /*is_left_side_vertical_scrollbar*/ false,
       /*is_overlay*/ false);
 
-  // TODO(arakeri): crbug.com/1070063 Setting the dimensions for scrollbar parts
+  // TODO(crbug.com/40126196): Setting the dimensions for scrollbar parts
   // (like thumb, track etc) should be moved to SetupScrollbarLayer.
   SetupScrollbarLayer(scroll_layer, scrollbar);
   const gfx::Size scrollbar_size = gfx::Size(15, 600);
@@ -14353,7 +14345,7 @@ TEST_P(LayerTreeHostImplTest, ThumbDragScrollerLengthIncrease) {
       /*is_left_side_vertical_scrollbar*/ false,
       /*is_overlay*/ false);
 
-  // TODO(arakeri): crbug.com/1070063 Setting the dimensions for scrollbar parts
+  // TODO(crbug.com/40126196): Setting the dimensions for scrollbar parts
   // (like thumb, track etc) should be moved to SetupScrollbarLayer.
   SetupScrollbarLayer(scroll_layer, scrollbar);
   const gfx::Size scrollbar_size = gfx::Size(15, 600);
@@ -18548,7 +18540,7 @@ ConcurrentImplOnlyScrollAnimationsTest::CreateAndTickScrollAnimations() {
 
   // Bring the animations to their initial values (current_offset).
   animation_host->TickAnimations(base::TimeTicks() + base::Milliseconds(200),
-                                 host_impl_->GetScrollTree(), true);
+                                 host_impl_->GetScrollTree(), true, nullptr);
   EXPECT_EQ(host_impl_->GetScrollTree().current_scroll_offset(
                 scroller1_->element_id()),
             current_offset1_);
@@ -18561,7 +18553,7 @@ ConcurrentImplOnlyScrollAnimationsTest::CreateAndTickScrollAnimations() {
 
   // Bring the animations to intermediate values.
   animation_host->TickAnimations(base::TimeTicks() + base::Milliseconds(300),
-                                 host_impl_->GetScrollTree(), true);
+                                 host_impl_->GetScrollTree(), true, nullptr);
   EXPECT_GT(host_impl_->GetScrollTree()
                 .current_scroll_offset(scroller1_->element_id())
                 .y(),
@@ -18578,7 +18570,7 @@ void ConcurrentImplOnlyScrollAnimationsTest::CompleteScrollAnimations() {
   AnimationHost* animation_host = GetImplAnimationHost();
   // Bring the animations to their final values.
   animation_host->TickAnimations(base::TimeTicks() + base::Milliseconds(600),
-                                 host_impl_->GetScrollTree(), true);
+                                 host_impl_->GetScrollTree(), true, nullptr);
   // Bring the animations to a FINISHED state.
   animation_host->UpdateAnimationState(true, nullptr);
 
@@ -18768,7 +18760,7 @@ TEST_P(ConcurrentSnapAnimationsTest, TrackAnimatingSnapTargetIds) {
   while (animation_host->HasImplOnlyScrollAnimatingElement()) {
     animation_host->TickAnimations(
         base::TimeTicks() + base::Milliseconds(t++ * 100),
-        host_impl_->GetScrollTree(), true);
+        host_impl_->GetScrollTree(), true, nullptr);
     animation_host->UpdateAnimationState(true, nullptr);
   }
 

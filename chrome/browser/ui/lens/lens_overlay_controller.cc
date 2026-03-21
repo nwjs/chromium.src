@@ -36,6 +36,8 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/desktop_to_mobile_promos/ios_promo_trigger_service.h"
+#include "chrome/browser/ui/desktop_to_mobile_promos/ios_promo_trigger_service_factory.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/hats/hats_service.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -58,18 +60,16 @@
 #include "chrome/browser/ui/lens/lens_searchbox_controller.h"
 #include "chrome/browser/ui/lens/lens_session_metrics_logger.h"
 #include "chrome/browser/ui/lens/page_content_type_conversions.h"
-#include "chrome/browser/ui/promos/ios_promo_trigger_service.h"
-#include "chrome/browser/ui/promos/ios_promo_trigger_service_factory.h"
 #include "chrome/browser/ui/search/omnibox_utils.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_entry_key.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_enums.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
@@ -185,97 +185,6 @@ bool IsVisualSelectionType(lens::LensOverlaySelectionType selection_type) {
 
 }  // namespace
 
-class LensOverlayController::UnderlyingWebContentsObserver
-    : public content::WebContentsObserver {
- public:
-  UnderlyingWebContentsObserver(content::WebContents* web_contents,
-                                LensOverlayController* lens_overlay_controller)
-      : content::WebContentsObserver(web_contents),
-        lens_overlay_controller_(lens_overlay_controller) {}
-
-  ~UnderlyingWebContentsObserver() override = default;
-
-  UnderlyingWebContentsObserver(const UnderlyingWebContentsObserver&) = delete;
-  UnderlyingWebContentsObserver& operator=(
-      const UnderlyingWebContentsObserver&) = delete;
-
-  // content::WebContentsObserver
-  void DidFinishNavigation(
-      content::NavigationHandle* navigation_handle) override {
-    // If the overlay is off, check if we should display IPH.
-    if (lens_overlay_controller_->state() == State::kOff) {
-      // Only check IPH eligibility if the navigation changed the primary page.
-      if (base::FeatureList::IsEnabled(
-              feature_engagement::kIPHLensOverlayFeature) &&
-          navigation_handle->IsInPrimaryMainFrame() &&
-          !navigation_handle->IsSameDocument() &&
-          navigation_handle->HasCommitted()) {
-        lens_overlay_controller_->MaybeShowDelayedTutorialIPH(
-            navigation_handle->GetURL());
-      }
-      return;
-    }
-
-    // If the overlay is open, check if we should close it.
-    bool is_user_reload =
-        navigation_handle->GetReloadType() != content::ReloadType::NONE &&
-        !navigation_handle->IsRendererInitiated();
-    // We don't need to close if:
-    //   1) The navigation is not for the main page.
-    //   2) The navigation hasn't been committed yet.
-    //   3) The URL did not change and the navigation wasn't the user reloading
-    //      the page.
-    if (!navigation_handle->IsInPrimaryMainFrame() ||
-        !navigation_handle->HasCommitted() ||
-        (navigation_handle->GetPreviousPrimaryMainFrameURL() ==
-             navigation_handle->GetURL() &&
-         !is_user_reload)) {
-      return;
-    }
-    if (lens_overlay_controller_->state() == State::kHidden) {
-      lens_overlay_controller_->UpdateNavigationMetrics();
-      lens_overlay_controller_->NotifyPageContentUpdated();
-      return;
-    }
-
-    auto* lens_search_controller =
-        lens_overlay_controller_->lens_search_controller_.get();
-    // If routing to contextual tasks, always close the overlay instead of
-    // hiding as the contextual tasks panel is not dependent on the overlay
-    // remaining alive and hidden.
-    if (lens_search_controller->should_route_to_contextual_tasks()) {
-      lens_search_controller->CloseLensAsync(
-          lens::LensOverlayDismissalSource::kPageChanged);
-      return;
-    }
-
-    // If the page changes, only the overlay needs to be hidden, possibly
-    // leaving the side panel open. The search controller will handle whether
-    // the side panel should stay open or the entire session should terminate.
-    lens_search_controller->HideOverlay(
-        lens::LensOverlayDismissalSource::kPageChanged);
-    return;
-  }
-
-  void PrimaryMainFrameRenderProcessGone(
-      base::TerminationStatus status) override {
-    // Exit early if the overlay is off or already closing.
-    if (lens_overlay_controller_->state() == State::kOff ||
-        lens_overlay_controller_->IsOverlayClosing()) {
-      return;
-    }
-
-    lens_overlay_controller_->lens_search_controller_->CloseLensSync(
-        status == base::TERMINATION_STATUS_NORMAL_TERMINATION
-            ? lens::LensOverlayDismissalSource::kPageRendererClosedNormally
-            : lens::LensOverlayDismissalSource::
-                  kPageRendererClosedUnexpectedly);
-  }
-
- private:
-  raw_ptr<LensOverlayController> lens_overlay_controller_;
-};
-
 LensOverlayController::LensOverlayController(
     tabs::TabInterface* tab,
     LensSearchController* lens_search_controller,
@@ -285,15 +194,9 @@ LensOverlayController::LensOverlayController(
       gen204_controller_(
           std::make_unique<lens::LensOverlayGen204Controller>()) {
   InitializeTutorialIPHUrlMatcher();
-
-  // Listen to WebContents events
-  tab_contents_observer_ = std::make_unique<UnderlyingWebContentsObserver>(
-      tab_->GetContents(), this);
 }
 
-LensOverlayController::~LensOverlayController() {
-  tab_contents_observer_.reset();
-}
+LensOverlayController::~LensOverlayController() = default;
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(LensOverlayController,
                                       kOverlaySidePanelWebViewId);
@@ -361,8 +264,10 @@ void LensOverlayController::CloseUI() {
   // Update the entrypoints now that the controller is closed.
   UpdateEntryPointsState();
 
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
   if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
-      !lens::DidUserGrantLensOverlayNeededPermissions(pref_service_) &&
+      !lens::DidUserGrantLensOverlayNeededPermissions(profile) &&
       !user_interacted_without_accepting_privacy_notice) {
     lens::RecordNonBlockingPrivacyNoticeAccepted(
         lens::LensOverlayNonBlockingPrivacyNoticeUserAction::
@@ -804,8 +709,10 @@ void LensOverlayController::ShowUI(
     return;
   }
 
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
   if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
-      !lens::DidUserGrantLensOverlayNeededPermissions(pref_service_)) {
+      !lens::DidUserGrantLensOverlayNeededPermissions(profile)) {
     lens::RecordNonBlockingPrivacyNoticeToBeShown(invocation_source);
   }
 
@@ -823,8 +730,6 @@ void LensOverlayController::ShowUI(
   // Store reference for later use.
   invocation_source_ = invocation_source;
 
-  Profile* profile =
-      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
   // Create the languages controller.
   languages_controller_ =
       std::make_unique<lens::LensOverlayLanguagesController>(profile);
@@ -1104,7 +1009,9 @@ void LensOverlayController::IssueSearchBoxRequest(
   // on each query is disabled, if the live page is not being displayed, or if
   // the user is not in the contextual search flow (aka, issues an image request
   // already).
-  if (!lens::IsLensOverlayContextualSearchboxEnabled() ||
+  if (!lens::IsLensOverlayContextualSearchboxEnabled(
+          Profile::FromBrowserContext(
+              tab_->GetContents()->GetBrowserContext())) ||
       !lens::features::ShouldLensOverlayRecontextualizeOnQuery() ||
       state() != State::kHidden || !IsContextualSearchbox()) {
     IssueSearchBoxRequestPart2(query_start_time, search_box_text, match_type,
@@ -1579,7 +1486,8 @@ void LensOverlayController::FinishedWaitingForReflow(
 }
 
 void LensOverlayController::NotifyTabForegrounded() {
-  if (lens::IsLensOverlayContextualSearchboxEnabled()) {
+  if (lens::IsLensOverlayContextualSearchboxEnabled(Profile::FromBrowserContext(
+          tab_->GetContents()->GetBrowserContext()))) {
     SuppressGhostLoader();
   }
   UpdateEntryPointsState();
@@ -1587,6 +1495,17 @@ void LensOverlayController::NotifyTabForegrounded() {
 
 void LensOverlayController::NotifyTabWillEnterBackground() {
   UpdateEntryPointsState();
+  if (auto* interface = BrowserUserEducationInterface::From(
+          tab_->GetBrowserWindowInterface())) {
+    interface->AbortFeaturePromo(
+        feature_engagement::kIPHiOSLensPromoDesktopFeature);
+  }
+}
+
+bool LensOverlayController::IsOverlayViewShared() const {
+  // The view that host's Lens's WebUI is a direct child of the BrowserView,
+  // which means it can be shared across different tabs.
+  return true;
 }
 
 void LensOverlayController::ActivityRequestedByOverlay(
@@ -2185,6 +2104,47 @@ void LensOverlayController::NotifyIsOverlayShowing(bool is_showing) {
   }
 }
 
+void LensOverlayController::NotifyPageNavigated() {
+  if (state() == State::kHidden) {
+    UpdateNavigationMetrics();
+    NotifyPageContentUpdated();
+    return;
+  }
+
+  auto* lens_search_controller = lens_search_controller_.get();
+  // If routing to contextual tasks, always close the overlay instead of
+  // hiding as the contextual tasks panel is not dependent on the overlay
+  // remaining alive and hidden.
+  if (lens_search_controller_->should_route_to_contextual_tasks()) {
+    lens_search_controller->CloseLensAsync(
+        lens::LensOverlayDismissalSource::kPageChanged);
+    return;
+  }
+
+  // If the page changes, only the overlay needs to be hidden, possibly
+  // leaving the side panel open. The search controller will handle whether
+  // the side panel should stay open or the entire session should terminate.
+  lens_search_controller_->HideOverlay(
+      lens::LensOverlayDismissalSource::kPageChanged);
+}
+
+void LensOverlayController::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  // If the overlay is off, check if we should display IPH.
+  if (state() == State::kOff) {
+    // Only check IPH eligibility if the navigation changed the primary page.
+    if (base::FeatureList::IsEnabled(
+            feature_engagement::kIPHLensOverlayFeature) &&
+        navigation_handle->IsInPrimaryMainFrame() &&
+        !navigation_handle->IsSameDocument() &&
+        navigation_handle->HasCommitted()) {
+      MaybeShowDelayedTutorialIPH(navigation_handle->GetURL());
+      return;
+    }
+  }
+  OverlayBaseController::DidFinishNavigation(navigation_handle);
+}
+
 void LensOverlayController::OnPdfPartialPageTextRetrieved(
     std::vector<std::u16string> pdf_pages_text) {
   initialization_data_->pdf_pages_text_ = std::move(pdf_pages_text);
@@ -2273,13 +2233,15 @@ void LensOverlayController::MaybeGrantLensOverlayPermissionsForSession(
     std::optional<lens::LensOverlayInvocationSource> invocation_source) {
   lens::LensOverlayInvocationSource effective_invocation_source =
       invocation_source.value_or(invocation_source_);
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
   // The Omnibox contextual query flow does not require the user to accept the
   // Lens privacy notice. This can be removed once the non-blocking privacy
   // notice is launched as it will be handled in the case below.
   if (effective_invocation_source ==
           lens::LensOverlayInvocationSource::kOmniboxContextualQuery &&
       !lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
-      !lens::DidUserGrantLensOverlayNeededPermissions(pref_service_)) {
+      !lens::DidUserGrantLensOverlayNeededPermissions(profile)) {
     GetLensOverlayQueryController()->GrantPermissionForSession();
     GetLensQueryFlowRouter()->MaybeResumeQueryFlow();
     user_interacted_without_accepting_privacy_notice = true;
@@ -2287,7 +2249,7 @@ void LensOverlayController::MaybeGrantLensOverlayPermissionsForSession(
   }
 
   if (lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled() &&
-      !lens::DidUserGrantLensOverlayNeededPermissions(pref_service_)) {
+      !lens::DidUserGrantLensOverlayNeededPermissions(profile)) {
     GetLensOverlayQueryController()->GrantPermissionForSession();
     GetLensQueryFlowRouter()->MaybeResumeQueryFlow();
     user_interacted_without_accepting_privacy_notice = true;
@@ -2300,7 +2262,9 @@ void LensOverlayController::MaybeGrantLensOverlayPermissionsForSession(
 void LensOverlayController::AcceptPrivacyNotice() {
   // Permanently grant permissions, then restart the query flow and upload page
   // content for contextualization.
-  lens::GrantLensOverlayNeededPermissions(pref_service_);
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
+  lens::GrantLensOverlayNeededPermissions(profile);
   lens::RecordNonBlockingPrivacyNoticeAccepted(
       lens::LensOverlayNonBlockingPrivacyNoticeUserAction::kAccepted,
       invocation_source_);
@@ -2413,5 +2377,9 @@ lens::LensOverlayDismissalSource LensOverlayController::ConvertDismissalSource(
           kOverlayRendererClosedUnexpectedly;
     case DismissalSource::kUnexpectedSidePanelOpen:
       return lens::LensOverlayDismissalSource::kUnexpectedSidePanelOpen;
+    case DismissalSource::kPageRendererClosedNormally:
+      return lens::LensOverlayDismissalSource::kPageRendererClosedNormally;
+    case DismissalSource::kPageRendererClosedUnexpectedly:
+      return lens::LensOverlayDismissalSource::kPageRendererClosedUnexpectedly;
   }
 }

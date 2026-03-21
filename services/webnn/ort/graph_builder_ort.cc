@@ -326,13 +326,13 @@ const std::vector<base::cstring_view> GetRecurrentNetworkActivations(
   for (const auto& activation : activations) {
     switch (activation) {
       case mojom::RecurrentNetworkActivation::kRelu:
-        activation_list.push_back("relu");
+        activation_list.push_back("Relu");
         break;
       case mojom::RecurrentNetworkActivation::kSigmoid:
-        activation_list.push_back("sigmoid");
+        activation_list.push_back("Sigmoid");
         break;
       case mojom::RecurrentNetworkActivation::kTanh:
-        activation_list.push_back("tanh");
+        activation_list.push_back("Tanh");
         break;
       default:
         NOTREACHED() << "Unsupported recurrent network activation function.";
@@ -914,13 +914,12 @@ void GraphBuilderOrt::AddArgMinMaxOperation(
 void GraphBuilderOrt::AddBatchNormalizationOperation(
     const mojom::BatchNormalization& batch_normalization) {
   const std::string node_name = GenerateNodeName(batch_normalization.label);
-  const std::string input =
-      GetOperandNameById(batch_normalization.input_operand_id);
+  std::string input = GetOperandNameById(batch_normalization.input_operand_id);
   const std::string mean =
       GetOperandNameById(batch_normalization.mean_operand_id);
   const std::string variance =
       GetOperandNameById(batch_normalization.variance_operand_id);
-  const std::string output =
+  std::string output =
       GetOperandNameById(batch_normalization.output_operand_id);
 
   const DataTypeLimits& data_type_limits = context_properties_.data_type_limits;
@@ -941,10 +940,24 @@ void GraphBuilderOrt::AddBatchNormalizationOperation(
   // addition it also accepts single dimension input of size N in which case C
   // is assumed to be 1.
   // https://onnx.ai/onnx/operators/onnx__BatchNormalization.html#inputs
+  //
+  // WebNN BatchNormalization supports 1D input of shape [C], but ONNX requires
+  // at least 2D input. To handle this, we reshape [C] to [1, C] before passing
+  // to ONNX, then reshape the output back to [C].
+  bool needs_reshape_for_1d = input_shape.size() == 1;
   uint32_t input_channels = 1;
-  if (input_shape.size() > 1) {
+
+  if (needs_reshape_for_1d) {
+    // Reshape 1D [C] -> 2D [1, C] for ONNX BatchNorm.
+
+    input_channels = input_shape[0];
+    input =
+        CreateReshapeNode(input, {1, static_cast<uint32_t>(input_channels)});
+  } else if (input_shape.size() > 1) {
+    // For multi-dimensional inputs, channel is at index 1 (NCHW layout).
     input_channels = input_shape[1];
   }
+
   std::vector<uint32_t> scale_and_bias_shape = {input_channels};
 
   // ONNX BatchNormalization requires 5 inputs: input, scale, bias, mean and
@@ -966,14 +979,26 @@ void GraphBuilderOrt::AddBatchNormalizationOperation(
     bias = CreateZeroInitializer(input_data_type, scale_and_bias_shape);
   }
 
+  // If we reshaped input from 1D to 2D, we need to reshape output back to 1D.
+  std::string batchnorm_output = output;
+  if (needs_reshape_for_1d) {
+    batchnorm_output = GenerateOperandName();
+  }
+
   std::array<const char*, 5> inputs = {input.c_str(), scale.c_str(),
                                        bias.c_str(), mean.c_str(),
                                        variance.c_str()};
-  std::array<const char*, 1> outputs = {output.c_str()};
+  std::array<const char*, 1> outputs = {batchnorm_output.c_str()};
   std::array<ScopedOrtOpAttr, 1> attributes = {
       model_editor_.CreateAttribute(kAttrEpsilon, batch_normalization.epsilon)};
   model_editor_.AddNode(kOpTypeBatchNormalization, node_name, inputs, outputs,
                         attributes);
+
+  // Reshape output back from 2D [1, C] -> 1D [C] for 1D inputs.
+  if (needs_reshape_for_1d) {
+    InsertReshapeNode(batchnorm_output, output,
+                      {static_cast<uint32_t>(input_channels)});
+  }
 }
 
 void GraphBuilderOrt::AddCastOperation(const mojom::ElementWiseUnary& cast) {
@@ -2756,12 +2781,25 @@ void GraphBuilderOrt::AddReshapeOperation(const mojom::Reshape& reshape) {
 }
 
 void GraphBuilderOrt::AddReverseOperation(const mojom::Reverse& reverse) {
-  const std::string node_name = GenerateNodeName(reverse.label);
   const std::string input = GetOperandNameById(reverse.input_operand_id);
   const std::string output = GetOperandNameById(reverse.output_operand_id);
 
   CHECK(context_properties_.data_type_limits.reverse_input.Supports(
       GetOperand(reverse.input_operand_id).descriptor));
+
+  // Workaround: explicitly empty axes for a reverse operation should result in
+  // a no-op per spec. But we map this to an Identity node to prevent ORT
+  // EPs from mishandling empty arrays.
+  if (reverse.axes.empty()) {
+    const std::string node_name = GenerateNodeName(base::JoinString(
+        {kInserted, kOpTypeIdentity, kToEmulate, reverse.label}, kUnderscore));
+    std::array<const char*, 1> inputs = {input.c_str()};
+    std::array<const char*, 1> outputs = {output.c_str()};
+    model_editor_.AddNode(kOpTypeIdentity, node_name, inputs, outputs);
+    return;
+  }
+
+  const std::string node_name = GenerateNodeName(reverse.label);
 
   // Axes can be empty, which means no dimensions are reversed.
   base::FixedArray<int64_t> axes(reverse.axes.begin(), reverse.axes.end());

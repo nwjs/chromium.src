@@ -43,14 +43,14 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.LooperMode;
-import org.robolectric.annotation.LooperMode.Mode;
 import org.robolectric.util.ReflectionHelpers;
 
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
@@ -70,7 +70,6 @@ import java.util.List;
 /** Unit test for {@link AppHeaderCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(sdk = 30)
-@LooperMode(Mode.PAUSED)
 public class AppHeaderCoordinatorUnitTest {
     private static final int WINDOW_WIDTH = 600;
     private static final int WINDOW_HEIGHT = 800;
@@ -91,13 +90,13 @@ public class AppHeaderCoordinatorUnitTest {
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
             new ActivityScenarioRule<>(TestActivity.class);
 
-    @Mock private BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisDelegate;
     @Mock private InsetObserver mInsetObserver;
     @Mock private CaptionBarInsetsRectProvider mInsetsRectProvider;
     @Mock private ActivityLifecycleDispatcher mActivityLifecycleDispatcher;
     @Mock private DesktopWindowStateManager.AppHeaderObserver mObserver;
     @Captor private ArgumentCaptor<InsetsRectProvider.Consumer> mInsetRectConsumerCaptor;
 
+    private BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisDelegate;
     private AppHeaderCoordinator mAppHeaderCoordinator;
     private Activity mSpyActivity;
     private View mSpyRootView;
@@ -113,6 +112,9 @@ public class AppHeaderCoordinatorUnitTest {
         mActivityScenarioRule.getScenario().onActivity(activity -> mSpyActivity = spy(activity));
         mEdgeToEdgeStateProvider = new EdgeToEdgeStateProvider(mSpyActivity.getWindow());
         mSpyRootView = spy(mSpyActivity.getWindow().getDecorView());
+        mBrowserControlsVisDelegate =
+                new BrowserStateBrowserControlsVisibilityDelegate(
+                        ObservableSuppliers.alwaysFalse());
         AppHeaderCoordinator.setInsetsRectProviderForTesting(mInsetsRectProvider);
         AppHeaderUtils.resetHeaderCustomizationDisallowedOnExternalDisplayForOemForTesting();
         doAnswer(inv -> mLastSeenRawWindowInsets).when(mInsetObserver).getLastRawWindowInsets();
@@ -359,7 +361,10 @@ public class AppHeaderCoordinatorUnitTest {
         notifyInsetsRectConsumer();
         verifyDesktopWindowingDisabled(
                 /* error= */ "DesktopWindowing should exit when no insets is supplied.");
-        verify(mBrowserControlsVisDelegate).releasePersistentShowingToken(anyInt());
+        assertEquals(
+                "Browser controls should be released.",
+                BrowserControlsState.BOTH,
+                mBrowserControlsVisDelegate.get().intValue());
 
         expectedState = new AppHeaderState(WINDOW_RECT, new Rect(), false);
         assertEquals(
@@ -964,8 +969,10 @@ public class AppHeaderCoordinatorUnitTest {
         assertTrue(
                 "Desktop windowing not enabled.",
                 mAppHeaderCoordinator.getAppHeaderState().isInDesktopWindow());
-        verify(mBrowserControlsVisDelegate, atLeastOnce())
-                .showControlsPersistentAndClearOldToken(anyInt());
+        assertEquals(
+                "Browser controls should be persistent.",
+                BrowserControlsState.SHOWN,
+                mBrowserControlsVisDelegate.get().intValue());
         assertTrue(
                 "Edge to edge should be active.", mEdgeToEdgeStateProvider.isEdgeToEdgeEnabled());
         assertTrue("Insets rect update should be consumed.", mInsetsRectUpdateConsumed);

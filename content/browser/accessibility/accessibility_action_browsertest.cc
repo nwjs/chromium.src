@@ -18,6 +18,7 @@
 #include "base/test/test_timeouts.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "content/browser/accessibility/accessibility_test_helpers.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/test/accessibility_notification_waiter.h"
 #include "content/public/test/browser_test.h"
@@ -52,7 +53,9 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
   ~AccessibilityActionBrowserTest() override {}
 
   void SetUp() override {
-    feature_list_.InitWithFeatures({blink::features::kPermissionElement}, {});
+    feature_list_.InitWithFeatures({blink::features::kGeolocationElement,
+                                    blink::features::kUserMediaElement},
+                                   {});
     ContentBrowserTest::SetUp();
   }
 
@@ -68,7 +71,8 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
     ui::BrowserAccessibility* root =
         GetManager()->GetBrowserAccessibilityRoot();
     CHECK(root);
-    return FindNodeInSubtree(*root, role, name_or_value);
+    return FindFirstAccessibilityNodeWithRoleAndNameOrValue(*root, role,
+                                                            name_or_value);
   }
 
   ui::BrowserAccessibilityManager* GetManager() {
@@ -143,35 +147,6 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
   }
 
  private:
-  ui::BrowserAccessibility* FindNodeInSubtree(
-      ui::BrowserAccessibility& node,
-      ax::mojom::Role role,
-      const std::string& name_or_value) {
-    const std::string& name =
-        node.GetStringAttribute(ax::mojom::StringAttribute::kName);
-    // Note that in the case of a text field,
-    // "BrowserAccessibility::GetValueForControl" has the added functionality
-    // of computing the value of an ARIA text box from its inner text.
-    //
-    // <div contenteditable="true" role="textbox">Hello world.</div>
-    // Will expose no HTML value attribute, but some screen readers, such as
-    // Jaws, VoiceOver and Talkback, require one to be computed.
-    const std::string value = base::UTF16ToUTF8(node.GetValueForControl());
-    if (node.GetRole() == role &&
-        (name == name_or_value || value == name_or_value)) {
-      return &node;
-    }
-
-    for (unsigned int i = 0; i < node.PlatformChildCount(); ++i) {
-      ui::BrowserAccessibility* result =
-          FindNodeInSubtree(*node.PlatformGetChild(i), role, name_or_value);
-      if (result) {
-        return result;
-      }
-    }
-    return nullptr;
-  }
-
   base::test::ScopedFeatureList feature_list_;
   std::optional<ScopedAccessibilityModeOverride> accessibility_mode_;
 };
@@ -1456,8 +1431,8 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, OpenSelectPopup) {
 IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, FocusPermissionElement) {
   LoadInitialAccessibilityTreeFromHtml(R"HTML(
       <body>
-        <permission type="invalid" aria-label="invalid-pepc"></permission>
-        <permission type="camera" aria-label="valid-pepc"></permission>
+        <usermedia type="invalid" aria-label="invalid-pepc"></usermedia>
+        <usermedia type="camera" aria-label="valid-pepc"></usermedia>
       </body>
       )HTML");
 

@@ -92,6 +92,12 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Clicked"/>
 </enum>
 
+<enum name="DataControlsDragAndDropVerdict">
+  <int value="0" label="Allowed"/>
+  <int value="1" label="Blocked"/>
+  <int value="2" label="Warned"/>
+</enum>
+
 <enum name="DataProtectionURLVerdictSource">
   <int value="0" label="Page UserData"/>
   <int value="1" label="Cached lookup result"/>
@@ -893,6 +899,9 @@ chromium-metrics-reviews@google.com.
   <int value="69" label="Organization unit initial enrollment limit exceeded">
     The admin configured organization unit initial enrollment limit has been
     exceeded.
+  </int>
+  <int value="70" label="Device management error">
+    There is a device management error for this account.
   </int>
 </enum>
 
@@ -2363,6 +2372,8 @@ chromium-metrics-reviews@google.com.
   <int value="1430" label="LocalNetworkAccessPermissionsPolicyDefaultEnabled"/>
   <int value="1431" label="ForceForegroundPriorityForAllTabs"/>
   <int value="1432" label="WebRtcDiagnosticLogCollectionAllowedForOrigins"/>
+  <int value="1433" label="IsolatedWebAppUserInstallationEnabled"/>
+  <int value="1434" label="ExtensionDOMActivityLoggingEnabled"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2513,6 +2524,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Extension install event"/>
   <int value="11" label="Browser crash event"/>
   <int value="12" label="Extension telemetry event"/>
+  <int value="13" label="Saas usage report event"/>
 </enum>
 
 <!-- LINT.IfChange(EnterpriseSkyVaultMigrationDialogAction) -->
@@ -2785,6 +2797,7 @@ chromium-metrics-reviews@google.com.
   <int value="20" label="Rotate attestation credentials command"/>
   <int value="21" label="Fetch CRD availability info command"/>
   <int value="22" label="Fetch support packet command"/>
+  <int value="23" label="Query device location command"/>
 </enum>
 
 <enum name="ReportSchedulerReportTrigger">

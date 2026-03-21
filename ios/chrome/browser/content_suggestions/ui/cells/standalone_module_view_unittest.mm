@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/content_suggestions/ui/cells/standalone_module_view.h"
 
-#import "ios/chrome/browser/content_suggestions/ui/cells/standalone_module_view_configuration.h"
+#import "ios/chrome/browser/content_suggestions/ui/cells/standalone_module_view_config.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -26,8 +26,8 @@ NSString* const kStandaloneModuleViewButtonText =
 StandaloneModuleView* GetConfiguredStandaloneModuleView() {
   StandaloneModuleView* view =
       [[StandaloneModuleView alloc] initWithFrame:CGRectZero];
-  StandaloneModuleViewConfiguration* config =
-      [[StandaloneModuleViewConfiguration alloc] init];
+  StandaloneModuleViewConfig* config =
+      [[StandaloneModuleViewConfig alloc] init];
   config.titleText = kStandaloneModuleViewTitleText;
   config.bodyText = kStandaloneModuleViewBodyText;
   config.buttonText = kStandaloneModuleViewButtonText;
@@ -79,13 +79,4 @@ TEST_F(StandaloneModuleViewTest, TestAllow) {
 TEST_F(StandaloneModuleViewTest, TestFaviconWhenNoProductImage) {
   StandaloneModuleView* view = GetConfiguredStandaloneModuleView();
   [view addConstraintsForProductImageForTesting];
-}
-
-// Tests that updating product image with favicon does not crash when there is
-// no product image.
-TEST_F(StandaloneModuleViewTest,
-       TestUpdateProductImageViewWithFaviconNoProductImage) {
-  StandaloneModuleView* view = GetConfiguredStandaloneModuleView();
-  UIImage* favicon = [[UIImage alloc] init];
-  [view updateProductImageViewWithFavicon:favicon];
 }

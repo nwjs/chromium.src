@@ -40,7 +40,6 @@ import android.widget.FrameLayout;
 import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.CallSuper;
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
@@ -79,6 +78,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.PlayServicesVersionInfo;
 import org.chromium.chrome.browser.TabStateThemeResourceProvider;
 import org.chromium.chrome.browser.WarmupManager;
+import org.chromium.chrome.browser.actor.ActorPictureInPictureController;
 import org.chromium.chrome.browser.ai.AiAssistantService;
 import org.chromium.chrome.browser.app.download.DownloadMessageUiDelegate;
 import org.chromium.chrome.browser.app.metrics.LaunchCauseMetrics;
@@ -389,7 +389,10 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     // The FullscreenVideoPictureInPictureController is initialized lazily https://crbug.com/729738.
     private FullscreenVideoPictureInPictureController mFullscreenVideoPictureInPictureController;
 
-    private SnackbarManager mSnackbarManager;
+    private ActorPictureInPictureController mActorPipController;
+
+    private final SettableMonotonicObservableSupplier<SnackbarManager> mSnackbarManagerSupplier =
+            ObservableSuppliers.createMonotonic();
 
     // Timestamp in ms when initial layout inflation begins
     private long mInflateInitialLayoutBeginMs;
@@ -515,7 +518,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @Override
     public boolean onIntentCallbackNotFoundError(String error) {
-        createWindowErrorSnackbar(error, mSnackbarManager);
+        createWindowErrorSnackbar(error, mSnackbarManagerSupplier.get());
         return true;
     }
 
@@ -563,7 +566,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         // There's no corresponding call to removeObserver() for this addObserver() because
         // mTabModelProfileSupplier has the same lifecycle as this activity.
-        mTabModelProfileSupplier.addObserver(
+        mTabModelProfileSupplier.addSyncObserverAndPostIfNonNull(
                 (profile) -> {
                     BookmarkModel bookmarkModel =
                             profile == null ? null : BookmarkModel.getForProfile(profile);
@@ -655,15 +658,16 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
             mBottomContainer = findViewById(R.id.bottom_container);
 
-            mSnackbarManager =
+            SnackbarManager snackbarManager =
                     new SnackbarManager(
                             this,
                             mBottomContainer,
                             getWindowAndroid(),
                             getEdgeToEdgeSupplier(),
                             getModalDialogManager());
-            getInsetObserver().addObserver(mSnackbarManager);
-            SnackbarManagerProvider.attach(getWindowAndroid(), mSnackbarManager);
+            mSnackbarManagerSupplier.set(snackbarManager);
+            getInsetObserver().addObserver(snackbarManager);
+            SnackbarManagerProvider.attach(getWindowAndroid(), snackbarManager);
             // TODO (crbug.com/365110749): Remove wiring the InsetObserver when the dialog window
             // returns expected system insets.
             getModalDialogManager().setInsetObserver(getInsetObserver());
@@ -813,7 +817,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             if (mBaseChromeLayout != null) {
                 setContentViewToBaseLayout();
             } else {
-                setContentView(R.layout.main);
+                setContentView(MainLayoutSwitcher.getMainLayoutRes());
             }
             TraceEvent.end("setContentView(R.layout.main)");
             if (getControlContainerLayoutId() != ActivityUtils.NO_RESOURCE_ID) {
@@ -856,7 +860,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
      * wrapped in a ViewGroup first.
      */
     private void setContentViewToBaseLayout() {
-        getLayoutInflater().inflate(R.layout.main, mBaseChromeLayout, /* attachToRoot= */ true);
+        getLayoutInflater()
+                .inflate(
+                        MainLayoutSwitcher.getMainLayoutRes(),
+                        mBaseChromeLayout,
+                        /* attachToRoot= */ true);
         setContentView(mBaseChromeLayout);
     }
 
@@ -1094,7 +1102,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             Profile profile = tabModelSelector.getCurrentModel().getProfile();
             assert profile != null;
             chromeAndroidTask.addFeature(
-                    new ChromeAndroidTaskFeatureKey(ExtensionWindowControllerBridge.class, profile),
+                    new ChromeAndroidTaskFeatureKey(
+                            ExtensionWindowControllerBridge.class, profile, activityWindowAndroid),
                     () ->
                             ExtensionWindowControllerBridgeFactory.create(
                                     chromeAndroidTask, profile));
@@ -1362,8 +1371,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
     }
 
-    protected FullscreenVideoPictureInPictureController
+    protected @Nullable FullscreenVideoPictureInPictureController
             ensureFullscreenVideoPictureInPictureController() {
+        if (!ChromeFeatureList.sFullscreenVideoPictureInPicture.isEnabled()) {
+            return null;
+        }
         if (mFullscreenVideoPictureInPictureController == null) {
             mFullscreenVideoPictureInPictureController =
                     new FullscreenVideoPictureInPictureController(
@@ -1371,6 +1383,14 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
 
         return mFullscreenVideoPictureInPictureController;
+    }
+
+    private @Nullable ActorPictureInPictureController maybeCreateActorPipController() {
+        if (mActorPipController == null && ChromeFeatureList.sGlic.isEnabled()) {
+            mActorPipController =
+                    new ActorPictureInPictureController(this, () -> mTabModelProfileSupplier.get());
+        }
+        return mActorPipController;
     }
 
     @Override
@@ -1385,8 +1405,17 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             return;
         }
 
-        ensureFullscreenVideoPictureInPictureController();
-        mFullscreenVideoPictureInPictureController.attemptPictureInPicture();
+        maybeCreateActorPipController();
+        if (mActorPipController != null && mActorPipController.shouldEnterPip()) {
+            mActorPipController.attemptPictureInPicture();
+            return;
+        }
+
+        FullscreenVideoPictureInPictureController controller =
+                ensureFullscreenVideoPictureInPictureController();
+        if (controller != null) {
+            controller.attemptPictureInPicture();
+        }
         // The attempt might not be successful.  If it is, then `onPictureInPictureModeChanged` will
         // let us know later.  Note that the activity might report that it is in PictureInPicture
         // mode at any point after this, which might be before we finish setup after receiving
@@ -1398,7 +1427,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         super.onPictureInPictureUiStateChanged(pipState);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return;
         if (isActivityFinishingOrDestroyed()) return;
-        ensureFullscreenVideoPictureInPictureController().onStashReported(pipState.isStashed());
+        FullscreenVideoPictureInPictureController controller =
+                ensureFullscreenVideoPictureInPictureController();
+        if (controller != null) {
+            controller.onStashReported(pipState.isStashed());
+        }
     }
 
     /**
@@ -1414,12 +1447,23 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 " custom tabs: " + wasInPictureInPictureForMinimizedCustomTabs());
         if (wasInPictureInPictureForMinimizedCustomTabs()) return;
         if (inPicture) {
-            ensureFullscreenVideoPictureInPictureController();
-            mFullscreenVideoPictureInPictureController.onEnteredPictureInPictureMode();
             mLastPictureInPictureModeForTesting = true;
-        } else if (mFullscreenVideoPictureInPictureController != null) {
+            maybeCreateActorPipController();
+            if (mActorPipController != null && mActorPipController.shouldEnterPip()) return;
+
+            FullscreenVideoPictureInPictureController controller =
+                    ensureFullscreenVideoPictureInPictureController();
+            if (controller != null) {
+                controller.onEnteredPictureInPictureMode();
+            }
+        } else {
+            if (mActorPipController != null) {
+                mActorPipController.onFrameworkExitedPictureInPicture();
+            }
+            if (mFullscreenVideoPictureInPictureController != null) {
+                mFullscreenVideoPictureInPictureController.onFrameworkExitedPictureInPicture();
+            }
             mLastPictureInPictureModeForTesting = false;
-            mFullscreenVideoPictureInPictureController.onFrameworkExitedPictureInPicture();
         }
     }
 
@@ -1774,8 +1818,21 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @SuppressLint("NewApi")
     @Override
     protected final void onDestroy() {
-        if (mSnackbarManager != null) {
-            SnackbarManagerProvider.detach(mSnackbarManager);
+        // Destroy all ChromeAndroidTaskFeatures scoped to this ChromeActivity.
+        // For one ChromeAndroidTaskFeature, its native code may hold pointers
+        // to other native objects that are destroyed later in this method,
+        // such as the native TabListInterface, the native BrowserWindowInterface, etc.
+        // Therefore, ChromeAndroidTaskFeatures should be destroyed first to
+        // prevent issues like dereferencing a non-null but invalid pointer.
+        ChromeAndroidTask chromeAndroidTask = mChromeAndroidTaskSupplier.get();
+        if (chromeAndroidTask != null) {
+            var activityWindowAndroid = getWindowAndroid();
+            chromeAndroidTask.removeAllFeaturesForActivity(activityWindowAndroid);
+        }
+
+        SnackbarManager snackbarManager = mSnackbarManagerSupplier.get();
+        if (snackbarManager != null) {
+            SnackbarManagerProvider.detach(snackbarManager);
         }
 
         if (mBackPressManager != null) {
@@ -1813,6 +1870,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         if (mFullscreenVideoPictureInPictureController != null) {
             mFullscreenVideoPictureInPictureController.onDestroy();
             mFullscreenVideoPictureInPictureController = null;
+        }
+
+        if (mActorPipController != null) {
+            mActorPipController.destroy();
+            mActorPipController = null;
         }
 
         onDestroyInternal();
@@ -1879,7 +1941,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
             InsetObserver insetObserver = getInsetObserver();
             if (insetObserver != null) {
-                insetObserver.removeObserver(mSnackbarManager);
+                insetObserver.removeObserver(mSnackbarManagerSupplier.get());
             }
         }
 
@@ -1937,7 +1999,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 && !controller.isSheetHiding()) {
             return mRootUiCoordinator.getBottomSheetSnackbarManager();
         }
-        return mSnackbarManager;
+        return mSnackbarManagerSupplier.get();
     }
 
     @Override
@@ -2029,11 +2091,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
 
         getProfileProviderSupplier().runSyncOrOnAvailable(this::initializeManualFillingComponent);
-
-        var chromeAndroidTask = getChromeAndroidTaskSupplier().get();
-        if (chromeAndroidTask != null) {
-            chromeAndroidTask.onNativeInitializationFinished();
-        }
 
         mTabReparentingControllerSupplier.set(
                 new TabReparentingController(
@@ -2311,7 +2368,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
      * @deprecated Instead, inject this directly to your constructor. If that's not possible, then
      *     use {@link BrowserControlsManagerSupplier}.
      */
-    @NonNull
     @Deprecated
     public BrowserControlsManager getBrowserControlsManager() {
         var browserControlsManager = mBrowserControlsManagerSupplier.get();
@@ -2327,7 +2383,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     /**
      * @return Fullscreen manager object.
      */
-    public @NonNull FullscreenManager getFullscreenManager() {
+    public FullscreenManager getFullscreenManager() {
         return getBrowserControlsManager().getFullscreenManager();
     }
 
@@ -2408,6 +2464,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
      */
     public MonotonicObservableSupplier<CompositorViewHolder> getCompositorViewHolderSupplier() {
         return mCompositorViewHolderSupplier;
+    }
+
+    /** Returns the supplier of the {@link SnackbarManager}. */
+    public MonotonicObservableSupplier<SnackbarManager> getSnackbarManagerSupplier() {
+        return mSnackbarManagerSupplier;
     }
 
     /**
@@ -2517,17 +2578,14 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     /**
      * Records user actions and ukms associated with entering and exiting Android N multi-window
      * mode.
+     *
      * @param isInMultiWindowMode True if the activity is in multi-window mode.
      * @param isDeferredStartup True if the activity is deferred startup.
      */
     private void recordMultiWindowModeChanged(
             boolean isInMultiWindowMode, boolean isDeferredStartup) {
-        MultiWindowUtils.getInstance()
-                .recordMultiWindowModeChanged(
-                        isInMultiWindowMode,
-                        isDeferredStartup,
-                        isFirstActivity(),
-                        getActivityTab());
+        MultiWindowUtils.recordMultiWindowModeChanged(
+                isInMultiWindowMode, isDeferredStartup, isFirstActivity(), getActivityTab());
     }
 
     /**
@@ -2565,7 +2623,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             mBackPressManager.addHandler(XrDelegateProvider.getDelegate(), Type.XR_DELEGATE);
         }
 
-        mLayoutManagerSupplier.addObserver(
+        mLayoutManagerSupplier.addSyncObserverAndPostIfNonNull(
                 (layoutManager) -> {
                     assert !mBackPressManager.has(Type.SCENE_OVERLAY)
                             : "LayoutManager should be only set at most once";
@@ -2583,7 +2641,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                     getTabModelSelectorSupplier()
                             .removeObserver(mSelectionPopupBackPressInitCallback);
                 };
-        getTabModelSelectorSupplier().addObserver(mSelectionPopupBackPressInitCallback);
+        getTabModelSelectorSupplier()
+                .addSyncObserverAndPostIfNonNull(mSelectionPopupBackPressInitCallback);
 
         mCloseListenerManager = new CloseListenerManager(mActivityTabProvider.asObservable());
         mBackPressManager.addHandler(mCloseListenerManager, BackPressHandler.Type.CLOSE_WATCHER);
@@ -2747,7 +2806,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             PowerBookmarkUtils.setPriceTrackingEnabledWithSnackbars(
                     mBookmarkModelSupplier.get().getUserBookmarkIdForTab(currentTab),
                     /* enabled= */ false,
-                    mSnackbarManager,
+                    mSnackbarManagerSupplier.get(),
                     getResources(),
                     currentTab.getProfile(),
                     CallbackUtils.emptyCallback(),
@@ -2889,6 +2948,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 && DevToolsWindowAndroid.isDevToolsAllowedFor(
                         currentTab.getProfile(), currentTab.getWebContents())) {
             DevToolsWindowAndroid.openDevTools(currentTab.getWebContents());
+            if (fromMenu) {
+                RecordUserAction.record("MobileMenuDevTools");
+            }
             return true;
         }
 
@@ -2896,6 +2958,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 && ChromeFeatureList.isEnabled(ChromeFeatureList.TASK_MANAGER_CLANK)) {
             TaskManager taskManager = TaskManagerFactory.createTaskManager();
             taskManager.launch(ContextUtils.getApplicationContext());
+            if (fromMenu) {
+                RecordUserAction.record("MobileMenuTaskManager");
+            }
             return true;
         }
 
@@ -3066,7 +3131,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     public ReadAloudController getReadAloudControllerForTesting() {
-        return mRootUiCoordinator.getReadAloudControllerSupplier().get();
+        return mRootUiCoordinator.getReadAloudControllerSupplier().asNonNull().get();
     }
 
     // NightModeStateProvider.Observer implementation.
@@ -3157,7 +3222,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     /** Returns whether the print action was successfully started. */
     private boolean doPrintShare(Activity activity, Supplier<Tab> currentTabSupplier) {
-        PrintingController printingController = PrintingControllerImpl.getInstance();
+        PrintingController printingController =
+                PrintingControllerImpl.getInstance(getWindowAndroid());
 
         Tab currentTab = currentTabSupplier.get();
         if (currentTab == null) return false;

@@ -12,6 +12,7 @@
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skill.mojom-forward.h"
+#include "components/skills/public/skills_metrics.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 
 namespace content {
@@ -31,6 +32,7 @@ class SkillsDialogHandler : public skills::mojom::DialogHandler {
       content::WebContents* web_contents,
       OptimizationGuideKeyedService* optimization_guide_keyed_service,
       skills::Skill initial_skill,
+      SkillsDialogEntryPoint entrypoint,
       base::WeakPtr<SkillsDialogDelegate> delegate);
 
   SkillsDialogHandler(const SkillsDialogHandler&) = delete;
@@ -39,7 +41,10 @@ class SkillsDialogHandler : public skills::mojom::DialogHandler {
   ~SkillsDialogHandler() override;
 
   // skills::mojom::DialogHandler:
-  void SubmitSkill(const skills::Skill& skill) override;
+  void SubmitSkill(
+      const skills::Skill& skill,
+      skills::mojom::DialogHandler::SubmitSkillCallback callback) override;
+  void DeleteSkill(const std::string& skill_id) override;
   void CloseDialog() override;
   void ShowEmojiPicker() override;
   void GetInitialSkill(GetInitialSkillCallback callback) override;
@@ -63,7 +68,11 @@ class SkillsDialogHandler : public skills::mojom::DialogHandler {
   raw_ptr<OptimizationGuideKeyedService> optimization_guide_keyed_service_ =
       nullptr;
   // The skill data used to pre-populate the dialog's input fields.
-  skills::Skill initial_skill_;
+  Skill initial_skill_;
+  // The entry point from which this dialog instance was initiated (i.e. web
+  // client, management page). This is set at creation time and used for metrics
+  // logging.
+  SkillsDialogEntryPoint entrypoint_;
   base::WeakPtr<SkillsDialogDelegate> delegate_;
 
   // Initialized with the browser_context passed in the constructor.

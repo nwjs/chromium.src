@@ -8,16 +8,20 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/tabs/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/vertical/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_pinned_tab_container_view.h"
+#include "chrome/browser/ui/views/tabs/vertical/vertical_tab_group_view.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_scroll_bar.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_utils.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_unpinned_tab_container_view.h"
+#include "components/tabs/public/tab_group.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
 #include "ui/views/background.h"
@@ -78,26 +82,6 @@ views::ProposedLayout VerticalTabStripView::CalculateProposedLayout(
       GetLayoutConstant(LayoutConstant::kVerticalTabStripCollapsedPadding);
 
   int y = 0;
-  const bool should_show_separator =
-      pinned_tabs_container_view_ &&
-      !pinned_tabs_container_view_->children().empty() && is_collapsed_;
-
-  // If the height is bounded, calculate the available space for laying out the
-  // pinned and unpinned containers.
-  int remaining_height = 0;
-  if (size_bounds.height().is_bounded()) {
-    remaining_height = size_bounds.height().value();
-    if (!pinned_tabs_container_view_->children().empty() &&
-        !unpinned_tabs_container_view_->children().empty()) {
-      remaining_height -= region_vertical_padding;
-    }
-    if (should_show_separator) {
-      remaining_height -= tabs_separator_->GetPreferredSize().height() +
-                          region_vertical_padding;
-    }
-    // Clamp the remaining height to 0 if we have less space.
-    remaining_height = std::max(remaining_height, 0);
-  }
 
   // Determine container preferred heights.
   views::SizeBounds pinned_tab_container_size_bounds =
@@ -108,6 +92,26 @@ views::ProposedLayout VerticalTabStripView::CalculateProposedLayout(
           .height();
   const int unpinned_preferred_height =
       unpinned_tabs_scroll_view_->GetPreferredSize(size_bounds).height();
+
+  const bool should_show_separator = pinned_preferred_height != 0 &&
+                                     unpinned_preferred_height != 0 &&
+                                     is_collapsed_;
+
+  // If the height is bounded, calculate the available space for laying out the
+  // pinned and unpinned containers.
+  int remaining_height = 0;
+  if (size_bounds.height().is_bounded()) {
+    remaining_height = size_bounds.height().value();
+    if (pinned_preferred_height != 0 && unpinned_preferred_height != 0) {
+      remaining_height -= region_vertical_padding;
+    }
+    if (should_show_separator) {
+      remaining_height -= tabs_separator_->GetPreferredSize().height() +
+                          region_vertical_padding;
+    }
+    // Clamp the remaining height to 0 if we have less space.
+    remaining_height = std::max(remaining_height, 0);
+  }
 
   // Place the pinned container.
   int pinned_container_height = pinned_preferred_height;
@@ -205,15 +209,33 @@ void VerticalTabStripView::OnMouseExited(const ui::MouseEvent& event) {
   }
 }
 
-void VerticalTabStripView::OnTabStripModelChanged(
-    TabStripModel* tab_strip_model,
-    const TabStripModelChange& change,
-    const TabStripSelectionChange& selection) {
-  if (collection_node_ && selection.active_tab_changed() && selection.new_tab) {
-    TabCollectionNode* activated_node =
-        collection_node_->GetNodeForHandle(selection.new_tab->GetHandle());
-    CHECK(activated_node);
+void VerticalTabStripView::OnActiveTabChanged(
+    const tabs::TabInterface* active_tab) {
+  if (collection_node_ && active_tab) {
+    // Expand group if the activated tab is within a collapsed group unless
+    // we are header dragging the collapsed group.
+    if (active_tab->GetGroup().has_value() &&
+        !collection_node_->GetController()->GetDragHandler().IsDragging()) {
+      TabCollectionNode* group_node = collection_node_->GetNodeForHandle(
+          active_tab->GetBrowserWindowInterface()
+              ->GetTabStripModel()
+              ->group_model()
+              ->GetTabGroup(active_tab->GetGroup().value())
+              ->GetCollectionHandle());
+      CHECK(group_node);
 
+      auto* group_view =
+          views::AsViewClass<VerticalTabGroupView>(group_node->view());
+      if (group_view && group_view->IsCollapsed()) {
+        group_view->ToggleCollapsedState(
+            ToggleTabGroupCollapsedStateOrigin::kMenuAction);
+      }
+    }
+
+    // Scroll to the activated tab if it isn't in the visible viewport.
+    TabCollectionNode* activated_node =
+        collection_node_->GetNodeForHandle(active_tab->GetHandle());
+    CHECK(activated_node);
     if (pinned_tabs_container_view_->Contains(activated_node->view())) {
       pinned_tabs_scroll_view_->RegisterNextSuccessfulFramePostLayoutCallback(
           base::BindOnce(
@@ -258,6 +280,17 @@ void VerticalTabStripView::SetCollapsedState(bool is_collapsed) {
   }
 }
 
+void VerticalTabStripView::SetIsAnimatingSize(bool is_animating) {
+  for (views::ScrollView* scroll_view :
+       {pinned_tabs_scroll_view_, unpinned_tabs_scroll_view_}) {
+    if (scroll_view) {
+      static_cast<VerticalTabStripScrollBar*>(
+          scroll_view->vertical_scroll_bar())
+          ->SetIsAnimatingSize(is_animating);
+    }
+  }
+}
+
 bool VerticalTabStripView::IsPositionInWindowCaption(const gfx::Point& point) {
   for (views::View* child : children()) {
     if (!child->GetVisible()) {
@@ -296,12 +329,6 @@ bool VerticalTabStripView::IsPositionInWindowCaption(const gfx::Point& point) {
   }
 
   return true;
-}
-
-void VerticalTabStripView::InitializeTabStrip(TabStripModel& tab_strip_model) {
-  // TODO(crbug.com/452120900): TabStripModelObserver auto-unregisters in its
-  // destructor.
-  tab_strip_model.AddObserver(this);
 }
 
 views::View* VerticalTabStripView::AddScrollViewContents(
@@ -344,8 +371,9 @@ void VerticalTabStripView::SetScrollViewProperties(
       views::ScrollView::ScrollBarMode::kDisabled);
   scroll_view->SetOverflowGradientMask(
       views::ScrollView::GradientDirection::kVertical);
-  scroll_view->SetVerticalScrollBar(
-      std::make_unique<VerticalTabStripScrollBar>());
+  CHECK(collection_node_);
+  scroll_view->SetVerticalScrollBar(std::make_unique<VerticalTabStripScrollBar>(
+      collection_node_->GetController()->GetStateController()));
   callback_subscriptions_.emplace_back(scroll_view->AddContentsScrolledCallback(
       base::BindRepeating(&VerticalTabStripView::HideHoverCardOnScroll,
                           base::Unretained(this))));
@@ -365,6 +393,12 @@ void VerticalTabStripView::DidPresentFramePostActivation(
     return;
   }
 
+  // Dragging a view out of the visible bounds will trigger a scroll naturally.
+  if (collection_node_ &&
+      collection_node_->GetController()->GetDragHandler().IsDragging()) {
+    return;
+  }
+
   // Get view bounds in its contents coordinates.
   gfx::Rect activated_view_bounds =
       GetVerticalTabStripViewTargetBounds(activated_view);
@@ -378,7 +412,7 @@ void VerticalTabStripView::DidPresentFramePostActivation(
   }
 
   // Get the visible bounds of the content view.
-  const gfx::Rect visible_contents_rect = scroll_view->GetVisibleRect();
+  const gfx::Rect visible_contents_rect = scroll_view->GetOpaqueVisibleRect();
 
   // Determine the adjustment required to fit the activated view into the
   // visible content view bounds.

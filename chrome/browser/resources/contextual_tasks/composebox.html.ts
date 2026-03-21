@@ -27,7 +27,10 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
           .result="${this.zeroStateSuggestions_}"
           .maxSuggestions="${5}"
           .overrideClampLineNum="${3}"
-          ?hidden="${!this.showSuggestions_}">
+          .selectedMatchIndex="${this.selectedMatchIndex_}"
+          ?hidden="${!this.showSuggestions_}"
+          @match-focusin="${this.onMatchFocusin_}"
+          @keydown="${this.onDropdownKeydown_}">
       </cr-composebox-dropdown>
       ${this.showSuggestionsActivityLink_ && this.showSuggestions_ ? html`
         <div id="suggestionActivity">
@@ -44,7 +47,7 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
         >
       ${this.showOnboardingTooltip_ ? html`
         <contextual-tasks-onboarding-tooltip id="onboardingTooltip"
-            @onboarding-tooltip-dismissed="${this.onTooltipDismissed_}">
+            @onboarding-tooltip-dismissed="${this.onOnboardingTooltipDismissed_}">
         </contextual-tasks-onboarding-tooltip>
       ` : ''}
       <cr-composebox
@@ -62,9 +65,10 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
           .lensButtonTriggersOverlay="${true}"
           .enableCarouselScrolling="${true}"
           .isFollowupQuery="${!this.isZeroState}"
-          @result-changed="${this.onSuggestionsResultReceived_}"
-          @open-image-upload="${this.handleImageUpload_}"
-          @open-file-upload="${this.handleFileUpload_}"
+          .enableFileHint="${this.enableFileHint_}"
+          @result-changed="${this.onSuggestionsResultChanged_}"
+          @open-image-upload="${this.onOpenImageUpload_}"
+          @open-file-upload="${this.onOpenFileUpload_}"
           @show-suggestion-activity-link=
               "${this.onShowSuggestionActivityLink_}">
       </cr-composebox>
@@ -76,7 +80,10 @@ export function getHtml(this: ContextualTasksComposeboxElement) {
           .result="${this.zeroStateSuggestions_}"
           .maxSuggestions="${5}"
           .overrideClampLineNum="${3}"
-          ?hidden="${!this.showSuggestions_}">
+          .selectedMatchIndex="${this.selectedMatchIndex_}"
+          ?hidden="${!this.showSuggestions_}"
+          @match-focusin="${this.onMatchFocusin_}"
+          @keydown="${this.onDropdownKeydown_}">
       </cr-composebox-dropdown>
       ${this.showSuggestionsActivityLink_ && this.showSuggestions_ ? html`
         <div id="suggestionActivity">

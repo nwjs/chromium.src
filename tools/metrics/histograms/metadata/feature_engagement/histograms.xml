@@ -256,6 +256,7 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_GenericAlwaysTriggerHelpUiFeature"
       summary="generic feature to always show help Ui whenever asked"/>
   <variant name="IPH_GlicPromo" summary="Glic promotion"/>
+  <variant name="IPH_GlicPromoAndroid" summary="Glic promotion on Android"/>
   <variant name="IPH_GlicTrustFirstOnboardingShortcutSnoozePromo"
       summary="Glic quick access shortcut snooze promo."/>
   <variant name="IPH_GlicTrustFirstOnboardingShortcutToastPromo"
@@ -358,6 +359,8 @@ chromium-metrics-reviews@google.com.
                visited tiles on iOS"/>
   <variant name="IPH_iOSPostDefaultAbandonmentPromo"
       summary="showing the iOS post-default browser abandonment promo on iOS"/>
+  <variant name="IPH_iOSPriceTrackingDesktop"
+      summary="showing the price tracking desktop to mobile promo on desktop"/>
   <variant name="IPH_iOSPromoAllTabs"
       summary="showing All Tabs default browser promo"/>
   <variant name="IPH_iOSPromoAppStore"
@@ -433,6 +436,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_iOSTabGridSwipeRightForIncognito"
       summary="the full screen IPH for left swipe on regular tab grid to
                browse in incognito"/>
+  <variant name="IPH_iOSTabGroupsDesktop"
+      summary="showing the tab groups promo on desktop"/>
   <variant name="IPH_iOSWelcomeBackFeature"
       summary="shows returning users features they may be interested in"/>
   <variant name="IPH_KeyboardAccessoryAddressFilling"
@@ -649,6 +654,9 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_TabOrganizationSuccess"
       summary="tab organization success"/>
   <variant name="IPH_TabSearch" summary="tab search discovery"/>
+  <variant name="IPH_TabSearchComboButton"
+      summary="IPH for the first time a user opens Chrome with tab search
+               moved to the tab strip combo button"/>
   <variant name="IPH_TabSearchToolbarButton"
       summary="IPH for the first time a user opens Chrome with tab search
                moved to a toolbar button"/>
@@ -668,6 +676,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_TranslateMenuButton" summary="translate menu button"/>
   <variant name="IPH_UpdatedConnectionSecurityIndicators"
       summary="updated omnibox connection security indicators"/>
+  <variant name="IPH_VerticalTabstripTutorialFeature"
+      summary="The vertical tabstrip IPH"/>
   <variant name="IPH_VideoTutorial_NTP_ChromeIntro"
       summary="Video tutorial card on NTP about introduction to chrome"/>
   <variant name="IPH_VideoTutorial_NTP_Download"
@@ -695,7 +705,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="InProductHelp.Config.ParsingEvent" enum="ConfigParsingEvent"
-    expires_after="2026-06-07">
+    expires_after="2026-08-09">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if in-product help configuration is parsed correctly, and the
@@ -742,7 +752,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.DismissalReason.iOS"
-    enum="InProductHelpDismissalReason" expires_after="2026-06-21">
+    enum="InProductHelpDismissalReason" expires_after="2026-08-23">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -751,7 +761,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.EventStorageMigration.Status"
-    enum="InProductHelpEventStorageMigrationStatus" expires_after="2026-06-07">
+    enum="InProductHelpEventStorageMigrationStatus" expires_after="2026-08-09">
   <owner>cheickcisse@google.com</owner>
   <owner>shaktisahu@chromium.org</owner>
   <summary>
@@ -763,7 +773,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.Gestural.DismissalReason.iOS"
-    enum="InProductHelpDismissalReason" expires_after="2026-06-28">
+    enum="InProductHelpDismissalReason" expires_after="2026-08-30">
   <owner>ginnyhuang@chromium.org</owner>
   <owner>adamta@google.com</owner>
   <summary>
@@ -795,7 +805,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShownTime.{IPHFeature}" units="ms"
-    expires_after="2026-06-28">
+    expires_after="2026-08-30">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -873,7 +883,7 @@ In the future, Desktop IPH may be completely moved to the user_education folder.
 </histogram>
 
 <histogram name="UserEducation.MessageNotShown.TimeInQueue.{IPHFeature}"
-    units="ms" expires_after="2026-06-21">
+    units="ms" expires_after="2026-08-23">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

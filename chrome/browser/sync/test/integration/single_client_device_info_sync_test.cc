@@ -18,6 +18,7 @@
 #include "chrome/browser/sync/test/integration/device_info_helper.h"
 #include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
+#include "components/browser_sync/browser_sync_switches.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/base/data_type.h"
@@ -183,6 +184,7 @@ class SingleClientDeviceInfoSyncTest
       bool enable_device_statistics_metrics = false)
       : SyncTest(SINGLE_CLIENT) {
     std::vector<base::test::FeatureRefAndParams> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
     if (enable_device_statistics_metrics) {
       enabled_features.emplace_back(
           syncer::kSyncRecordDeviceStatisticsMetrics,
@@ -192,10 +194,13 @@ class SingleClientDeviceInfoSyncTest
     if (GetSetupSyncMode() == SetupSyncMode::kSyncTransportOnly) {
       enabled_features.emplace_back(syncer::kReplaceSyncPromosWithSignInPromos,
                                     base::FieldTrialParams{});
+    } else {
+      // Skip sync-to-signin migration for sync-the-feature tests. This is to
+      // avoid the sync state changing between the PRE_ tests.
+      disabled_features.push_back(switches::kMigrateSyncingUserToSignedIn);
     }
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        enabled_features,
-        /*disabled_features=*/{});
+    scoped_feature_list_.InitWithFeaturesAndParameters(enabled_features,
+                                                       disabled_features);
   }
 
   SingleClientDeviceInfoSyncTest(const SingleClientDeviceInfoSyncTest&) =
@@ -825,11 +830,9 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 // TODO(crbug.com/465716865): Figure out why this test sometimes times out on
-// ASan and consistently times out on ChromeOS Debug.
-// TODO(crbug.com/479828012): PRE_ tests that set up Sync are currently flaky on
-// Android.
+// ASan, and consistently times out on Win Arm64 Debug.
 #if defined(ADDRESS_SANITIZER) || \
-    (BUILDFLAG(IS_CHROMEOS) && !defined(NDEBUG)) || BUILDFLAG(IS_ANDROID)
+    (BUILDFLAG(IS_WIN) && !defined(NDEBUG) && defined(ARCH_CPU_ARM64))
 #define MAYBE_ShouldRecordDeviceStatisticsMetricsWithPrimaryAccount \
   DISABLED_ShouldRecordDeviceStatisticsMetricsWithPrimaryAccount
 #else
@@ -936,10 +939,12 @@ IN_PROC_BROWSER_TEST_P(
 }
 
 // TODO(crbug.com/465716865): Figure out why this test sometimes times out on
-// ASan.
+// ASan, and consistently times out on Win Arm64 Debug.
 // TODO(crbug.com/483936092): signin::MakeAccountAvailable() (needed by the PRE_
 // test) doesn't work on Android.
-#if defined(ADDRESS_SANITIZER) || BUILDFLAG(IS_ANDROID)
+#if defined(ADDRESS_SANITIZER) ||                                         \
+    (BUILDFLAG(IS_WIN) && !defined(NDEBUG) && defined(ARCH_CPU_ARM64)) || \
+    BUILDFLAG(IS_ANDROID)
 #define MAYBE_ShouldRecordDeviceStatisticsMetricsWithoutPrimaryAccount \
   DISABLED_ShouldRecordDeviceStatisticsMetricsWithoutPrimaryAccount
 #else

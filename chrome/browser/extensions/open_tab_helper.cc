@@ -85,7 +85,8 @@ OpenTabHelper::FindOrCreateBrowser(const GURL& validated_url,
     return base::unexpected(ExtensionTabUtil::kNoCurrentWindowError);
   }
 
-  BrowserWindowInterface* browser = controller->GetBrowserWindowInterface();
+  BrowserWindowInterface* browser =
+      controller ? controller->GetBrowserWindowInterface() : nullptr;
 
 #if 0
   // We can't load extension URLs into incognito windows unless the extension

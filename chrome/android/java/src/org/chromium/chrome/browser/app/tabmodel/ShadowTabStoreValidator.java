@@ -12,6 +12,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.WebContentsState;
 import org.chromium.chrome.browser.tabmodel.AccumulatingTabCreator;
 import org.chromium.chrome.browser.tabmodel.AccumulatingTabCreator.CreateFrozenTabArguments;
+import org.chromium.chrome.browser.tabmodel.PersistentStoreMigrationManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStore.TabPersistentStoreObserver;
@@ -35,15 +36,19 @@ public class ShadowTabStoreValidator {
     private final TabPersistentStore mShadowStore;
     private final TabModel mTabModel;
     private final AccumulatingTabCreator mShadowTabCreator;
+    private final PersistentStoreMigrationManager mPersistentStoreMigrationManager;
     private final StoreMetricsObserver mAuthoritativeObserver;
     private final StoreMetricsObserver mShadowObserver;
     private final String mSuffix;
+    private final boolean mShadowStoreCaughtUp;
 
     /**
      * @param authoritativeStore The primary store whose timing is used as the baseline.
      * @param shadowStore The alternative store being compared against the authoritative one.
      * @param tabModel The {@link TabModel} associated with the authoritative store.
      * @param shadowTabCreator The {@link AccumulatingTabCreator} used by the shadow store.
+     * @param persistentStoreMigrationManager The {@link PersistentStoreMigrationManager} for
+     *     migration.
      * @param orchestratorTag The type of tab model orchestrator this validator is for.
      */
     public ShadowTabStoreValidator(
@@ -51,11 +56,13 @@ public class ShadowTabStoreValidator {
             TabPersistentStore shadowStore,
             TabModel tabModel,
             AccumulatingTabCreator shadowTabCreator,
+            PersistentStoreMigrationManager persistentStoreMigrationManager,
             String orchestratorTag) {
         mAuthoritativeStore = authoritativeStore;
         mShadowStore = shadowStore;
         mTabModel = tabModel;
         mShadowTabCreator = shadowTabCreator;
+        mPersistentStoreMigrationManager = persistentStoreMigrationManager;
         mSuffix = "." + orchestratorTag;
 
         mAuthoritativeObserver = new StoreMetricsObserver(this);
@@ -63,6 +70,9 @@ public class ShadowTabStoreValidator {
 
         authoritativeStore.addObserver(mAuthoritativeObserver);
         shadowStore.addObserver(mShadowObserver);
+
+        // Retrieve shadow store catch up state prior to any clearing operation.
+        mShadowStoreCaughtUp = mPersistentStoreMigrationManager.isShadowStoreCaughtUp();
     }
 
     private void onStateLoaded() {
@@ -88,6 +98,8 @@ public class ShadowTabStoreValidator {
     }
 
     private void recordDiffMetrics() {
+        if (!mShadowStoreCaughtUp) return;
+
         int tabCountDelta =
                 mTabModel.getCount() - mShadowTabCreator.createFrozenTabArgumentsList.size();
         if (tabCountDelta > 0) {
@@ -95,6 +107,8 @@ public class ShadowTabStoreValidator {
                     "Tabs.TabStateStore.TabCountDelta.AuthoritativeHigher", tabCountDelta);
         } else if (tabCountDelta < 0) {
             recordCountHistogram("Tabs.TabStateStore.TabCountDelta.ShadowHigher", -tabCountDelta);
+        } else {
+            recordEqualTabCountHistogram();
         }
 
         for (CreateFrozenTabArguments arguments : mShadowTabCreator.createFrozenTabArgumentsList) {
@@ -119,6 +133,11 @@ public class ShadowTabStoreValidator {
 
     private void recordCountHistogram(String histogramStr, int tabCountDelta) {
         RecordHistogram.recordCount1000Histogram(histogramStr + mSuffix, tabCountDelta);
+    }
+
+    private void recordEqualTabCountHistogram() {
+        RecordHistogram.recordBooleanHistogram(
+                "Tabs.TabStateStore.TabCountDelta.Equal" + mSuffix, true);
     }
 
     private void recordTimesHistogram(String histogramStr, long timeDelta) {

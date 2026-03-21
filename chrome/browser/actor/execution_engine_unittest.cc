@@ -22,6 +22,7 @@
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
+#include "chrome/browser/actor/autofill_selection_dialog_event_handler.h"
 #include "chrome/browser/actor/enterprise_policy_url_checker.h"
 #include "chrome/browser/actor/safety_list_manager.h"
 #include "chrome/browser/actor/shared_types.h"
@@ -40,7 +41,7 @@
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
-#include "components/autofill/core/browser/integrators/glic/actor_form_filling_types.h"
+#include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
@@ -90,6 +91,38 @@ constexpr char kActorTaskDurationNotVisibleCompletedHistogram[] =
 actor::mojom::ActionResultPtr MakeNotImplementedResult() {
   return MakeResult(::actor::mojom::ActionResultCode::kNotImplemented);
 }
+
+class MockAutofillSelectionDialogEventHandler
+    : public AutofillSelectionDialogEventHandler {
+ public:
+  MockAutofillSelectionDialogEventHandler() = default;
+  ~MockAutofillSelectionDialogEventHandler() override = default;
+
+  MOCK_METHOD(
+      bool,
+      OnFormPresented,
+      (webui::mojom::AutofillSuggestionDialogOnFormPresentedParamsPtr params),
+      (override));
+  MOCK_METHOD(
+      void,
+      OnFormPreviewChanged,
+      (webui::mojom::AutofillSuggestionDialogOnFormPreviewChangedParamsPtr
+           params),
+      (override));
+  MOCK_METHOD(
+      bool,
+      OnFormConfirmed,
+      (webui::mojom::AutofillSuggestionDialogOnFormConfirmedParamsPtr params),
+      (override));
+
+  base::WeakPtr<MockAutofillSelectionDialogEventHandler> GetWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
+
+ private:
+  base::WeakPtrFactory<MockAutofillSelectionDialogEventHandler> weak_factory_{
+      this};
+};
 
 class FakeChromeRenderFrame : public chrome::mojom::ChromeRenderFrame {
  public:
@@ -186,7 +219,7 @@ class MockActorTaskDelegate : public ActorTaskDelegate {
   MOCK_METHOD(void,
               RequestToShowUserConfirmationDialog,
               (TaskId task_id,
-               const url::Origin& navigation_origin,
+               const url::Origin& destination,
                bool for_blocklisted_origin,
                UserConfirmationDialogCallback callback),
               (override));
@@ -194,7 +227,7 @@ class MockActorTaskDelegate : public ActorTaskDelegate {
   MOCK_METHOD(void,
               RequestToConfirmNavigation,
               (TaskId task_id,
-               const url::Origin& navigation_origin,
+               const url::Origin& destination,
                NavigationConfirmationCallback callback),
               (override));
 
@@ -202,6 +235,7 @@ class MockActorTaskDelegate : public ActorTaskDelegate {
               RequestToShowAutofillSuggestionsDialog,
               (actor::TaskId task_id,
                std::vector<autofill::ActorFormFillingRequest> requests,
+               base::WeakPtr<AutofillSelectionDialogEventHandler> handler,
                AutofillSuggestionSelectedCallback callback),
               (override));
 
@@ -245,7 +279,8 @@ class ExecutionEngineTest : public ChromeRenderViewHostTestHarness {
         }));
 
     task_ = ActorTask::CreateForTesting(
-        profile(), TaskId(1), std::move(task_ui_event_dispatcher),
+        *ActorKeyedService::Get(profile()), TaskId(1),
+        std::move(task_ui_event_dispatcher),
         /*options=*/nullptr, &no_enterprise_checker_,
         mock_actor_task_delegate_.GetWeakPtr());
 
@@ -545,7 +580,13 @@ TEST_F(ExecutionEngineTest, MAYBE_ActorTaskCompletedHistogram) {
         MakeClickCallback(kFakeContentNodeId).Run();
     std::unique_ptr<ToolRequest> action2 =
         MakeClickCallback(kFakeContentNodeId).Run();
+
+    base::test::TestFuture<void> future;
+    ActorTaskStateWaiter wait_to_act(future.GetCallback(),
+                                     *ActorKeyedService::Get(profile()), *task_,
+                                     ActorTask::State::kActing);
     task_->Act(ToRequestList(action, action2), result.GetCallback());
+    ASSERT_TRUE(future.Wait());
   }
 
   // Simulate time passing before the task stops
@@ -643,7 +684,13 @@ TEST_P(ExecutionEngineStopReasonParamTest, MAYBE_ActorTaskStoppedHistogram) {
     ActResultFuture result;
     std::unique_ptr<ToolRequest> action =
         MakeClickCallback(kFakeContentNodeId).Run();
+
+    base::test::TestFuture<void> future;
+    ActorTaskStateWaiter wait_to_act(future.GetCallback(),
+                                     *ActorKeyedService::Get(profile()), *task_,
+                                     ActorTask::State::kActing);
     task_->Act(ToRequestList(action), result.GetCallback());
+    ASSERT_TRUE(future.Wait());
   }
 
   // Simulate time passing before the task is cancelled
@@ -676,7 +723,12 @@ TEST_F(ExecutionEngineTest, ActorTaskCountAndDurationHistograms) {
       MakeClickCallback(kFakeContentNodeId).Run();
   task_environment()->FastForwardBy(created_duration);
 
+  base::test::TestFuture<void> future;
+  ActorTaskStateWaiter wait_to_act(future.GetCallback(),
+                                   *ActorKeyedService::Get(profile()), *task_,
+                                   ActorTask::State::kActing);
   task_->Act(ToRequestList(action1, action2, action3), result.GetCallback());
+  ASSERT_TRUE(future.Wait());
 
   histograms_.ExpectTimeBucketCount(
       "Actor.Task.StateTransition.Duration.Created", created_duration, 1);
@@ -989,21 +1041,26 @@ TEST_F(ExecutionEngineTest,
 
   // Hold the forwarded value in `received_requests`.
   std::vector<autofill::ActorFormFillingRequest> received_requests;
+  base::WeakPtr<AutofillSelectionDialogEventHandler> received_handler;
+
+  MockAutofillSelectionDialogEventHandler event_handler;
 
   // Expect the call to be forwarded to the task's ActorTaskDelegate.
   EXPECT_CALL(mock_actor_task_delegate_,
-              RequestToShowAutofillSuggestionsDialog(task_->id(), _, _))
-      .WillOnce(testing::SaveArg<1>(&received_requests));
+              RequestToShowAutofillSuggestionsDialog(task_->id(), _, _, _))
+      .WillOnce(testing::DoAll(testing::SaveArg<1>(&received_requests),
+                               testing::SaveArg<2>(&received_handler)));
 
   // Call the method under test on the ExecutionEngine.
-  execution_engine.RequestToShowAutofillSuggestions(test_requests,
-                                                    base::DoNothing());
+  execution_engine.RequestToShowAutofillSuggestions(
+      test_requests, event_handler.GetWeakPtr(), base::DoNothing());
 
   // The vector of requests broadcast by the service should match what we sent.
   ASSERT_EQ(received_requests.size(), 1u);
   EXPECT_EQ(
       received_requests[0].requested_data,
       optimization_guide::proto::FormFillingRequest_RequestedData_ADDRESS);
+  EXPECT_EQ(received_handler.get(), &event_handler);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1049,12 +1106,15 @@ TEST_F(ExecutionEngineNavigationGatingTest,
       "Actor.NavigationGating.GatingDecision",
       /*sample=*/ExecutionEngine::GatingDecision::kAllowSameOrigin,
       /*expected_bucket_count=*/1);
-  // The navigation is cross-origin and cross-site since initiator !=
-  // destination.
-  histograms_.ExpectUniqueSample("Actor.NavigationGating.CrossOrigin2",
+
+  histograms_.ExpectUniqueSample("Actor.NavigationGating.SameOriginSource",
                                  /*sample=*/true, /*expected_bucket_count=*/1);
-  histograms_.ExpectUniqueSample("Actor.NavigationGating.CrossSite2",
+  histograms_.ExpectUniqueSample("Actor.NavigationGating.SameSiteSource",
                                  /*sample=*/true, /*expected_bucket_count=*/1);
+  histograms_.ExpectUniqueSample("Actor.NavigationGating.SameOriginInitiator",
+                                 /*sample=*/false, /*expected_bucket_count=*/1);
+  histograms_.ExpectUniqueSample("Actor.NavigationGating.SameSiteInitiator",
+                                 /*sample=*/false, /*expected_bucket_count=*/1);
 }
 
 }  // namespace

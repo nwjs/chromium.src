@@ -269,6 +269,12 @@ void FakeWebAppUiManager::MaybeCreateEnableSupportedLinksInfobar(
     content::WebContents* web_contents,
     const std::string& launch_name) {}
 
+void FakeWebAppUiManager::MaybeCreateWebAppBlockedMigrationInfoBar(
+    content::WebContents* web_contents) {}
+
+void FakeWebAppUiManager::MaybeRemoveWebAppBlockedMigrationInfoBar(
+    content::WebContents* web_contents) {}
+
 void FakeWebAppUiManager::MaybeShowIPHPromoForAppsLaunchedViaLinkCapturing(
     Browser* browser,
     Profile* profile,

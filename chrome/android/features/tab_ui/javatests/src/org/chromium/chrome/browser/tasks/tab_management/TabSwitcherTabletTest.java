@@ -91,7 +91,6 @@ import java.util.concurrent.TimeoutException;
 @DisableFeatures({
     ChromeFeatureList.ANDROID_SURFACE_COLOR_UPDATE,
     ChromeFeatureList.GRID_TAB_SWITCHER_SURFACE_COLOR_UPDATE,
-    ChromeFeatureList.GRID_TAB_SWITCHER_UPDATE,
     ChromeFeatureList.ANDROID_THEME_MODULE
 })
 @Batch(Batch.PER_CLASS)
@@ -381,13 +380,14 @@ public class TabSwitcherTabletTest {
                     tabModelSelectedCallback.notifyCalled();
                 };
         ThreadUtils.runOnUiThreadBlocking(
-                () ->
-                        mActivityTestRule
-                                .getActivity()
-                                .getTabModelSelectorSupplier()
-                                .get()
-                                .getCurrentTabModelSupplier()
-                                .addObserver(observer));
+                () -> {
+                    return mActivityTestRule
+                            .getActivity()
+                            .getTabModelSelectorSupplier()
+                            .get()
+                            .getCurrentTabModelSupplier()
+                            .addSyncObserverAndPostIfNonNull(observer);
+                });
         StripLayoutHelperManager manager =
                 TabStripUtils.getStripLayoutHelperManager(mActivityTestRule.getActivity());
         TabStripUtils.clickCompositorButton(

@@ -19,7 +19,6 @@
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_record.h"
 #include "third_party/blink/renderer/core/paint/timing/text_paint_timing_detector.h"
-#include "third_party/blink/renderer/core/timing/navigation_id_generator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
@@ -279,7 +278,7 @@ bool LargestContentfulPaintCalculator::
     // Set cross-origin flag of the image.
     if (auto* window = window_performance_->DomWindow()) {
       auto image_url = timing->Url();
-      if (!image_url.IsEmpty() && image_url.ProtocolIsInHTTPFamily() &&
+      if (!image_url.IsEmpty() && image_url.ProtocolIsInHttpFamily() &&
           window->GetFrame()->IsOutermostMainFrame()) {
         auto image_origin = SecurityOrigin::Create(image_url);
         if (!image_origin->IsSameOriginWith(window->GetSecurityOrigin())) {

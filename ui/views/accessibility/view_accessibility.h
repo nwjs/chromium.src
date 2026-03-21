@@ -16,6 +16,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -713,6 +714,10 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
   // Contains data that is populated by the accessibility attributes setters.
   ui::AXNodeData data_;
 
+  // If there are any virtual children, they override any real children.
+  // We own our virtual children.
+  AXVirtualViews virtual_children_;
+
   // Used to determine if a View should be ignored by accessibility clients by
   // being a non-focusable child of a focusable ancestor.
   // E.g., LabelButtons contain Labels, but a11y should just show that there's a
@@ -783,14 +788,18 @@ class VIEWS_EXPORT ViewAccessibility : public WidgetObserver {
 
   ui::AXAttributeChangedCallbacks* GetOrCreateAXAttributeChangedCallbacks();
 
+  // Called from OnViewAddedToWidget. Recursively calls
+  // OnVirtualViewAddedToWidget for all virtual children.
+  void OnVirtualViewAddedToWidget();
+
+  // Inverse of OnVirtualViewAddedToWidget. Called from OnViewRemovedFromWidget.
+  // Recursively calls OnVirtualViewRemovedFromWidget for all virtual children.
+  void OnVirtualViewRemovedFromWidget();
+
   virtual void NotifyDataChanged();
 
   // Weak. Owns this.
   const raw_ptr<View> view_;
-
-  // If there are any virtual children, they override any real children.
-  // We own our virtual children.
-  AXVirtualViews virtual_children_;
 
   const ui::AXUniqueId unique_id_{ui::AXUniqueId::Create()};
 

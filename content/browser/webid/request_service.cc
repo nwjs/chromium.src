@@ -10,6 +10,7 @@
 #include "base/barrier_closure.h"
 #include "base/base64url.h"
 #include "base/command_line.h"
+#include "base/containers/span.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/json/json_reader.h"
@@ -43,6 +44,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/browser/webid/federated_identity_api_permission_context_delegate.h"
 #include "content/public/browser/webid/federated_identity_auto_reauthn_permission_context_delegate.h"
 #include "content/public/browser/webid/federated_identity_permission_context_delegate.h"
@@ -55,6 +57,7 @@
 #include "third_party/blink/public/common/webid/login_status_account.h"
 #include "third_party/blink/public/common/webid/login_status_options.h"
 #include "third_party/blink/public/mojom/webid/federated_auth_request.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 using base::Value;
@@ -114,7 +117,7 @@ base::TimeDelta GetRandomRejectionTime() {
 }
 
 std::string FormatOriginForDisplay(const url::Origin& origin) {
-  return FormatUrlForDisplay(origin.GetURL());
+  return FormatUrlToSite(origin.GetURL());
 }
 
 std::string GetTopFrameOriginForDisplay(const url::Origin& top_frame_origin) {
@@ -223,23 +226,18 @@ RequestService& RequestService::CreateForTesting(
 void RequestService::BindReceiver(
     mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>
         pending_receiver) {
-  if (receiver_.is_bound()) {
-    // This should only happen with a compromised renderer.
-    // TODO(crbug.com/40810039): Call ReportBadMessage.
-    return;
-  }
-  receiver_.Bind(std::move(pending_receiver));
+  receivers_.Add(this, std::move(pending_receiver));
 }
 
 void RequestService::ReportBadMessage(const char* message) {
-  receiver_.ReportBadMessage(message);
+  receivers_.ReportBadMessage(message);
 }
 
 void RequestService::ResetAndDeleteThisForTesting() {
-  // Resetting the receiver_ before we destruct the objects means that
+  // Resetting the receivers_ before we destruct the objects means that
   // callbacks won't be called. This matches DocumentService::ResetAndDeleteThis
   // and is what our tests expect.
-  receiver_.reset();
+  receivers_.Clear();
   DeleteForCurrentDocument(&render_frame_host());
 }
 
@@ -630,16 +628,32 @@ void RequestService::CancelTokenRequest() {
 
 void RequestService::ResolveTokenRequest(
     const std::optional<std::string>& account_id,
+    blink::mojom::FedCmRedirectMethod method,
     const std::optional<GURL>& redirect_to,
+    const std::string& request_body,
     base::Value token,
     ResolveTokenRequestCallback callback) {
+  if (redirect_to) {
+    // GET must not have a body; POST must have a body.
+    if (method == blink::mojom::FedCmRedirectMethod::kGet &&
+        !request_body.empty()) {
+      ReportBadMessage("GET redirects must not have a body");
+      return;
+    }
+    if (method == blink::mojom::FedCmRedirectMethod::kPost &&
+        request_body.empty()) {
+      ReportBadMessage("POST redirects must have a body");
+      return;
+    }
+  }
+
   if (!identity_registry_ && !SetupIdentityRegistryFromPopup()) {
     std::move(callback).Run(false);
     return;
   }
 
-  bool accepted = identity_registry_->NotifyResolve(origin(), account_id,
-                                                    redirect_to, token);
+  bool accepted = identity_registry_->NotifyResolve(
+      origin(), account_id, method, redirect_to, request_body, token);
   std::move(callback).Run(accepted);
 }
 
@@ -887,6 +901,8 @@ void RequestService::OnAccountsResultsReceived(
 
     // Success
     CHECK(result.accounts.has_value());
+    idp_filtered_accounts_[result.idp_config_url] =
+        std::move(result.filtered_accounts);
     OnFetchDataForIdpSucceeded(std::move(*result.accounts),
                                std::move(result.idp_info));
   }
@@ -956,6 +972,10 @@ void RequestService::OnFetchDataForIdpSucceeded(
   // This can happen with the 'use other account' feature.
   if (idp_infos_.find(idp_config_url) != idp_infos_.end()) {
     std::erase_if(accounts_, [&idp_config_url](const auto& account) {
+      return account->identity_provider->idp_metadata.config_url ==
+             idp_config_url;
+    });
+    std::erase_if(filtered_accounts_, [&idp_config_url](const auto& account) {
       return account->identity_provider->idp_metadata.config_url ==
              idp_config_url;
     });
@@ -1042,6 +1062,7 @@ void RequestService::MaybeShowAccountsDialog() {
   // This map may have contents already if we came here through the "Add
   // Account" flow or the IDP login mismatch in multiple IDP case.
   idp_data_for_display_.clear();
+  filtered_accounts_.clear();
 
   for (const auto& idp : idp_order_) {
     auto idp_info_it = idp_infos_.find(idp);
@@ -1055,8 +1076,16 @@ void RequestService::MaybeShowAccountsDialog() {
                        std::make_move_iterator(accounts_it->second.begin()),
                        std::make_move_iterator(accounts_it->second.end()));
     }
+    auto filtered_it = idp_filtered_accounts_.find(idp);
+    if (filtered_it != idp_filtered_accounts_.end()) {
+      filtered_accounts_.insert(
+          filtered_accounts_.end(),
+          std::make_move_iterator(filtered_it->second.begin()),
+          std::make_move_iterator(filtered_it->second.end()));
+    }
   }
   idp_accounts_.clear();
+  idp_filtered_accounts_.clear();
 
   std::stable_sort(
       accounts_.begin(), accounts_.end(),
@@ -1277,7 +1306,7 @@ void RequestService::MaybeShowAccountsDialog() {
   } else {
     if (!request_dialog_controller_->ShowAccountsDialog(
             CreateRpData(/*client_metadata_received=*/true),
-            idp_data_for_display_, accounts_, rp_mode_,
+            idp_data_for_display_, accounts_, filtered_accounts_, rp_mode_,
             base::BindOnce(&RequestService::OnAccountSelected,
                            weak_ptr_factory_.GetWeakPtr()),
             base::BindRepeating(&RequestService::LoginToIdP,
@@ -1383,7 +1412,8 @@ void RequestService::NotifyAutofillSuggestionAccepted(
   }
   if (!request_dialog_controller_->ShowAccountsDialog(
           CreateRpData(/*client_metadata_received=*/true),
-          idp_data_for_display_, selected, blink::mojom::RpMode::kActive,
+          idp_data_for_display_, selected, filtered_accounts_,
+          blink::mojom::RpMode::kActive,
           base::BindOnce(&RequestService::OnAccountSelected,
                          weak_ptr_factory_.GetWeakPtr()),
           base::BindRepeating(&RequestService::LoginToIdP,
@@ -1470,7 +1500,7 @@ void RequestService::ShowSingleIdpFailureDialog() {
   if (!request_dialog_controller_->ShowFailureDialog(
           CreateRpData(/*client_metadata_received=*/true),
           FormatOriginForDisplay(idp_origin), idp_info->rp_context, rp_mode_,
-          idp_info->metadata,
+          idp_info->metadata, filtered_accounts_,
           base::BindOnce(&RequestService::OnDismissFailureDialog,
                          weak_ptr_factory_.GetWeakPtr()),
           base::BindRepeating(&RequestService::LoginToIdP,
@@ -1553,9 +1583,12 @@ void RequestService::OnAccountSelected(const GURL& idp_config_url,
       &RequestService::OnContinueOnResponseReceived,
       weak_ptr_factory_.GetWeakPtr(), idp_info.provider->Clone());
 
-  IdpNetworkRequestManager::RedirectToCallback redirect_to = base::BindOnce(
-      &RequestService::OnRedirectToResponseReceived,
-      weak_ptr_factory_.GetWeakPtr(), idp_info.provider->Clone());
+  IdpNetworkRequestManager::RedirectToCallback redirect_to;
+  if (IsNavigationInterceptionEnabled()) {
+    redirect_to = base::BindOnce(&RequestService::OnRedirectToResponseReceived,
+                                 weak_ptr_factory_.GetWeakPtr(),
+                                 idp_info.provider->Clone());
+  }
 
   std::vector<std::string> disclosure_shown_for;
   if (!is_sign_in) {
@@ -1789,12 +1822,16 @@ void RequestService::OnContinueOnResponseReceived(
 void RequestService::OnRedirectToResponseReceived(
     IdentityProviderRequestOptionsPtr idp,
     FetchStatus status,
-    const GURL& redirect_to) {
-  RedirectTo(idp->config->config_url, redirect_to);
+    blink::mojom::FedCmRedirectMethod method,
+    const GURL& redirect_to,
+    const std::string& request_body) {
+  RedirectTo(idp->config->config_url, method, redirect_to, request_body);
 }
 
 void RequestService::RedirectTo(const GURL& idp_config_url,
-                                const GURL& redirect_to) {
+                                blink::mojom::FedCmRedirectMethod method,
+                                const GURL& redirect_to,
+                                const std::string& request_body) {
   // Navigate the top-level frame to the URL specified by the IdP.
   //
   // This is done here rather than in the callers of the RequestService because
@@ -1823,6 +1860,14 @@ void RequestService::RedirectTo(const GURL& idp_config_url,
 
   content::NavigationController::LoadURLParams params(redirect_to);
   params.transition_type = ui::PAGE_TRANSITION_LINK;
+  if (method == blink::mojom::FedCmRedirectMethod::kPost) {
+    params.transition_type = ui::PAGE_TRANSITION_FORM_SUBMIT;
+    params.load_type = NavigationController::LOAD_TYPE_HTTP_POST;
+    params.post_data = network::ResourceRequestBody::CreateFromCopyOfBytes(
+        base::as_byte_span(request_body));
+    params.extra_headers =
+        "Content-Type: application/x-www-form-urlencoded\r\n";
+  }
   web_contents->GetController().LoadURLWithParams(params);
 
   // TODO(crbug.com/474120843): Introduce a more specific success enum value
@@ -1910,18 +1955,31 @@ void RequestService::OnTokenResponseReceived(
 
 void RequestService::MarkUserAsSignedIn(const GURL& idp_config_url,
                                         const std::string& account_id) {
+  CHECK(!account_id_.empty());
   // Auto re-authentication can only be triggered when there's already a
   // sharing permission OR the IdP is exempted with 3PC access. Either way
   // we shouldn't explicitly grant permission here.
-  CHECK(!account_id_.empty());
-  if (identity_selection_type_ == kExplicit) {
-    permission_delegate_->GrantSharingPermission(
-        origin(), GetEmbeddingOrigin(), url::Origin::Create(idp_config_url),
-        account_id);
-  } else {
+  if (identity_selection_type_ == kAutoPassive ||
+      identity_selection_type_ == kAutoActive) {
     permission_delegate_->RefreshExistingSharingPermission(
         origin(), GetEmbeddingOrigin(), url::Origin::Create(idp_config_url),
         account_id);
+  } else {
+    // A sharing permission should only be granted after we explicitly ask for
+    // user permission to sign in. It has a high bar because its extensive
+    // capability such as storage access auto-grant. If a login request is
+    // initiated by the embedder, a deemed sign-in user may have not granted
+    // such permission via a FedCM flow yet so we skip granting the sharing
+    // permission in this case.
+    CHECK_EQ(identity_selection_type_, kExplicit);
+    FederatedEmbedderLoginRequest* embedder_login_request =
+        FederatedEmbedderLoginRequest::Get(
+            WebContents::FromRenderFrameHost(&render_frame_host()));
+    if (!embedder_login_request) {
+      permission_delegate_->GrantSharingPermission(
+          origin(), GetEmbeddingOrigin(), url::Origin::Create(idp_config_url),
+          account_id);
+    }
   }
 
   SetRequiresUserMediation(false, base::DoNothing());
@@ -2019,7 +2077,7 @@ void RequestService::CompleteRequest(
     // request, even if the callback is delayed.
     RecordMetricsAndConsoleError(result, token_status, selected_idp_config_url);
     request_dialog_controller_->OnFlowCompleted(
-        result == FederatedAuthRequestResult::kSuccess);
+        FederatedAuthRequestResultToFederatedLoginResult(result));
     if (token_received_callback_for_autofill_) {
       std::move(token_received_callback_for_autofill_)
           .Run(result == FederatedAuthRequestResult::kSuccess);
@@ -2344,7 +2402,9 @@ void RequestService::OnClose() {
 
 bool RequestService::OnResolve(GURL idp_config_url,
                                const std::optional<std::string>& account_id,
+                               blink::mojom::FedCmRedirectMethod method,
                                const std::optional<GURL>& redirect_to,
+                               const std::string& request_body,
                                const base::Value& token) {
   // Close the pop-up window post user permission.
   if (!request_dialog_controller_) {
@@ -2374,7 +2434,7 @@ bool RequestService::OnResolve(GURL idp_config_url,
 
   if (redirect_to && redirect_to->is_valid() &&
       IsNavigationInterceptionEnabled()) {
-    RedirectTo(idp_config_url, *redirect_to);
+    RedirectTo(idp_config_url, method, *redirect_to, request_body);
     return true;
   }
 

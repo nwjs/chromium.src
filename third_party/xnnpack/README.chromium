@@ -2,7 +2,7 @@ Name: XNNPACK
 Short Name: xnnpack
 URL: https://github.com/google/xnnpack
 Version: N/A
-Revision: 4574c4d9b00703c15f2218634ddf101597b22b18
+Revision: 26feacc3ebe30d1f3a82e1ff3938ef9859d74640
 Update Mechanism: Manual
 License: BSD-3-Clause
 License File: src/LICENSE

@@ -5,6 +5,7 @@
 #ifndef UI_ANDROID_OVERSCROLL_REFRESH_HANDLER_H_
 #define UI_ANDROID_OVERSCROLL_REFRESH_HANDLER_H_
 
+#include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
 #include "ui/android/overscroll_refresh.h"
 #include "ui/android/ui_android_export.h"
@@ -16,6 +17,9 @@ class UI_ANDROID_EXPORT OverscrollRefreshHandler {
  public:
   explicit OverscrollRefreshHandler(
       const base::android::JavaRef<jobject>& j_overscroll_refresh_handler);
+
+  OverscrollRefreshHandler(const OverscrollRefreshHandler&) = delete;
+  OverscrollRefreshHandler& operator=(const OverscrollRefreshHandler&) = delete;
 
   // Note: the following methods are virtual because this class is overridden
   // for testing in overscroll_refresh_unittest.cc
@@ -40,7 +44,10 @@ class UI_ANDROID_EXPORT OverscrollRefreshHandler {
   virtual void PullReset();
 
  private:
-  base::android::ScopedJavaGlobalRef<jobject> j_overscroll_refresh_handler_;
+  base::android::ScopedJavaLocalRef<jobject> GetRefreshHandlerChecked(
+      JNIEnv* env) const;
+
+  bool has_handler_ = false;
 };
 
 }  // namespace ui

@@ -67,7 +67,10 @@ enum class AutofillAiAction {
   kUseCachedServerClassificationModelResults,
   // Whether the user can store entities in the Google Wallet server.
   kImportToWallet,
-  kMaxValue = kImportToWallet,
+  // Whether the user should see a promotion to allow Wallet to share data with
+  // Chrome.
+  kWalletDataSharingPromotion,
+  kMaxValue = kWalletDataSharingPromotion,
 };
 
 // Opt-in status for the AutofillAI feature.
@@ -115,7 +118,7 @@ bool MayPerformAutofillAiAction(
     const EntityDataManager* edm,
     const signin::IdentityManager* identity_manager,
     const syncer::SyncService* sync_service,
-    bool is_wallet_storage_enabled,
+    bool is_wallet_public_pass_storage_enabled,
     bool is_off_the_record,
     const GeoIpCountryCode& country_code,
     AutofillAiAction action,
@@ -156,7 +159,7 @@ bool SetAutofillAiOptInStatus(
     const EntityDataManager* edm,
     const signin::IdentityManager* identity_manager,
     const syncer::SyncService* sync_service,
-    bool is_wallet_storage_enabled,
+    bool is_wallet_public_pass_storage_enabled,
     bool is_off_the_record,
     const GeoIpCountryCode& country_code,
     AutofillAiOptInStatus opt_in_status);
@@ -167,6 +170,15 @@ bool SetAutofillAiOptInStatus(
 [[nodiscard]] bool HasSetLocalAutofillAiOptInStatus(
     const PrefService* prefs,
     const signin::IdentityManager* identity_manager);
+
+// Checks whether Autofill AI is disabled by enterprise policy.
+[[nodiscard]] bool IsAutofillAiDisabledByEnterprisePolicy(
+    const PrefService* prefs);
+
+// Checks whether Autofill AI is enabled by enterprise policy but without
+// logging.
+[[nodiscard]] bool IsAutofillAiEnabledByEnterprisePolicyWithoutLogging(
+    const PrefService* prefs);
 
 }  // namespace autofill
 

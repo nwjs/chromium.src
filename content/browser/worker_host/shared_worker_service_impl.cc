@@ -429,6 +429,7 @@ SharedWorkerHost* SharedWorkerServiceImpl::CreateWorker(
          worker_origin == host->instance().storage_key().origin())
       << worker_origin << " and " << host->instance().storage_key().origin()
       << " should be the same.";
+
   WorkerScriptFetcher::CreateAndStart(
       worker_process_host->GetDeprecatedID(), host->token(),
       host->instance().url(), creator, &creator,
@@ -445,7 +446,8 @@ SharedWorkerHost* SharedWorkerServiceImpl::CreateWorker(
       storage_partition_, storage_domain,
       SharedWorkerDevToolsAgentHost::GetFor(host), host->GetDevToolsToken(),
       host->instance().DoesRequireCrossSiteRequestForCookies(),
-      storage_access_api_status,
+      storage_access_api_status, host->network_restrictions_id(),
+      creator.GetNetworkRestrictionsID(), host->creator_policies().Clone(),
       base::BindOnce(&SharedWorkerServiceImpl::StartWorker,
                      weak_factory_.GetWeakPtr(), weak_host, message_port,
                      std::move(cloned_outside_fetch_client_settings_object)));

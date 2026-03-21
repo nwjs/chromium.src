@@ -3,31 +3,42 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <optional>
+#include <utility>
 
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/extensions/context_menu_matcher.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/menu_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/renderer_context_menu/render_view_context_menu.h"
-#include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/extensions/api/context_menus.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/test/result_catcher.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/base/models/menu_model.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/extensions/extension_menu_model_android.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/renderer_context_menu/render_view_context_menu.h"
+#include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
 namespace extensions {
 
@@ -57,9 +68,12 @@ class ExtensionContextMenuApiTestWithContextType
       const ExtensionContextMenuApiTestWithContextType&) = delete;
 };
 
+// Android only supports service worker.
+#if !BUILDFLAG(IS_ANDROID)
 INSTANTIATE_TEST_SUITE_P(PersistentBackground,
                          ExtensionContextMenuApiTestWithContextType,
                          ::testing::Values(ContextType::kPersistentBackground));
+#endif
 INSTANTIATE_TEST_SUITE_P(ServiceWorker,
                          ExtensionContextMenuApiTestWithContextType,
                          ::testing::Values(ContextType::kServiceWorker));
@@ -69,9 +83,12 @@ INSTANTIATE_TEST_SUITE_P(ServiceWorker,
 using ExtensionContextMenuApiLazyTest =
     ExtensionContextMenuApiTestWithContextType;
 
+// Android only supports service worker.
+#if !BUILDFLAG(IS_ANDROID)
 INSTANTIATE_TEST_SUITE_P(EventPage,
                          ExtensionContextMenuApiLazyTest,
                          ::testing::Values(ContextType::kEventPage));
+#endif
 INSTANTIATE_TEST_SUITE_P(ServiceWorker,
                          ExtensionContextMenuApiLazyTest,
                          ::testing::Values(ContextType::kServiceWorker));
@@ -97,16 +114,16 @@ IN_PROC_BROWSER_TEST_P(ExtensionContextMenuApiTestWithContextType,
   {
     // Tell the extension to update the page action state.
     ResultCatcher catcher;
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(), extension->GetResourceURL("popup.html")));
+    ASSERT_TRUE(NavigateToURL(GetActiveWebContents(),
+                              extension->GetResourceURL("popup.html")));
     ASSERT_TRUE(catcher.GetNextResult());
   }
 
   {
     // Tell the extension to update the page action state again.
     ResultCatcher catcher;
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(
-        browser(), extension->GetResourceURL("popup2.html")));
+    ASSERT_TRUE(NavigateToURL(GetActiveWebContents(),
+                              extension->GetResourceURL("popup2.html")));
     ASSERT_TRUE(catcher.GetNextResult());
   }
 }
@@ -139,7 +156,12 @@ class ExtensionContextMenuVisibilityApiTest
   void TearDownOnMainThread() override {
     // Depends on `menu_` so must be cleared before it is destroyed.
     top_level_model_ = nullptr;
+#if BUILDFLAG(IS_ANDROID)
+    extension_menu_model_.reset();
+#else
     menu_.reset();
+#endif
+    extension_ = nullptr;
     ExtensionContextMenuApiTest::TearDownOnMainThread();
   }
 
@@ -148,26 +170,39 @@ class ExtensionContextMenuVisibilityApiTest
         test_data_dir_.AppendASCII("context_menus/item_visibility/"));
   }
 
-  // Sets up the top-level model, which is the list of menu items (both related
-  // and unrelated to extensions) that is passed to UI code to be displayed.
+  // Sets up the top-level model that is passed to UI code to be displayed. On
+  // Android these are only extensions-related items, whereas on Win/Mac/Linux
+  // this includes general context menu items as well.
   bool SetupTopLevelMenuModel() {
-    content::RenderFrameHost* frame = browser()
-                                          ->tab_strip_model()
-                                          ->GetActiveWebContents()
-                                          ->GetPrimaryMainFrame();
+    content::RenderFrameHost* frame =
+        GetActiveWebContents()->GetPrimaryMainFrame();
     content::ContextMenuParams params;
     params.page_url = frame->GetLastCommittedURL();
 
+#if BUILDFLAG(IS_ANDROID)
+    extension_menu_model_ =
+        std::make_unique<ExtensionMenuModel>(*frame, params);
+    extension_menu_model_->PopulateModel();
+    top_level_model_ = extension_menu_model_.get();
+    top_level_index_ = 0;
+    bool valid_setup = true;
+#else
     // Create context menu.
     menu_ = std::make_unique<TestRenderViewContextMenu>(*frame, params);
     menu_->Init();
 
     // Get menu model.
-    bool valid_setup = menu_->GetMenuModelAndItemIndex(
-        menu_->extension_items().ConvertToExtensionsCustomCommandId(0),
-        &top_level_model_, &top_level_index_);
-
+    std::optional<std::pair<ui::MenuModel*, size_t>> model_and_index =
+        menu_->GetMenuModelAndItemIndex(
+            menu_->extension_items().ConvertToExtensionsCustomCommandId(0));
+    CHECK(model_and_index);
+    top_level_model_ = model_and_index->first;
+    top_level_index_ = model_and_index->second;
+    EXPECT_TRUE(top_level_model_);
     EXPECT_GT(top_level_index(), 0u);
+    // TODO: Eliminate this variable.
+    bool valid_setup = true;
+#endif  // BUILDFLAG(IS_ANDROID)
 
     return valid_setup;
   }
@@ -195,11 +230,19 @@ class ExtensionContextMenuVisibilityApiTest
   }
 
   // Verifies that the context menu is valid and contains the given number of
-  // menu items, |num_items|.
+  // menu items, |num_items|. Note that this includes items manually added by
+  // extensions, but not the automatically added extension name, if present.
   void VerifyNumContextMenuItems(size_t num_items) {
-    ASSERT_TRUE(menu());
+#if BUILDFLAG(IS_ANDROID)
+    ASSERT_TRUE(extension_menu_model_);
+    size_t items_in_menu =
+        extension_menu_model_->matcher_for_test().extension_item_map().size();
+    EXPECT_EQ(num_items, items_in_menu);
+#else
+    ASSERT_TRUE(menu_);
     EXPECT_EQ(num_items,
               (menu_->extension_items().extension_item_map().size()));
+#endif  // BUILDFLAG(IS_ANDROID)
   }
 
   // Verifies a context menu item's visibility, title, and item type.
@@ -215,8 +258,6 @@ class ExtensionContextMenuVisibilityApiTest
 
   size_t top_level_index() const { return top_level_index_; }
 
-  TestRenderViewContextMenu* menu() { return menu_.get(); }
-
   const Extension* extension() { return extension_; }
 
   raw_ptr<ui::MenuModel> top_level_model_ = nullptr;
@@ -230,8 +271,16 @@ class ExtensionContextMenuVisibilityApiTest
 
   ProcessManager* process_manager() { return ProcessManager::Get(profile()); }
 
-  raw_ptr<const Extension, DanglingUntriaged> extension_ = nullptr;
+  raw_ptr<const Extension> extension_ = nullptr;
+#if BUILDFLAG(IS_ANDROID)
+  // Contains only the extension menu items.
+  std::unique_ptr<ExtensionMenuModel> extension_menu_model_;
+#else
+  // Contains Chrome context menu items and extension menu items.
   std::unique_ptr<TestRenderViewContextMenu> menu_;
+#endif
+  // Where the extension items start in the menu. Always 0 on Android because
+  // the menu only contains extension items.
   size_t top_level_index_ = 0;
 };
 
@@ -288,10 +337,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuVisibilityApiTest,
   VerifyMenuItem("parent", top_level_model_, top_level_index(),
                  ui::MenuModel::TYPE_SUBMENU, false);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Since the extension submenu is hidden, the previous separator should not be
-  // in the model.
+  // in the model. On Android top_level_index() is 0 so we don't test this.
   EXPECT_NE(ui::MenuModel::TYPE_SEPARATOR,
             top_level_model_->GetTypeAt(top_level_index() - 1));
+#endif
 
   ui::MenuModel* submodel =
       top_level_model_->GetSubmenuModelAt(top_level_index());
@@ -318,10 +369,12 @@ IN_PROC_BROWSER_TEST_F(ExtensionContextMenuVisibilityApiTest,
   VerifyMenuItem("parent", top_level_model_, top_level_index(),
                  ui::MenuModel::TYPE_SUBMENU, false);
 
+#if !BUILDFLAG(IS_ANDROID)
   // Since the extension submenu is hidden, the previous separator should not be
-  // in the model.
+  // in the model. On Android top_level_index() is 0 so we don't test this.
   EXPECT_NE(ui::MenuModel::TYPE_SEPARATOR,
             top_level_model_->GetTypeAt(top_level_index() - 1));
+#endif
 
   ui::MenuModel* submodel =
       top_level_model_->GetSubmenuModelAt(top_level_index());

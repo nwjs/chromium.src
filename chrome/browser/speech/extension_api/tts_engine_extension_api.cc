@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/webui/settings/public/constants/routes_util.h"
 #include "base/compiler_specific.h"
 #include "base/no_destructor.h"
 #include "base/strings/utf_string_conversions.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api.h"
 #include "chrome/browser/speech/extension_api/tts_extension_api_constants.h"
-#include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -233,7 +233,7 @@ bool CanUseEnhancedNetworkVoices(const GURL& source_url, Profile* profile) {
   // Currently only Select-to-speak and its settings page can use Enhanced
   // Network voices.
   if (source_url.GetHost() != extension_misc::kSelectToSpeakExtensionId &&
-      source_url != chrome::GetOSSettingsUrl(
+      source_url != chromeos::settings::GetOSSettingsUrl(
                         chromeos::settings::mojom::kSelectToSpeakSubpagePath)) {
     return false;
   }
@@ -515,7 +515,7 @@ base::ListValue TtsExtensionEngine::BuildSpeakArgs(
 
   // Get the volume, pitch, and rate, but only if they weren't already in
   // the options. TODO(dmazzoni): these shouldn't be redundant.
-  // http://crbug.com/463264
+  // http://crbug.com/41160370
   if (!options.Find(constants::kRateKey)) {
     options.Set(constants::kRateKey, utterance->GetContinuousParameters().rate);
   }

@@ -34,13 +34,22 @@ import org.chromium.ui.util.MotionEventUtils;
 
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Class used to forward view, input events down to native. */
 @JNINamespace("ui")
 @NullMarked
 public class EventForwarder {
     private static final String TAG = "EventForwarder";
+
+    // Using ScopedJavaGlobalRef in the owning C++ object to keep the Java object alive consumes an
+    // entry per instance in the finite global ref table. This scales poorly with a large number of
+    // WebContents. As a workaround, the C++ owner uses a JavaObjectWeakGlobalRef and an entry is
+    // kept in the a static map of the native pointer to Java objects to prevent garbage collection.
+    private static final Map<Long, EventForwarder> sEventForwarders = new HashMap<>();
+
     private final boolean mIsDragDropEnabled;
     private final boolean mConvertTrackpadEventsToMouse;
     private final boolean mUseBufferedInput;
@@ -56,6 +65,7 @@ public class EventForwarder {
     private long mNativeEventForwarder;
 
     // Offset for the events that passes through.
+    private float mCurrentTouchOffsetX;
     private float mCurrentTouchOffsetY;
 
     // Offset for the drag events that's dispatching through other views.
@@ -137,15 +147,22 @@ public class EventForwarder {
         mConvertTrackpadEventsToMouse = convertTrackpadEventsToMouse;
         mUseBufferedInput = useBufferedInput;
         mVelocityTracker = VelocityTracker.obtain();
+        var oldValue = sEventForwarders.put(nativeEventForwarder, this);
+        assert oldValue == null;
     }
 
     @CalledByNative
-    private void destroy() {
-        mNativeEventForwarder = 0;
+    @VisibleForTesting
+    public void destroy() {
+        if (mNativeEventForwarder != 0) {
+            var oldValue = sEventForwarders.remove(mNativeEventForwarder);
+            assert oldValue == this;
+            mNativeEventForwarder = 0;
+        }
     }
 
     private boolean hasTouchEventOffset() {
-        return mCurrentTouchOffsetY != 0.0f;
+        return mCurrentTouchOffsetX != 0.0f || mCurrentTouchOffsetY != 0.0f;
     }
 
     // These values are persisted to logs. Entries should not be renumbered and
@@ -167,7 +184,7 @@ public class EventForwarder {
         int COUNT = 5;
     }
 
-    private static final void logActionDown(MotionEvent event) {
+    private static void logActionDown(MotionEvent event) {
         @InputDeviceSource int source = InputDeviceSource.OTHER;
         if (event.isFromSource(InputDevice.SOURCE_MOUSE)
                 && event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
@@ -253,6 +270,11 @@ public class EventForwarder {
             }
         }
         return false;
+    }
+
+    @CalledByNative
+    private float getWebContentsOffsetXInWindow() {
+        return mCurrentTouchOffsetX;
     }
 
     @CalledByNative
@@ -345,7 +367,18 @@ public class EventForwarder {
     }
 
     /**
-     * Sets the current amount to offset incoming touch events by (including MotionEvent and
+     * Sets the current amount to X offset incoming touch events by (including MotionEvent and
+     * DragEvent). This is used to handle content moving and not lining up properly with the android
+     * input system.
+     *
+     * @param dx The X offset in pixels to shift touch events.
+     */
+    public void setCurrentTouchOffsetX(float dx) {
+        mCurrentTouchOffsetX = dx;
+    }
+
+    /**
+     * Sets the current amount to Y offset incoming touch events by (including MotionEvent and
      * DragEvent). This is used to handle content moving and not lining up properly with the android
      * input system.
      *
@@ -377,7 +410,7 @@ public class EventForwarder {
     public MotionEvent createOffsetMotionEventIfNeeded(MotionEvent src) {
         if (!hasTouchEventOffset()) return src;
         MotionEvent dst = MotionEvent.obtain(src);
-        dst.offsetLocation(/* deltaX= */ 0, mCurrentTouchOffsetY);
+        dst.offsetLocation(mCurrentTouchOffsetX, mCurrentTouchOffsetY);
         return dst;
     }
 
@@ -512,15 +545,15 @@ public class EventForwarder {
         float deltaY = 0;
         // Convert trackpad scroll to mouse wheel event.
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
-            mLastTrackpadScrollStartX = event.getX();
+            mLastTrackpadScrollStartX = event.getX() + mCurrentTouchOffsetX;
             mLastTrackpadScrollStartY = event.getY() + mCurrentTouchOffsetY;
-            mLastTrackpadScrollStartRawX = event.getRawX();
+            mLastTrackpadScrollStartRawX = event.getRawX() + mCurrentTouchOffsetX;
             mLastTrackpadScrollStartRawY = event.getRawY() + mCurrentTouchOffsetY;
         } else {
-            deltaX = event.getX() - mLastTrackpadScrollX;
+            deltaX = event.getX() + mCurrentTouchOffsetX - mLastTrackpadScrollX;
             deltaY = event.getY() + mCurrentTouchOffsetY - mLastTrackpadScrollY;
         }
-        mLastTrackpadScrollX = event.getX();
+        mLastTrackpadScrollX = event.getX() + mCurrentTouchOffsetX;
         mLastTrackpadScrollY = event.getY() + mCurrentTouchOffsetY;
 
         // Fling detection. Start fling at the end of scroll if the accumulated velocity is higher
@@ -533,7 +566,13 @@ public class EventForwarder {
             float velocityY = mVelocityTracker.getYVelocity();
             if (Math.abs(velocityX) > MIN_FLING_VELOCITY
                     || Math.abs(velocityY) > MIN_FLING_VELOCITY) {
-                startFling(event.getEventTime(), velocityX, velocityY, false, false, true);
+                // Trackpad scroll events are handled by manually calculating deltas from raw
+                // coordinates. These calculations produce Cartesian deltas (Swipe Right = +X).
+                // However, Chrome expects touchpad events to follow "natural" scrolling conventions
+                // (where Swipe Right = Scroll Left = -X). We negate the calculated velocityX and
+                // deltaX to ensure horizontal trackpad scrolling moves content in the correct
+                // direction.
+                startFling(event.getEventTime(), -velocityX, velocityY, false, false, true);
                 return;
             }
         }
@@ -543,6 +582,7 @@ public class EventForwarder {
             cancelFling(event.getEventTime(), true);
         }
 
+        // Negate deltaX as explained above for trackpad scroll events.
         EventForwarderJni.get()
                 .onMouseWheelEvent(
                         mNativeEventForwarder,
@@ -552,7 +592,7 @@ public class EventForwarder {
                         mLastTrackpadScrollStartY,
                         mLastTrackpadScrollStartRawX,
                         mLastTrackpadScrollStartRawY,
-                        deltaX,
+                        -deltaX,
                         deltaY);
     }
 
@@ -687,7 +727,7 @@ public class EventForwarder {
         containerView.getLocationOnScreen(locationOnScreen);
 
         // All coordinates are in device pixel. Conversion to DIP happens in the native.
-        float x = event.getX() + mDragDispatchingOffsetX;
+        float x = event.getX() + mCurrentTouchOffsetX + mDragDispatchingOffsetX;
         float y = event.getY() + mCurrentTouchOffsetY + mDragDispatchingOffsetY;
         float screenX = x + locationOnScreen[0];
         float screenY = y + locationOnScreen[1];
@@ -902,6 +942,11 @@ public class EventForwarder {
                         timeMs,
                         /* preventBoosting= */ true,
                         isTouchpadEvent);
+    }
+
+    @CalledByNative
+    public static @Nullable EventForwarder getJavaObject(long nativeEventForwarder) {
+        return sEventForwarders.get(nativeEventForwarder);
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)

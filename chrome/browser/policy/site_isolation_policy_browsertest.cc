@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/test/scoped_amount_of_physical_memory_override.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -234,11 +235,11 @@ IN_PROC_BROWSER_TEST_F(NoOverrideSitePerProcessPolicyBrowserTest, Simple) {
   CheckExpectations(expectations);
 }
 
-// After https://crbug.com/910273 was fixed, enterprise policy can only be used
-// to disable Site Isolation on Android - the
+// After https://crbug.com/41429044 was fixed, enterprise policy can only be
+// used to disable Site Isolation on Android - the
 // SitePerProcessPolicyBrowserTestFieldTrialTest tests should not be run on any
 // other platform.  Note that browser_tests won't run on Android until
-// https://crbug.com/611756 is fixed.
+// https://crbug.com/40469222 is fixed.
 #if BUILDFLAG(IS_ANDROID)
 class SitePerProcessPolicyBrowserTestFieldTrialTest
     : public SitePerProcessPolicyBrowserTestDisabled {
@@ -337,6 +338,13 @@ IN_PROC_BROWSER_TEST_F(SiteIsolationPolicyBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(SiteIsolationPolicyBrowserTest,
                        NoPolicy_AdvancedProtection_LowRam) {
+  // This test relies on site isolation memory thresholds being enabled. Skip
+  // if that feature is disable.
+  if (!base::FeatureList::IsEnabled(
+          site_isolation::features::
+              kSiteIsolationEnableMemoryThresholdAndroid)) {
+    GTEST_SKIP();
+  }
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   // Skip this test if the --site-per-process switch is present (e.g. on Site
   // Isolation Android chromium.fyi bot).

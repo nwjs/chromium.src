@@ -112,15 +112,6 @@ export class DataSectionElement extends DataSectionElementBase {
     }
   }
 
-  override firstUpdated() {
-    // Compute the animation duration/intervals once on startup.
-    this.collapseAnimationDuration_ =
-        parseInt(getComputedStyle(this).getPropertyValue(
-            '--collapse-transition-duration'));
-    this.intervalDurationOfUpdateHeightRequests_ =
-        this.collapseAnimationDuration_ / UPDATE_REQUEST_COUNT;
-  }
-
   override async willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
@@ -157,6 +148,15 @@ export class DataSectionElement extends DataSectionElementBase {
         }
       }
     }
+  }
+
+  override firstUpdated() {
+    // Compute the animation duration/intervals once on startup.
+    this.collapseAnimationDuration_ =
+        parseInt(getComputedStyle(this).getPropertyValue(
+            '--collapse-transition-duration'));
+    this.intervalDurationOfUpdateHeightRequests_ =
+        this.collapseAnimationDuration_ / UPDATE_REQUEST_COUNT;
   }
 
   // Initializes the output variable based on the input.
@@ -212,13 +212,13 @@ export class DataSectionElement extends DataSectionElementBase {
   }
 
   // Needs to react to both property change (through a reset) and user action.
-  protected onExpandChanged_(e: CustomEvent<{value: boolean}>) {
+  protected onExpandedChanged_(e: CustomEvent<{value: boolean}>) {
     this.expanded_ = e.detail.value;
   }
 
   // Needs to react to both property change (through a reset caused from all
   // checkboxes being unselected) and user action.
-  protected onToggleChanged_(e: CustomEvent<{value: boolean}>) {
+  protected onToggleCheckedChanged_(e: CustomEvent<{value: boolean}>) {
     this.resetWithState_(/*disabled=*/ !e.detail.value);
 
     // Notify the parent with the new toggle value.
@@ -239,7 +239,7 @@ export class DataSectionElement extends DataSectionElementBase {
     return this.dataSelected.has(itemId);
   }
 
-  protected onCheckedChanged_(e: CustomEvent<boolean>) {
+  protected onCheckboxChange_(e: CustomEvent<boolean>) {
     const currentTarget = e.currentTarget as HTMLElement;
     const itemId = Number(currentTarget.dataset['id']);
 
@@ -264,7 +264,7 @@ export class DataSectionElement extends DataSectionElementBase {
         'itemCountSelectedScreenReader', this.dataSelectedCount_));
   }
 
-  protected onCheckboxFocused_(e: Event) {
+  protected onCheckboxFocus_(e: Event) {
     const currentTarget = e.currentTarget as HTMLElement;
     const itemId = Number(currentTarget.dataset['id']);
 

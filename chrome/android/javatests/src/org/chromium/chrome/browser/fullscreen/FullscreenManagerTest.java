@@ -16,6 +16,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -121,11 +122,11 @@ public class FullscreenManagerTest {
     private static final String SCROLL_OFFSET_TEST_PAGE =
             UrlUtils.encodeHtmlDataUri(
                     "<html><head>  <meta name=viewport content='width=device-width,"
-                        + " initial-scale=1.0'></head><body style='margin: 0; height: 200vh'>  <div"
-                        + " style='width: 150vw'>wide</div>  <script>    load_promise = new"
-                        + " Promise(r => {onload = r});    resize_promise = null;    reached_bottom"
-                        + " = () => {      return Math.abs(        (se => se.scrollHeight -"
-                        + " (se.scrollTop + visualViewport.offsetTop +         "
+                        + " initial-scale=1.0, viewport-fit=cover'></head><body style='margin: 0;"
+                        + " height: 200vh'>  <div style='width: 150vw'>wide</div>  <script>   "
+                        + " load_promise = new Promise(r => {onload = r});    resize_promise ="
+                        + " null;    reached_bottom = () => {      return Math.abs(        (se =>"
+                        + " se.scrollHeight - (se.scrollTop + visualViewport.offsetTop +         "
                         + " visualViewport.height))(document.scrollingElement)      ) < 1;    };   "
                         + " start_listening_for_on_resize = () => {      resize_promise = new"
                         + " Promise(r => {onresize = r});      return true;    };  </script></body>"
@@ -159,6 +160,13 @@ public class FullscreenManagerTest {
     public void setUp() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> TabStateBrowserControlsVisibilityDelegate.disablePageLoadDelayForTests());
+    }
+
+    @After
+    public void tearDown() {
+        // TODO(crbug.com/483420501): Fix NPE: Attempt to invoke virtual method 'getClass()' on a
+        // null object reference.
+        mActivityTestRule.skipWindowAndTabStateCleanup();
     }
 
     @Test
@@ -601,10 +609,10 @@ public class FullscreenManagerTest {
     @DisableFeatures({
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE,
-        ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN,
         // TODO(crbug.com/473893732): Update the test for lock top control or use restriction.
         ChromeFeatureList.LOCK_TOP_CONTROLS_ON_LARGE_TABLETS_V2
     })
+    // TODO(crbug.com/486204777): Add test accounting for the E2E bottom chin / browser controls.
     public void testHidingBrowserControlsPreservesScrollOffsetLegacy() throws TimeoutException {
         FullscreenManagerTestUtils.disableBrowserOverrides();
         WebPageStation page = mActivityTestRule.startOnUrl(SCROLL_OFFSET_TEST_PAGE);
@@ -653,8 +661,8 @@ public class FullscreenManagerTest {
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
-    @DisableFeatures(ChromeFeatureList.EDGE_TO_EDGE_BOTTOM_CHIN)
     @DisabledTest(message = "Flaky: crbug.com/475145490")
+    // TODO(crbug.com/486204777): Add test accounting for the E2E bottom chin / browser controls.
     public void testHidingBrowserControlsPreservesScrollOffset() throws TimeoutException {
         FullscreenManagerTestUtils.disableBrowserOverrides();
         WebPageStation page = mActivityTestRule.startOnUrl(SCROLL_OFFSET_TEST_PAGE);
@@ -930,7 +938,6 @@ public class FullscreenManagerTest {
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
-    @DisabledTest(message = "crbug.com/481488944")
     public void testEnterPendingPersistentFullscreen() {
         FullscreenManagerTestUtils.disableBrowserOverrides();
         WebPageStation page = mActivityTestRule.startOnUrl(LONG_FULLSCREEN_API_HTML_TEST_PAGE);
@@ -1308,7 +1315,6 @@ public class FullscreenManagerTest {
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION,
         ChromeFeatureList.FULLSCREEN_INSETS_API_MIGRATION_ON_AUTOMOTIVE
     })
-    @DisabledTest(message = "crbug.com/481488944")
     public void testFullscreenPageHeight() throws Throwable {
         launchOnFullscreenMode(LONG_HTML_TEST_PAGE, true);
         Assert.assertTrue(getPersistentFullscreenMode());

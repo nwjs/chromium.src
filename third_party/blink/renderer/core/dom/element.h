@@ -33,6 +33,7 @@
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_typedefs.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
@@ -52,8 +53,11 @@
 #include "third_party/blink/renderer/core/dom/names_map.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
+#include "third_party/blink/renderer/core/html/parser/fragment_parser_options.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/scroll/scoped_scroll_promise_resolver.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
+#include "third_party/blink/renderer/core/trustedtypes/trusted_types_names.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/transform_view.h"
@@ -78,7 +82,6 @@ class Vector2dF;
 
 namespace blink {
 
-class AnchorElementObserver;
 class AnchorPositionScrollData;
 class Animation;
 class AnimationTrigger;
@@ -134,6 +137,7 @@ class ScriptState;
 class ScriptValue;
 class ScrollIntoViewOptions;
 class ScrollMarkerGroupData;
+class ScrollResult;
 class ScrollMarkerPseudoElement;
 class ScrollToOptions;
 class SetHTMLOptions;
@@ -149,6 +153,7 @@ class StylePropertyMapReadOnly;
 class StyleRecalcContext;
 class StyleScopeData;
 class TextVisitor;
+class TrustedParserOptions;
 class V8UnionBooleanOrScrollIntoViewOptions;
 class V8UnionKeyframeAnimationOptionsOrUnrestrictedDouble;
 class V8UnionStringLegacyNullToEmptyStringOrTrustedHTML;
@@ -292,19 +297,6 @@ class CORE_EXPORT Element : public ContainerNode {
   Element(const QualifiedName& tag_name,
           Document*,
           ConstructionType = kCreateElement);
-
-  // ParseDeclarativeShadowRoots specifies whether declarative shadow roots
-  // should be parsed by the HTML parser.
-  enum class ParseDeclarativeShadowRoots {
-    kDontParse = 0,
-    kParse = 1,
-  };
-  // ForceHtml specifies whether the HTML parser should be used when parsing
-  // markup even if we are in an XML document.
-  enum class ForceHtml {
-    kDontForce = 0,
-    kForce = 1,
-  };
 
   // Animatable implementation.
   // https://drafts.csswg.org/web-animations-1/#the-animatable-interface-mixin
@@ -572,20 +564,20 @@ class CORE_EXPORT Element : public ContainerNode {
   virtual int scrollWidth();
   virtual int scrollHeight();
 
-  ScriptPromise<IDLUndefined> scrollIntoView(
+  ScriptPromise<ScrollResult> scrollIntoView(
       ScriptState* script_state,
       const V8UnionBooleanOrScrollIntoViewOptions* arg);
-  ScriptPromise<IDLUndefined> scrollIntoView(ScriptState* script_state,
+  ScriptPromise<ScrollResult> scrollIntoView(ScriptState* script_state,
                                              bool align_to_top = true);
-  ScriptPromise<IDLUndefined> scrollBy(ScriptState* script_state,
+  ScriptPromise<ScrollResult> scrollBy(ScriptState* script_state,
                                        double x,
                                        double y);
-  ScriptPromise<IDLUndefined> scrollBy(ScriptState* script_state,
+  ScriptPromise<ScrollResult> scrollBy(ScriptState* script_state,
                                        const ScrollToOptions*);
-  ScriptPromise<IDLUndefined> scrollTo(ScriptState* script_state,
+  ScriptPromise<ScrollResult> scrollTo(ScriptState* script_state,
                                        double x,
                                        double y);
-  ScriptPromise<IDLUndefined> scrollTo(ScriptState* script_state,
+  ScriptPromise<ScrollResult> scrollTo(ScriptState* script_state,
                                        const ScrollToOptions*);
 
   void scrollIntoViewForTesting(
@@ -594,7 +586,8 @@ class CORE_EXPORT Element : public ContainerNode {
   void scrollByForTesting(double x, double y);
   void scrollToForTesting(double x, double y);
 
-  bool SetScrollOffset(const ScrollToOptions*);
+  bool ScrollTo(const ScrollToOptions*,
+                std::unique_ptr<ScopedScrollPromiseResolver> = nullptr);
 
   // Returns the bounds of this Element, unclipped, in the coordinate space of
   // the local root's widget. That is, in the outermost main frame, this will
@@ -1039,7 +1032,8 @@ class CORE_EXPORT Element : public ContainerNode {
                                    bool clonable,
                                    const AtomicString& adopted_stylesheets,
                                    const AtomicString& reference_target,
-                                   const bool waiting_for_scoped_registry);
+                                   const bool waiting_for_scoped_registry,
+                                   const Vector<AtomicString>& markers);
 
   ShadowRoot& CreateUserAgentShadowRoot(
       SlotAssignmentMode = SlotAssignmentMode::kNamed);
@@ -1049,7 +1043,8 @@ class CORE_EXPORT Element : public ContainerNode {
                                        CustomElementRegistry*,
                                        bool serializable,
                                        bool clonable,
-                                       const AtomicString& reference_target);
+                                       const AtomicString& reference_target,
+                                       const Vector<AtomicString>& markers);
   // This version is for testing only, and allows easy attachment of a shadow
   // root, specifying only the type and none of the other arguments.
   ShadowRoot& AttachShadowRootForTesting(ShadowRootMode type);
@@ -1260,7 +1255,7 @@ class CORE_EXPORT Element : public ContainerNode {
       Element* new_focused_element,
       InputDeviceCapabilities* source_capabilities = nullptr);
 
-  static bool IsScrollCommand(CommandEventType command) {
+  static bool IsScrollByPageCommand(CommandEventType command) {
     return command == CommandEventType::kPageUp ||
            command == CommandEventType::kPageDown ||
            command == CommandEventType::kPageLeft ||
@@ -1287,15 +1282,15 @@ class CORE_EXPORT Element : public ContainerNode {
           command != CommandEventType::kNone);
 
     // Handle scroll commands
-    if (IsScrollCommand(command)) {
-      return HandleScrollCommand(command);
+    if (IsScrollByPageCommand(command)) {
+      return HandleScrollByPageCommand(command);
     }
 
     return false;
   }
 
   // Helper method to handle scroll commands
-  bool HandleScrollCommand(CommandEventType command);
+  bool HandleScrollByPageCommand(CommandEventType command);
 
   // These are slightly different than e.g. checking popover->popoverOpen(),
   // because they also catch the case where the element *was* open as a popover
@@ -1400,9 +1395,9 @@ class CORE_EXPORT Element : public ContainerNode {
   void insertAdjacentText(const String& where,
                           const String& text,
                           ExceptionState&);
-  void InsertAdjacentHTMLWithoutTrustedTypes(const String& where,
-                                             const String& html,
-                                             ExceptionState&);
+  void InsertAdjacentHTMLWithoutTrustedTypesForTesting(const String& where,
+                                                       const String& html,
+                                                       ExceptionState&);
   void insertAdjacentHTML(const String& where,
                           const V8UnionStringOrTrustedHTML* html,
                           ExceptionState&);
@@ -1413,9 +1408,9 @@ class CORE_EXPORT Element : public ContainerNode {
                                        ExceptionState& = ASSERT_NO_EXCEPTION);
   void SetOuterHTMLWithoutTrustedTypes(const String&,
                                        ExceptionState& = ASSERT_NO_EXCEPTION);
-
-  V8UnionStringLegacyNullToEmptyStringOrTrustedHTML* innerHTML() const;
-  V8UnionStringLegacyNullToEmptyStringOrTrustedHTML* outerHTML() const;
+  void SetOuterHTMLInternal(const String&, ExceptionState&);
+  String innerHTML() const;
+  String outerHTML() const;
   void setInnerHTML(const V8UnionStringLegacyNullToEmptyStringOrTrustedHTML*,
                     ExceptionState&);
   void setOuterHTML(const V8UnionStringLegacyNullToEmptyStringOrTrustedHTML*,
@@ -1431,10 +1426,14 @@ class CORE_EXPORT Element : public ContainerNode {
   void setHTMLUnsafe(const V8UnionStringOrTrustedHTML* html,
                      SetHTMLUnsafeOptions*,
                      ExceptionState&);
+  void setHTMLUnsafe(const V8UnionStringOrTrustedHTML* html,
+                     TrustedParserOptions*,
+                     ExceptionState&);
   void setHTML(const String& html, SetHTMLOptions*, ExceptionState&);
+  void setHTML(const String& html, TrustedParserOptions*, ExceptionState&);
 
-  void setPointerCapture(PointerId poinetr_id, ExceptionState&);
-  void releasePointerCapture(PointerId pointer_id, ExceptionState&);
+  void setPointerCapture(PointerId, ExceptionState&);
+  void releasePointerCapture(PointerId, ExceptionState&);
 
   // Returns true iff the element would capture the next pointer event. This
   // is true between a setPointerCapture call and a releasePointerCapture (or
@@ -1652,6 +1651,12 @@ class CORE_EXPORT Element : public ContainerNode {
   // IDL method.
   // Returns the list of part names, creating it if it doesn't exist.
   DOMTokenList& part();
+
+  // Returns the list of marker names if it has ever been created.
+  DOMTokenList* GetMarker() const;
+  // IDL method.
+  // Returns the list of marker names, creating it if it doesn't exist.
+  DOMTokenList& marker();
 
   bool HasPartNamesMap() const;
   const NamesMap* PartNamesMap() const;
@@ -1903,14 +1908,6 @@ class CORE_EXPORT Element : public ContainerNode {
   void SetScrollTargetGroupContainerData(ScrollMarkerGroupData*);
   ScrollMarkerGroupData* GetScrollTargetGroupContainerData() const;
 
-  // Retrieves the element pointed to by this element's 'anchor' content
-  // attribute, if that element exists.
-  // TODO(crbug.com/40059176) If the HTMLAnchorAttribute feature is disabled,
-  // this will return nullptr;
-  Element* anchorElement() const;
-  Element* anchorElementForBinding() const;
-  void setAnchorElementForBinding(Element*);
-
   AnchorPositionScrollData& EnsureAnchorPositionScrollData();
   void RemoveAnchorPositionScrollData();
   AnchorPositionScrollData* GetAnchorPositionScrollData() const;
@@ -1925,10 +1922,6 @@ class CORE_EXPORT Element : public ContainerNode {
   // so.
   bool MayBeImplicitAnchor() const;
   void SetMayBeImplicitAnchor();
-
-  bool HasAnchorElementObserverForTesting() const {
-    return GetAnchorElementObserver();
-  }
 
   // https://drafts.csswg.org/css-anchor-1/#implicit-anchor-element
   Element* ImplicitAnchorElement() const;
@@ -2166,10 +2159,14 @@ class CORE_EXPORT Element : public ContainerNode {
   // containment by modifying the box tree outside the container during layout.
   bool HasSiblingBoxPseudoElements() const;
 
-  bool ScrollLayoutBoxBy(const ScrollToOptions*);
-  bool ScrollLayoutBoxTo(const ScrollToOptions*);
-  bool ScrollFrameBy(const ScrollToOptions*);
-  bool ScrollFrameTo(const ScrollToOptions*);
+  bool ScrollLayoutBoxBy(const ScrollToOptions*,
+                         std::unique_ptr<ScopedScrollPromiseResolver>);
+  bool ScrollLayoutBoxTo(const ScrollToOptions*,
+                         std::unique_ptr<ScopedScrollPromiseResolver>);
+  bool ScrollFrameBy(const ScrollToOptions*,
+                     std::unique_ptr<ScopedScrollPromiseResolver>);
+  bool ScrollFrameTo(const ScrollToOptions*,
+                     std::unique_ptr<ScopedScrollPromiseResolver>);
 
   bool HasElementFlag(ElementFlags mask) const;
   void SetElementFlag(ElementFlags, bool value = true);
@@ -2199,9 +2196,6 @@ class CORE_EXPORT Element : public ContainerNode {
   void SetInlineStyleFromString(const AtomicString&);
 
   void NotifyAXOfAttachedSubtree();
-
-  AnchorElementObserver& EnsureAnchorElementObserver();
-  AnchorElementObserver* GetAnchorElementObserver() const;
 
   // If the only inherited changes in the parent element are independent,
   // these changes can be directly propagated to this element (the child).
@@ -2261,6 +2255,7 @@ class CORE_EXPORT Element : public ContainerNode {
   void RebuildColumnLayoutTrees(WhitespaceAttacher&);
   void RebuildFirstLetterLayoutTree();
   void RebuildTransitionLayoutTree(WhitespaceAttacher&);
+  void RebuildOverscrollAreaLayoutTree(WhitespaceAttacher&);
   void RebuildShadowRootLayoutTree(WhitespaceAttacher&);
   inline void CheckForEmptyStyleChange(const Node* node_before_change,
                                        const Node* node_after_change);
@@ -2408,7 +2403,8 @@ class CORE_EXPORT Element : public ContainerNode {
 
   ShadowRoot& CreateAndAttachShadowRoot(
       ShadowRootMode,
-      SlotAssignmentMode = SlotAssignmentMode::kNamed);
+      SlotAssignmentMode = SlotAssignmentMode::kNamed,
+      const Vector<AtomicString>& markers = Vector<AtomicString>());
 
   virtual void DidAddUserAgentShadowRoot(ShadowRoot&) {}
   virtual bool AlwaysCreateUserAgentShadowRoot() const { return false; }
@@ -2528,17 +2524,26 @@ class CORE_EXPORT Element : public ContainerNode {
                                                         const QualifiedName&,
                                                         const AtomicString&);
 
-  void SetInnerHTMLInternal(
-      const String&,
-      ParseDeclarativeShadowRoots parse_declarative_shadows,
-      ForceHtml force_html_over_xml,
-      // When called from SetHTML or SetHTMLUnsafe, SetInnerHTMLInternal must
-      // process their options dictionary, which you can pass into |options|.
-      // When called from a method without options, like the classic innerHTML
-      // setter, you can pass std::monostate{} to designate no options.
-      std::variant<std::monostate, SetHTMLOptions*, SetHTMLUnsafeOptions*>
-          options,
-      ExceptionState&);
+  void SetInnerHTMLInternal(const String&,
+                            FragmentParserConfig::ParseDeclarativeShadowRoots,
+                            FragmentParserConfig::ForceHtml,
+                            Sanitizer::Mode,
+                            const FragmentParserOptions&,
+                            const AtomicString& property_name,
+                            ExceptionState&);
+
+  template <typename T>
+  String CheckTrustedTypes(T* html,
+                           const AtomicString& property_name,
+                           ExceptionState& exception_state) const {
+    return TrustedTypesCheckForHTML(html, GetExecutionContext(),
+                                    trusted_types_names::kElement,
+                                    property_name, exception_state);
+  }
+
+  void InsertAdjacentHTMLInternal(const String& where,
+                                  const String& input,
+                                  ExceptionState& exception_state);
 
   void RemoveAttrNodeList();
   void DetachAllAttrNodesFromElement();
@@ -2569,8 +2574,8 @@ class CORE_EXPORT Element : public ContainerNode {
     kFocus,
     kBlur,
   };
-  void HandleInterestForHoverOrFocus(InterestSource source,
-                                     bool recursive_call = false);
+  void HandleInterestForHoverOrFocus(InterestSource source);
+  void ScheduleInterestChangesIfNeeded(InterestSource source);
 
   // Highlight pseudos inherit all properties from the corresponding highlight
   // in the parent, but virtually all existing content uses universal rules

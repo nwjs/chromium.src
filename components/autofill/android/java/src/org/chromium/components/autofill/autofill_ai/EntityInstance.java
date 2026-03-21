@@ -10,10 +10,14 @@ import org.jni_zero.JniType;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.autofill.autofill_ai.AttributeInstance.DateValue;
+import org.chromium.components.autofill.autofill_ai.AttributeInstance.StringValue;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Java representation of an Autofill AI EntityInstance. */
@@ -23,17 +27,19 @@ public class EntityInstance {
     private final String mGUID;
     private final @RecordType int mRecordType;
     private final EntityType mEntityType;
-    private final List<AttributeInstance> mAttributeValues;
+    private final Map<AttributeType, AttributeInstance> mAttributes = new HashMap<>();
     private final EntityMetadata mMetadata;
+    private final boolean mRequiresReauthToSee;
 
     /** Builder for the {@link EntityInstance}. */
     public static final class Builder {
         private String mGUID = "";
         private @RecordType int mRecordType = RecordType.LOCAL;
         private final EntityType mEntityType;
-        private final List<AttributeInstance> mAttributeValues = new ArrayList<>();
+        private final List<AttributeInstance> mAttributes = new ArrayList<>();
         private @Nullable LocalDate mModifiedDate;
         private @Nullable Integer mUseCount;
+        private boolean mRequiresReauthToSee;
 
         public Builder(EntityType entityType) {
             mEntityType = Objects.requireNonNull(entityType, "Entity type cannot be null");
@@ -49,8 +55,8 @@ public class EntityInstance {
             return this;
         }
 
-        public Builder addAttributeValue(AttributeInstance attributeValue) {
-            mAttributeValues.add(attributeValue);
+        public Builder addAttribute(AttributeInstance attribute) {
+            mAttributes.add(attribute);
             return this;
         }
 
@@ -61,6 +67,11 @@ public class EntityInstance {
 
         public Builder setUseCount(int useCount) {
             mUseCount = useCount;
+            return this;
+        }
+
+        public Builder setRequiresReauthToSee(boolean requiresReauthToSee) {
+            mRequiresReauthToSee = requiresReauthToSee;
             return this;
         }
 
@@ -77,7 +88,8 @@ public class EntityInstance {
                             mModifiedDate.getMonthValue(),
                             mModifiedDate.getYear(),
                             mUseCount);
-            return new EntityInstance(mGUID, mRecordType, mEntityType, mAttributeValues, metadata);
+            return new EntityInstance(
+                    mGUID, mRecordType, mEntityType, mAttributes, metadata, mRequiresReauthToSee);
         }
     }
 
@@ -87,13 +99,19 @@ public class EntityInstance {
             @RecordType int recordType,
             @JniType("autofill::EntityTypeAndroid") EntityType entityType,
             @JniType("std::vector<autofill::AttributeInstanceAndroid>")
-                    List<AttributeInstance> attributeValues,
-            @JniType("autofill::EntityMetadataAndroid") EntityMetadata metadata) {
+                    List<AttributeInstance> attributes,
+            @JniType("autofill::EntityMetadataAndroid") EntityMetadata metadata,
+            boolean requiresReauthToSee) {
         mGUID = guid;
         mRecordType = recordType;
         mEntityType = entityType;
-        mAttributeValues = attributeValues;
         mMetadata = metadata;
+        for (AttributeInstance attribute : attributes) {
+            assert !mAttributes.containsKey(attribute.getAttributeType())
+                    : "Duplicate attribute: " + attribute.getAttributeType().getTypeName();
+            mAttributes.put(attribute.getAttributeType(), attribute);
+        }
+        mRequiresReauthToSee = requiresReauthToSee;
     }
 
     @CalledByNative
@@ -113,12 +131,44 @@ public class EntityInstance {
 
     @CalledByNative
     public @JniType("std::vector<autofill::AttributeInstanceAndroid>") List<AttributeInstance>
-            getAttributeValues() {
-        return mAttributeValues;
+            getAttributes() {
+        return new ArrayList<>(mAttributes.values());
+    }
+
+    public @Nullable AttributeInstance getAttribute(AttributeType attributeType) {
+        return mAttributes.get(attributeType);
+    }
+
+    public boolean hasAttribute(AttributeType attributeType) {
+        return mAttributes.containsKey(attributeType);
+    }
+
+    public void setAttributeValue(AttributeType attributeType, String value) {
+        switch (attributeType.getDataType()) {
+            case DataType.NAME:
+            case DataType.STATE:
+            case DataType.STRING:
+            case DataType.COUNTRY:
+                mAttributes.put(
+                        attributeType,
+                        new AttributeInstance(attributeType, new StringValue(value)));
+                break;
+            case DataType.DATE:
+                mAttributes.put(
+                        attributeType, new AttributeInstance(attributeType, new DateValue(value)));
+                break;
+            default:
+                assert false : "Unhandled attribute data type: " + attributeType.getDataType();
+        }
     }
 
     @CalledByNative
     public EntityMetadata getMetadata() {
         return mMetadata;
+    }
+
+    @CalledByNative
+    public boolean requiresReauthToSee() {
+        return mRequiresReauthToSee;
     }
 }

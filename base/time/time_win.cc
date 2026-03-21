@@ -46,7 +46,6 @@
 #include "base/bit_cast.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/compiler_specific.h"
 #include "base/cpu.h"
 #include "base/notreached.h"
 #include "base/rand_util.h"
@@ -378,7 +377,7 @@ bool Time::FromExploded(bool is_local, const Exploded& exploded, Time* time) {
 void Time::Explode(bool is_local, Exploded* exploded) const {
   if (!CanConvertToFileTime(us_)) {
     // We are not able to convert it to FILETIME.
-    UNSAFE_TODO(ZeroMemory(exploded, sizeof(*exploded)));
+    *exploded = Exploded();
     return;
   }
 
@@ -401,7 +400,7 @@ void Time::Explode(bool is_local, Exploded* exploded) const {
   }
 
   if (!success) {
-    UNSAFE_TODO(ZeroMemory(exploded, sizeof(*exploded)));
+    *exploded = Exploded();
     return;
   }
 

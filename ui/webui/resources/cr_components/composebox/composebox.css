@@ -105,12 +105,16 @@
 :host([searchbox-next-enabled]) {
   --cr-composebox-font-size: var(--cr-composebox-custom-font-size, 16px);
   --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 0px;
-  --input-bottom-spacing: var(--cr-composebox-input-bottom-spacing, 12px);
+  /*
+   * TODO(crbug.com/470081925): Refactor and keep necessary
+   * --input-bottom-spacing values in this file.
+   */
+  --input-bottom-spacing: 12px;
   --text-input-inline-start-spacing: var(--cr-composebox-text-input-inline-start, 18px);
 }
 
 :host([searchbox-next-enabled]) #input::placeholder {
-  font-size: var(--cr-composebox-input-placeholder-font-size, 18px);
+  font-size: var(--cr-composebox-input-placeholder-font-size, 16px);
   font-weight: 400;
 }
 
@@ -132,6 +136,10 @@
   transition:
     opacity var(--fade-duration) ease-in-out,
     visibility var(--fade-duration) ease-in-out;
+}
+
+:host([searchbox-next-enabled]) #composebox {
+  padding-bottom: 10px;
 }
 
 :host([is-dragging-file_]) #composebox * {
@@ -187,6 +195,10 @@ search-animated-glow {
   padding-bottom: var(--input-bottom-spacing);
   overflow: hidden;
   width: 100%;
+}
+
+:host([searchbox-next-enabled]) #inputContainer {
+  --input-bottom-spacing: 0;
 }
 
 #textContainer {
@@ -402,10 +414,6 @@ search-animated-glow {
   display: none;
 }
 
-:host([expanding_][show-dropdown_]) cr-composebox-dropdown {
-  padding-bottom: 8px;
-}
-
 .action-icon {
   --cr-icon-button-focus-outline-color:
       var(--color-searchbox-results-icon-focused-outline);
@@ -502,7 +510,7 @@ search-animated-glow {
   height: var(--cr-composebox-submit-container-size, var(--cr-icon-button-size));
   bottom: var(--input-bottom-spacing);
   position: absolute;
-  inset-inline-end: 12px;
+  inset-inline-end: 10px;
   width: var(--cr-composebox-submit-container-size, var(--cr-icon-button-size));
 }
 
@@ -629,8 +637,12 @@ search-animated-glow {
 }
 
 #toolChipsContainer {
-  padding-top: 10px;
-  padding-inline-start: 16px;
+  margin-bottom: 12px;
+  padding-inline-start: 44px;
+}
+
+:host(:not([show-file-carousel_])) #toolChipsContainer {
+  padding-top: 6px;
 }
 
 :host(:not([file-uploads-complete])) .upload-button {
@@ -653,7 +665,7 @@ search-animated-glow {
 
 :host([searchbox-next-enabled][searchbox-layout-mode='Compact']) {
   --expanded-border-radius: var(--cr-composebox-expanded-border-radius, 30px);
-  --input-bottom-spacing: 16px;
+  --input-bottom-spacing: 12px;
 }
 
 :host([searchbox-next-enabled][searchbox-layout-mode='Compact']) #iconContainer {
@@ -750,9 +762,10 @@ search-animated-glow {
 
 :host([searchbox-next-enabled][searchbox-layout-mode='Compact']) #carouselContainer,
 :host([searchbox-next-enabled][searchbox-layout-mode='TallBottomContext']) #carouselContainer {
-  align-items: flex-end;
+  align-items: flex-start;
   display: flex;
   flex-direction: row;
+  position: relative;
 }
 
 :host([submit-enabled_][searchbox-layout-mode='Compact']) #submitContainer {
@@ -761,14 +774,15 @@ search-animated-glow {
   position: relative;
 }
 
-:host([submit-enabled_][searchbox-layout-mode='Compact']:not([show-file-carousel_])) #submitContainer {
-  bottom: 0;
-  margin-inline-end: -2px;
-  margin-top: 16px;
+:host([submit-enabled_][searchbox-layout-mode='Compact'][in-tool-mode_]) #submitContainer,
+:host([submit-enabled_][searchbox-layout-mode='Compact'][show-file-carousel_]) #submitContainer {
+  position: absolute;
+  bottom: 12px;
 }
 
-:host([submit-enabled_][searchbox-layout-mode='Compact'][show-file-carousel_]) #submitContainer {
-  bottom: 14px;
+:host([submit-enabled_][searchbox-layout-mode='Compact']:not([in-tool-mode_]):not([show-file-carousel_])) #submitContainer {
+  bottom: 0;
+  margin-top: 14px;
 }
 
 :host([submit-enabled_][searchbox-layout-mode='TallBottomContext']) #submitContainer {
@@ -793,7 +807,8 @@ search-animated-glow {
 }
 
 :host([submit-enabled_][searchbox-layout-mode='TallBottomContext'][show-dropdown_][show-file-carousel_]) .carousel-divider,
-:host([submit-enabled_][searchbox-layout-mode='Compact'][show-dropdown_][show-file-carousel_]) .carousel-divider {
+:host([submit-enabled_][searchbox-layout-mode='Compact'][show-dropdown_][show-file-carousel_]) .carousel-divider,
+:host([searchbox-layout-mode='Compact'][show-dropdown_]:not([show-file-carousel_])) .carousel-divider {
   --contextual-entrypoint-and-carousel-carousel-divider-margin-top: 8px;
 }
 
@@ -849,4 +864,10 @@ cr-composebox-voice-search {
 
 :host(:not([in-voice-search-mode_])) cr-composebox-voice-search {
   display: none;
+}
+
+.carousel-container-inner {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }

@@ -357,4 +357,139 @@ TEST_F(ExclusiveOperationCoordinatorTest, ExclusiveOperationDoesNotStarve) {
                                           "E1_end", "N1b_start"));
 }
 
+TEST_F(ExclusiveOperationCoordinatorTest, HasPendingTaskFlagBehavior) {
+  auto& flag = coordinator_.GetHasPendingTaskFlag();
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 1
+  std::unique_ptr<OperationHandle> handle1;
+  coordinator_.PostOrRunExclusiveOperation(
+      base::BindLambdaForTesting([&](std::unique_ptr<OperationHandle> h) {
+        handle1 = std::move(h);
+        EXPECT_FALSE(flag->data.load());
+      }));
+  EXPECT_TRUE(handle1);
+  // No operations are waiting.
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 2
+  std::unique_ptr<OperationHandle> handle2;
+  coordinator_.PostOrRunNormalOperation(
+      CacheEntryKey("key1"),
+      base::BindLambdaForTesting([&](std::unique_ptr<OperationHandle> h) {
+        handle2 = std::move(h);
+        EXPECT_FALSE(flag->data.load());
+      }));
+  EXPECT_FALSE(handle2);
+  // Operation 2 is waiting.
+  EXPECT_TRUE(flag->data.load());
+
+  handle1.reset();
+  EXPECT_TRUE(handle2);
+  // No operations are waiting.
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 3
+  std::unique_ptr<OperationHandle> handle3;
+  coordinator_.PostOrRunExclusiveOperation(
+      base::BindLambdaForTesting([&](std::unique_ptr<OperationHandle> h) {
+        handle3 = std::move(h);
+        EXPECT_TRUE(flag->data.load());
+      }));
+  EXPECT_FALSE(handle3);
+  // Operation 3 is waiting.
+  EXPECT_TRUE(flag->data.load());
+
+  // Operation 4
+  std::unique_ptr<OperationHandle> handle4;
+  coordinator_.PostOrRunExclusiveOperation(
+      base::BindLambdaForTesting([&](std::unique_ptr<OperationHandle> h) {
+        handle4 = std::move(h);
+        EXPECT_FALSE(flag->data.load());
+      }));
+  EXPECT_FALSE(handle4);
+  // Operation 3 and 4 are waiting.
+  EXPECT_TRUE(flag->data.load());
+
+  handle2.reset();
+  EXPECT_TRUE(handle3);
+  EXPECT_FALSE(handle4);
+  // Operation 4 is waiting.
+  EXPECT_TRUE(flag->data.load());
+
+  handle3.reset();
+  EXPECT_TRUE(handle4);
+  // No operations are waiting.
+  EXPECT_FALSE(flag->data.load());
+
+  handle4.reset();
+  // No operations are waiting.
+  EXPECT_FALSE(flag->data.load());
+}
+
+TEST_F(ExclusiveOperationCoordinatorTest, LowPriorityNormalTaskBehavior) {
+  auto& flag = coordinator_.GetHasPendingTaskFlag();
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 1
+  std::unique_ptr<OperationHandle> handle1;
+  coordinator_.PostOrRunExclusiveOperation(base::BindLambdaForTesting(
+      [&](std::unique_ptr<OperationHandle> h) { handle1 = std::move(h); }));
+
+  EXPECT_TRUE(handle1);
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 2
+  std::unique_ptr<OperationHandle> handle2;
+  coordinator_.PostOrRunNormalOperation(
+      CacheEntryKey("key1"),
+      base::BindLambdaForTesting(
+          [&](std::unique_ptr<OperationHandle> h) { handle2 = std::move(h); }),
+      /*low_priority=*/true);
+
+  EXPECT_FALSE(handle2);
+  // Only a low priority operation 2 is waiting.
+  EXPECT_FALSE(flag->data.load());
+
+  handle1.reset();
+  EXPECT_TRUE(handle2);
+  EXPECT_FALSE(flag->data.load());
+
+  handle2.reset();
+  EXPECT_FALSE(flag->data.load());
+}
+
+TEST_F(ExclusiveOperationCoordinatorTest, LowPriorityExclusiveTaskBehavior) {
+  auto& flag = coordinator_.GetHasPendingTaskFlag();
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 1
+  std::unique_ptr<OperationHandle> handle1;
+  coordinator_.PostOrRunNormalOperation(
+      CacheEntryKey("key1"),
+      base::BindLambdaForTesting(
+          [&](std::unique_ptr<OperationHandle> h) { handle1 = std::move(h); }));
+
+  EXPECT_TRUE(handle1);
+  EXPECT_FALSE(flag->data.load());
+
+  // Operation 2
+  std::unique_ptr<OperationHandle> handle2;
+  coordinator_.PostOrRunExclusiveOperation(
+      base::BindLambdaForTesting(
+          [&](std::unique_ptr<OperationHandle> h) { handle2 = std::move(h); }),
+      /*low_priority=*/true);
+
+  EXPECT_FALSE(handle2);
+  // Only a low priority operation 2 is waiting.
+  EXPECT_FALSE(flag->data.load());
+
+  handle1.reset();
+  EXPECT_TRUE(handle2);
+  EXPECT_FALSE(flag->data.load());
+
+  handle2.reset();
+  EXPECT_FALSE(flag->data.load());
+}
+
 }  // namespace disk_cache

@@ -41,11 +41,11 @@
 #import "ios/chrome/browser/shared/model/utils/first_run_util.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/elements/gradient/gradient_view.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_utils.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
-#import "ios/chrome/common/ui/elements/gradient_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ui/base/device_form_factor.h"
@@ -264,10 +264,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
   self.viewDidFinishLoading = YES;
 
-  NSArray<UITrait>* traits = TraitCollectionSetForTraits(@[
+  NSArray<UITrait>* traits = @[
     UITraitUserInterfaceStyle.class, UITraitHorizontalSizeClass.class,
     UITraitPreferredContentSizeCategory.class
-  ]);
+  ];
   __weak __typeof(self) weakSelf = self;
   UITraitChangeHandler handler = ^(id<UITraitEnvironment> traitEnvironment,
                                    UITraitCollection* previousCollection) {
@@ -419,7 +419,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     if (yOffsetBeforeRotation < 0) {
       weakSelf.collectionView.contentOffset =
           CGPointMake(0, yOffsetBeforeRotation - heightAboveFeedDifference);
-      [weakSelf updateNTPLayout];
+      [weakSelf updateNTPLayoutForWidth:size.width];
     }
     [weakSelf.view setNeedsLayout];
     [weakSelf.view layoutIfNeeded];
@@ -606,17 +606,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 }
 
 - (void)updateNTPLayout {
-  [self updateFeedInsetsForContentAbove];
-  if (self.feedVisible) {
-    [self updateFeedInsetsForMinimumHeight];
-  }
-
-  // Reload data to ensure the Most Visited tiles and fake omnibox are correctly
-  // positioned, in particular during a rotation while a ViewController is
-  // presented in front of the NTP.
-  [self updateFakeOmniboxOnNewWidth:self.collectionView.bounds.size.width];
-  // Ensure initial fake omnibox layout.
-  [self updateFakeOmniboxForScrollPosition];
+  [self updateNTPLayoutForWidth:self.collectionView.bounds.size.width];
 }
 
 - (void)updateHeightAboveFeed {
@@ -1779,6 +1769,20 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     }
   }
   return NO;
+}
+
+// Lays out content above feed and adjusts content suggestions for the given
+// `width`.
+- (void)updateNTPLayoutForWidth:(CGFloat)width {
+  [self updateFeedInsetsForContentAbove];
+  if (self.feedVisible) {
+    [self updateFeedInsetsForMinimumHeight];
+  }
+
+  // Reload data to ensure the Most Visited tiles and fake omnibox are correctly
+  // positioned, in particular during a rotation while a ViewController is
+  // presented in front of the NTP.
+  [self updateFakeOmniboxOnNewWidth:width];
 }
 
 #pragma mark - Helpers

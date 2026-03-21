@@ -48,7 +48,7 @@ suite('AimAppTest', function() {
     assertTrue(!!app.$.composebox.getInputText());
 
     // Close without preserving context (default is false).
-    testProxy.page.onPopupHidden();
+    testProxy.page.clearPopup();
     await microtasksFinished();
     assertTrue(!app.$.composebox.getInputText());
   });
@@ -67,7 +67,7 @@ suite('AimAppTest', function() {
 
     // Close with preserving context.
     testProxy.page.setPreserveContextOnClose(true);
-    testProxy.page.onPopupHidden();
+    testProxy.page.clearPopup();
     await microtasksFinished();
     assertTrue(!!app.$.composebox.getInputText());
   });
@@ -85,7 +85,7 @@ suite('AimAppTest', function() {
 
     // Close with preserving context.
     testProxy.page.setPreserveContextOnClose(true);
-    testProxy.page.onPopupHidden();
+    testProxy.page.clearPopup();
     await microtasksFinished();
 
     // Re-open (onPopupShown) should reset preserveContextOnClose to false.
@@ -97,7 +97,7 @@ suite('AimAppTest', function() {
     await microtasksFinished();
 
     // Close again, should clear input because it was reset to false.
-    testProxy.page.onPopupHidden();
+    testProxy.page.clearPopup();
     await microtasksFinished();
     assertTrue(!app.$.composebox.getInputText());
 
@@ -157,5 +157,22 @@ suite('AimAppTest', function() {
     });
     await microtasksFinished();
     assertTrue(glowAnimationPlayed);
+  });
+
+  test('ShowsContextMenuOnContextualEntryPointClick', async function() {
+    const app = document.createElement('omnibox-aim-app');
+    document.body.appendChild(app);
+
+    const point = {x: 10, y: 20};
+    app.$.composebox.dispatchEvent(
+        new CustomEvent('context-menu-entrypoint-click', {
+          detail: point,
+          bubbles: true,
+          composed: true,
+        }));
+
+    const result = await testProxy.handler.whenCalled('showContextMenu');
+    assertEquals(point.x, result.x);
+    assertEquals(point.y, result.y);
   });
 });

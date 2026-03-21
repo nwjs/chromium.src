@@ -385,11 +385,11 @@ after discussions on the right group.
       <annotation id="save_to_drive"/>
       <annotation id="corp_messaging_client_receive_client_messages"/>
       <annotation id="corp_messaging_client_send_host_message"/>
-      <annotation id="legion_client"/>
+      <annotation id="private_ai_client"/>
       <annotation id="webrtc_rtc_transport"/>
       <annotation id="email_verification"/>
       <annotation id="amount_extraction_model_execution"/>
-      <annotation id="legion_service_get_token"/>
+      <annotation id="private_ai_get_token"/>
       <annotation id="metrics_report_private_metrics"/>
       <annotation id="scam_detection_model_execution"/>
       <annotation id="sync_device_statistics_metrics"/>
@@ -398,6 +398,10 @@ after discussions on the right group.
       <annotation id="gemini_antiscam_protection_model_execution"/>
       <annotation id="skills_service_loader"/>
       <annotation id="skills_model_execution"/>
+      <annotation id="settings_overridden_dialog_icon_fetcher"/>
+      <annotation id="indigo_alpha_generate"/>
+      <annotation id="indigo_alpha_status"/>
+      <annotation id="devtools_gca_service"/>
     </sender>
   </group>
   <group name="Admin Features" hidden="true">
@@ -460,10 +464,6 @@ after discussions on the right group.
     </sender>
   </group>
   <group name="Chrome Commerce" hidden="true">
-    <sender name="Compare">
-      <annotation id="chrome_commerce_comparable_products"/>
-      <annotation id="product_specifications_fetcher"/>
-    </sender>
     <sender name="Subscription">
       <annotation id="chrome_commerce_subscriptions_create"/>
       <annotation id="chrome_commerce_subscriptions_delete"/>

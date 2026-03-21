@@ -439,6 +439,39 @@ suite('ContentController', () => {
       assertFalse(!!root.getAttribute('href'));
     });
 
+    test('builds an input as a <div> tag', () => {
+      const rootId = 5;
+      const childId = 7;
+      const inputText = 'For her';
+
+      // Set up the AX Tree with an input that has a text child.
+      readingMode.rootId = rootId;
+      readingMode.getHtmlTag = (id: number) => {
+        if (id === rootId) {
+          return 'input';
+        }
+        if (id === childId) {
+          return '';  // Text node
+        }
+        return '';
+      };
+      readingMode.getTextContent = (id: number) => {
+        if (id === childId) {
+          return inputText;
+        }
+        return '';
+      };
+      readingMode.getChildren = (id: number) => {
+        if (id === rootId) {
+          return [childId];
+        }
+        return [];
+      };
+      const root = contentController.updateContent();
+      assertTrue(root instanceof HTMLDivElement);
+      assertEquals(inputText, root.textContent);
+    });
+
     test('link visibility toggled toggles links with Readability', async () => {
       const url = 'https://www.relsilicon.com/';
       chrome.readingMode.activeDistillationMethod =
@@ -562,6 +595,26 @@ suite('ContentController', () => {
           assertEquals(buttonText, newDiv.textContent);
         });
 
+    test(
+        'builds a mark tag as a <div> tag when Readability enabled',
+        async () => {
+          chrome.readingMode.isReadabilityEnabled = true;
+          chrome.readingMode.activeDistillationMethod =
+              chrome.readingMode.distillationTypeReadability;
+          const markText = 'When everything is important, nothing is';
+          contentController.configureTrustedTypes();
+          readingMode.htmlContent = `<mark>${markText}</mark>`;
+
+          const root = contentController.updateContent();
+          await microtasksFinished();
+
+          assertTrue(!!root);
+          assertFalse(!!(root as DocumentFragment).querySelector('mark'));
+          const newSpan = (root as DocumentFragment).querySelector('div > div');
+          assertTrue(!!newSpan);
+          assertEquals(markText, newSpan.textContent);
+        });
+
     test('sets text direction', () => {
       const childId = 70;
       readingMode.getHtmlTag = (id) => {
@@ -609,6 +662,100 @@ suite('ContentController', () => {
       const root = contentController.updateContent();
 
       assertTrue(root instanceof HTMLDivElement);
+    });
+
+    test(
+        'honors links disabled preference on first open with Readability',
+        async () => {
+          const url = 'https://www.google.com/';
+          const text = 'best link ever';
+          chrome.readingMode.isReadabilityEnabled = true;
+          chrome.readingMode.isReadabilityWithLinksEnabled = false;
+          chrome.readingMode.activeDistillationMethod =
+              chrome.readingMode.distillationTypeReadability;
+          contentController.configureTrustedTypes();
+          readingMode.htmlContent = `<a href="${url}">${text}</a>`;
+          chrome.readingMode.linksEnabled = false;
+
+          const root = contentController.updateContent();
+          await microtasksFinished();
+
+          assertTrue(!!root);
+          const container = document.createElement('div');
+          document.body.appendChild(container);
+          const shadowRoot = container.attachShadow({mode: 'open'});
+          const contentDiv = (root as DocumentFragment).querySelector('div');
+          assertTrue(!!contentDiv);
+          shadowRoot.append(...contentDiv.childNodes);
+
+          const link = shadowRoot.querySelector('a');
+          assertFalse(!!link);
+          const span = shadowRoot.querySelector<HTMLElement>('span[data-link]');
+          assertTrue(!!span);
+          assertEquals(url, span.dataset['link']);
+          assertEquals(text, span.textContent);
+        });
+
+    test(
+        'honors links enabled preference on first open with Readability with links enabled',
+        async () => {
+          const url = 'https://www.google.com/';
+          const text = 'best link ever';
+          chrome.readingMode.isReadabilityEnabled = true;
+          chrome.readingMode.isReadabilityWithLinksEnabled = true;
+          chrome.readingMode.activeDistillationMethod =
+              chrome.readingMode.distillationTypeReadability;
+          contentController.configureTrustedTypes();
+          readingMode.htmlContent = `<a href="${url}">${text}</a>`;
+          chrome.readingMode.linksEnabled = true;
+
+          const root = contentController.updateContent();
+          await microtasksFinished();
+
+          assertTrue(!!root);
+          const container = document.createElement('div');
+          document.body.appendChild(container);
+          const shadowRoot = container.attachShadow({mode: 'open'});
+          const contentDiv = (root as DocumentFragment).querySelector('div');
+          assertTrue(!!contentDiv);
+          shadowRoot.append(...contentDiv.childNodes);
+
+          const link = shadowRoot.querySelector('a');
+          assertTrue(!!link);
+          assertEquals(url, link.href);
+          assertEquals(text, link.textContent);
+        });
+
+    test('links are disabled when ReadabilityWithLinks is false', async () => {
+      const url = 'https://www.google.com/';
+      const text = 'best link ever';
+      chrome.readingMode.isReadabilityEnabled = true;
+      chrome.readingMode.isReadabilityWithLinksEnabled = false;
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      contentController.configureTrustedTypes();
+      readingMode.htmlContent = `<a href="${url}">${text}</a>`;
+      chrome.readingMode.linksEnabled = true;
+
+      const root = contentController.updateContent();
+      await microtasksFinished();
+
+      assertTrue(!!root);
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const shadowRoot = container.attachShadow({mode: 'open'});
+      const contentDiv = (root as DocumentFragment).querySelector('div');
+      assertTrue(!!contentDiv);
+      shadowRoot.append(...contentDiv.childNodes);
+
+      // There should be no `<a>` tag.
+      const link = shadowRoot.querySelector('a');
+      assertFalse(!!link);
+      // Instead there should be a `<span>` tag.
+      const span = shadowRoot.querySelector<HTMLElement>('span[data-link]');
+      assertTrue(!!span);
+      assertEquals(url, span.dataset['link']);
+      assertEquals(text, span.textContent);
     });
   });
 
@@ -819,12 +966,15 @@ suite('ContentController', () => {
       assertEquals(imageData.height, canvas.height);
       assertEquals(imageData.scale.toString(), canvas.style.zoom);
       assertTrue(drewImage);
+      assertTrue(receivedContentChange);
     });
 
     test('does nothing if element is missing', async () => {
       await contentController.onImageDownloaded(nodeId);
       await microtasksFinished();
+
       assertFalse(drewImage);
+      assertFalse(receivedContentChange);
     });
 
     test('does nothing if element is not a canvas', async () => {
@@ -835,6 +985,7 @@ suite('ContentController', () => {
       await microtasksFinished();
 
       assertFalse(drewImage);
+      assertFalse(receivedContentChange);
     });
   });
 
@@ -896,6 +1047,20 @@ suite('ContentController', () => {
       assertEquals('', figure.style.display);
       assertFalse(nodeStore.areNodesAllHidden(
           [ReadAloudNode.createFromAxNode(textId)!]));
+      assertTrue(receivedContentChange);
+    });
+
+    test('notifies of content change with readability', async () => {
+      chrome.readingMode.imagesFeatureEnabled = true;
+      chrome.readingMode.imagesEnabled = false;
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      contentController.setState(ContentType.HAS_CONTENT);
+      receivedContentChange = false;
+
+      contentController.updateImages(shadowRoot);
+      await microtasksFinished();
+
       assertTrue(receivedContentChange);
     });
   });
@@ -1075,5 +1240,28 @@ suite('ContentController', () => {
 
           assertFalse(!!nodeStore.getDomNode(axId));
         });
+
+    test('logs link matches', () => {
+      container.replaceChildren();
+      const anchor1 = document.createElement('a');
+      anchor1.href = url;
+      anchor1.textContent = 'First Link';
+      container.appendChild(anchor1);
+
+      const anchor2 = document.createElement('a');
+      anchor2.href = url;
+      anchor2.textContent = 'Second Link';
+      container.appendChild(anchor2);
+
+      chrome.readingMode.axTreeAnchors = {
+        [url]:
+            [{axId: 100, name: 'First Link'}, {axId: 200, name: 'Second Link'}],
+      };
+
+      contentController.updateAnchorsForReadability(container);
+
+      // 4 status calls.
+      assertEquals(4, metrics.getCallCount('recordCount'));
+    });
   });
 });

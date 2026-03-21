@@ -31,8 +31,6 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.LooperMode;
-import org.robolectric.annotation.LooperMode.Mode;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.Callback;
@@ -80,7 +78,7 @@ public class OmniboxSuggestionsContainerUnitTest {
 
                 @Override
                 public OmniboxAlignment addAlignmentObserver(Callback<OmniboxAlignment> obs) {
-                    return mOmniboxAlignmentSupplier.addObserver(obs);
+                    return mOmniboxAlignmentSupplier.addSyncObserverAndPostIfNonNull(obs);
                 }
 
                 @Override
@@ -163,12 +161,12 @@ public class OmniboxSuggestionsContainerUnitTest {
         mContainer.setEmbedder(mEmbedder);
         mContainer.onOmniboxSessionStateChange(true);
 
-        mOmniboxAlignment = new OmniboxAlignment(0, 100, 600, 0, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 100, 600, 0, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
         layoutDropdown(600, 800);
         assertEquals(600, mContainer.getMeasuredWidth());
 
-        mOmniboxAlignment = new OmniboxAlignment(0, 100, 400, 0, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 100, 400, 0, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
         ShadowLooper.runUiThreadTasks();
         assertTrue(mContainer.isLayoutRequested());
@@ -188,7 +186,7 @@ public class OmniboxSuggestionsContainerUnitTest {
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         int marginTop = 100;
         int height = 800 - marginTop;
-        mOmniboxAlignment = new OmniboxAlignment(0, 100, 600, height, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 100, 600, height, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
         layoutDropdown(600, height);
 
@@ -196,7 +194,7 @@ public class OmniboxSuggestionsContainerUnitTest {
         assertNotNull(layoutParams);
         assertEquals(marginTop, layoutParams.topMargin);
 
-        mOmniboxAlignment = new OmniboxAlignment(0, 54, 600, 0, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 54, 600, 0, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
         layoutDropdown(600, height);
 
@@ -214,14 +212,14 @@ public class OmniboxSuggestionsContainerUnitTest {
                 new LayoutParams(
                         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         int height = 400;
-        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, height, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, height, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
         layoutDropdown(600, 800);
 
         assertEquals(height, mContainer.getMeasuredHeight());
 
         height = 300;
-        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, height, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, height, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
         layoutDropdown(600, 800);
 
@@ -244,26 +242,53 @@ public class OmniboxSuggestionsContainerUnitTest {
         when(mDropdown.getBaseBottomPadding()).thenReturn(4);
 
         int bottomPadding = 40;
-        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, bottomPadding);
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, 0, bottomPadding);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
 
         assertEquals(4, mDropdown.getPaddingBottom());
 
         bottomPadding = 20;
-        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, bottomPadding);
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, 0, bottomPadding);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
 
         assertEquals(4, mDropdown.getPaddingBottom());
     }
 
     @Test
-    @LooperMode(Mode.PAUSED)
+    @SuppressWarnings("DirectInvocationOnMock")
+    public void testAlignmentProvider_topPaddingChange() {
+        mContainer.setEmbedder(mEmbedder);
+        mContainer.onOmniboxSessionStateChange(true);
+        mContainer.setLayoutParams(
+                new LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        when(mDropdown.getPaddingTop()).thenReturn(1);
+        when(mDropdown.getPaddingLeft()).thenReturn(2);
+        when(mDropdown.getPaddingRight()).thenReturn(3);
+        when(mDropdown.getPaddingBottom()).thenReturn(4);
+        when(mDropdown.getBaseTopPadding()).thenReturn(1);
+
+        int topPadding = 40;
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, topPadding, 0);
+        mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
+
+        assertEquals(1, mDropdown.getPaddingTop());
+
+        topPadding = 20;
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 600, 400, 10, 10, topPadding, 0);
+        mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
+
+        assertEquals(1, mDropdown.getPaddingTop());
+    }
+
+    @Test
     public void testAlignmentProvider_changeDuringlayout() {
         mContainer.setEmbedder(mEmbedder);
         mContainer.onOmniboxSessionStateChange(true);
 
         mContainer.setIsInLayout(true);
-        mOmniboxAlignment = new OmniboxAlignment(0, 80, 400, 600, 10, 10, 0);
+        mOmniboxAlignment = new OmniboxAlignment(0, 80, 400, 600, 10, 10, 0, 0);
         mOmniboxAlignmentSupplier.set(mOmniboxAlignment);
 
         mContainer.layout(0, 0, 600, 800);
@@ -322,22 +347,6 @@ public class OmniboxSuggestionsContainerUnitTest {
     @Test
     public void testPerformClick_returnsFalse() {
         assertFalse(mContainer.performClick());
-    }
-
-    @Test
-    public void testOnToEdgeChange_setsTopPadding() {
-        int topPadding = 50;
-        mContainer.onToEdgeChange(topPadding);
-        assertEquals(topPadding, mContainer.getPaddingTop());
-    }
-
-    @Test
-    public void testOnToEdgeChange_updatesPaddingFromNonZeroToZero() {
-        mContainer.onToEdgeChange(50);
-        assertEquals(50, mContainer.getPaddingTop());
-
-        mContainer.onToEdgeChange(0);
-        assertEquals(0, mContainer.getPaddingTop());
     }
 
     @Test

@@ -28,7 +28,6 @@
 #include "base/time/time.h"
 #include "base/version.h"
 #include "base/version_info/version_info.h"
-#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -147,6 +146,7 @@
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/webui/signin/signout_confirmation/signout_confirmation_ui.h"
+#include "chrome/browser/ui/webui/signin/signout_confirmation/test_signout_confirmation_handler_waiter.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 namespace {
@@ -191,22 +191,18 @@ class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
               (override));
 };
 
-class UnconsentedPrimaryAccountChecker
-    : public StatusChangeChecker,
-      public signin::IdentityManager::Observer {
+class PrimaryAccountChecker : public StatusChangeChecker,
+                              public signin::IdentityManager::Observer {
  public:
-  explicit UnconsentedPrimaryAccountChecker(
-      signin::IdentityManager* identity_manager)
+  explicit PrimaryAccountChecker(signin::IdentityManager* identity_manager)
       : identity_manager_(identity_manager) {
     identity_manager_->AddObserver(this);
   }
-  ~UnconsentedPrimaryAccountChecker() override {
-    identity_manager_->RemoveObserver(this);
-  }
+  ~PrimaryAccountChecker() override { identity_manager_->RemoveObserver(this); }
 
   // StatusChangeChecker overrides:
   bool IsExitConditionSatisfied(std::ostream* os) override {
-    *os << "Waiting for unconsented primary account";
+    *os << "Waiting for primary account";
     return identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin);
   }
 
@@ -583,6 +579,12 @@ class ProfileMenuViewSignoutTest : public ProfileMenuViewTestBase,
       if (!signout_ui) {
         return false;
       }
+
+      // TODO(crbug.com/469344442): Explore using a standard widget observer
+      // checking for the widget's visibility, instead of custom ui observer.
+      TestSignoutConfirmationHandlerWaiter handler_observer(signout_ui);
+      handler_observer.Wait();
+
       // Click "Sign Out Anyway".
       signout_ui->AcceptDialogForTesting();
     }
@@ -1002,7 +1004,6 @@ class ProfileMenuViewSigninPendingTest : public ProfileMenuViewTestBase,
     ASSERT_TRUE(
         identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
             account_info_.account_id));
-    ASSERT_TRUE(profile->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin));
     ASSERT_FALSE(
         identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
     ASSERT_TRUE(
@@ -1944,7 +1945,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     /*disabled_features=*/{}) {
   secondary_account_helper::SignInUnconsentedAccount(
       GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -1978,7 +1979,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     /*disabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos}) {
   secondary_account_helper::SignInUnconsentedAccount(
       GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -2015,7 +2016,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     /*disabled_features=*/{}) {
   secondary_account_helper::SignInUnconsentedAccount(
       GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -2056,7 +2057,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     /*disabled_features=*/{}) {
   secondary_account_helper::SignInUnconsentedAccount(
       GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -2100,7 +2101,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     /*disabled_features=*/{}) {
   secondary_account_helper::SignInUnconsentedAccount(
       GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -2145,7 +2146,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   AccountInfo primary_account =
       secondary_account_helper::SignInUnconsentedAccount(
           GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
@@ -2191,10 +2192,8 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
-  ASSERT_TRUE(
-      GetProfile()->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin));
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
   ASSERT_TRUE(
@@ -2232,10 +2231,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
-  // Check that the setup was successful.
-  ASSERT_TRUE(
-      GetProfile()->GetPrefs()->GetBoolean(prefs::kExplicitBrowserSignin));
+  PrimaryAccountChecker(identity_manager()).Wait();
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));
   ASSERT_TRUE(
@@ -2278,7 +2274,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   supervised_user::UpdateSupervisionStatusForAccount(
       account_info, identity_manager(),
       /*is_subject_to_parental_controls=*/true);
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
 
   // Check setup.
   ASSERT_EQ(account_info.account_id, identity_manager()->GetPrimaryAccountId(
@@ -2318,7 +2314,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   supervised_user::UpdateSupervisionStatusForAccount(
       account_info, identity_manager(),
       /*is_subject_to_parental_controls=*/true);
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
 
   // Check setup.
   ASSERT_EQ(account_info.account_id, identity_manager()->GetPrimaryAccountId(
@@ -2469,7 +2465,7 @@ PROFILE_MENU_CLICK_TEST_WITH_FEATURE_STATES_F(
   // passkey promo.
   secondary_account_helper::SignInUnconsentedAccount(
       GetProfile(), &test_url_loader_factory_, "user@example.com");
-  UnconsentedPrimaryAccountChecker(identity_manager()).Wait();
+  PrimaryAccountChecker(identity_manager()).Wait();
   // Check that the setup was successful.
   ASSERT_FALSE(
       identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSync));

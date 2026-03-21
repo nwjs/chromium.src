@@ -571,6 +571,108 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="AccessibilityAnnotator.ContentAnnotator.ClassifierResults"
+    singular="True">
+  <owner>qiaoli@google.com</owner>
+  <owner>akvuong@google.com</owner>
+  <owner>igoralsky@google.com</owner>
+  <summary>
+    Recorded when a page load is evaluated for annotation, which happens when a
+    page is loaded and sufficient data (content, language, sensitivity score)
+    has been gathered.
+  </summary>
+  <metric name="IsTargetLanguage" enum="Boolean">
+    <summary>
+      Records whether the page is in one of the target language(s).
+    </summary>
+  </metric>
+  <metric name="TitleKeywordResult" enum="ContentClassifierRelevanceValue">
+    <summary>
+      Records the level of interest in the web page content based on the results
+      of the title keyword value classifier.
+    </summary>
+  </metric>
+  <metric name="UrlMatchResult" enum="ContentClassifierRelevanceValue">
+    <summary>
+      Indicates the level of interest in the web page content based on the
+      results of the URL match classifier.
+    </summary>
+  </metric>
+</event>
+
+<event name="Actor.Login">
+  <owner>npm@google.com</owner>
+  <owner>web-identity-eng@google.com</owner>
+  <summary>
+    Metrics recorded for an actor login request. Recorded once per request when
+    it completes or reaches a significant milestone.
+  </summary>
+  <metric name="AccountAutoSelected">
+    <summary>
+      Recorded when the account used to login is automatically selected due to a
+      previous user choice to always allow logging in with that account.
+    </summary>
+  </metric>
+  <metric name="AccountTypesShown">
+    <summary>
+      An enum of the result from a query to get credentials.
+    </summary>
+  </metric>
+  <metric name="DeduplicationOccurred">
+    <summary>
+      Recorded when there was some deduplication performed in order to show the
+      accounts. Recorded at most once per actor request to show accounts to sign
+      in.
+    </summary>
+  </metric>
+  <metric name="FederatedContinuationShown">
+    <summary>
+      Recorded when the FedCM continuation API is invoked during an actor
+      autologin flow.
+    </summary>
+  </metric>
+  <metric name="FederatedHangingFedCmRequestExists">
+    <summary>
+      Recorded when there is a hanging FedCM request during an actor login
+      request.
+    </summary>
+  </metric>
+  <metric name="FederatedLoginResult">
+    <summary>
+      An enum with the final result from a federated actor login request.
+    </summary>
+  </metric>
+  <metric name="FederatedLoginStatus">
+    <summary>
+      Enum recorded when there is an identity provider requested by the
+      embedder.
+    </summary>
+  </metric>
+  <metric name="GetCredentialsCompletedToAccountChosen">
+    <summary>
+      Returns the time (ms) from when a &quot;get credentials&quot; request
+      completes until an account is chosen.
+    </summary>
+  </metric>
+  <metric name="GetCredentialsLatency">
+    <summary>
+      Returns the time (ms) from actor login request to when the &quot;get
+      credentials&quot; request is completed.
+    </summary>
+  </metric>
+  <metric name="NumAccountsShown">
+    <summary>
+      The number of accounts shown to the user during an actor login request.
+    </summary>
+  </metric>
+  <metric name="SelectedAccountType">
+    <summary>
+      An enum of the type of account chosen by the user to login during an actor
+      login request.
+    </summary>
+  </metric>
+</event>
+
 <event name="AdFrameLoad">
   <owner>johnidel@chromium.org</owner>
   <owner>jkarlin@chromium.org</owner>
@@ -3774,56 +3876,6 @@ be describing additional metrics about the same event.
   <metric name="WasSubmitted" enum="Boolean">
     <summary>
       Whether the form was submitted.
-    </summary>
-  </metric>
-</event>
-
-<event name="Autofill2.SubmittedFormWithExperimentalFields">
-  <owner>battre@chromium.org</owner>
-  <owner>chrome-autofill-team@google.com</owner>
-  <summary>
-    Statistics on the number of non-empty experimental field-types in submitted
-    forms, recorded at form submission time.
-  </summary>
-  <metric name="FormSessionIdentifier">
-    <summary>
-      A random variable assigned to a specific instance of a HTML form in a
-      specific renderer. This should be globally unique and suitable for
-      counting distinct forms. Two different users would have different values.
-      A single user loading the same form in two different tabs would have two
-      different values. This is used to link the fields in this form in
-      Autofill2.FieldInfo.
-    </summary>
-  </metric>
-  <metric name="FormSignature">
-    <summary>
-      The signature of the form, which is a 10-bit hash of the form's domain,
-      name and all the supported form fields (including empty names).
-    </summary>
-  </metric>
-  <metric name="NumberOfNonEmptyExperimentalFields0">
-    <summary>
-      The total number of non-empty experimental fields in the form in group 0.
-    </summary>
-  </metric>
-  <metric name="NumberOfNonEmptyExperimentalFields1">
-    <summary>
-      The total number of non-empty experimental fields in the form in group 1.
-    </summary>
-  </metric>
-  <metric name="NumberOfNonEmptyExperimentalFields2">
-    <summary>
-      The total number of non-empty experimental fields in the form in group 2.
-    </summary>
-  </metric>
-  <metric name="NumberOfNonEmptyExperimentalFields3">
-    <summary>
-      The total number of non-empty experimental fields in the form in group 3.
-    </summary>
-  </metric>
-  <metric name="NumberOfNonEmptyExperimentalFields4">
-    <summary>
-      The total number of non-empty experimental fields in the form in group 4.
     </summary>
   </metric>
 </event>
@@ -15828,6 +15880,11 @@ be describing additional metrics about the same event.
       Measure of total memory used by media/webmediaplayer/video.
     </summary>
   </metric>
+  <metric name="WebNN">
+    <summary>
+      Measure of the backing memory consumed by the WebNN service.
+    </summary>
+  </metric>
 </event>
 
 <event name="Memory.TabFootprint">
@@ -22184,15 +22241,6 @@ be describing additional metrics about the same event.
       this metric will be duration(keydown).
     </summary>
   </metric>
-  <metric name="TotalEventDuration">
-    <summary>
-      The sum of input event durations within the user interaction without
-      double counting the overlap. The unit of duration is ms. For example, if a
-      user pressed a key, we can get a keydown and a keyup. The value of this
-      metric will be duration(keydown) + duration(keyup) -
-      duration(intersection(keydown, keyup)).
-    </summary>
-  </metric>
 </event>
 
 <event name="ResponsivenessMeasurement">
@@ -24477,8 +24525,13 @@ be describing additional metrics about the same event.
   </metric>
   <metric name="NavigationId">
     <summary>
-      Records the navigation id of a soft navigation. It is used to
-      differentiate soft navigations.
+      Deprecated as of 2026/02/17. Records the navigation id of a soft
+      navigation. It is used to differentiate soft navigations.
+    </summary>
+  </metric>
+  <metric name="NavigationType" enum="NavigationTypeForNavigationApi">
+    <summary>
+      Type of the soft navigation. Corresponds to the first URL change.
     </summary>
   </metric>
   <metric name="PaintTiming.LargestContentfulPaint">

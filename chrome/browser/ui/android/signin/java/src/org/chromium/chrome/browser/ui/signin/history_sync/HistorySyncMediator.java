@@ -17,6 +17,7 @@ import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.signin.services.SigninManager;
+import org.chromium.chrome.browser.signin.services.SigninMetricsUtils;
 import org.chromium.chrome.browser.ui.signin.MinorModeHelper;
 import org.chromium.chrome.browser.ui.signin.R;
 import org.chromium.components.signin.SigninFeatureMap;
@@ -48,7 +49,7 @@ class HistorySyncMediator implements ProfileDataCache.Observer, SigninManager.Si
             @SigninAccessPoint int accessPoint,
             boolean showEmailInFooter,
             boolean shouldSignOutOnDecline,
-            boolean mUseLandscapeLayout) {
+            boolean useLandscapeLayout) {
         mAccessPoint = accessPoint;
         mDelegate = delegate;
         mShouldSignOutOnDecline = shouldSignOutOnDecline;
@@ -88,18 +89,16 @@ class HistorySyncMediator implements ProfileDataCache.Observer, SigninManager.Si
                         mConfig.subtitle,
                         declineButtonText,
                         footerString,
-                        mUseLandscapeLayout);
+                        useLandscapeLayout);
     }
 
     /** Implements {@link ProfileDataCache.Observer}. */
     @Override
-    public void onProfileDataUpdated(String accountEmail) {
-        if (!TextUtils.equals(mAccountEmail, accountEmail)) {
+    public void onProfileDataUpdated(DisplayableProfileData profileData) {
+        if (!TextUtils.equals(mAccountEmail, profileData.getAccountEmail())) {
             return;
         }
-        mModel.set(
-                HistorySyncProperties.PROFILE_DATA,
-                mProfileDataCache.getProfileDataOrDefault(accountEmail));
+        mModel.set(HistorySyncProperties.PROFILE_DATA, profileData);
     }
 
     /** Implements {@link SigninManager.SignInStateObserver} */
@@ -120,7 +119,7 @@ class HistorySyncMediator implements ProfileDataCache.Observer, SigninManager.Si
     }
 
     void declineAndDismiss() {
-        mDelegate.recordHistorySyncOptIn(mAccessPoint, /* isHistorySyncAccepted= */ false);
+        SigninMetricsUtils.logHistorySyncDeclineButtonClicked(mAccessPoint);
         if (mShouldSignOutOnDecline) {
             mSigninManager.signOut(
                     SignoutReason.USER_DECLINED_HISTORY_SYNC_AFTER_DEDICATED_SIGN_IN);
@@ -131,7 +130,7 @@ class HistorySyncMediator implements ProfileDataCache.Observer, SigninManager.Si
     }
 
     private void onAcceptClicked(View view) {
-        mDelegate.recordHistorySyncOptIn(mAccessPoint, /* isHistorySyncAccepted= */ true);
+        SigninMetricsUtils.logHistorySyncAcceptButtonClicked(mAccessPoint);
         mHistorySyncHelper.setHistoryAndTabsSync(true);
         mHistorySyncHelper.clearHistorySyncDeclinedPrefs();
         mDelegate.dismissHistorySync(/* didSignOut= */ false, /* isHistorySyncAccepted= */ true);

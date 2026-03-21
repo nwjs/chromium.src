@@ -123,7 +123,7 @@ class ContentHash : public base::RefCountedThreadSafe<ContentHash> {
 
   // Forces creation of computed_hashes.json. Must be called with after
   // `verified_contents` has been successfully set.
-  // TODO(lazyboy): Remove this once https://crbug.com/819832 is fixed.
+  // TODO(lazyboy): Remove this once https://crbug.com/40566167 is fixed.
   void ForceBuildComputedHashes(const IsCancelledCallback& is_cancelled,
                                 CreatedCallback created_callback);
 
@@ -157,14 +157,14 @@ class ContentHash : public base::RefCountedThreadSafe<ContentHash> {
 
   // Returns whether or not computed_hashes.json re-creation might be required
   // for `this` to succeed.
-  // TODO(lazyboy): Remove this once https://crbug.com/819832 is fixed.
+  // TODO(lazyboy): Remove this once https://crbug.com/40566167 is fixed.
   bool might_require_computed_hashes_force_creation() const {
     return !succeeded() && verified_contents_ != nullptr &&
            !did_attempt_creating_computed_hashes_;
   }
 
   static std::string ComputeTreeHashForContent(const std::string& contents,
-                                               int block_size);
+                                               size_t block_size);
 
  private:
   friend class base::RefCountedThreadSafe<ContentHash>;
@@ -275,7 +275,7 @@ class ContentHash : public base::RefCountedThreadSafe<ContentHash> {
   // The block size to use for hashing.
   // TODO(asargent) - use the value from verified_contents.json for each
   // file, instead of using a constant.
-  int block_size_ = extension_misc::kContentVerificationDefaultBlockSize;
+  size_t block_size_ = extension_misc::kContentVerificationDefaultBlockSize;
 };
 
 }  // namespace extensions

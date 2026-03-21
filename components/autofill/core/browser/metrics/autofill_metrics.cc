@@ -34,6 +34,7 @@
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
 #include "components/autofill/core/browser/payments/card_unmask_challenge_option.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/browser/ui/payments/autofill_progress_ui_type.h"
 #include "components/autofill/core/browser/ui/popup_interaction.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -94,7 +95,7 @@ constexpr auto kStructuredAddressTypeToNameMap =
          {ADDRESS_HOME_APT_NUM, "ApartmentNumber"},
          {ADDRESS_HOME_SUBPREMISE, "SubPremise"}});
 
-const std::string GetImageTypeString(
+const std::string_view GetImageTypeString(
     AutofillImageFetcherBase::ImageType image_type) {
   switch (image_type) {
     case AutofillImageFetcherBase::ImageType::kCreditCardArtImage:
@@ -115,19 +116,19 @@ const std::string GetImageTypeString(
 // The lower four bits are used to encode the editing status and the higher
 // 12 bits are used to encode the field type.
 int GetFieldTypeUserEditStatusMetric(
-    FieldType server_type,
+    FieldType field_type,
     AutofillMetrics::AutofilledFieldUserEditingStatusMetric metric) {
-  static_assert(FieldType::MAX_VALID_FIELD_TYPE <= (UINT16_MAX >> 4),
-                "Autofill::ServerTypes value needs more than 12 bits.");
+  static_assert(std::to_underlying(FieldType::MAX_VALID_FIELD_TYPE) < (1 << 12),
+                "autofill::FieldType value needs more than 12 bits.");
 
   static_assert(
-      static_cast<int>(
-          AutofillMetrics::AutofilledFieldUserEditingStatusMetric::kMaxValue) <=
-          (UINT16_MAX >> 12),
+      std::to_underlying(
+          AutofillMetrics::AutofilledFieldUserEditingStatusMetric::kMaxValue) <
+          (1 << 4),
       "AutofillMetrics::AutofilledFieldUserEditingStatusMetric value needs "
-      "more than 4 bits");
+      "more than 4 bits.");
 
-  return (server_type << 4) | static_cast<int>(metric);
+  return (std::to_underlying(field_type) << 4) | std::to_underlying(metric);
 }
 
 const int kMaxBucketsCount = 50;
@@ -277,7 +278,7 @@ void AutofillMetrics::LogScanCreditCardCompleted(base::TimeDelta duration,
 // static
 void AutofillMetrics::LogProgressDialogResultMetric(
     bool is_canceled_by_user,
-    AutofillProgressDialogType autofill_progress_dialog_type) {
+    AutofillProgressUiType autofill_progress_dialog_type) {
   base::UmaHistogramBoolean(base::StrCat({"Autofill.ProgressDialog.",
                                           GetDialogTypeStringForLogging(
                                               autofill_progress_dialog_type),
@@ -286,7 +287,7 @@ void AutofillMetrics::LogProgressDialogResultMetric(
 }
 
 void AutofillMetrics::LogProgressDialogShown(
-    AutofillProgressDialogType autofill_progress_dialog_type) {
+    AutofillProgressUiType autofill_progress_dialog_type) {
   base::UmaHistogramBoolean(base::StrCat({"Autofill.ProgressDialog.",
                                           GetDialogTypeStringForLogging(
                                               autofill_progress_dialog_type),
@@ -295,24 +296,23 @@ void AutofillMetrics::LogProgressDialogShown(
 }
 
 std::string_view AutofillMetrics::GetDialogTypeStringForLogging(
-    AutofillProgressDialogType autofill_progress_dialog_type) {
+    AutofillProgressUiType autofill_progress_dialog_type) {
   switch (autofill_progress_dialog_type) {
-    case AutofillProgressDialogType::kVirtualCardUnmaskProgressDialog:
+    case AutofillProgressUiType::kVirtualCardUnmaskProgressUi:
       return "VirtualCardUnmask";
-    case AutofillProgressDialogType::kServerCardUnmaskProgressDialog:
+    case AutofillProgressUiType::kServerCardUnmaskProgressUi:
       return "ServerCardUnmask";
-    case AutofillProgressDialogType::kServerIbanUnmaskProgressDialog:
+    case AutofillProgressUiType::kServerIbanUnmaskProgressUi:
       return "ServerIbanUnmask";
-    case AutofillProgressDialogType::
-        kCardInfoRetrievalEnrolledUnmaskProgressDialog:
+    case AutofillProgressUiType::kCardInfoRetrievalEnrolledUnmaskProgressUi:
       return "CardInfoRetrievalEnrolledUnmask";
-    case AutofillProgressDialogType::k3dsFetchVcnProgressDialog:
+    case AutofillProgressUiType::k3dsFetchVcnProgressUi:
       return "3dsFetchVirtualCard";
-    case AutofillProgressDialogType::kBnplFetchVcnProgressDialog:
+    case AutofillProgressUiType::kBnplFetchVcnProgressUi:
       return "BnplFetchVirtualCard";
-    case AutofillProgressDialogType::kBnplAmountExtractionProgressUi:
+    case AutofillProgressUiType::kBnplAmountExtractionProgressUi:
     // TODO(crbug.com/430575808): Implement Logging for progress screen.
-    case AutofillProgressDialogType::kUnspecified:
+    case AutofillProgressUiType::kUnspecified:
       NOTREACHED();
   }
 }
@@ -321,10 +321,10 @@ std::string_view AutofillMetrics::GetDialogTypeStringForLogging(
 void AutofillMetrics::LogUnmaskPromptEvent(UnmaskPromptEvent event,
                                            bool has_valid_nickname,
                                            CreditCard::RecordType card_type) {
-  base::UmaHistogramEnumeration("Autofill.UnmaskPrompt" +
-                                    GetHistogramStringForCardType(card_type) +
-                                    ".Events",
-                                event, NUM_UNMASK_PROMPT_EVENTS);
+  base::UmaHistogramEnumeration(
+      base::StrCat({"Autofill.UnmaskPrompt",
+                    GetHistogramStringForCardType(card_type), ".Events"}),
+      event, NUM_UNMASK_PROMPT_EVENTS);
   if (has_valid_nickname) {
     base::UmaHistogramEnumeration("Autofill.UnmaskPrompt.Events.WithNickname",
                                   event, NUM_UNMASK_PROMPT_EVENTS);
@@ -555,11 +555,12 @@ void AutofillMetrics::LogEditedAutofilledFieldAtSubmission(
     ukm::SourceId source_id,
     const FormStructure& form,
     const AutofillField& field) {
+  CHECK(field.all_modifiers().contains(FieldModifier::kAutofill));
   AutofilledFieldUserEditingStatusMetric editing_metric =
-      field.previously_autofilled()
-          ? AutofilledFieldUserEditingStatusMetric::AUTOFILLED_FIELD_WAS_EDITED
-          : AutofilledFieldUserEditingStatusMetric::
-                AUTOFILLED_FIELD_WAS_NOT_EDITED;
+      field.last_modifier() == FieldModifier::kAutofill
+          ? AutofilledFieldUserEditingStatusMetric::
+                AUTOFILLED_FIELD_WAS_NOT_EDITED
+          : AutofilledFieldUserEditingStatusMetric::AUTOFILLED_FIELD_WAS_EDITED;
 
   // Record the aggregated UMA statistics.
   base::UmaHistogramEnumeration(
@@ -1376,7 +1377,8 @@ void AutofillMetrics::LogImageFetchResult(
     AutofillImageFetcherBase::ImageType image_type,
     bool succeeded) {
   base::UmaHistogramBoolean(
-      "Autofill.ImageFetcher." + GetImageTypeString(image_type) + ".Result",
+      base::StrCat({"Autofill.ImageFetcher.", GetImageTypeString(image_type),
+                    ".Result"}),
       succeeded);
 }
 
@@ -1384,10 +1386,10 @@ void AutofillMetrics::LogImageFetchResult(
 void AutofillMetrics::LogImageFetchOverallResult(
     AutofillImageFetcherBase::ImageType image_type,
     bool succeeded) {
-  base::UmaHistogramBoolean("Autofill.ImageFetcher." +
-                                GetImageTypeString(image_type) +
-                                ".OverallResultOnBrowserStart",
-                            succeeded);
+  base::UmaHistogramBoolean(
+      base::StrCat({"Autofill.ImageFetcher.", GetImageTypeString(image_type),
+                    ".OverallResultOnBrowserStart"}),
+      succeeded);
 }
 
 // static
@@ -1454,36 +1456,29 @@ void AutofillMetrics::LogAutocompletePredictionCollisionTypes(
       FieldType::MAX_VALID_FIELD_TYPE);
 }
 
-const std::string PaymentsRpcResultToMetricsSuffix(PaymentsRpcResult result) {
-  std::string result_suffix;
-
+const std::string_view PaymentsRpcResultToMetricsSuffix(
+    PaymentsRpcResult result) {
   switch (result) {
     case PaymentsRpcResult::kSuccess:
-      result_suffix = ".Success";
-      break;
+      return ".Success";
     case PaymentsRpcResult::kTryAgainFailure:
     case PaymentsRpcResult::kPermanentFailure:
-      result_suffix = ".Failure";
-      break;
+      return ".Failure";
     case PaymentsRpcResult::kNetworkError:
-      result_suffix = ".NetworkError";
-      break;
+      return ".NetworkError";
     case PaymentsRpcResult::kVcnRetrievalTryAgainFailure:
     case PaymentsRpcResult::kVcnRetrievalPermanentFailure:
-      result_suffix = ".VcnRetrievalFailure";
-      break;
+      return ".VcnRetrievalFailure";
     case PaymentsRpcResult::kClientSideTimeout:
-      result_suffix = ".ClientSideTimeout";
-      break;
+      return ".ClientSideTimeout";
     case PaymentsRpcResult::kNone:
       NOTREACHED();
   }
-
-  return result_suffix;
+  return "";
 }
 
 // static
-std::string AutofillMetrics::GetHistogramStringForCardType(
+std::string_view AutofillMetrics::GetHistogramStringForCardType(
     std::variant<PaymentsRpcCardType, CreditCard::RecordType> card_type) {
   if (std::holds_alternative<PaymentsRpcCardType>(card_type)) {
     switch (std::get<PaymentsRpcCardType>(card_type)) {
