@@ -738,6 +738,8 @@ chromium-metrics-reviews@google.com.
   <int value="179" label="WebSettingsCompat.setMaxPrerenders"/>
   <int value="180" label="WebSettingsCompat.setMaxPrefetches"/>
   <int value="181" label="WebSettingsCompat.setPrefetchTtlSeconds"/>
+  <int value="182" label="BackForwardCacheSettings.getKeepForwardEntries"/>
+  <int value="183" label="BackForwardCacheSettings.setKeepForwardEntries"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -1035,6 +1037,16 @@ chromium-metrics-reviews@google.com.
       label="Debugging set by device being a debuggable OS / Build regardless
              of the setWebContentsDebuggingEnabled value."/>
 </enum>
+
+<!-- LINT.IfChange(DefaultBrowserPromoSourceType) -->
+
+<enum name="DefaultBrowserPromoSourceType">
+  <int value="0" label="Messages Promo"/>
+  <int value="1" label="Setting Card Promo"/>
+  <int value="2" label="Educational Tip Promo"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/default_browser_promo/java/src/org/chromium/chrome/browser/ui/default_browser_promo/DefaultBrowserPromoMetrics.java:DefaultBrowserPromoSourceType) -->
 
 <enum name="DesktopWindowHeuristicResult">
   <int value="0" label="Invalid result."/>
@@ -1420,8 +1432,6 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="HOVER_MOVE"/>
   <int value="10" label="BUTTON_PRESS"/>
   <int value="11" label="BUTTON_RELEASE"/>
-  <int value="12" label="OUTSIDE"/>
-  <int value="13" label="SCROLL"/>
 </enum>
 
 <enum name="MultipleUserProfilesState">

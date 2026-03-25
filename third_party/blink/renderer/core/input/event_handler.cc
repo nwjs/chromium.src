@@ -2244,7 +2244,7 @@ static bool ShouldShowContextMenuAtSelection(const FrameSelection& selection) {
 
 WebInputEventResult EventHandler::ShowNonLocatedContextMenu(
     Element* override_target_element,
-    ui::mojom::blink::MenuSourceType source_type) {
+    WebMenuSourceType source_type) {
   LocalFrameView* view = frame_->View();
   if (!view)
     return WebInputEventResult::kNotHandled;

@@ -98,8 +98,6 @@ bool StylusTextSelector::OnTouchEvent(const MotionEvent& event) {
     case MotionEvent::Action::HOVER_MOVE:
     case MotionEvent::Action::BUTTON_PRESS:
     case MotionEvent::Action::BUTTON_RELEASE:
-    case MotionEvent::Action::OUTSIDE:
-    case MotionEvent::Action::SCROLL:
       NOTREACHED();
   }
 

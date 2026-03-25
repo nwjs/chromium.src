@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">डीफॉल्ट ब्राउझरच्या तळाशी असलेली शीट</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_OWNER" /> च्या साइटच्या गटातील <ph name="RWS_MEMBERS_COUNT" /> साइट तुमची अ‍ॅक्टिव्हिटी पाहू शकते}other{<ph name="RWS_OWNER" /> च्या साइटच्या गटातील <ph name="RWS_MEMBERS_COUNT" /> साइट तुमची अ‍ॅक्टिव्हिटी पाहू शकतात}}</translation>
 <translation id="3676777756440746804">तुमच्याविषयी सेव्ह केलेली माहिती वापरण्याची परवानगी मागण्यापासून साइटना ब्लॉक केले आहे</translation>
+<translation id="3677897809642449131">साइट मोशन सेन्सर वापरण्याची विनंती करू शकतात</translation>
 <translation id="3678318839615834650">नवीन टॅब पेज कार्डच्या तळाशी असलेली शीट पूर्ण उंचीवर उघडली आहे</translation>
 <translation id="3697164069658504920">सुरू असताना, साइट USB डिव्हाइस वापरण्याची विनंती करू शकतात. बंद असताना, साइट USB डिव्हाइस वापरू शकत नाहीत.</translation>
 <translation id="3703430731944883733">तुमची फीड व्यवस्थापित करा</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">तुमची स्क्रीन शेअर करत आहे</translation>
 <translation id="5922967540311291836">तृतीय पक्ष कुकी ब्लॉक करा:</translation>
 <translation id="5923512600150154850">यामुळे साइटनी स्टोअर केलेल्या डेटा आणि कुकीचा <ph name="DATASIZE" /> हटवला जाईल.</translation>
+<translation id="5930707844513754220">आणखी सेटअप सूची पहा</translation>
 <translation id="5939518447894949180">रीसेट करा</translation>
 <translation id="5948139900367969951">तुमच्यासाठी महत्त्वाचे असलेले लवकर मिळवा</translation>
 <translation id="5964247741333118902">एंबेड केलेला आशय</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Discover फीड सुरू करा</translation>
 <translation id="6012967556075291653">पिन केलेला शॉर्टकट</translation>
+<translation id="6013003831291591200">टास्क पूर्ण झाली आहे</translation>
 <translation id="6015775454662021376">या साइटला तुमच्‍या डिव्हाइसचा असलेला अ‍ॅक्सेस नियंत्रित करा</translation>
 <translation id="6022659036123304283">Chrome ला तुमच्या आवडीनुसार बनवा</translation>
 <translation id="6040143037577758943">बंद करा</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">साइट तुमच्या कॅमेराची परवानगी मागू शकतात</translation>
 <translation id="8712637175834984815">समजले</translation>
 <translation id="8715862698998036666">फुल स्क्रीनमधून बाहेर पडण्यासाठी, सर्वात वरपासून ड्रॅग करा आणि डाव्या किंवा उजव्या कडेपासून स्‍वाइप करा.</translation>
+<translation id="8716050156658570300">साइट मोशन आणि लाइट सेन्सर वापरण्याची परवानगी मागू शकतात</translation>
 <translation id="8719283222052720129"><ph name="BEGIN_LINK" />Android सेटिंग्ज<ph name="END_LINK" /> मध्ये <ph name="APP_NAME" /> साठी परवानगी सुरू करा.</translation>
 <translation id="8721719390026067591">सुरू असताना, साइट ब्लूटूथ डिव्हाइस शोधण्याची विनंती करू शकतात. बंद असताना, साइट ब्लूटूथ डिव्हाइस शोधू शकत नाहीत.</translation>
 <translation id="8725066075913043281">पुन्हा प्रयत्न करा</translation>

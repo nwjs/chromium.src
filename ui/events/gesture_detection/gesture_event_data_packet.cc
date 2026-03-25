@@ -32,8 +32,6 @@ GestureEventDataPacket::GestureSource ToGestureSource(
     case ui::MotionEvent::Action::HOVER_MOVE:
     case ui::MotionEvent::Action::BUTTON_PRESS:
     case ui::MotionEvent::Action::BUTTON_RELEASE:
-    case ui::MotionEvent::Action::OUTSIDE:
-    case ui::MotionEvent::Action::SCROLL:
       NOTREACHED();
   }
   NOTREACHED();

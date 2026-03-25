@@ -913,14 +913,37 @@ IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
   // The region changed from the "chrome" one to the "android" one, and it also
   // changes to the data set that includes the migration. The DSE changes to be
   // the "android" codesearch variant.When the feature is
-  // enabled it gets the new ID.
+  // enabled it gets the new ID, but the migration causes another entry matching
+  // the regional "chrome" search to be added, but with
+  // the user modifications normally associated with the DSE.
+  // be also added.
+  // TODO(crbug.com/446637115): Fix the propagation of user changes to the wrong
+  // engine.
   ASSERT_EQ(active_engines_config_, android_migrated_region_engines);
 
   std::vector<SearchProviderSummary> expectations = {
       {google.id, google.keyword, false},
       {bing.id, bing.keyword, false},
-      {IsParamFeatureEnabled() ? new_id : generic_id, custom_keyword, true,
-       android_codesearch.search_url, android_codesearch.name}};
+  };
+  if (IsParamFeatureEnabled()) {
+    // Engine migrated from keyword DB and merged with
+    // `android_codesearch_migrating` without migration, since the URLs don't
+    // match.
+    expectations.push_back({generic_id, custom_keyword, false,
+                            chrome_codesearch.search_url,
+                            android_codesearch.name});
+    // DSE reconciled from prefs with `android_codesearch_migrating` and
+    // migrated since the URLs match.
+    expectations.push_back({new_id, custom_keyword, true,
+                            android_codesearch.search_url,
+                            android_codesearch.name});
+  } else {
+    // TODO(crbug.com/480071119): Avoid freezing both keyword and name when only
+    // one is changed, which leads to wrong name and URLs associations.
+    expectations.push_back({generic_id, custom_keyword, true,
+                            android_codesearch.search_url,
+                            android_codesearch.name});
+  }
 
   EXPECT_THAT(GetServiceSearchProviders(), ElementsAreArray(expectations));
 
@@ -941,8 +964,24 @@ IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
   std::vector<SearchProviderSummary> expectations = {
       {google.id, google.keyword, false},
       {bing.id, bing.keyword, false},
-      {IsParamFeatureEnabled() ? new_id : generic_id, custom_keyword, true,
-       android_codesearch.search_url, android_codesearch.name}};
+  };
+  if (IsParamFeatureEnabled()) {
+    // [crbug.com/446637115 TDD] Bug: Inconsistent data.
+
+    // Engine from keywords DB kept because it's not `safe_for_autoreplace`.
+    expectations.push_back({generic_id, custom_keyword, false,
+                            chrome_codesearch.search_url,
+                            android_codesearch.name});
+
+    // DSE reconciled from prefs with `android_codesearch_next`
+    expectations.push_back({new_id, custom_keyword, true,
+                            android_codesearch.search_url,
+                            android_codesearch.name});
+  } else {
+    expectations.push_back({generic_id, custom_keyword, true,
+                            android_codesearch.search_url,
+                            android_codesearch.name});
+  }
 
   EXPECT_THAT(GetServiceSearchProviders(), ElementsAreArray(expectations));
 
@@ -957,9 +996,9 @@ IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
 IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
                        PRE_UserModifiedDse) {
   // The region changed from the post-migration "android" one to the "chrome"
-  // one. When the feature is enabled, the "android" variant stays DSE while
-  // an entry associated with the regional "chrome" variant is added, instead of
-  // replacing the DSE.
+  // one. The DSE is switched back to "chrome" codesearch, even when the feature
+  // was enabled, but an entry associated with the new, modified ID is
+  // preserved.
   ASSERT_EQ(active_engines_config_, chrome_migrated_region_engines);
 
   std::vector<SearchProviderSummary> expectations = {
@@ -968,15 +1007,18 @@ IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
   };
 
   if (IsParamFeatureEnabled()) {
+    // [crbug.com/446637115 TDD] Bug: Inconsistent data.
+
+    // Engine migrated from keyword DB and merged with `chrome_codesearch`, but
+    // keeping the user-modifiable properties since it's marked
+    // `safe_for_autoreplace`.
+    expectations.push_back({generic_id, custom_keyword, false,
+                            chrome_codesearch.search_url,
+                            android_codesearch_next.name});
     // DSE reconciled from prefs with `android_codesearch_next`
     expectations.push_back({new_id, custom_keyword, true,
                             android_codesearch_next.search_url,
                             android_codesearch_next.name});
-
-    // New engine from prepopulated entries
-    expectations.push_back({generic_id, chrome_codesearch.keyword, false,
-                            chrome_codesearch.search_url,
-                            chrome_codesearch.name});
   } else {
     expectations.push_back({generic_id, custom_keyword, true,
                             chrome_codesearch.search_url,
@@ -996,14 +1038,32 @@ IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
 IN_PROC_BROWSER_TEST_P(PrepopulatedEnginesExtendedCrossRegionsBrowserTest,
                        UserModifiedDse) {
   // The region changed from the post-migration "chrome" one to the "android"
-  // one, and the DSE is switched back to "android".
+  // one, and the DSE is switched back to "android". Slight variation from the
+  // similar transition made previously, the DSE is the second of the duplicated
+  // entries now.
   ASSERT_EQ(active_engines_config_, android_migrated_region_engines);
 
   std::vector<SearchProviderSummary> expectations = {
       {google.id, google.keyword, false},
       {bing.id, bing.keyword, false},
-      {IsParamFeatureEnabled() ? new_id : generic_id, custom_keyword, true,
-       android_codesearch.search_url, android_codesearch.name}};
+  };
+  if (IsParamFeatureEnabled()) {
+    // [crbug.com/446637115 TDD] Bug: Inconsistent data.
+
+    // Engine from keywords DB kept because it's not `safe_for_autoreplace`.
+    expectations.push_back({generic_id, custom_keyword, false,
+                            chrome_codesearch.search_url,
+                            android_codesearch_next.name});
+    // DSE reconciled from prefs with `android_codesearch_next`
+    expectations.push_back({new_id, custom_keyword, true,
+                            android_codesearch_next.search_url,
+                            android_codesearch_next.name});
+
+  } else {
+    expectations.push_back({generic_id, custom_keyword, true,
+                            android_codesearch_migrating.search_url,
+                            android_codesearch_migrating.name});
+  }
 
   EXPECT_THAT(GetServiceSearchProviders(), ElementsAreArray(expectations));
 

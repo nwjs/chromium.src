@@ -22,6 +22,8 @@
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
+#include "chrome/browser/glic/widget/glic_floating_ui.h"
+#include "chrome/browser/glic/widget/glic_window_event_observer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -355,54 +357,6 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
     EXPECT_FALSE(instance->HasFocus());
   }
 }
-
-// Glic floaty and live modes are not supported on Android.
-#if !BUILDFLAG(IS_ANDROID)
-IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
-                       SidePanelActivationStopsFloatyListening) {
-  // Open floaty and start listening
-  coordinator().Toggle(/*browser=*/nullptr, /*prevent_close=*/true,
-                       mojom::InvocationSource::kTopChromeButton,
-                       /*deprecated_prompt_suggestion=*/std::nullopt,
-                       /*deprecated_auto_send=*/false,
-                       /*deprecated_conversation_id=*/std::nullopt);
-  GlicInstanceImpl* floaty_instance =
-      static_cast<GlicInstanceImpl*>(coordinator().GetActiveInstance());
-  ASSERT_TRUE(floaty_instance);
-  ASSERT_TRUE(floaty_instance->IsDetached());
-
-  floaty_instance->host().OnMicrophoneStatusChanged(
-      mojom::MicrophoneStatus::kListening);
-  EXPECT_EQ(floaty_instance->host().microphone_status(),
-            mojom::MicrophoneStatus::kListening);
-
-  // Now open a new side panel
-  tabs::TabInterface* tab2 =
-      GetTabListInterface()->OpenTab(GURL("about:blank"), -1);
-  GetTabListInterface()->ActivateTab(tab2->GetHandle());
-
-  coordinator().Toggle(tab2->GetBrowserWindowInterface(),
-                       /*prevent_close=*/true,
-                       mojom::InvocationSource::kTopChromeButton,
-                       /*deprecated_prompt_suggestion=*/std::nullopt,
-                       /*deprecated_auto_send=*/false,
-                       /*deprecated_conversation_id=*/std::nullopt);
-  ASSERT_TRUE(WaitForGlicOpen(tab2));
-  GlicInstanceImpl* side_panel_instance = GetInstanceForTab(tab2);
-  ASSERT_TRUE(side_panel_instance);
-  ASSERT_TRUE(side_panel_instance->IsAttached());
-
-  // Manually activate the side panel
-  side_panel_instance->OnEmbedderWindowActivationChanged(true);
-  EXPECT_EQ(coordinator().GetActiveInstance(), side_panel_instance);
-
-  // Verify that Floaty has stopped listening
-  floaty_instance->host().OnMicrophoneStatusChanged(
-      mojom::MicrophoneStatus::kNotListening);
-  EXPECT_EQ(floaty_instance->host().microphone_status(),
-            mojom::MicrophoneStatus::kNotListening);
-}
-#endif
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
                        TabContentsDaisyChainingSuppressedWhenUnifiedFreShown) {
@@ -996,6 +950,56 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       InvokeWhenWebClientAlreadySet) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+
+  // Call invoke twice. The first one will set it up.
+  base::test::TestFuture<void> initial_success_future;
+  GlicInvokeOptions initial_options(mojom::InvocationSource::kOsButton);
+  initial_options.on_success = initial_success_future.GetCallback();
+  coordinator().Invoke(tab, std::move(initial_options));
+  EXPECT_TRUE(initial_success_future.Wait());
+
+  auto* instance = coordinator().GetInstanceForTab(tab);
+
+  // Wait until setup is complete
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return instance->host().IsReady(); }));
+
+  // Now, invoke should hit the fast path.
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(mojom::InvocationSource::kOsButton);
+  options.on_success = success_future.GetCallback();
+
+  coordinator().Invoke(tab, std::move(options));
+
+  // The success callback should be called relatively quickly via fast-pathing
+  // through IsReady(), without waiting for WebClientConnected. However, it is
+  // still asynchronous due to the Mojo IPC, so we must Wait().
+  EXPECT_TRUE(success_future.Wait());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       InvokeBeforeWebClientSet) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(mojom::InvocationSource::kOsButton);
+  options.on_success = success_future.GetCallback();
+
+  // Call invoke. This will create the instance and wait for WebClientSet.
+  coordinator().Invoke(tab, std::move(options));
+
+  auto* instance = coordinator().GetInstanceForTab(tab);
+  ASSERT_TRUE(instance);
+
+  // Wait for the instance to open, which also sets the web client.
+  ASSERT_TRUE(WaitForGlicOpen(instance));
+
+  // The success callback should be called after observing WebClientSet.
+  EXPECT_TRUE(success_future.Wait());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
                        InvokeWhileInvokeInProgress) {
   tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
 
@@ -1048,5 +1052,40 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
   // it didn't instantly time out like the short one.
   EXPECT_GE(elapsed_timer.Elapsed(), base::Milliseconds(50));
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       WidgetClosedDuringDragDoesNotCrash) {
+  // Open floaty
+  coordinator().Toggle(/*browser=*/nullptr, /*prevent_close=*/true,
+                       mojom::InvocationSource::kTopChromeButton,
+                       /*deprecated_prompt_suggestion=*/std::nullopt,
+                       /*deprecated_auto_send=*/false,
+                       /*deprecated_conversation_id=*/std::nullopt);
+  GlicInstanceImpl* instance =
+      static_cast<GlicInstanceImpl*>(coordinator().GetActiveInstance());
+  ASSERT_TRUE(instance);
+  ASSERT_TRUE(instance->IsDetached());
+  ASSERT_TRUE(WaitForGlicOpen());
+
+  // Post a task to close the instance
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](GlicInstanceCoordinator* coordinator) {
+                       coordinator->Close(CloseOptions());
+                     },
+                     base::Unretained(&coordinator())));
+
+  // Trigger the drag via the window event observer
+  auto* floating_ui = instance->GetFloatingUiForTesting();
+  ASSERT_TRUE(floating_ui);
+  floating_ui->GetWindowEventObserverForTesting()->HandleWindowDragWithOffset(
+      gfx::Vector2d(10, 10));
+
+  // Verify it closed without crashing
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return coordinator().GetActiveInstance() == nullptr; }));
+}
+#endif
 
 }  // namespace glic

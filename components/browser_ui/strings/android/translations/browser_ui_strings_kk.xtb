@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">Әдепкі браузердің төменгі парақшасы</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{Топтағы әрекетіңізді көре алатын <ph name="RWS_OWNER" /> сайттар тобындағы <ph name="RWS_MEMBERS_COUNT" /> сайт}other{Топтағы әрекетіңізді көре алатын <ph name="RWS_OWNER" /> сайттар тобындағы <ph name="RWS_MEMBERS_COUNT" /> сайт}}</translation>
 <translation id="3676777756440746804">Сайттардың сіз туралы сақталған ақпаратты пайдалануды сұрауына блок қойылады.</translation>
+<translation id="3677897809642449131">Сайттар қозғалыс датчиктерін пайдалануға рұқсат сұрай алады</translation>
 <translation id="3678318839615834650">Толығымен ашылған жаңа қойынды беті карталарының төменгі парақшасы</translation>
 <translation id="3697164069658504920">Қосылса, сайттар USB құрылғыларын пайдалануға рұқсат сұрай алады. Өшірілсе, пайдалана алмайды.</translation>
 <translation id="3703430731944883733">Фидті басқару</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">Экранды бөлісіп жатырсыз.</translation>
 <translation id="5922967540311291836">Үшінші тарап cookie файлдарын бөгеу:</translation>
 <translation id="5923512600150154850">Сайттар сақтаған <ph name="DATASIZE" /> деректер мен cookie файлдары жойылады.</translation>
+<translation id="5930707844513754220">Басқа реттеу тізімін көру</translation>
 <translation id="5939518447894949180">Қалпына келтіру</translation>
 <translation id="5948139900367969951">Маңызды ақпаратты жылдам ашыңыз.</translation>
 <translation id="5964247741333118902">Ендірілген контент</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Discover фидін қосу</translation>
 <translation id="6012967556075291653">Бекітілген таңбаша</translation>
+<translation id="6013003831291591200">Тапсырма орындалды.</translation>
 <translation id="6015775454662021376">Осы сайттың құрылғыңызға кіруін басқарыңыз.</translation>
 <translation id="6022659036123304283">Chrome браузерін өз талғамыңызға сай реттеңіз</translation>
 <translation id="6040143037577758943">Жабу</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">Сайт камераңызға рұқсат сұрай алады.</translation>
 <translation id="8712637175834984815">Түсінікті</translation>
 <translation id="8715862698998036666">Толық экраннан шығу үшін жоғарыдан сүйреңіз және сол не оң жақ шеттен сырғытыңыз.</translation>
+<translation id="8716050156658570300">Сайттар қозғалыс және жарық датчиктерін пайдалануға рұқсат сұрай алады</translation>
 <translation id="8719283222052720129"><ph name="APP_NAME" /> браузері үшін рұқсатты <ph name="BEGIN_LINK" />Android параметрлерінде<ph name="END_LINK" /> қосыңыз.</translation>
 <translation id="8721719390026067591">Қосылса, сайттар Bluetooth құрылғыларын іздеуге рұқсат сұрай алады. Өшірілсе, іздей алмайды.</translation>
 <translation id="8725066075913043281">Әрекетті қайталау</translation>

@@ -44,6 +44,7 @@ source_set("public") {
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toasts/api:toasts",
     "//components/skills/public",
+    "//components/skills/public:mojo_bindings",
     "//components/tabs:public",
     "//ui/base/unowned_user_data",
   ]
@@ -81,6 +82,7 @@ source_set("ui") {
     "//components/skills:features",
     "//components/skills/proto",
     "//components/skills/public",
+    "//components/skills/public:mojo_bindings",
     "//components/web_modal",
     "//services/service_manager/public/cpp",
     "//ui/base/unowned_user_data",
@@ -91,7 +93,10 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
+    "skills_api_functional_browsertest.cc",
     "skills_dialog_launcher_browsertest.cc",
+    "skills_functional_browsertest.cc",
+    "skills_functional_browsertest.h",
     "skills_ui_tab_controller_browsertest.cc",
     "skills_ui_window_controller_browsertest.cc",
   ]
@@ -100,6 +105,7 @@ source_set("browser_tests") {
     ":skills",
     ":ui",
     "//chrome/browser/glic",
+    "//chrome/browser/glic/test_support",
     "//chrome/browser/ui",
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toasts/api:toasts",
@@ -108,6 +114,7 @@ source_set("browser_tests") {
     "//chrome/test:test_support",
     "//components/skills:features",
     "//components/skills/public",
+    "//components/skills/public:mojo_bindings",
   ]
 }
 
@@ -116,6 +123,7 @@ source_set("interactive_ui_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [ "skills_interactive_uitest.cc" ]
   deps = [
+    ":browser_tests",
     ":public",
     ":skills",
     "//base/test:test_support",
@@ -123,6 +131,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
     "//chrome/browser/glic/test_support",
+    "//chrome/browser/ui/webui/skills",
     "//components/skills:features",
     "//components/skills/public",
     "//testing/gmock",

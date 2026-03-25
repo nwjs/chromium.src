@@ -125,6 +125,35 @@ BASE_FEATURE(kSideBySide, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSideBySideLinkMenuNewBadge, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSplitViewTabDraggingUpdates, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kShowDropTargetForTabDelay,
+                   &kSplitViewTabDraggingUpdates,
+                   "show_drop_target_for_tab_delay",
+                   base::Milliseconds(1000));
+
+BASE_FEATURE(kSplitViewDragAndDropVelocity, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSplitViewDragAndDropMinDelay,
+                   &kSplitViewDragAndDropVelocity,
+                   "min_delay",
+                   base::Milliseconds(1000));
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kSplitViewDragAndDropMaxDelay,
+                   &kSplitViewDragAndDropVelocity,
+                   "max_delay",
+                   base::Milliseconds(1000));
+BASE_FEATURE_PARAM(int,
+                   kSplitViewDragAndDropMinDistanceThreshold,
+                   &kSplitViewDragAndDropVelocity,
+                   "min_distance_threshold",
+                   20);
+BASE_FEATURE_PARAM(int,
+                   kSplitViewDragAndDropMaxDistanceThreshold,
+                   &kSplitViewDragAndDropVelocity,
+                   "max_distance_threshold",
+                   20);
+
 BASE_FEATURE(kTabDuplicateMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables tabs to be frozen when collapsed.
@@ -196,6 +225,8 @@ BASE_FEATURE_PARAM(bool,
                    &kTabOrganization,
                    "trigger_demo_mode",
                    false);
+
+BASE_FEATURE(kTabOrganizationAppMenuItem, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabOrganizationModelStrategy, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -490,7 +521,7 @@ bool IsAndroidAnimatedProgressBarInBrowserEnabled() {
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-BASE_FEATURE(kWhatsNewDesktopRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWhatsNewDesktopRefresh, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabGroupsFocusing, base::FEATURE_DISABLED_BY_DEFAULT);
 

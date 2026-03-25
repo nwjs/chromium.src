@@ -270,6 +270,7 @@
 #include "chrome/browser/contextmenu/context_menu_features.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/notifications/chime/android/features.h"
+#include "components/browser_ui/photo_picker/android/features.h"
 #include "components/credential_management/android/features.h"
 #include "components/enterprise/connectors/core/features.h"
 #include "components/external_intents/android/external_intents_features.h"
@@ -1648,10 +1649,25 @@ const FeatureEntry::FeatureParam
 };
 
 const FeatureEntry::FeatureParam
+    kNtpNextShowChipsUIWithChromeNtpActionClientAndCanvas[] = {
+        {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+        {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+        {"NtpNextEnableCanvasChipParam", "true"},
+};
+
+const FeatureEntry::FeatureParam
     kNtpNextShowSimplificationUIWithChromeNtpActionClient[] = {
         {"NtpNextShowSimplificationUIParam", "true"},
         {"NtpNextShowDeepDiveSuggestionsParam", "true"},
         {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+};
+
+const FeatureEntry::FeatureParam
+    kNtpNextShowSimplificationUIWithChromeNtpActionClientAndCanvas[] = {
+        {"NtpNextShowSimplificationUIParam", "true"},
+        {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+        {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+        {"NtpNextEnableCanvasChipParam", "true"},
 };
 
 const FeatureEntry::FeatureParam
@@ -1662,12 +1678,31 @@ const FeatureEntry::FeatureParam
 };
 
 const FeatureEntry::FeatureParam
+    kNtpNextShowChipsUIWithNtpActionClientWithCanvasAndNoRecentTabInSteadyState
+        [] = {
+            {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+            {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+            {"kNtpNextShowStaticRecentTabChipParam", "false"},
+            {"NtpNextEnableCanvasChipParam", "true"},
+};
+
+const FeatureEntry::FeatureParam
     kNtpNextShowSimplificationUIWithNtpActionClientWithNoRecentTabInSteadyState
         [] = {
             {"NtpNextShowSimplificationUIParam", "true"},
             {"NtpNextShowDeepDiveSuggestionsParam", "true"},
             {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
             {"kNtpNextShowStaticRecentTabChipParam", "false"},
+};
+
+const FeatureEntry::FeatureParam
+    kNtpNextShowSimplificationUIWithNtpActionClientWithCanvasAndNoRecentTabInSteadyState
+        [] = {
+            {"NtpNextShowSimplificationUIParam", "true"},
+            {"NtpNextShowDeepDiveSuggestionsParam", "true"},
+            {"NtpNextSuggestionsFromNewSearchSuggestionsEndpointParam", "true"},
+            {"kNtpNextShowStaticRecentTabChipParam", "false"},
+            {"NtpNextEnableCanvasChipParam", "true"},
 };
 
 const FeatureEntry::FeatureParam kNtpNextShowSimplificationUIWithDismissal[] = {
@@ -1689,9 +1724,21 @@ const FeatureEntry::FeatureVariation kNtpNextVariations[] = {
      "State",
      kNtpNextShowChipsUIWithNtpActionClientWithNoRecentTabInSteadyState,
      nullptr},
-    {"- Show Row UI with a New Client and  No Recent Tab Chip in the Steady "
+    {"- Show Row UI with a New Client and No Recent Tab Chip in the Steady "
      "State",
      kNtpNextShowSimplificationUIWithNtpActionClientWithNoRecentTabInSteadyState,
+     nullptr},
+    {"- Show Chips UI with a New Suggestions Client and Canvas Chip",
+     kNtpNextShowChipsUIWithChromeNtpActionClientAndCanvas, nullptr},
+    {"- Show Row UI with a New Suggestions Client and Canvas Chip",
+     kNtpNextShowSimplificationUIWithChromeNtpActionClientAndCanvas, nullptr},
+    {"- Show Chips UI with a New Client, Canvas Chip, and No Recent Tab Chip "
+     "in the Steady State",
+     kNtpNextShowChipsUIWithNtpActionClientWithCanvasAndNoRecentTabInSteadyState,
+     nullptr},
+    {"- Show Row UI with a New Client, Canvas Chip, and No Recent Tab Chip in "
+     "the Steady State",
+     kNtpNextShowSimplificationUIWithNtpActionClientWithCanvasAndNoRecentTabInSteadyState,
      nullptr},
     {"- Show Dismissal UI", kNtpNextShowSimplificationUIWithDismissal, nullptr},
 };
@@ -2662,6 +2709,28 @@ const FeatureEntry::Choice kNotificationSchedulerChoices[] = {
 
 #if BUILDFLAG(IS_ANDROID)
 
+const FeatureEntry::FeatureParam kPhotoPickerAdoptionStudyActionGetContent[] = {
+    {"use_action_get_content", "true"}};
+const FeatureEntry::FeatureParam kPhotoPickerAdoptionStudyActionPickImages[] = {
+    {"use_action_pick_images", "true"}};
+const FeatureEntry::FeatureParam
+    kPhotoPickerAdoptionStudyActionPickImagesPlus[] = {
+        {"use_action_pick_images_plus", "true"}};
+const FeatureEntry::FeatureParam
+    kPhotoPickerAdoptionStudyChromePickerWithoutBrowse[] = {
+        {"chrome_picker_suppress_browse", "true"}};
+
+const FeatureEntry::FeatureVariation
+    kPhotoPickerAdoptionStudyFeatureVariations[] = {
+        {"(Android Picker w/ACTION_GET_CONTENT)",
+         kPhotoPickerAdoptionStudyActionGetContent, nullptr},
+        {"(Android Picker w/ACTION_PICK_IMAGES)",
+         kPhotoPickerAdoptionStudyActionPickImages, nullptr},
+        {"(Android Picker w/ACTION_PICK_IMAGES Plus)",
+         kPhotoPickerAdoptionStudyActionPickImagesPlus, nullptr},
+        {"(Chrome Picker without Browse)",
+         kPhotoPickerAdoptionStudyChromePickerWithoutBrowse, nullptr}};
+
 const FeatureEntry::FeatureParam
     kAndroidAppIntegrationModule_ForceCardShown_Pixel[] = {
         {"force_card_shown", "true"}};
@@ -2699,17 +2768,10 @@ const FeatureEntry::FeatureVariation kNewTabPageCustomizationV2Variations[] = {
      kNewTabPageCustomizationV2_ShowLogoAndSearchBox, nullptr},
     {"Enable logs", kNewTabPageCustomizationV2_EnableLogs, nullptr}};
 
-const FeatureEntry::FeatureParam kAndroidComposeplate_V2Enabled[] = {
-    {"v2_enabled", "true"}};
-const FeatureEntry::FeatureParam kAndroidComposeplate_HideIncognitoButton[] = {
-    {"hide_incognito_button", "true"}};
 const FeatureEntry::FeatureParam kAndroidComposeplate_SkipLocaleCheck[] = {
     {"skip_locale_check", "true"}};
 
 const FeatureEntry::FeatureVariation kAndroidComposeplateVariations[] = {
-    {"V2 enabled", kAndroidComposeplate_V2Enabled, nullptr},
-    {"Hide incognito button", kAndroidComposeplate_HideIncognitoButton,
-     nullptr},
     {"Skip locale check", kAndroidComposeplate_SkipLocaleCheck, nullptr}};
 
 const FeatureEntry::FeatureParam
@@ -4348,9 +4410,6 @@ const FeatureEntry::FeatureParam
         {kMobilePromoOnDesktopNotificationParam, "true"}};
 
 const FeatureEntry::FeatureVariation kMobilePromoOnDesktopVariations[] = {
-    {" - Lens Promo", kMobilePromoOnDesktopLens, nullptr},
-    {" - Lens Promo with push notification",
-     kMobilePromoOnDesktopLensNotification, nullptr},
     {" - ESB", kMobilePromoOnDesktopESB, nullptr},
     {" - ESB with push notification", kMobilePromoOnDesktopESBNotification,
      nullptr},
@@ -4361,7 +4420,6 @@ const FeatureEntry::FeatureVariation kMobilePromoOnDesktopVariations[] = {
 
 const FeatureEntry::FeatureVariation
     kMobilePromoOnDesktopWithQRCodeVariations[] = {
-        {" - Lens Promo", kMobilePromoOnDesktopLens, nullptr},
         {" - ESB", kMobilePromoOnDesktopESB, nullptr},
         {" - PW Autofill", kMobilePromoOnDesktopAutofill, nullptr},
 };
@@ -4373,12 +4431,16 @@ const FeatureEntry::FeatureVariation kMobilePromoOnDesktopVariationsWave1[] = {
     {" - Price Tracking", kMobilePromoOnDesktopPriceTracking, nullptr},
     {" - Price Tracking with push notification",
      kMobilePromoOnDesktopPriceTrackingNotification, nullptr},
+    {" - Lens Promo", kMobilePromoOnDesktopLens, nullptr},
+    {" - Lens Promo with push notification",
+     kMobilePromoOnDesktopLensNotification, nullptr},
 };
 
 const FeatureEntry::FeatureVariation
     kMobilePromoOnDesktopWithQRCodeVariationsWave1[] = {
         {" - Tab Groups", kMobilePromoOnDesktopTabGroups, nullptr},
         {" - Price Tracking", kMobilePromoOnDesktopPriceTracking, nullptr},
+        {" - Lens Promo", kMobilePromoOnDesktopLens, nullptr},
 };
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
@@ -8655,6 +8717,15 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(printing::features::kEnableOopPrintDrivers)},
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+    {"media-picker-adoption", flag_descriptions::kMediaPickerAdoptionStudyName,
+     flag_descriptions::kMediaPickerAdoptionStudyDescription, kOsAndroid,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(
+         photo_picker::features::kAndroidMediaPickerAdoption,
+         kPhotoPickerAdoptionStudyFeatureVariations,
+         "MediaPickerAdoption")},
+#endif  // BUILDFLAG(IS_ANDROID)
+
     {"privacy-sandbox-internals",
      flag_descriptions::kPrivacySandboxInternalsName,
      flag_descriptions::kPrivacySandboxInternalsDescription, kOsAll,
@@ -8756,10 +8827,6 @@ const FeatureEntry kFeatureEntries[] = {
     {"fedcm-autofill", flag_descriptions::kFedCmAutofillName,
      flag_descriptions::kFedCmAutofillDescription, kOsAll,
      FEATURE_VALUE_TYPE(features::kFedCmAutofill)},
-
-    {"fedcm-ambient-ui", flag_descriptions::kFedCmAmbientUIName,
-     flag_descriptions::kFedCmAmbientUIDescription, kOsDesktop,
-     FEATURE_VALUE_TYPE(features::kFedCmAmbientUI)},
 
     {"fedcm-delegation", flag_descriptions::kFedCmDelegationName,
      flag_descriptions::kFedCmDelegationDescription, kOsAll,
@@ -9032,6 +9099,12 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kHttpsFirstModeIncognitoDescription,
      kOsDesktop | kOsAndroid,
      FEATURE_VALUE_TYPE(features::kHttpsFirstModeIncognito)},
+
+    {"https-first-mode-incognito-new-settings",
+     flag_descriptions::kHttpsFirstModeIncognitoNewSettingsName,
+     flag_descriptions::kHttpsFirstModeIncognitoNewSettingsDescription,
+     kOsDesktop | kOsAndroid,
+     FEATURE_VALUE_TYPE(features::kHttpsFirstModeIncognitoNewSettings)},
 
     {"https-first-mode-for-typically-secure-users",
      flag_descriptions::kHttpsFirstModeForTypicallySecureUsersName,
@@ -12319,13 +12392,6 @@ const FeatureEntry kFeatureEntries[] = {
      kOsDesktop,
      FEATURE_VALUE_TYPE(contextual_tasks::kContextualTasksContextLibrary)},
 
-    {"contextual-tasks-expand-button",
-     contextual_tasks::flag_descriptions::kContextualTasksExpandButtonName,
-     contextual_tasks::flag_descriptions::
-         kContextualTasksExpandButtonDescription,
-     kOsDesktop,
-     FEATURE_VALUE_TYPE(contextual_tasks::kContextualTasksExpandButton)},
-
 #if !BUILDFLAG(IS_ANDROID)
     {"create-new-tab-group-app-menu-top-level",
      flag_descriptions::kCreateNewTabGroupAppMenuTopLevelName,
@@ -12557,6 +12623,12 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_WITH_PARAMS_VALUE_TYPE(tab_groups::kProjectsPanel,
                                     kProjectsPanelVariations,
                                     "ProjectsPanel")},
+    {"sync-ai-threads", flag_descriptions::kSyncAIThreadsName,
+     flag_descriptions::kSyncAIThreadsDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(syncer::kSyncAIThread)},
+    {"sync-gemini-threads", flag_descriptions::kSyncGeminiThreadsName,
+     flag_descriptions::kSyncGeminiThreadsDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(syncer::kSyncGeminiThread)},
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
         // BUILDFLAG(IS_CHROMEOS)
 

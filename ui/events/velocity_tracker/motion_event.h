@@ -17,7 +17,6 @@ namespace ui {
 
 // Abstract class for a generic motion-related event, patterned after that
 // subset of Android's MotionEvent API used in gesture detection.
-// https://developer.android.com/reference/android/view/MotionEvent
 class COMPONENT_EXPORT(VELOCITY_TRACKER) MotionEvent {
  public:
   // These values are persisted to logs. Entries should not be renumbered and
@@ -35,9 +34,7 @@ class COMPONENT_EXPORT(VELOCITY_TRACKER) MotionEvent {
     HOVER_MOVE = 9,
     BUTTON_PRESS = 10,
     BUTTON_RELEASE = 11,
-    OUTSIDE = 12,
-    SCROLL = 13,
-    kMaxValue = SCROLL
+    kMaxValue = BUTTON_RELEASE
   };
 
   enum class ToolType { UNKNOWN, FINGER, STYLUS, MOUSE, ERASER, LAST = ERASER };

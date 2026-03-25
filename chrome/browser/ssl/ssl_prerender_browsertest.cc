@@ -18,6 +18,7 @@
 #include "components/security_interstitials/content/security_interstitial_page.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/security_interstitials/core/controller_client.h"
+#include "components/security_interstitials/core/features.h"
 #include "content/public/browser/preloading_trigger_type.h"
 #include "content/public/browser/prerender_handle.h"
 #include "content/public/browser/reload_type.h"
@@ -33,6 +34,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "url/gurl.h"
 
 using chrome_browser_interstitials::IsShowingSSLInterstitial;
@@ -79,11 +81,41 @@ std::string GetFilePathWithHostAndPortReplacement(
 
 }  // namespace
 
-class SSLPrerenderTest : public InProcessBrowserTest {
+// The first bool flag denotes the state of
+// `kPrerenderActivationByFormSubmission`, and the second bool flag denotes the
+// state of `kInsecureFormNavigationThrottleForPrerender`, the combinations are
+// used to denote whether a non mixed prerender form submission is supported and
+// whether it should be dropped by the killswitch.
+class SSLPrerenderTest
+    : public InProcessBrowserTest,
+      public testing::WithParamInterface<std::tuple<bool, bool>> {
  public:
   SSLPrerenderTest()
       : prerender_helper_(base::BindRepeating(&SSLPrerenderTest::web_contents,
-                                              base::Unretained(this))) {}
+                                              base::Unretained(this))) {
+    std::vector<base::test::FeatureRef> enabled_features;
+    std::vector<base::test::FeatureRef> disabled_features;
+
+    if (std::get<0>(GetParam())) {
+      enabled_features.push_back(
+          blink::features::kPrerenderActivationByFormSubmission);
+    } else {
+      disabled_features.push_back(
+          blink::features::kPrerenderActivationByFormSubmission);
+    }
+
+    if (std::get<1>(GetParam())) {
+      enabled_features.push_back(
+          security_interstitials::features::
+              kInsecureFormNavigationThrottleForPrerender);
+    } else {
+      disabled_features.push_back(
+          security_interstitials::features::
+              kInsecureFormNavigationThrottleForPrerender);
+    }
+
+    feature_list_.InitWithFeatures(enabled_features, disabled_features);
+  }
   ~SSLPrerenderTest() override = default;
 
   void SetUpOnMainThread() override {
@@ -96,6 +128,9 @@ class SSLPrerenderTest : public InProcessBrowserTest {
   }
 
   content::test::PrerenderTestHelper prerender_helper_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 class SecurityVisibleStateObserver : public content::WebContentsObserver {
@@ -111,12 +146,16 @@ class SecurityVisibleStateObserver : public content::WebContentsObserver {
   bool is_visible_state_changed_ = false;
 };
 
+INSTANTIATE_TEST_SUITE_P(All,
+                         SSLPrerenderTest,
+                         testing::Combine(testing::Bool(), testing::Bool()));
+
 // Verifies that a certificate error in a prerendered page causes cancelation
 // of prerendering without showing an interstitial.
 // TODO(bokan): In the future, when prerendering supports cross origin
 // triggering, this test can be more straightforward by using one server for
 // the initial page and another, with bad certs, for the prerendering page.
-IN_PROC_BROWSER_TEST_F(SSLPrerenderTest, TestNoInterstitialInPrerender) {
+IN_PROC_BROWSER_TEST_P(SSLPrerenderTest, TestNoInterstitialInPrerender) {
   auto server = CreateExpiredCertServer(GetChromeTestDataDir());
   ASSERT_TRUE(server->Start());
 
@@ -180,7 +219,7 @@ IN_PROC_BROWSER_TEST_F(SSLPrerenderTest, TestNoInterstitialInPrerender) {
 // triggering, this test can be more straightforward by using one server for
 // the initial page and another, with bad certs, for the prerendering page.
 // TODO(crbug.com/40923072): the test has been flaky across platforms.
-IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
+IN_PROC_BROWSER_TEST_P(SSLPrerenderTest,
                        DISABLED_TestNoInterstitialInPrerenderSW) {
   auto server = CreateExpiredCertServer(GetChromeTestDataDir());
   ASSERT_TRUE(server->Start());
@@ -245,7 +284,7 @@ IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
 
 // Prerenders a page that tries to submit an insecure form and checks that this
 // cancels the prerender instead.
-IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
+IN_PROC_BROWSER_TEST_P(SSLPrerenderTest,
                        InsecureFormSubmissionCancelsPrerender) {
   auto https_server = CreateHTTPSServer(GetChromeTestDataDir());
   ASSERT_TRUE(https_server->Start());
@@ -296,7 +335,7 @@ IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
 // Prerenders a page that tries to submit an insecure form and checks that this
 // cancels the prerender even if the primary page is proceeding on an insecure
 // form.
-IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
+IN_PROC_BROWSER_TEST_P(SSLPrerenderTest,
                        InsecureFormSubmissionCancelsPrerenderEvenIfProceeding) {
   auto https_server = CreateHTTPSServer(GetChromeTestDataDir());
   ASSERT_TRUE(https_server->Start());
@@ -372,7 +411,7 @@ IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
+IN_PROC_BROWSER_TEST_P(SSLPrerenderTest,
                        TestNoVisibleStateChangedOnInitialPrerendering) {
   auto https_server = CreateHTTPSServer(GetChromeTestDataDir());
   ASSERT_TRUE(https_server->Start());
@@ -402,5 +441,64 @@ IN_PROC_BROWSER_TEST_F(SSLPrerenderTest,
     activation_manager.WaitForNavigationFinished();
     EXPECT_TRUE(activation_manager.was_activated());
     EXPECT_TRUE(visible_state_observer.is_visible_state_changed());
+  }
+}
+
+// Prerenders a page that tries to submit a HTTPS form submission without a
+// schema change and checks that this is proceeded normally.
+IN_PROC_BROWSER_TEST_P(SSLPrerenderTest, HTTPSFormSubmissionIsAllowed) {
+  auto https_server = CreateHTTPSServer(GetChromeTestDataDir());
+  ASSERT_TRUE(https_server->Start());
+
+  // Navigate to an initial page.
+  GURL url = https_server->GetURL("a.test", "/empty.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  // Trigger prerender with form submission.
+  GURL prerender_url = https_server->GetURL("a.test", "/english_page.html?");
+  content::TestActivationManager activation_manager(web_contents(),
+                                                    prerender_url);
+  prerender_helper_.AddPrerendersAsync(
+      {prerender_url},
+      /*eagerness=*/std::nullopt,
+      /*no_vary_search_hint=*/std::nullopt,
+      /*target_hint=*/std::string(),
+      /*ruleset_tag=*/std::nullopt,
+      /*world_id=*/content::ISOLATED_WORLD_ID_GLOBAL,
+      /*form_submission=*/true);
+  content::test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+      *web_contents(), prerender_url);
+
+  // `kPrerenderActivationByFormSubmission` is false, so form submission is not
+  // set, the prerendered page will be non form submission. And the prerender
+  // shouldn't be activated by a form submission.
+  if (!std::get<0>(GetParam())) {
+    content::PrerenderHostId host_id =
+        prerender_helper_.GetHostForUrl(prerender_url);
+    ASSERT_TRUE(host_id);
+    content::test::PrerenderHostObserver prerender_observer(*web_contents(),
+                                                            host_id);
+    ASSERT_TRUE(content::ExecJs(web_contents()->GetPrimaryMainFrame(),
+                                content::JsReplace(R"(
+                                    const form = document.createElement('form');
+                                    form.action = $1;
+                                    document.body.appendChild(form);
+                                    form.submit(); )",
+                                                   prerender_url)));
+    prerender_observer.WaitForDestroyed();
+    EXPECT_FALSE(activation_manager.was_activated());
+  } else if (!std::get<1>(GetParam())) {
+    // Verifies that kill switch works.
+    EXPECT_FALSE(prerender_helper_.GetHostForUrl(prerender_url));
+  } else {
+    ASSERT_TRUE(content::ExecJs(web_contents()->GetPrimaryMainFrame(),
+                                content::JsReplace(R"(
+                                    const form = document.createElement('form');
+                                    form.action = $1;
+                                    document.body.appendChild(form);
+                                    form.submit(); )",
+                                                   prerender_url)));
+    activation_manager.WaitForNavigationFinished();
+    EXPECT_TRUE(activation_manager.was_activated());
   }
 }

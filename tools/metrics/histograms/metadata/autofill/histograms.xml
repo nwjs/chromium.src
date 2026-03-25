@@ -948,16 +948,30 @@ Called by update_autofill_enums.py. This is a manual comment.-->
   </summary>
 </histogram>
 
-<histogram name="Autofill.Actor.AutofillAttentionCardEvent"
-    enum="AutofillAttentionCardEvent" expires_after="2026-11-30">
+<histogram name="Autofill.Actor.AttemptFormFillingToolEvent"
+    enum="AttemptFormFillingToolEvent" expires_after="2026-11-30">
   <owner>battre@chromium.org</owner>
   <owner>jkeitel@google.com</owner>
   <owner>slobodan@chromium.org</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
-    Records the event `AutofillAttentionCardEvent`. Emitted in the
-    `AttemptFormFillingTool` callbacks, once per card (i.e. for the first
-    callback of a card, when form_filling_request_index == 0).
+    Records the `AttemptFormFillingToolEvent` events. Emitted in the
+    `AttemptFormFillingTool` callbacks. Each event is recorded maximum once per
+    tool lifetime.
+  </summary>
+</histogram>
+
+<histogram name="Autofill.Actor.AutofillAttentionDialogsPerTask"
+    units="dialogs" expires_after="2026-11-30">
+  <owner>battre@chromium.org</owner>
+  <owner>jkeitel@google.com</owner>
+  <owner>slobodan@chromium.org</owner>
+  <owner>chrome-autofill-alerts@google.com</owner>
+  <summary>
+    Records the number of autofill attention dialogs presented in the UI to the
+    user for a given task. Recorded in `ActionTrackerForMetrics`'s destructor.
+    The metric is incremented by one for every UI dialog (even if it contains
+    more than 1 suggestion dropdowns).
   </summary>
 </histogram>
 
@@ -987,6 +1001,45 @@ Called by update_autofill_enums.py. This is a manual comment.-->
     executed. The callback will be called at least once per suggestions being
     requested.
   </summary>
+</histogram>
+
+<histogram name="Autofill.Actor.ContactInfoSplitting.RetargetTriggerField"
+    enum="ActorFormFillingRetargetTriggerFieldResult"
+    expires_after="2026-09-09">
+  <owner>smcgruer@chromium.org</owner>
+  <owner>chrome-autofill-alerts@google.com</owner>
+  <summary>
+    Records the outcome of attempting to retarget the trigger field for a split
+    form section. Emitted when Autofill attempts to generate suggestions for an
+    Actor form filling request.
+  </summary>
+</histogram>
+
+<histogram name="Autofill.Actor.ContactInfoSplitting.ShouldSplitContactInfo"
+    enum="ActorFormFillingShouldSplitOutContactInfoResult"
+    expires_after="2026-09-09">
+  <owner>smcgruer@chromium.org</owner>
+  <owner>chrome-autofill-alerts@google.com</owner>
+  <summary>
+    Records the outcome of attempting to split a form section into contact
+    information and address information. Emitted when Autofill attempts to
+    generate suggestions for an Actor form filling request.
+  </summary>
+</histogram>
+
+<histogram name="Autofill.Actor.ContactInfoSplitting.{SplitPart}FieldCount"
+    units="fields" expires_after="2026-09-09">
+  <owner>smcgruer@chromium.org</owner>
+  <owner>chrome-autofill-alerts@google.com</owner>
+  <summary>
+    Records the number of {SplitPart} fields in a split form section. Emitted
+    when an Actor form fill of the {SplitPart} fields is triggered after the
+    user has selected which suggestion to fill.
+  </summary>
+  <token key="SplitPart">
+    <variant name="AddressPart" summary="address"/>
+    <variant name="ContactInfoPart" summary="contact info"/>
+  </token>
 </histogram>
 
 <histogram name="Autofill.Actor.FillSuggestions.{FillingComposition}.Latency"
@@ -1779,6 +1832,17 @@ Called by update_autofill_enums.py. This is a manual comment.-->
     Recorded whenever the user interacts with reauthentication in order to fill
     an Autofill AI entity that contains sensitive data, or when such
     reauthentication is skipped for a well-defined reason.
+  </summary>
+</histogram>
+
+<histogram name="Autofill.Ai.ReauthToFill.ResultPerFieldType"
+    enum="AutofillAiReauthResultByFieldType" expires_after="2026-12-12">
+  <owner>brunobraga@google.com</owner>
+  <owner>chrome-autofill-alerts@google.com</owner>
+  <summary>
+    Recorded whenever the user interacts with reauthentication in order to fill
+    an Autofill AI entity that contains sensitive data. The result is logged per
+    field type of the triggering field.
   </summary>
 </histogram>
 

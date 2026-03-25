@@ -266,10 +266,6 @@ interface PageHandler {
   // Notifies the PageHandler that the state of the WebUI has changed.
   WebUiStateChanged(WebUiState new_state);
 
-};
-
-// Page handler for the glic internals WebUI.
-interface InternalsPageHandler {
   // Called by the internals WebUI page to get the data it will present.
   GetInternalsDataPayload() => (InternalsDataPayload internals_data);
 
@@ -278,13 +274,6 @@ interface InternalsPageHandler {
                      url.mojom.Url staging,
                      url.mojom.Url preprod,
                      url.mojom.Url prod);
-};
-
-// Factory for InternalsPageHandler used in chrome://glic/internals.
-interface InternalsPageHandlerFactory {
-  // Creates the InternalsPageHandler for chrome://glic/internals.
-  CreateInternalsPageHandler(
-      pending_receiver<InternalsPageHandler> receiver);
 };
 
 // @generate glic_api
@@ -1137,6 +1126,9 @@ interface WebClientHandler {
   // will be terminated and a new one will begin.
   CaptureRegion(pending_remote<CaptureRegionObserver> observer);
 
+  // Deletes a captured region.
+  DeleteCapturedRegion(int32 tab_id, mojo_base.mojom.UnguessableToken id);
+
   // Requests that audio ducking be enabled or disabled.
   // If enabled, audio from other sources will be attenuated.
   // If disabled, normal audio playout resumes.
@@ -1606,6 +1598,7 @@ union AdditionalContextPart {
   PdfDocumentData pdf_document_data;
   TabContext tab_context;
   CapturedRegion region;
+  PendingCapturedRegion pending_region;
 };
 
 // @generate glic_api
@@ -1833,6 +1826,15 @@ struct PdfDocumentData {
   bool size_limit_exceeded;
 };
 
+// @generate glic_api
+// Lightweight page features detected on the page.
+[Stable, Extensible]
+enum LightweightPageFeature {
+  [Default] kUnknown = 0,
+  // The YouTube "Ask" button is visible.
+  kYtAskButtonPresent = 1,
+};
+
 // Data about a browser tab.
 struct TabData {
   // Unique ID of the tab that owns the page.
@@ -1868,6 +1870,8 @@ struct TabData {
   // Whether the tab's browser window is active. Note that this does not
   // consider whether the tab is active in the window.
   bool? is_window_active;
+  // Lightweight page features detected on the page.
+  array<LightweightPageFeature>? lightweight_page_features;
 };
 
 // Data about the focused tab state.
@@ -1915,7 +1919,15 @@ union CapturedRegion {
   gfx.mojom.Rect rect;
 };
 
+// The captured region with an ID.
+struct PendingCapturedRegion {
+  mojo_base.mojom.UnguessableToken id;
+  CapturedRegion region;
+};
+
 // The result of a successful region capture.
+// This result is deprecated, results for region capture are now
+// pushed via NotifyAdditionalContext with the source being kRegionSelection.
 struct CaptureRegionResult {
   // The ID of the tab from which the region was captured.
   int32 tab_id;

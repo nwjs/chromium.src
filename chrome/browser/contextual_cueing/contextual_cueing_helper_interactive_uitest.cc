@@ -119,7 +119,7 @@ class ContextualCueingHelperBrowserTest
   }
 
   void SwapToFakeDelegate(FakeGlicNudgeDelegate& nudge_delegate) {
-    glic_nudge_controller()->SetDelegate(&nudge_delegate);
+    glic_nudge_controller()->SetTabStripDelegate(&nudge_delegate);
   }
 
   glic::TabStripGlicButton* GetGlicButtonForBrowser(Browser* browser) {
@@ -759,6 +759,7 @@ class ContextualCueingBypassNudgeCapsTest
            {"UseDynamicCues", "true"}}},
          {contextual_cueing::kEnableAutoOpenGlicSidePanel, {}},
          {features::kAutoOpenGlicForPdf, {}},
+         {features::kGlicTrustFirstOnboarding, {}},
          {page_content_annotations::features::kAnnotatedPageContentExtraction,
           {}},
          {contextual_tasks::kContextualTasks, {}}},

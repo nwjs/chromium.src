@@ -39,7 +39,7 @@
 <translation id="1409338233051621926">Ketuk Aplikasi, lalu ketuk Aplikasi default</translation>
 <translation id="1415402041810619267">URL dipotong</translation>
 <translation id="1415855080660575082">Izinkan Chrome membagikan tab terbaru ke perangkat Anda agar Anda dapat melihatnya di daftar aplikasi dan hasil penelusuran perangkat. Anda dapat mengaktifkan atau menonaktifkannya di setelan Chrome.</translation>
-<translation id="1420688843103859429">Navigasi maju mundur dengan menggeser dua jari di touchpad</translation>
+<translation id="1420688843103859429">Beralih maju atau mundur dengan menggeser dua jari di touchpad</translation>
 <translation id="1432650420699700107">Situs dapat meminta terhubung ke perangkat apa pun di jaringan lokal Anda</translation>
 <translation id="1442081309487427303">Aktifkan link Mode Baca</translation>
 <translation id="1448064542941920355">Kurangi zoom</translation>
@@ -269,6 +269,7 @@ Perlindungan Lanjutan mengontrol setelan Chrome berikut:
 <translation id="3658847490588580244">Sheet bawah browser default</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> situs di grup situs <ph name="RWS_OWNER" /> yang dapat melihat aktivitas Anda di grup tersebut}other{<ph name="RWS_MEMBERS_COUNT" /> situs di grup situs <ph name="RWS_OWNER" /> yang dapat melihat aktivitas Anda di grup tersebut}}</translation>
 <translation id="3676777756440746804">Situs diblokir agar tidak meminta izin Anda untuk menggunakan informasi tentang Anda yang disimpan situs</translation>
+<translation id="3677897809642449131">Situs dapat meminta penggunaan sensor gerakan</translation>
 <translation id="3678318839615834650">Panel bawah kartu halaman tab baru terbuka sepenuhnya</translation>
 <translation id="3697164069658504920">Jika diaktifkan, situs dapat meminta untuk menggunakan perangkat USB. Jika dinonaktifkan, situs tidak dapat menggunakan perangkat USB.</translation>
 <translation id="3703430731944883733">Mengelola feed Anda</translation>
@@ -490,6 +491,7 @@ Perlindungan Lanjutan mengontrol setelan Chrome berikut:
 <translation id="5922853908706496913">Membagikan layar Anda</translation>
 <translation id="5922967540311291836">Blokir cookie pihak ketiga:</translation>
 <translation id="5923512600150154850">Tindakan ini akan menghapus <ph name="DATASIZE" /> data dan cookie yang disimpan oleh situs.</translation>
+<translation id="5930707844513754220">Lihat daftar konfigurasi lainnya</translation>
 <translation id="5939518447894949180">Reset</translation>
 <translation id="5948139900367969951">Akses cepat hal yang penting bagi Anda</translation>
 <translation id="5964247741333118902">Konten yang disematkan</translation>
@@ -498,6 +500,7 @@ Perlindungan Lanjutan mengontrol setelan Chrome berikut:
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Aktifkan feed Discover</translation>
 <translation id="6012967556075291653">Pintasan yang disematkan</translation>
+<translation id="6013003831291591200">Tugas selesai</translation>
 <translation id="6015775454662021376">Mengontrol akses situs ini ke perangkat Anda</translation>
 <translation id="6022659036123304283">Sesuaikan Chrome dengan selera Anda</translation>
 <translation id="6040143037577758943">Tutup</translation>
@@ -748,6 +751,7 @@ Perlindungan Lanjutan mengontrol setelan Chrome berikut:
 <translation id="8707904142362025782">Situs dapat meminta akses ke kamera Anda</translation>
 <translation id="8712637175834984815">Mengerti</translation>
 <translation id="8715862698998036666">Tarik dari atas dan geser dari tepi kiri atau kanan untuk keluar dari layar penuh.</translation>
+<translation id="8716050156658570300">Situs dapat meminta penggunaan sensor gerakan dan cahaya</translation>
 <translation id="8719283222052720129">Aktifkan izin untuk <ph name="APP_NAME" /> di <ph name="BEGIN_LINK" />Setelan Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Jika diaktifkan, situs dapat meminta untuk mencari perangkat Bluetooth. Jika dinonaktifkan, situs tidak dapat mencari perangkat Bluetooth.</translation>
 <translation id="8725066075913043281">Coba lagi</translation>

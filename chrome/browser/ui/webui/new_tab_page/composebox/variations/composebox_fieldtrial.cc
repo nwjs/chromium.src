@@ -50,8 +50,6 @@ omnibox::NTPComposeboxConfig GetNTPComposeboxConfig() {
   default_config.mutable_entry_point()->set_num_page_load_animations(3);
 
   auto* composebox = default_config.mutable_composebox();
-  composebox->set_close_by_escape(kCloseComposeboxByEscape.Get());
-  composebox->set_close_by_click_outside(kCloseComposeboxByClickOutside.Get());
 
   auto* image_upload = composebox->mutable_image_upload();
   image_upload->set_enable_webp_encoding(false);
@@ -67,7 +65,6 @@ omnibox::NTPComposeboxConfig GetNTPComposeboxConfig() {
   attachment_upload->set_max_size_bytes(200000000);
   attachment_upload->set_mime_types_allowed(".pdf,application/pdf");
 
-  composebox->set_max_num_files(kMaxNumFiles.Get());
   composebox->set_input_placeholder_text(
       l10n_util::GetStringUTF8(IDS_NTP_COMPOSE_PLACEHOLDER_TEXT));
   composebox->set_is_pdf_upload_enabled(true);
@@ -153,7 +150,8 @@ bool IsNtpComposeboxEnabled(Profile* profile) {
   }
 
   return base::FeatureList::IsEnabled(kNtpComposebox) &&
-         aim_eligibility_service->IsAimEligible();
+         aim_eligibility_service->IsAimEligible() &&
+         aim_eligibility_service->IsFuseboxEligible();
 }
 
 bool IsDeepSearchEnabled(Profile* profile) {
@@ -238,16 +236,6 @@ const base::FeatureParam<bool> kShowContextMenuHeaders(&kNtpComposebox,
                                                        "ShowContextMenuHeaders",
                                                        true);
 
-const base::FeatureParam<bool> kShowVoiceSearchInSteadyComposebox(
-    &kNtpComposebox,
-    "ShowVoiceSearchInSteadyComposebox",
-    true);
-
-const base::FeatureParam<bool> kShowVoiceSearchInExpandedComposebox(
-    &kNtpComposebox,
-    "ShowVoiceSearchInExpandedComposebox",
-    true);
-
 const base::FeatureParam<bool>
     kShowSmartCompose(&kNtpComposebox, "NtpComposeboxShowSmartCompose", true);
 
@@ -261,24 +249,6 @@ const base::FeatureParam<bool> kContextMenuEnableMultiTabSelection(
     "NtpComposeboxContextMenuEnableMultiTabSelection",
     false);
 
-const base::FeatureParam<int> kMaxNumFiles(&kNtpComposebox,
-                                           "NtpComposeboxMaxNumFiles",
-                                           10);
-
-const base::FeatureParam<bool> kEnableContextDragAndDrop(
-    &kNtpComposebox,
-    "EnableContextDragAndDrop",
-    true);
-
-const base::FeatureParam<bool> kCloseComposeboxByEscape(
-    &kNtpComposebox,
-    "NtpComposeboxCloseComposeboxByEscape",
-    false);
-
-const base::FeatureParam<bool> kCloseComposeboxByClickOutside(
-    &kNtpComposebox,
-    "NtpComposeboxCloseComposeboxByClickOutside",
-    false);
 const base::FeatureParam<bool> kAddTabUploadDelayOnRecentTabChipClick(
     &kNtpComposebox,
     "NtpComposeboxAddTabUploadDelayOnRecentTabChipClick",
@@ -331,7 +301,8 @@ bool IsNtpRealboxNextEnabled(Profile* profile) {
   }
 
   return base::FeatureList::IsEnabled(kNtpRealboxNext) &&
-         aim_eligibility_service->IsAimEligible();
+         aim_eligibility_service->IsAimEligible() &&
+         aim_eligibility_service->IsFuseboxEligible();
 }
 
 BASE_FEATURE(kNtpRealboxNext, base::FEATURE_DISABLED_BY_DEFAULT);

@@ -23,7 +23,6 @@ import org.chromium.chrome.browser.tab.StorageCollectionSynchronizer;
 import org.chromium.chrome.browser.tab.StorageLoadedData;
 import org.chromium.chrome.browser.tab.StorageRestoreOrchestratorFactory;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabStateAttributes;
 import org.chromium.chrome.browser.tab.TabStateStorageService;
 import org.chromium.chrome.browser.tab.TabStateStorageServiceFactory;
 import org.chromium.chrome.browser.tabmodel.IncognitoTabModel;
@@ -326,12 +325,6 @@ public class ModelTrackingOrchestrator {
         StorageCollectionSynchronizer synchronizer =
                 tab.isOffTheRecord() ? mIncognitoSynchronizer : mRegularSynchronizer;
         if (synchronizer == null) return;
-
-        TabStateAttributes attributes = TabStateAttributes.from(tab);
-        if (mIsAuthoritative && attributes != null) {
-            attributes.clearTabStateDirtiness();
-        }
-
         synchronizer.saveTab(tab);
 
         TabModel model = mTabModelSelector.getModel(tab.isOffTheRecord());

@@ -42,15 +42,14 @@ inline constexpr auto kActionIds = std::to_array<actions::ActionId>({
     kActionShowPaymentsBubbleOrPage,
     kActionSidePanelShowContextualTasks,
     kActionBookmarkThisTab,
-    kActionFederation,
 });
 
 static_assert(kActionIds[0] == kActionAiMode,
               "kActionAiMode must be the first entry in kActionIds to ensure "
               "it's the left-most page action");
 static_assert(
-    kActionIds.back() == kActionFederation,
-    "kActionFederation must be the last entry in kActionIds to ensure "
+    kActionIds.back() == kActionBookmarkThisTab,
+    "kActionBookmarkThisTab must be the last entry in kActionIds to ensure "
     "it's the right-most page action");
 
 }  // namespace page_actions

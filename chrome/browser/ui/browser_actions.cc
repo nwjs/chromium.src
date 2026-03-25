@@ -75,6 +75,7 @@
 #include "chrome/browser/ui/toolbar/cast/cast_toolbar_button_util.h"
 #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_page_action_controller.h"
 #include "chrome/browser/ui/views/commerce/discounts_page_action_view_controller.h"
 #include "chrome/browser/ui/views/file_system_access/file_system_access_bubble_controller.h"
@@ -107,6 +108,7 @@
 #include "components/commerce/core/metrics/discounts_metric_collector.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
 #include "components/media_router/browser/media_router_dialog_controller.h"
 #include "components/media_router/browser/media_router_metrics.h"
@@ -400,23 +402,6 @@ void BrowserActions::InitializeBrowserActions() {
           .SetEnabled(true)
           .Build());
 
-  root_action_item_->AddChild(
-      actions::ActionItem::Builder(
-          base::BindRepeating(
-              [](BrowserWindowInterface* bwi, actions::ActionItem* item,
-                 actions::ActionInvocationContext context) {
-                // TODO(crbug.com/393246237): Show FedCM bubble on click.
-              },
-              bwi))
-          .SetActionId(kActionFederation)
-          .SetTooltipText(
-              l10n_util::GetStringUTF16(IDS_FEDERATION_TITLE_STATIC))
-          .SetImage(ui::ImageModel::FromVectorIcon(
-              vector_icons::kAccountCircleChromeRefreshIcon, ui::kColorIcon,
-              ui::SimpleMenuModel::kDefaultIconSize))
-          .SetEnabled(true)
-          .Build());
-
   if (base::FeatureList::IsEnabled(
           content_settings::features::
               kBlockV8OptimizerOnUnfamiliarSitesSetting)) {
@@ -700,9 +685,26 @@ void BrowserActions::InitializeBrowserActions() {
                     controller->SetProjectsVisible(
                         !controller->IsProjectsPanelVisible());
                   }
+
+                  // Dismiss the IPH promo if it is currently showing, or abort
+                  // it if it is queued to show.
+                  if (auto* interface =
+                          BrowserUserEducationInterface::From(bwi)) {
+                    const base::Feature& iph_feature =
+                        feature_engagement::kIPHResumptionRailFeature;
+                    if (interface->IsFeaturePromoActive(iph_feature)) {
+                      interface->NotifyFeaturePromoFeatureUsed(
+                          iph_feature,
+                          FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+                    } else if (interface->IsFeaturePromoQueued(iph_feature)) {
+                      interface->AbortFeaturePromo(iph_feature);
+                    }
+                  }
                 },
                 bwi))
             .SetActionId(kActionToggleProjectsPanel)
+            .SetImage(ui::ImageModel::FromVectorIcon(
+                kSavedTabGroupBarEverythingIcon, ui::kColorIcon))
             .Build());
   }
 
@@ -719,7 +721,8 @@ void BrowserActions::InitializeBrowserActions() {
               l10n_util::GetStringUTF16(IDS_NEW_TAB)))
           .SetTooltipText(BrowserActions::GetCleanTitleAndTooltipText(
               l10n_util::GetStringUTF16(IDS_NEW_TAB)))
-          .SetImage(ui::ImageModel::FromVectorIcon(kAddIcon, ui::kColorIcon))
+          .SetImage(ui::ImageModel::FromVectorIcon(vector_icons::kAddIcon,
+                                                   ui::kColorIcon))
           .Build());
 
   root_action_item_->AddChild(

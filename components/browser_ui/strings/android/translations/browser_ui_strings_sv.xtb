@@ -269,6 +269,7 @@ Avancerat skydd styr följande Chrome-inställningar:
 <translation id="3658847490588580244">Ark på nedre delen av standardwebbläsaren</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> webbplats i gruppen med webbplatser som tillhör <ph name="RWS_OWNER" />, som kan se din aktivitet i gruppen}other{<ph name="RWS_MEMBERS_COUNT" /> webbplatser i gruppen med webbplatser som tillhör <ph name="RWS_OWNER" />, som kan se din aktivitet i gruppen}}</translation>
 <translation id="3676777756440746804">Webbplatser hindras från att be dig använda uppgifter som de har sparat om dig</translation>
+<translation id="3677897809642449131">Webbplatser får begära åtkomst till rörelsesensorer</translation>
 <translation id="3678318839615834650">Arket på nedre delen av skärmen för kort på sidan Ny flik har öppnats över hela skärmen</translation>
 <translation id="3697164069658504920">När detta är aktiverat kan webbplatser be om att få använda USB-enheter. När detta är inaktiverat får webbplatser inte använda USB-enheter.</translation>
 <translation id="3703430731944883733">Hantera ditt flöde</translation>
@@ -490,6 +491,7 @@ Avancerat skydd styr följande Chrome-inställningar:
 <translation id="5922853908706496913">Delar skärmen</translation>
 <translation id="5922967540311291836">Blockera tredjepartscookies</translation>
 <translation id="5923512600150154850"><ph name="DATASIZE" /> data och cookies som har sparats av webbplatser raderas.</translation>
+<translation id="5930707844513754220">Se fler konfigurationslistor</translation>
 <translation id="5939518447894949180">Återställ</translation>
 <translation id="5948139900367969951">Kom snabbt åt det som är viktigt för dig</translation>
 <translation id="5964247741333118902">Inbäddat innehåll</translation>
@@ -498,6 +500,7 @@ Avancerat skydd styr följande Chrome-inställningar:
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Aktivera Förslag-flödet</translation>
 <translation id="6012967556075291653">Fäst genväg</translation>
+<translation id="6013003831291591200">Uppgiften har slutförts</translation>
 <translation id="6015775454662021376">Styr webbplatsens åtkomst till enheten</translation>
 <translation id="6022659036123304283">Anpassa Chrome</translation>
 <translation id="6040143037577758943">Stäng</translation>
@@ -748,6 +751,7 @@ Avancerat skydd styr följande Chrome-inställningar:
 <translation id="8707904142362025782">Webbplatsen får begära åtkomst till kameran</translation>
 <translation id="8712637175834984815">Uppfattat</translation>
 <translation id="8715862698998036666">Dra uppifrån och svep från den vänstra eller högra kanten för att avsluta helskärmsläget.</translation>
+<translation id="8716050156658570300">Webbplatser får begära åtkomst till rörelse- och ljussensorer</translation>
 <translation id="8719283222052720129">Aktivera behörigheten för <ph name="APP_NAME" /> i <ph name="BEGIN_LINK" />Android-inställningarna<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">När detta är aktiverat kan webbplatser be om att få söka efter Bluetooth-enheter. När detta är inaktiverat får webbplatser inte söka efter Bluetooth-enheter.</translation>
 <translation id="8725066075913043281">Försök igen</translation>

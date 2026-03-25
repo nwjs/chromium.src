@@ -48,7 +48,9 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'submitQuery',
       'openLensSearch',
       'setActiveToolMode',
+      'recordToolSelectionAction',
       'setActiveModelMode',
+      'recordModelSelectionAction',
       'setPage',
       'getInputState',
       'activateMetricsFunnel',
@@ -187,7 +189,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
         toolsSectionConfig: null,
         modelSectionConfig: null,
         hintText: '',
-        maxInstances: {},
+        maxInputsByType: {},
         maxTotalInputs: 0,
       },
     });
@@ -235,8 +237,16 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('setActiveToolMode', tool);
   }
 
+  recordToolSelectionAction(tool: ToolMode) {
+    this.methodCalled('recordToolSelectionAction', tool);
+  }
+
   setActiveModelMode(model: ModelMode) {
     this.methodCalled('setActiveModelMode', model);
+  }
+
+  recordModelSelectionAction(model: ModelMode) {
+    this.methodCalled('recordModelSelectionAction', model);
   }
 
   activateMetricsFunnel(funnelName: string) {

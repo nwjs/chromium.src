@@ -269,6 +269,7 @@ Zaawansowana ochrona kontroluje te ustawienia Chrome:
 <translation id="3658847490588580244">Plansza dolna przeglądarki domyślnej</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> witryna w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}few{<ph name="RWS_MEMBERS_COUNT" /> witryny w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}many{<ph name="RWS_MEMBERS_COUNT" /> witryn w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}other{<ph name="RWS_MEMBERS_COUNT" /> witryny w grupie witryn <ph name="RWS_OWNER" />, które mają dostęp do danych o Twojej aktywności w tej grupie}}</translation>
 <translation id="3676777756440746804">Strony nie mogą prosić Cię o korzystanie z informacji, które o Tobie zapisały</translation>
+<translation id="3677897809642449131">Strony mogą prosić o zgodę na używanie czujników ruchu</translation>
 <translation id="3678318839615834650">Plansza dolna kart na stronie nowej karty otwarta na całą wysokość</translation>
 <translation id="3697164069658504920">Gdy ta opcja jest włączona, strony internetowe mogą prosić o zgodę na używanie urządzeń USB. Gdy jest wyłączona, strony nie mogą używać urządzeń USB.</translation>
 <translation id="3703430731944883733">Zarządzaj plikiem danych</translation>
@@ -490,6 +491,7 @@ Zaawansowana ochrona kontroluje te ustawienia Chrome:
 <translation id="5922853908706496913">Udostępnianie ekranu</translation>
 <translation id="5922967540311291836">Blokuj pliki cookie innych firm:</translation>
 <translation id="5923512600150154850">Spowoduje to usunięcie <ph name="DATASIZE" /> danych i plików cookie zapisanych przez strony.</translation>
+<translation id="5930707844513754220">Zobacz więcej na liście konfiguracji</translation>
 <translation id="5939518447894949180">Resetuj</translation>
 <translation id="5948139900367969951">Szybko docieraj do tego, co jest dla Ciebie ważne</translation>
 <translation id="5964247741333118902">Umieszczona treść</translation>
@@ -498,6 +500,7 @@ Zaawansowana ochrona kontroluje te ustawienia Chrome:
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Włącz karty Discover</translation>
 <translation id="6012967556075291653">Przypięty skrót</translation>
+<translation id="6013003831291591200">Zadanie ukończone</translation>
 <translation id="6015775454662021376">Zarządzaj dostępem tej strony do Twojego urządzenia</translation>
 <translation id="6022659036123304283">Dostosuj Chrome do swoich potrzeb</translation>
 <translation id="6040143037577758943">Zamknij</translation>
@@ -748,6 +751,7 @@ Zaawansowana ochrona kontroluje te ustawienia Chrome:
 <translation id="8707904142362025782">Strona może prosić o dostęp do kamery</translation>
 <translation id="8712637175834984815">OK</translation>
 <translation id="8715862698998036666">Aby zamknąć pełny ekran, przeciągnij od góry i przesuń palcem od lewej lub prawej krawędzi.</translation>
+<translation id="8716050156658570300">Strony mogą prosić o dostęp do czujników ruchu i światła</translation>
 <translation id="8719283222052720129">Przyznaj aplikacji <ph name="APP_NAME" /> uprawnienie w <ph name="BEGIN_LINK" />ustawieniach Androida<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Gdy ta opcja jest włączona, strony internetowe mogą prosić o zgodę na wyszukanie urządzeń Bluetooth. Gdy jest wyłączona, strony nie mogą wyszukiwać urządzeń Bluetooth.</translation>
 <translation id="8725066075913043281">Spróbuj ponownie</translation>

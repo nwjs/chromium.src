@@ -128,9 +128,8 @@ constexpr const PrepopulatedEngine* GetPrepopulatedEngineFromBuiltInDataImpl(
 
   // Fallback: just grab the first matching entry from the complete list.
   // This is fine as keywords are unique.
-  const auto& all_engines = regional_capabilities::GetAllPrepopulatedEngines();
-  if (auto iter = std::ranges::find_if(all_engines, engine_matcher);
-      iter != all_engines.end()) {
+  if (auto iter = std::ranges::find_if(kAllEngines, engine_matcher);
+      iter != kAllEngines.end()) {
     return *iter;
   }
 

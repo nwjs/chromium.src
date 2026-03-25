@@ -227,7 +227,7 @@ export class GlicApiHost implements PostMessageRequestHandler {
     this.webClientErrorTimer.reset();
     this.messageHandler.destroy();
     this.pinCandidatesObserver?.disconnectFromSource();
-    this.captureRegionObserver?.destroy();
+    this.captureRegionObserver?.disconnectFromSource();
   }
 
   setInitialState(initialState: WebClientInitialState) {
@@ -240,12 +240,6 @@ export class GlicApiHost implements PostMessageRequestHandler {
     const shouldGate = this.shouldGateRequests();
     if (this.sender.isGating() === shouldGate) {
       return;
-    }
-
-    if (shouldGate) {
-      // Becoming inactive, cancel capture.
-      this.captureRegionObserver?.destroy();
-      this.captureRegionObserver = undefined;
     }
     this.sender.setGating(shouldGate);
   }
@@ -267,8 +261,6 @@ export class GlicApiHost implements PostMessageRequestHandler {
     this.clientActiveObs.assignAndSignal(this.isClientActive());
     if (state === PanelOpenState.CLOSED) {
       this.pinCandidatesObserver?.disconnectFromSource();
-      this.captureRegionObserver?.destroy();
-      this.captureRegionObserver = undefined;
     } else {
       this.pinCandidatesObserver?.connectToSource();
     }

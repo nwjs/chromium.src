@@ -48,8 +48,7 @@ class BookmarkContextMenu : public BookmarkContextMenuControllerDelegate,
                       BookmarkLaunchLocation opened_from,
                       const std::vector<raw_ptr<const bookmarks::BookmarkNode,
                                                 VectorExperimental>>& selection,
-                      bool close_on_remove,
-                      bool can_paste);
+                      bool close_on_remove);
 
   BookmarkContextMenu(const BookmarkContextMenu&) = delete;
   BookmarkContextMenu& operator=(const BookmarkContextMenu&) = delete;
@@ -64,6 +63,8 @@ class BookmarkContextMenu : public BookmarkContextMenuControllerDelegate,
   // Shows the context menu at the specified point.
   void RunMenuAt(const gfx::Point& point,
                  ui::mojom::MenuSourceType source_type);
+
+  void UpdateCanPaste(base::OnceClosure callback);
 
   views::MenuItemView* menu() const { return menu_; }
 
@@ -102,6 +103,8 @@ class BookmarkContextMenu : public BookmarkContextMenuControllerDelegate,
 
   // Should the menu close when a node is removed.
   bool close_on_remove_;
+
+  base::WeakPtrFactory<BookmarkContextMenu> weak_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_BOOKMARKS_BOOKMARK_CONTEXT_MENU_H_

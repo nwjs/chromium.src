@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">Нижний экран с информацией о том, как выбрать браузер по умолчанию</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> сайт в группе сайтов <ph name="RWS_OWNER" />, на которых отслеживаются ваши действия}one{<ph name="RWS_MEMBERS_COUNT" /> сайт в группе сайтов <ph name="RWS_OWNER" />, на которых отслеживаются ваши действия}few{<ph name="RWS_MEMBERS_COUNT" /> сайта в группе сайтов <ph name="RWS_OWNER" />, на которых отслеживаются ваши действия}many{<ph name="RWS_MEMBERS_COUNT" /> сайтов в группе сайтов <ph name="RWS_OWNER" />, на которых отслеживаются ваши действия}other{<ph name="RWS_MEMBERS_COUNT" /> сайта в группе сайтов <ph name="RWS_OWNER" />, на которых отслеживаются ваши действия}}</translation>
 <translation id="3676777756440746804">Сайтам запрещено запрашивать разрешение на использование сохраненной информации о вас</translation>
+<translation id="3677897809642449131">Сайты могут запрашивать доступ к датчикам движения</translation>
 <translation id="3678318839615834650">Нижний экран с карточками на странице быстрого доступа открыт полностью</translation>
 <translation id="3697164069658504920">Когда этот параметр включен, сайты могут запрашивать разрешение на использование USB-устройств. Когда параметр отключен, сайтам запрещено использовать такие устройства.</translation>
 <translation id="3703430731944883733">Настройка ленты</translation>
@@ -350,7 +351,7 @@
 <translation id="4441527683895888777">Полностью открытый нижний экран с цветами Chrome</translation>
 <translation id="4468959413250150279">Отключить звуки на определенном сайте</translation>
 <translation id="4475912480633855319">{COOKIES,plural, =1{# файл cookie}one{# файл cookie}few{# файла cookie}many{# файлов cookie}other{# файла cookie}}</translation>
-<translation id="4478158430052450698">Упростить изменение масштаба пользователем для разных сайтов</translation>
+<translation id="4478158430052450698">Упростить настройку масштаба на сайтах</translation>
 <translation id="4479647676395637221">Запрашивать разрешение на доступ к камере (рекомендуется)</translation>
 <translation id="4505788138578415521">URL развернут</translation>
 <translation id="4522570452068850558">Сведения</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">Предоставлен доступ к вашему экрану</translation>
 <translation id="5922967540311291836">Блокировать сторонние файлы cookie</translation>
 <translation id="5923512600150154850">Будут удалены данные и файлы cookie, сохраненные сайтами (<ph name="DATASIZE" />).</translation>
+<translation id="5930707844513754220">Посмотреть другие настройки</translation>
 <translation id="5939518447894949180">Сбросить</translation>
 <translation id="5948139900367969951">Быстро переходите к тому, что важно.</translation>
 <translation id="5964247741333118902">Встроенный контент</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Включить ленту рекомендаций</translation>
 <translation id="6012967556075291653">Закрепленный ярлык</translation>
+<translation id="6013003831291591200">Задача выполнена</translation>
 <translation id="6015775454662021376">Настройки доступа сайта к данным на устройстве.</translation>
 <translation id="6022659036123304283">Настройте Chrome для себя</translation>
 <translation id="6040143037577758943">Закрыть</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">Сайты могут запрашивать разрешение на использование камеры</translation>
 <translation id="8712637175834984815">OK</translation>
 <translation id="8715862698998036666">Чтобы выйти из полноэкранного режима, проведите пальцем по экрану сверху вниз, а затем пролистните от левого или правого края.</translation>
+<translation id="8716050156658570300">Сайты могут запрашивать доступ к датчикам движения и освещенности</translation>
 <translation id="8719283222052720129">Предоставьте приложению "<ph name="APP_NAME" />" разрешение в <ph name="BEGIN_LINK" />настройках Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Когда этот параметр включен, сайты могут запрашивать разрешение на поиск устройств Bluetooth. Когда параметр отключен, сайтам запрещено искать такие устройства.</translation>
 <translation id="8725066075913043281">Повторить попытку</translation>

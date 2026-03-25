@@ -7,7 +7,6 @@
 
 #include <stdlib.h>
 
-#include <cstddef>
 #include <vector>
 
 #include "base/memory/stack_allocated.h"
@@ -22,9 +21,6 @@ class CC_EXPORT LayerListIterator {
   STACK_ALLOCATED();
 
  public:
-  using difference_type = std::ptrdiff_t;
-
-  LayerListIterator();
   explicit LayerListIterator(Layer* root_layer);
   LayerListIterator(const LayerListIterator& other);
   ~LayerListIterator();
@@ -37,12 +33,8 @@ class CC_EXPORT LayerListIterator {
     return !(*this == other);
   }
 
+  // We will only support prefix increment.
   LayerListIterator& operator++();
-  LayerListIterator operator++(int) {
-    LayerListIterator that(*this);
-    ++*this;
-    return that;
-  }
   Layer* operator->() const { return current_layer_; }
   Layer* operator*() const { return current_layer_; }
 
@@ -59,9 +51,6 @@ class CC_EXPORT LayerListConstIterator {
   STACK_ALLOCATED();
 
  public:
-  using difference_type = std::ptrdiff_t;
-
-  LayerListConstIterator();
   explicit LayerListConstIterator(const Layer* root_layer);
   LayerListConstIterator(const LayerListConstIterator& other);
   ~LayerListConstIterator();
@@ -74,17 +63,13 @@ class CC_EXPORT LayerListConstIterator {
     return !(*this == other);
   }
 
+  // We will only support prefix increment.
   LayerListConstIterator& operator++();
-  LayerListConstIterator operator++(int) {
-    LayerListConstIterator that(*this);
-    ++*this;
-    return that;
-  }
   const Layer* operator->() const { return current_layer_; }
   const Layer* operator*() const { return current_layer_; }
 
  private:
-  const Layer* current_layer_ = nullptr;
+  const Layer* current_layer_;
   std::vector<size_t> list_indices_;
 };
 
@@ -92,9 +77,6 @@ class CC_EXPORT LayerListReverseIterator {
   STACK_ALLOCATED();
 
  public:
-  using difference_type = std::ptrdiff_t;
-
-  LayerListReverseIterator();
   explicit LayerListReverseIterator(Layer* root_layer);
   LayerListReverseIterator(const LayerListReverseIterator& other);
   ~LayerListReverseIterator();
@@ -107,12 +89,8 @@ class CC_EXPORT LayerListReverseIterator {
     return !(*this == other);
   }
 
+  // We will only support prefix increment.
   LayerListReverseIterator& operator++();
-  LayerListReverseIterator operator++(int) {
-    LayerListReverseIterator that(*this);
-    ++*this;
-    return that;
-  }
   Layer* operator->() const { return current_layer_; }
   Layer* operator*() const { return current_layer_; }
 
@@ -127,9 +105,6 @@ class CC_EXPORT LayerListReverseConstIterator {
   STACK_ALLOCATED();
 
  public:
-  using difference_type = std::ptrdiff_t;
-
-  LayerListReverseConstIterator();
   explicit LayerListReverseConstIterator(const Layer* root_layer);
   LayerListReverseConstIterator(const LayerListReverseConstIterator& other);
   ~LayerListReverseConstIterator();
@@ -142,12 +117,8 @@ class CC_EXPORT LayerListReverseConstIterator {
     return !(*this == other);
   }
 
+  // We will only support prefix increment.
   LayerListReverseConstIterator& operator++();
-  LayerListReverseConstIterator operator++(int) {
-    LayerListReverseConstIterator that(*this);
-    ++*this;
-    return that;
-  }
   const Layer* operator->() const { return current_layer_; }
   const Layer* operator*() const { return current_layer_; }
 

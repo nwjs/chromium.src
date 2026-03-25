@@ -31,8 +31,6 @@ class MultiContentsViewDropTargetController final
     : public TabDragTarget,
       public MultiContentsDropTargetView::DragDelegate {
  public:
-  static constexpr base::TimeDelta kShowDropTargetForTabDelay =
-      base::Milliseconds(1000);
   static constexpr base::TimeDelta kShowDropTargetForLinkDelay =
       base::Milliseconds(500);
   static constexpr base::TimeDelta kShowDropTargetForLinkAfterHideDelay =
@@ -119,6 +117,8 @@ class MultiContentsViewDropTargetController final
 
   // Starts or updates a running timer to show `target_to_show`.
   void StartOrUpdateDropTargetTimer(
+      const gfx::Point& point_in_view,
+      int drop_entry_point_width,
       MultiContentsDropTargetView::DropSide drop_side,
       MultiContentsDropTargetView::DragType drag_type);
   void ResetDropTargetTimers();
@@ -181,6 +181,9 @@ class MultiContentsViewDropTargetController final
   int nudge_shown_count_;
   // Tracks the value of prefs::kSplitViewDragAndDropNudgeUsedCount.
   int nudge_used_count_;
+
+  // The last point where the drag was updated while in the drop area.
+  gfx::Point drag_point_at_timer_start_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_MULTI_CONTENTS_VIEW_DROP_TARGET_CONTROLLER_H_

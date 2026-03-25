@@ -7,7 +7,6 @@
 #include "base/test/run_until.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/tabs/tab_group_attention_indicator.h"
 #include "chrome/browser/ui/tabs/tab_group_features.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
@@ -328,9 +327,6 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest,
   // header's editor bubble button.
   EXPECT_TRUE(ui::ElementTracker::GetElementTracker()->GetElementInAnyContext(
       kTabGroupEditorBubbleId));
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return tab_group_header->editor_bubble_button()->GetVisible();
-  }));
 }
 
 IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, AttentionIndicator) {
@@ -365,8 +361,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, AttentionIndicator) {
 IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, ShiftGroupUp_PastSingleTab) {
   TabStripModel* model = browser()->tab_strip_model();
 
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  AppendTab();
+  AppendTab();
   ASSERT_EQ(3, model->count());
 
   // Create a group with the second and third tabs (indices 1 and 2).
@@ -389,9 +385,9 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, ShiftGroupUp_PastSingleTab) {
 IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, ShiftGroupDown_PastTabGroup) {
   TabStripModel* model = browser()->tab_strip_model();
 
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  AppendTab();
+  AppendTab();
+  AppendTab();
   ASSERT_EQ(4, model->count());
 
   // Create Group A (indices 0 and 1) and Group B (indices 2 and 3).
@@ -417,8 +413,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, ShiftGroupDown_PastTabGroup) {
 IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest, ShiftGroupUp_AlreadyAtTop) {
   TabStripModel* model = browser()->tab_strip_model();
 
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  AppendTab();
+  AppendTab();
   ASSERT_EQ(3, model->count());
 
   // Create a group with the first and second tabs (indices 0 and 1).
@@ -443,8 +439,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest,
                        ShiftGroupDown_AlreadyAtBottom) {
   TabStripModel* model = browser()->tab_strip_model();
 
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
-  chrome::AddTabAt(browser(), GURL("about:blank"), -1, true);
+  AppendTab();
+  AppendTab();
   ASSERT_EQ(3, model->count());
 
   // Create a group with the second and third tabs (indices 1 and 2).
@@ -464,3 +460,6 @@ IN_PROC_BROWSER_TEST_F(VerticalTabGroupViewTest,
   EXPECT_EQ(group, model->GetTabGroupForTab(1));
   EXPECT_EQ(group, model->GetTabGroupForTab(2));
 }
+
+// TODO(crbug.com/490428062): Create Tests to Verify Focus Order of Tab Group
+// Header w/ Editor Bubble Button.

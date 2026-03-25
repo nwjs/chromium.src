@@ -953,7 +953,7 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   int fallback_marker = val_field4.As<v8::Value>().As<v8::Int32>()->Value();
   v8::ModuleImportPhase import_phase = (v8::ModuleImportPhase)val_field5.As<v8::Value>().As<v8::Int32>()->Value();
   v8::Local<v8::Data> v8_host_defined_options;
-  v8_host_defined_options = val_field0.As<v8::Data>();
+  v8_host_defined_options = val_field0;
 
   v8::Local<v8::Value> v8_referrer_resource_url = val_field1.As<v8::Value>();
 

@@ -44,7 +44,7 @@ class GraphImplTflite final : public WebNNGraphImpl {
           constant_operands,
       base::flat_map<OperandId, scoped_refptr<WebNNTensorImpl>>
           constant_tensor_operands,
-      ContextImplTflite& context,
+      ContextImplTflite* context,
       base::File weights_file,
       WebNNContextImpl::CreateGraphImplCallback callback);
 
@@ -56,7 +56,7 @@ class GraphImplTflite final : public WebNNGraphImpl {
       base::flat_map<std::string, TensorDescriptor> output_name_to_descriptor,
       scoped_refptr<QueueableResourceState<ComputeResources>>
           compute_resources_state,
-      WebNNContextImpl& context,
+      base::WeakPtr<WebNNContextImpl> context,
       std::vector<mojom::Device> devices);
 
   GraphImplTflite(const GraphImplTflite&) = delete;

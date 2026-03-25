@@ -93,18 +93,20 @@ WebNNGraphImpl::ComputeResourceInfo::~ComputeResourceInfo() = default;
 
 WebNNGraphImpl::WebNNGraphImpl(
     mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
-    WebNNContextImpl& context,
+    base::WeakPtr<WebNNContextImpl> context,
     ComputeResourceInfo compute_resource_info,
     std::vector<mojom::Device> devices)
     : WebNNObjectImpl<mojom::WebNNGraph,
                       blink::WebNNGraphToken,
                       mojo::AssociatedReceiver<mojom::WebNNGraph>>(
           std::move(receiver),
-          context.scheduler_task_runner(),
-          context.owning_task_runner()),
-      context_(context),
+          context->scheduler_task_runner(),
+          context->owning_task_runner()),
+      context_(std::move(context)),
       compute_resource_info_(std::move(compute_resource_info)),
-      devices_(std::move(devices)) {}
+      devices_(std::move(devices)) {
+  CHECK(context_);
+}
 
 WebNNGraphImpl::~WebNNGraphImpl() = default;
 

@@ -2211,10 +2211,6 @@ inline constexpr char kFedCmAutofillName[] = "FedCmAutofill";
 inline constexpr char kFedCmAutofillDescription[] =
     "Allows RPs to enhance autofill with FedCM.";
 
-inline constexpr char kFedCmAmbientUIName[] = "FedCm Ambient UI";
-inline constexpr char kFedCmAmbientUIDescription[] =
-    "Enables FedCM ambient UI in the omnibox.";
-
 inline constexpr char kFedCmDelegationName[] = "FedCM with delegation support";
 inline constexpr char kFedCmDelegationDescription[] =
     "Enables IdPs to delegate presentation to the browser.";
@@ -2570,6 +2566,12 @@ inline constexpr char kHttpsFirstModeIncognitoName[] =
     "HTTPS-First Mode in Incognito";
 inline constexpr char kHttpsFirstModeIncognitoDescription[] =
     "Enable HTTPS-First Mode in Incognito as default setting.";
+
+inline constexpr char kHttpsFirstModeIncognitoNewSettingsName[] =
+    "HTTPS-First Mode in Incognito new Settings UI";
+inline constexpr char kHttpsFirstModeIncognitoNewSettingsDescription[] =
+    "Enable new HTTPS-First Mode settings UI for HTTPS-First Mode in "
+    "Incognito. Must also enable #https-first-mode-incognito.";
 
 inline constexpr char kHttpsFirstModeV2ForEngagedSitesName[] =
     "HTTPS-First Mode V2 For Engaged Sites";
@@ -4146,10 +4148,18 @@ inline constexpr char kStrictOriginIsolationDescription[] =
     "Controls whether site isolation should use origins instead of scheme and "
     "eTLD+1.";
 
+inline constexpr char kSyncAIThreadsName[] = "Sync AI Threads";
+inline constexpr char kSyncAIThreadsDescription[] =
+    "Acquire AI Threads via sync.";
+
 inline constexpr char kSyncAutofillWalletCredentialDataName[] =
     "Sync Autofill Wallet Credential Data";
 inline constexpr char kSyncAutofillWalletCredentialDataDescription[] =
     "When enabled, allows syncing of the autofill wallet credential data type.";
+
+inline constexpr char kSyncGeminiThreadsName[] = "Sync Gemini Threads";
+inline constexpr char kSyncGeminiThreadsDescription[] =
+    "Acquire Gemini Threads via sync.";
 
 inline constexpr char kSyncSandboxName[] = "Use Chrome Sync sandbox";
 inline constexpr char kSyncSandboxDescription[] =
@@ -5583,6 +5593,12 @@ inline constexpr char kMediaIndicatorsAndroidName[] =
     "Media Indicators Android";
 inline constexpr char kMediaIndicatorsAndroidDescription[] =
     "Enables media indicators on Android.";
+
+inline constexpr char kMediaPickerAdoptionStudyName[] =
+    "Android Media Picker Adoption";
+inline constexpr char kMediaPickerAdoptionStudyDescription[] =
+    "Controls how to launch the Android Media Picker (note: This flag is "
+    "ignored as of Android U)";
 
 inline constexpr char kMigrateAccountManagerDelegateName[] =
     "Migrate Account Manager Delegate";

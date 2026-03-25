@@ -125,10 +125,7 @@ scoped_refptr<media::DecoderBuffer> ByteArrayToDecoderBuffer(
     // it may be EOS buffer.
     scoped_refptr<media::DecoderBuffer> decoder_buffer =
         ConvertProtoToDecoderBuffer(
-            segment,
-            media::DecoderBuffer::FromExternalMemory(
-                std::make_unique<media::DecoderBuffer::UnownedExternalMemory>(
-                    buffer_span)));
+            segment, media::DecoderBuffer::CopyFrom(buffer_span));
     return decoder_buffer;
   }
 

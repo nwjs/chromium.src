@@ -566,10 +566,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
   }
 
   private blurSearchbox() {
-    this.shadowRoot!.querySelector<HTMLElement>('cr-searchbox')
-        ?.shadowRoot!.querySelector<HTMLElement>('input')
-        ?.blur();
-
+    this.$.searchbox.blurInput();
     this.$.composebox.blur();
   }
 
@@ -617,7 +614,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
     // Setup a listener on the suggestions container to adjust the ghost loader
     // number of suggestions.
     this.searchboxBoundingClientRectObserver.observe(
-        this.$.searchbox.getSuggestionsElement());
+        this.$.searchbox.getDropdownElement());
   }
 
   private onSearchboxFocusOut_(event: FocusEvent) {
@@ -641,7 +638,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
   private onSearchboxBoundsChanged() {
     this.searchboxSuggestionCount =
-        this.$.searchbox.getSuggestionsElement().selectableMatchElements.length;
+        this.$.searchbox.getDropdownElement().selectableMatchElements.length;
   }
 
   private computeShowGhostLoader(): boolean {
@@ -700,12 +697,16 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
 
     if (loadTimeData.getBoolean('updatedFeedbackEnabled')) {
       this.feedbackToastShowAfterDelayTimeoutId = setTimeout(() => {
-        if (this.isComposeboxFocused) {
+        if (this.$.composebox.isExpanded()) {
           return;
         }
         this.feedbackToastShown = true;
         this.$.feedbackToast.show();
       }, loadTimeData.getInteger('updatedFeedbackToastTimeoutMs'));
+      return;
+    }
+
+    if (this.$.composebox.isExpanded()) {
       return;
     }
 
@@ -754,7 +755,7 @@ export class LensSidePanelAppElement extends LensSidePanelAppElementBase {
       this.$.composebox.focusInput();
       return;
     }
-    this.$.searchbox.focus();
+    this.$.searchbox.focusInput();
   }
 
   private async showToast(toast: CrToastElement, message?: string) {

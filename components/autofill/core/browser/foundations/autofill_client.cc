@@ -37,15 +37,13 @@ AutofillClient::PopupOpenArgs::PopupOpenArgs(
     std::vector<Suggestion> suggestions,
     AutofillSuggestionTriggerSource trigger_source,
     int32_t form_control_ax_id,
-    PopupAnchorType anchor_type,
-    bool show_tabbed_popup)
+    PopupAnchorType anchor_type)
     : element_bounds(element_bounds),
       text_direction(text_direction),
       suggestions(std::move(suggestions)),
       trigger_source(trigger_source),
       form_control_ax_id(form_control_ax_id),
-      anchor_type(anchor_type),
-      show_tabbed_popup(show_tabbed_popup) {}
+      anchor_type(anchor_type) {}
 AutofillClient::PopupOpenArgs::PopupOpenArgs(
     const AutofillClient::PopupOpenArgs&) = default;
 AutofillClient::PopupOpenArgs::PopupOpenArgs(AutofillClient::PopupOpenArgs&&) =
@@ -223,6 +221,10 @@ void AutofillClient::TriggerAutofillAiSavePromptSurvey(
 
 bool AutofillClient::IsTabInActorMode() const {
   return false;
+}
+
+ActorKeyMetricsRecorder* AutofillClient::GetActorKeyMetricsRecorder() {
+  return nullptr;
 }
 
 std::unique_ptr<device_reauth::DeviceAuthenticator>

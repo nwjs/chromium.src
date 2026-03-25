@@ -298,7 +298,6 @@
 <translation id="2012723204723845092">بازگشتتان را خوشامد می‌گوییم!</translation>
 <translation id="2015722694326466240">برای دیدن گذرنویسه‌ها، اول باید گذرنویسه‌ای برای دستگاه تنظیم کنید.</translation>
 <translation id="201759455285471444">ازهم باز کردن گروه زبانه.</translation>
-<translation id="202070562065520783">این را برایم توضیح بده</translation>
 <translation id="2044394949148788042">باز کردن شبکه زبانه</translation>
 <translation id="2044681667265133332">حساب <ph name="USER_EMAIL" /> تحت‌مدیریت <ph name="HOSTED_DOMAIN" /> است. این دامنه ممکن است بتواند برخی اطلاعات را مشاهده کند. <ph name="BEGIN_LINK" />بیشتر بدانید<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">مورد جدید</translation>
@@ -527,6 +526,7 @@
 <translation id="286382692684806520">{COUNT,plural, =1{‫۱ سایت (سایت‌های بیشتر در دستگاه‌های همگام‌سازی‌شده)}one{‫# سایت (سایت‌های بیشتر در دستگاه‌های همگام‌سازی‌شده)}other{‫# سایت (سایت‌های بیشتر در دستگاه‌های همگام‌سازی‌شده)}}</translation>
 <translation id="2870560284913253234">سایت</translation>
 <translation id="2876369937070532032">‏اگر امنیتتان درخطر باشد، نشانی وب برخی از صفحه‌هایی را که بازدید می‌کنید به Google می‌فرستد</translation>
+<translation id="2877733045396505765">‏این کار اطلاعات انتخابی ذخیره‌شده در این دستگاه و در «حساب Google» شما <ph name="USER_EMAIL" /> را حذف می‌کند.</translation>
 <translation id="2883151425485251736">مشاهده و ویرایش موضوع‌هایی که در حسابتان پنهان کرده‌اید</translation>
 <translation id="288655811176831528">بستن زبانه</translation>
 <translation id="2888631381369839306">اعلان‌های «پیگیری قیمت» روشن شد</translation>
@@ -597,7 +597,7 @@
 <translation id="315778507796115851">سابقه</translation>
 <translation id="31652791196570636">بستن</translation>
 <translation id="3167868116600277716">فید «یافته‌ها»</translation>
-<translation id="3169472444629675720">کشف کردن</translation>
+<translation id="3169472444629675720">کاوش</translation>
 <translation id="3174662312949010067">همچنین می‌توانید از گذرواژه‌های ذخیره‌شده در دیگر دستگاه‌هایتان استفاده کنید.</translation>
 <translation id="3177338796769255211">به سیستم وارد شوید تا نشانک‌ها و موارد دیگر را در همه دستگاه‌هایتان دریافت کنید</translation>
 <translation id="3181954750937456830">مرور ایمن (از شما و دستگاهتان درمقابل سایت‌های خطرناک محافظت می‌کند)</translation>
@@ -636,6 +636,7 @@
 <translation id="3324193307694657476">آدرس ۲</translation>
 <translation id="3328801116991980348">اطلاعات سایت</translation>
 <translation id="333229797575847124">نحوه فعال کردن این ویژگی</translation>
+<translation id="334004756946755423">این را برایم توضیح بده</translation>
 <translation id="3344233834747405775">نام دارنده کارت نامعتبر است</translation>
 <translation id="3344485292736684439">{count,plural, =1{نشانک در «{title}» در حساب شما ({email}) ذخیره شد}one{نشانک در «{title}» در حساب شما ({email}) ذخیره شد}other{نشانک‌ها در «{title}» در حساب شما ({email}) ذخیره شد}}</translation>
 <translation id="334690320928261823">زبانه‌های اخیر</translation>
@@ -1219,7 +1220,7 @@
 <translation id="543338862236136125">ویرایش گذرواژه</translation>
 <translation id="5433691172869980887">نام کاربری کپی شد</translation>
 <translation id="5437480232219631455">‏می‌توانید Gemini را از اینجا باز کنید</translation>
-<translation id="5439618055789623719">ورود به سیستم با <ph name="USER_EMAIL" /></translation>
+<translation id="5439618055789623719">واردشده به سیستم با <ph name="USER_EMAIL" /></translation>
 <translation id="5443636120437209490">مرور بهتر به‌طور پیش‌فرض</translation>
 <translation id="5444892875087332195">نشانک‌ها</translation>
 <translation id="5447973833955560753">گذرواژه بازیابی</translation>
@@ -1650,7 +1651,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="6882836635272038266">محافظت استاندارد دربرابر وب‌سایت‌ها، بارگیری‌ها، و افزونه‌هایی که خطرناک بودنشان مشخص شده است.</translation>
 <translation id="6884135917113737984">{COUNT,plural, =1{‏ذخیره کردن {COUNT} گذرواژه در «حساب Google» شما}one{‏ذخیره کردن {COUNT} گذرواژه در «حساب Google» شما}other{‏ذخیره کردن {COUNT} گذرواژه در «حساب Google» شما}}</translation>
 <translation id="6888009575607455378">مطمئن هستید می‌خواهید از تغییراتتان صرف‌نظر کنید؟</translation>
-<translation id="6896758677409633944">کپی</translation>
+<translation id="6896758677409633944">کپی کردن</translation>
 <translation id="6897187120838603299">گذرواژه در دستگاهتان ذخیره خواهد شد.</translation>
 <translation id="6899890595581608884">اعلان‌های «بررسی ایمنی» خاموش شد</translation>
 <translation id="6900532703269623216">محافظت بهبودیافته</translation>
@@ -1878,6 +1879,7 @@ Handoff باید در بخش عمومی تنظیمات نیز فعال شود و
 <translation id="775755486779745798">تکمیل خودکار ماه انقضا <ph name="MONTH" /></translation>
 <translation id="7758789811447313947">زمینه بنفش</translation>
 <translation id="7759809451544302770">اختیاری</translation>
+<translation id="7763878244904387570">این کار، اطلاعات انتخابی ذخیره‌شده در این دستگاه را حذف می‌کند.</translation>
 <translation id="7765158879357617694">انتقال</translation>
 <translation id="7772032839648071052">تأیید گذرعبارت</translation>
 <translation id="7772948288262733182">بازگشتتان را خوشامد می‌گوییم</translation>

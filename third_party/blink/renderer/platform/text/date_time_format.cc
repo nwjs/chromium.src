@@ -243,7 +243,7 @@ static bool IsASCIIAlphabetOrQuote(UChar ch) {
   return IsASCIIAlpha(ch) || ch == '\'';
 }
 
-void DateTimeFormat::QuoteAndAppend(const StringView& literal,
+void DateTimeFormat::QuoteAndappend(const String& literal,
                                     StringBuilder& buffer) {
   if (literal.length() <= 0)
     return;
@@ -264,7 +264,8 @@ void DateTimeFormat::QuoteAndAppend(const StringView& literal,
     if (literal[i] == '\'') {
       buffer.Append("''");
     } else {
-      String escaped = literal.substr(i).ToString().Replace("'", "''");
+      String escaped = literal.Substring(i);
+      escaped.Replace("'", "''");
       buffer.Append('\'');
       buffer.Append(escaped);
       buffer.Append('\'');

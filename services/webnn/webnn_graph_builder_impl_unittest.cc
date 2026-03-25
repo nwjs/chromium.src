@@ -54,10 +54,10 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
  public:
   FakeWebNNGraphImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
-      WebNNContextImpl& context,
+      base::WeakPtr<WebNNContextImpl> context,
       ComputeResourceInfo compute_resource_info)
       : WebNNGraphImpl(std::move(receiver),
-                       context,
+                       std::move(context),
                        std::move(compute_resource_info),
                        /*devices=*/{}) {}
 
@@ -127,7 +127,7 @@ class FakeWebNNContextImpl final : public WebNNContextImpl {
                CreateGraphImplCallback callback) {
               CHECK(context);
               std::move(callback).Run(base::MakeRefCounted<FakeWebNNGraphImpl>(
-                  std::move(receiver), *context,
+                  std::move(receiver), std::move(context),
                   std::move(compute_resource_info)));
             },
             std::move(receiver), AsWeakPtr(), std::move(compute_resource_info),

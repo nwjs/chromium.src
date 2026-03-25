@@ -269,6 +269,7 @@ La protection avancée contrôle ces paramètres Chrome :
 <translation id="3658847490588580244">Zone de contenu dans le bas de l'écran du navigateur par défaut</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> site du groupe de sites de <ph name="RWS_OWNER" /> peut voir votre activité dans le groupe}one{<ph name="RWS_MEMBERS_COUNT" /> site du groupe de sites de <ph name="RWS_OWNER" /> peut voir votre activité dans le groupe}other{<ph name="RWS_MEMBERS_COUNT" /> sites du groupe de sites de <ph name="RWS_OWNER" /> peut voir votre activité dans le groupe}}</translation>
 <translation id="3676777756440746804">Les sites ne sont pas autorisés à vous demander d'utiliser les informations qu'ils ont enregistrées à votre sujet</translation>
+<translation id="3677897809642449131">Les sites peuvent demander à utiliser les capteurs de mouvement</translation>
 <translation id="3678318839615834650">Zone de contenu dans le bas de l'écran concernant les cartes de la page Nouvel onglet ouverte à pleine hauteur</translation>
 <translation id="3697164069658504920">Lorsque cette option est activée, les sites peuvent demander à utiliser des appareils USB. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser d'appareils USB.</translation>
 <translation id="3703430731944883733">Gérer votre flux</translation>
@@ -490,6 +491,7 @@ La protection avancée contrôle ces paramètres Chrome :
 <translation id="5922853908706496913">Partage de votre écran en cours…</translation>
 <translation id="5922967540311291836">Bloquer les témoins tiers :</translation>
 <translation id="5923512600150154850">Cette action supprimera <ph name="DATASIZE" /> de données et de témoins stockés par des sites.</translation>
+<translation id="5930707844513754220">Afficher plus de la liste de configuration</translation>
 <translation id="5939518447894949180">Recommencer</translation>
 <translation id="5948139900367969951">Accédez rapidement à ce qui compte pour vous</translation>
 <translation id="5964247741333118902">Contenu intégré</translation>
@@ -498,6 +500,7 @@ La protection avancée contrôle ces paramètres Chrome :
 <translation id="5976059395673079613"><ph name="PERMISSION" /> : <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Activer le flux Découvertes</translation>
 <translation id="6012967556075291653">Raccourci épinglé</translation>
+<translation id="6013003831291591200">Tâche terminée</translation>
 <translation id="6015775454662021376">Gérez l'accès de ce site à votre appareil</translation>
 <translation id="6022659036123304283">Appropriez-vous Chrome</translation>
 <translation id="6040143037577758943">Fermer</translation>
@@ -748,6 +751,7 @@ La protection avancée contrôle ces paramètres Chrome :
 <translation id="8707904142362025782">Le site peut demander d'accéder à votre caméra</translation>
 <translation id="8712637175834984815">OK</translation>
 <translation id="8715862698998036666">Faites glisser à partir du haut et balayez à partir du bord gauche ou droit pour quitter le plein écran.</translation>
+<translation id="8716050156658570300">Les sites peuvent demander à utiliser les capteurs de mouvement et de luminosité</translation>
 <translation id="8719283222052720129">Vous pouvez activer l'autorisation pour <ph name="APP_NAME" /> dans les <ph name="BEGIN_LINK" />paramètres d'Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Lorsque cette option est activée, les sites peuvent demander à rechercher des appareils Bluetooth. Lorsqu'elle est désactivée, les sites ne peuvent pas rechercher d'appareils Bluetooth.</translation>
 <translation id="8725066075913043281">Réessayer</translation>

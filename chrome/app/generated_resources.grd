@@ -7775,7 +7775,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Compare options
       </message>
       <message name="IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_RESEARCH" desc="One of the dynamically changing placeholder texts for the NTP searchbox">
-        Research a topic
+        Research anything
       </message>
       <message name="IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_TEACH" desc="One of the dynamically changing placeholder texts for the NTP searchbox">
         Teach me a new skill
@@ -7787,7 +7787,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
         Ask about a tab
       </message>
       <message name="IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_IMAGE" desc="One of the dynamically changing placeholder texts for the NTP searchbox">
-        Add an image and reimagine it
+        Describe your image
+      </message>
+      <message name="IDS_NTP_SEARCH_BOX_DYNAMIC_PLACEHOLDER_CANVAS" desc="One of the dynamically changing placeholder texts for the NTP searchbox">
+        Create anything
       </message>
       <message name="IDS_NTP_CUSTOM_LINKS_ADD_SHORTCUT_TOOLTIP" desc="The tooltip for adding a custom link shortcut. (On the New Tab Page)">
         Add shortcut
@@ -8845,38 +8848,44 @@ Keep your key file in a safe place. You will need it to create new versions of y
         desc="Placeholder text for the composebox when there is exactly one document (PDF) in the carousel.">
         Ask about this doc
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_TAB_HEADING_1" translateable="true" desc="Heading of the tab action chip on the NTP." >
+      <message name="IDS_NTP_ACTION_CHIP_TAB_HEADING_1" desc="Heading of the tab action chip on the NTP." >
         Ask about previous tab
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_TAB_HEADING_2" translateable="true" desc="Heading of the tab action chip on the NTP." >
+      <message name="IDS_NTP_ACTION_CHIP_TAB_HEADING_2" desc="Heading of the tab action chip on the NTP." >
         Ask about a tab
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_TAB_BODY_1" translateable="true" desc="Body text in the tab action chip describing the use of the chip." >
+      <message name="IDS_NTP_ACTION_CHIP_TAB_BODY_1" desc="Body text in the tab action chip describing the use of the chip." >
         Ask about this tab
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_TAB_BODY_2" translateable="true" desc="Body text in the tab action chip describing the use of the chip." >
+      <message name="IDS_NTP_ACTION_CHIP_TAB_BODY_2" desc="Body text in the tab action chip describing the use of the chip." >
         Search deeply on a tab
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_CREATE_IMAGE_HEADING" translateable="true" desc="Heading of the create image action chip on the NTP." >
+      <message name="IDS_NTP_ACTION_CHIP_CREATE_IMAGE_HEADING" desc="Heading of the create image action chip on the NTP." >
         Create image
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_1" translateable="true" desc="Body text in the create image action chip describing the use of the chip.">
+      <message name="IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_1" desc="Body text in the create image action chip describing the use of the chip.">
         Add an image and reimagine it
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_2" translateable="true" desc="Body text in the create image action chip describing the use of the chip.">
+      <message name="IDS_NTP_ACTION_CHIP_CREATE_IMAGE_BODY_2" desc="Body text in the create image action chip describing the use of the chip.">
         Reimagine a photo
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_DEEP_SEARCH_HEADING" translateable="true" desc="Heading of the deep search action chip on the NTP.">
+      <message name="IDS_NTP_ACTION_CHIP_DEEP_SEARCH_HEADING" desc="Heading of the deep search action chip on the NTP.">
         Research a topic
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_DEEP_SEARCH_BODY" translateable="true" desc="Body text in the deep search action chip describing the use of the chip.">
+      <message name="IDS_NTP_ACTION_CHIP_DEEP_SEARCH_BODY" desc="Body text in the deep search action chip describing the use of the chip.">
         Dive deep into something new
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_CANVAS_HEADING" translateable="true" desc="Heading of the canvas action chip on the NTP.">
+      <message name="IDS_NTP_ACTION_CHIP_CANVAS_HEADING" desc="Heading of the canvas action chip on the NTP.">
         Canvas
       </message>
-      <message name="IDS_NTP_ACTION_CHIP_CANVAS_BODY" translateable="true" desc="Body text in the canvas action chip describing the use of the chip.">
+      <message name="IDS_NTP_ACTION_CHIP_CANVAS_BODY" desc="Body text in the canvas action chip describing the use of the chip.">
         Write, plan, code, and more
+      </message>
+      <message name="IDS_NTP_ACTION_CHIP_DISABLE_TEXT" desc="Text for menu option to disable action chip feature.">
+        Disable suggestions
+      </message>
+      <message name="IDS_NTP_ACTION_CHIPS_UNDO_DISABLEMENT_TOAST_MESSAGE" desc="Text for the toast that appears when the user disables action chips from the NTP. Clicking on it re-enables the action chips.">
+        You won't see suggestions on this page again
       </message>
       <message name="IDS_COMPOSE_REMOVE_TOOL_CHIP_A11Y_LABEL" desc="A11y text for removing a tool in the composebox.">
         Remove <ph name="TOOL_NAME">$1<ex>Deep Search</ex></ph>
@@ -12711,6 +12720,14 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google 
           You can now manage your tab groups, Gemini chats, and AI Mode threads in one place. Unpin this at any time.
         </message>
 
+        <message name="IDS_RESUMPTION_RAIL_IPH_BODY_ONLY_GEMINI" desc="The body text of an IPH that shows up to educate users about the Resumption Rail feature entrypoint, excluding language about AI Mode.">
+          You can now manage your tab groups and Gemini chats in one place. Unpin this at any time.
+        </message>
+
+        <message name="IDS_RESUMPTION_RAIL_IPH_BODY_ONLY_AI_MODE" desc="The body text of an IPH that shows up to educate users about the Resumption Rail feature entrypoint, excluding language about Gemini.">
+          You can now manage your tab groups and AI Mode threads in one place. Unpin this at any time.
+        </message>
+
         <message name="IDS_RESUMPTION_RAIL_IPH_BODY_NO_THREADS" desc="The body text of an IPH that shows up to educate users about the Resumption Rail feature entrypoint, including only language about tab groups.">
           You can now manage your tab groups here. Unpin this at any time.
         </message>
@@ -12719,8 +12736,24 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google 
           Pick up where you left off on Gemini and AI Mode
         </message>
 
+        <message name="IDS_RESUMPTION_RAIL_THREADS_IPH_TITLE_ONLY_GEMINI" desc="The title text of an IPH that educates users about accessing Gemini chats via the Resumption Rail entrypoint.">
+          Pick up where you left off on Gemini
+        </message>
+
+        <message name="IDS_RESUMPTION_RAIL_THREADS_IPH_TITLE_ONLY_AI_MODE" desc="The title text of an IPH that educates users about accessing AI Mode threads via the Resumption Rail entrypoint.">
+          Pick up where you left off on AI Mode
+        </message>
+
         <message name="IDS_RESUMPTION_RAIL_THREADS_IPH_BODY" desc="The body text of an IPH that educates users about accessing Gemini and AI Mode threads via the Resumption Rail entrypoint.">
           You can now directly resume Gemini chats and AI Mode threads here. Unpin this at any time.
+        </message>
+
+        <message name="IDS_RESUMPTION_RAIL_THREADS_IPH_BODY_ONLY_GEMINI" desc="The body text of an IPH that educates users about accessing Gemini threads via the Resumption Rail entrypoint.">
+          You can now directly resume Gemini chats here. Unpin this at any time.
+        </message>
+
+        <message name="IDS_RESUMPTION_RAIL_THREADS_IPH_BODY_ONLY_AI_MODE" desc="The body text of an IPH that educates users about accessing AI Mode threads via the Resumption Rail entrypoint.">
+          You can now directly resume AI Mode threads here. Unpin this at any time.
         </message>
 
         <if expr="use_titlecase">
@@ -19191,9 +19224,6 @@ Please help our engineers fix this problem. Tell us what happened right before y
     </message>
     <message name="IDS_FILTERED_ACCOUNT_MESSAGE" desc="Message shown to the user when the account they are trying to sign in with has been filtered out by one of the filters passed by the RP.">
       You can't sign in using this account
-    </message>
-    <message name="IDS_FEDERATION_TITLE_STATIC" desc="Title of the UI shown in the omnibox to remind users that they can sign in with an identity provider." translateable="false">
-      Sign-in
     </message>
 
     <!-- Input overlay strings -->

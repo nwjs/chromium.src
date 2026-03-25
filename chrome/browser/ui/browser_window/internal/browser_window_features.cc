@@ -13,6 +13,7 @@
 #include "chrome/browser/actor/ui/actor_border_view_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_window_controller.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/collaboration/collaboration_service_factory.h"
 #include "chrome/browser/commerce/shopping_service_factory.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
+#include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/lens/region_search/lens_region_search_controller.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
@@ -121,6 +123,7 @@
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/reading_list/reading_list_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/views/tabs/projects/projects_panel_utils.h"
 #include "chrome/browser/ui/views/tabs/recent_activity_bubble_dialog_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
 #include "chrome/browser/ui/views/toolbar/chrome_labs/chrome_labs_coordinator.h"
@@ -321,10 +324,14 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
                   restored_state_uncollapsed_width);
     }
 
-    if (tab_groups::IsProjectsPanelFeatureEnabled()) {
+    if (projects_panel::IsProjectsPanelVisibleForProfile(profile)) {
+      glic::GlicKeyedService* glic_service =
+          glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
       projects_panel_state_controller_ =
           GetUserDataFactory().CreateInstance<ProjectsPanelStateController>(
-              *browser, browser, browser_actions_->root_action_item());
+              *browser, browser, browser_actions_->root_action_item(),
+              AimEligibilityServiceFactory::GetForProfile(profile),
+              glic_service ? &glic_service->enabling() : nullptr);
     }
   }
 
@@ -796,7 +803,9 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
                 *browser_, browser_,
                 BrowserElementsViews::From(browser_view->browser())
                     ->GetViewAs<TabStripActionContainer>(
-                        kTabStripActionContainerElementId));
+                        kTabStripActionContainerElementId),
+                BrowserElementsViews::From(browser_view->browser())
+                    ->GetViewAs<ToolbarView>(ToolbarView::kToolbarElementId));
       }
     }
 

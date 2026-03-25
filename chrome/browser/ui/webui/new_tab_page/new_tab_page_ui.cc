@@ -98,6 +98,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/history_clusters/core/features.h"
+#include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/ntp_tiles/features.h"
@@ -191,7 +192,9 @@ bool HasCredentials(Profile* profile) {
            .empty();
 }
 
-content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
+content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
+    Profile* profile,
+    bool session_allows_drag_and_drop) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUINewTabPageHost);
 
@@ -303,6 +306,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       {"title", IDS_NEW_TAB_TITLE},
       {"undo", IDS_NEW_TAB_UNDO_THUMBNAIL_REMOVE},
       {"controlledSettingPolicy", IDS_CONTROLLED_SETTING_POLICY},
+      {"disableSuggestion", IDS_NTP_ACTION_CHIP_DISABLE_TEXT},
+      {"actionChipsUndoDisablementToastMessage",
+       IDS_NTP_ACTION_CHIPS_UNDO_DISABLEMENT_TOAST_MESSAGE},
 
       // Custom Links.
       {"addLinkTitle", IDS_NTP_CUSTOM_LINKS_ADD_SHORTCUT_TITLE},
@@ -610,13 +616,13 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   const std::string image_mime_types =
       composebox_config.image_upload().mime_types_allowed();
   source->AddString("composeboxImageFileTypes", image_mime_types);
+  source->AddBoolean("lensSendRawFileMediaTypesEnabled",
+                     lens::features::IsLensSendRawFileMediaTypesEnabled());
   const std::string attachment_mime_types =
       composebox_config.attachment_upload().mime_types_allowed();
   source->AddString("composeboxAttachmentFileTypes", attachment_mime_types);
   source->AddInteger("composeboxFileMaxSize",
                      composebox_config.attachment_upload().max_size_bytes());
-  source->AddInteger("composeboxFileMaxCount",
-                     composebox_config.max_num_files());
   source->AddString(
       "composeboxSource",
       contextual_search::ContextualSearchMetricsRecorder::
@@ -692,13 +698,11 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   source->AddBoolean(
       "enableEphemeralContextMenuDescription",
       ntp_composebox::kEnableEphemeralContextMenuDescription.Get());
-  source->AddBoolean("composeboxContextDragAndDropEnabled",
-                     ntp_composebox::kEnableContextDragAndDrop.Get());
 
-  source->AddBoolean("composeboxCloseByEscape",
-                     ntp_composebox::kCloseComposeboxByEscape.Get());
-  source->AddBoolean("composeboxCloseByClickOutside",
-                     ntp_composebox::kCloseComposeboxByClickOutside.Get());
+  source->AddBoolean("composeboxCloseByEscape", false);
+  // TODO(b/477969358): Remove "close by click outside" boolean.
+  source->AddBoolean("composeboxCloseByClickOutside", true);
+
   source->AddBoolean("composeboxSmartComposeEnabled",
                      ntp_composebox::kShowSmartCompose.Get());
   const auto* aim_eligibility_service =
@@ -713,17 +717,12 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
                          composebox_config.is_pdf_upload_enabled();
   source->AddBoolean("composeboxShowPdfUpload", show_pdf_upload);
 
-  source->AddBoolean("steadyComposeboxShowVoiceSearch",
-                     ntp_composebox::kShowVoiceSearchInSteadyComposebox.Get());
-
-  source->AddBoolean(
-      "expandedComposeboxShowVoiceSearch",
-      ntp_composebox::kShowVoiceSearchInExpandedComposebox.Get());
   source->AddBoolean(
       "addTabUploadDelayOnRecentTabChipClick",
       ntp_composebox::kAddTabUploadDelayOnRecentTabChipClick.Get());
   source->AddBoolean("enableThreadsRail",
                      ntp_composebox::kEnableThreadsRail.Get());
+  source->AddBoolean("clearAllInputsWhenSubmittingQuery", true);
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   source->AddBoolean("enableThreadsRailLogo",
@@ -735,11 +734,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
   // Action Chips LoadTimeData
   bool action_chips_eligible =
       aim_eligibility_service && aim_eligibility_service->IsAimEligible() &&
-      (ntp_features::kNtpNextShowSimplificationUIParam.Get()
-           ? (aim_eligibility_service->IsDeepSearchEligible() ||
-              aim_eligibility_service->IsCreateImagesEligible())
-           : (aim_eligibility_service->IsDeepSearchEligible() &&
-              aim_eligibility_service->IsCreateImagesEligible()));
+      (aim_eligibility_service->IsDeepSearchEligible() ||
+       aim_eligibility_service->IsCreateImagesEligible());
   bool show_action_chips =
       action_chips_eligible &&
       profile->GetPrefs()->GetBoolean(prefs::kNtpToolChipsVisible);
@@ -775,7 +771,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(Profile* profile) {
       source, profile,
       /*enable_voice_search=*/true,
       /*enable_lens_search=*/
-      profile->GetPrefs()->GetBoolean(prefs::kLensDesktopNTPSearchEnabled));
+      profile->GetPrefs()->GetBoolean(prefs::kLensDesktopNTPSearchEnabled),
+      session_allows_drag_and_drop);
 
   webui::SetupWebUIDataSource(source, kNewTabPageResources,
                               IDR_NEW_TAB_PAGE_NEW_TAB_PAGE_HTML);
@@ -835,7 +832,14 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
                                    profile_)) {
   instance_count_++;
   base::UmaHistogramCounts100("NewTabPage.Count", instance_count_);
-  auto* source = CreateAndAddNewTabPageUiHtmlSource(profile_);
+  bool session_allows_drag_and_drop = false;
+  if (auto* session_handle = GetOrCreateContextualSessionHandle()) {
+    session_allows_drag_and_drop =
+        session_handle->CheckSearchContentSharingSettings(profile_->GetPrefs());
+  }
+
+  auto* source = CreateAndAddNewTabPageUiHtmlSource(
+      profile_, session_allows_drag_and_drop);
   bool wallpaper_search_button_enabled =
       base::FeatureList::IsEnabled(ntp_features::kNtpWallpaperSearchButton) &&
       customize_chrome::IsWallpaperSearchEnabledForProfile(profile_);
@@ -1272,6 +1276,8 @@ void NewTabPageUI::CreatePageHandler(
       std::move(pending_page_handler), std::move(pending_page),
       std::move(pending_searchbox_handler), profile_, web_contents(),
       base::BindRepeating(&NewTabPageUI::GetOrCreateContextualSessionHandle,
+                          base::Unretained(this)),
+      base::BindRepeating(&NewTabPageUI::ClearContextualSessionHandle,
                           base::Unretained(this)));
 
   // TODO(crbug.com/435288212): Move searchbox mojom to use factory pattern.
@@ -1355,6 +1361,10 @@ NewTabPageUI::GetOrCreateContextualSessionHandle() {
     }
   }
   return shared_session_handle_.get();
+}
+
+void NewTabPageUI::ClearContextualSessionHandle() {
+  shared_session_handle_.reset();
 }
 
 void NewTabPageUI::DidStartNavigation(

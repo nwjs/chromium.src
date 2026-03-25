@@ -4,8 +4,10 @@
 
 // <if expr="not is_android">
 import './composebox.js';
+import './onboarding_tooltip.js';
 
 import type {ContextualTasksComposeboxElement} from './composebox.js';
+import type {ContextualTasksOnboardingTooltipElement} from './onboarding_tooltip.js';
 // </if>
 
 // <if expr="is_android">
@@ -63,13 +65,14 @@ const OCCLUDER_EXTRA_PADDING_PX = 15;
 export interface ContextualTasksAppElement {
   $: {
     threadFrame: chrome.webviewTag.WebView,
-    // <if expr="not is_android">
-    composebox: ContextualTasksComposeboxElement,
-    // </if>
     composeboxHeaderWrapper: HTMLElement,
     composeboxHeader: HTMLElement,
     flexCenterContainer: HTMLElement,
     nameShimmer: HTMLElement,
+    // <if expr="not is_android">
+    composebox: ContextualTasksComposeboxElement,
+    onboardingTooltip?: ContextualTasksOnboardingTooltipElement,
+    // </if>
   };
 }
 
@@ -173,6 +176,12 @@ export class ContextualTasksAppElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
+      // Whether top level navigation was aborted. One example where this can
+      // occur is if a user is offline.
+      isLoadError_: {
+        type: Boolean,
+        reflect: true,
+      },
       isAiPage_: {type: Boolean, reflect: true},
       isLensOverlayShowing_: {type: Boolean},
       isOverlayOpenForAimVisualSearch_: {type: Boolean},
@@ -190,6 +199,10 @@ export class ContextualTasksAppElement extends CrLitElement {
         type: Boolean,
         reflect: true,
       },
+      useStratusDarkModeColors_: {
+        type: Boolean,
+        reflect: true,
+      },
       isInputLocked_: {
         type: Boolean,
       },
@@ -198,14 +211,20 @@ export class ContextualTasksAppElement extends CrLitElement {
         reflect: true,
       },
       forcedComposeboxBounds_: {type: Object},
-      friendlyZeroStateGaiaName_: {type: String},
+      userName_: {type: String},
       friendlyZeroStateTitleBeforeName_: {type: String},
       friendlyZeroStateTitleAfterName_: {type: String},
       occluders_: {type: Array},
+      showOnboardingTooltip_: {
+        type: Boolean,
+        value: loadTimeData.getBoolean('showOnboardingTooltip'),
+      },
     };
   }
 
-  protected accessor friendlyZeroStateGaiaName_: string =
+  protected accessor showOnboardingTooltip_: boolean =
+      loadTimeData.getBoolean('showOnboardingTooltip');
+  protected accessor userName_: string =
       loadTimeData.getString('friendlyZeroStateGaiaName');
   protected accessor friendlyZeroStateTitleBeforeName_: string =
       loadTimeData.getString('friendlyZeroStateTitleBeforeName');
@@ -218,6 +237,9 @@ export class ContextualTasksAppElement extends CrLitElement {
       loadTimeData.getBoolean('enableBasicMode');
   protected accessor enableBasicModeZOrder_: boolean =
       loadTimeData.getBoolean('enableBasicModeZOrder');
+  // Whether top-level navigation failed. Initialized based on online status
+  // though top-level navigation could fail for numerous reasons.
+  protected accessor isLoadError_: boolean = !window.navigator.onLine;
   protected accessor isAiPage_: boolean = true;
   protected accessor isLensOverlayShowing_: boolean = false;
   protected accessor isOverlayOpenForAimVisualSearch_: boolean = false;
@@ -229,10 +251,12 @@ export class ContextualTasksAppElement extends CrLitElement {
   protected accessor threadTitle_: string = '';
   protected accessor isInBasicMode_: boolean = false;
   protected accessor isErrorPageVisible_: boolean = false;
-  protected accessor isZeroState_: boolean = false;
+  protected accessor isZeroState_: boolean|undefined = undefined;
   protected accessor enableNativeZeroStateSuggestions_: boolean =
       loadTimeData.getBoolean('enableNativeZeroStateSuggestions');
   protected accessor isGhostLoaderVisible_: boolean = false;
+  protected accessor useStratusDarkModeColors_: boolean =
+      loadTimeData.getBoolean('useStratusDarkModeColors');
   protected accessor isInputLocked_: boolean = false;
   protected accessor isLoadingZeroStateFromResults_: boolean = false;
   // The bounds of the composebox that are forced by the embedded page. These
@@ -409,6 +433,11 @@ export class ContextualTasksAppElement extends CrLitElement {
       }),
     ];
 
+    // Track the tooltip visibility events fired from the composebox.
+    this.eventTracker_.add(
+        window, 'update-tooltip-visibility',
+        () => this.updateTooltipVisibility_());
+
     this.eventTracker_.add(window, 'popstate', async () => {
       // The back button may pop state that was pushed by a task change. If that
       // is the case, fetch the URL for the task ID and load that in the frame.
@@ -447,7 +476,7 @@ export class ContextualTasksAppElement extends CrLitElement {
     this.$.threadFrame.addEventListener(
         'contentload', this.onThreadFrameContentLoad.bind(this));
     this.$.threadFrame.addEventListener(
-        'loadabort', this.onThreadFrameLoadAbort.bind(this));
+        'loadabort', this.onThreadFrameLoadAbort.bind(this) as EventListener);
 
     // Setup the webview request overrides before loading the first URL.
     this.setupWebviewRequestOverrides();
@@ -520,6 +549,8 @@ export class ContextualTasksAppElement extends CrLitElement {
     this.postMessageHandler_ =
         new PostMessageHandler(this.$.threadFrame, this.browserProxy_);
 
+    this.updateTooltipVisibility_();
+
     const composebox = this.composebox_;
     if (!composebox) {
       return;
@@ -527,6 +558,10 @@ export class ContextualTasksAppElement extends CrLitElement {
 
     this.postMessageHandler_.setInputPlateBoundsUpdateCallback(
         this.onInputPlateBoundsUpdate_.bind(this));
+
+    this.postMessageHandler_.setInputPlateBoundsUpdateCallback(
+        this.onInputPlateBoundsUpdate_.bind(this));
+
     this.eventTracker_.add(
         composebox, 'composebox-height-update',
         (e: CustomEvent<{height: number}>) => {
@@ -563,6 +598,22 @@ export class ContextualTasksAppElement extends CrLitElement {
     }
   }
 
+  private updateTooltipVisibility_() {
+    // Tooltip not supported on Android. Therefore, make calls to this method
+    // a no-op.
+    // <if expr="not is_android">
+    const tooltip = this.$.onboardingTooltip;
+    const composeboxContainer = this.composebox_;
+    if (!composeboxContainer) {
+      return;
+    }
+    const crComposebox = this.composebox_.getComposebox();
+    if (tooltip && crComposebox) {
+      tooltip.updateTooltipVisibility(composeboxContainer, crComposebox);
+    }
+    // </if>
+  }
+
   private async playZeroStateAnimations_() {
     await this.updateComplete;
     const restartAnimations = (element: HTMLElement) => {
@@ -580,8 +631,9 @@ export class ContextualTasksAppElement extends CrLitElement {
     }
     restartAnimations(this.$.composeboxHeaderWrapper);
 
-    if (this.$.nameShimmer) {
-      restartAnimations(this.$.nameShimmer);
+    const nameShimmer = this.shadowRoot.getElementById('nameShimmer');
+    if (nameShimmer) {
+      restartAnimations(nameShimmer);
     }
   }
 
@@ -594,6 +646,9 @@ export class ContextualTasksAppElement extends CrLitElement {
     if (!ev.isTopLevel) {
       return;
     }
+
+    this.isLoadError_ = !window.navigator.onLine;
+
     // Reset the composebox bounds and the occluders since the embedded page is
     // reloading.
     this.forcedComposeboxBounds_ = null;
@@ -666,7 +721,12 @@ export class ContextualTasksAppElement extends CrLitElement {
     this.updateBasicModeAfterNavigation();
   }
 
-  private onThreadFrameLoadAbort() {
+  private onThreadFrameLoadAbort(e: chrome.webviewTag.LoadAbortEvent) {
+    if (e.isTopLevel) {
+      // TODO(crbug.com/489713572): Potentially query autocomplete when the
+      // error is resolved and the page reloads.
+      this.isLoadError_ = true;
+    }
     this.isFrameLoading = false;
     this.isLoadingZeroStateFromResults_ = false;
     this.setIsGhostLoaderVisible(false);
@@ -771,14 +831,31 @@ export class ContextualTasksAppElement extends CrLitElement {
 
     // If the forced composebox bounds are set, use those since its cheaper
     // than calling getBoundingClientRect();
-    const composeboxBounds =
-        this.forcedComposeboxBounds_ ?? composebox.getBoundingClientRect();
+    const composeboxBounds = this.forcedComposeboxBounds_ ??
+        this.getComposeboxBoundsRelativeToThreadFrame_();
 
     // If occluders are present, set the clip path and a z-index that ensures
     // the thread frame is above the occluders.
     return getNonOccludedClipPath(
                composeboxBounds, this.occluders_, OCCLUDER_EXTRA_PADDING_PX) +
         'z-index: 100;';
+  }
+
+  protected getComposeboxBoundsRelativeToThreadFrame_() {
+    const composebox = this.composebox_;
+    if (!composebox) {
+      return null;
+    }
+    const frameRect = this.$.threadFrame.getBoundingClientRect();
+    const composeboxRect = composebox.getBoundingClientRect();
+    return {
+      top: composeboxRect.top - frameRect.top,
+      left: composeboxRect.left - frameRect.left,
+      width: composeboxRect.width,
+      height: composeboxRect.height,
+      right: composeboxRect.right - frameRect.left,
+      bottom: composeboxRect.bottom - frameRect.top,
+    };
   }
 
   protected async onNewThreadClick_() {
@@ -805,12 +882,25 @@ export class ContextualTasksAppElement extends CrLitElement {
     }
   }
 
+  get isLoadErrorForTesting() {
+    return this.isLoadError_;
+  }
+
+
   getEnableNativeZeroStateSuggestionsForTesting() {
     return this.enableNativeZeroStateSuggestions_;
   }
 
   setEnableNativeZeroStateSuggestionsForTesting(enable: boolean) {
     this.enableNativeZeroStateSuggestions_ = enable;
+  }
+
+  setIsInBasicModeForTesting(isInBasicMode: boolean) {
+    this.isInBasicMode_ = isInBasicMode;
+  }
+
+  getForcedComposeboxBoundsForTesting(): Rect|null {
+    return this.forcedComposeboxBounds_;
   }
 
   // Conditionally update the provided thread URL so it restores an existing
@@ -947,6 +1037,33 @@ export class ContextualTasksAppElement extends CrLitElement {
     this.isErrorDialogVisible_ = false;
   }
 
+  updateTooltipVisibilityForTesting() {
+    this.updateTooltipVisibility_();
+  }
+
+  // Onboarding tooltip is not supported on Android.
+  // <if expr="not is_android">
+  get numberOfTimesTooltipShownForTesting() {
+    return this.$.onboardingTooltip?.numberOfTimesTooltipShownForTesting ?? 0;
+  }
+
+  set numberOfTimesTooltipShownForTesting(n: number) {
+    if (this.$.onboardingTooltip) {
+      this.$.onboardingTooltip.numberOfTimesTooltipShownForTesting = n;
+    }
+  }
+
+  set userDismissedTooltipForTesting(dismissed: boolean) {
+    if (this.$.onboardingTooltip) {
+      this.$.onboardingTooltip.userDismissedTooltipForTesting = dismissed;
+    }
+  }
+
+  get tooltipResizeObserverForTesting() {
+    return this.$.onboardingTooltip?.tooltipResizeObserverForTesting ?? null;
+  }
+  // </if>
+
   private updateBasicModeAfterNavigation() {
     if (!this.enableBasicMode_ || !this.isNavigatingFromAiPage_) {
       return;
@@ -1012,8 +1129,8 @@ export class ContextualTasksAppElement extends CrLitElement {
     this.onThreadFrameContentLoad();
   }
 
-  onThreadFrameLoadAbortForTesting() {
-    this.onThreadFrameLoadAbort();
+  onThreadFrameLoadAbortForTesting(event: chrome.webviewTag.LoadAbortEvent) {
+    this.onThreadFrameLoadAbort(event);
   }
 
   setIsZeroStateForTesting(isZeroState: boolean) {
@@ -1022,7 +1139,9 @@ export class ContextualTasksAppElement extends CrLitElement {
 
   private updateBackgroundColor_() {
     if (this.darkMode_) {
-      document.body.style.backgroundColor = 'rgba(16, 18, 23, 1)';
+      document.body.style.backgroundColor = this.useStratusDarkModeColors_ ?
+          'rgba(34, 36, 43, 1)' :
+          'rgba(16, 18, 23, 1)';
     } else {
       document.body.style.backgroundColor = 'rgba(255, 255, 255, 1)';
     }

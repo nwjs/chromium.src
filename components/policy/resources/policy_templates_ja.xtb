@@ -1027,6 +1027,7 @@ Virtual Tasks の場合は <ph name="DEFAULT_HANDLERS_FOR_FILE_EXTENSIONS_POLICY
       このポリシーを未設定のままにした場合、ユーザーによる画面制御と明るさの自動調整機能には影響しません。
 
       注: ポリシーの値は 0～100（%）の範囲で指定する必要があります。</translation>
+<translation id="1732435945666510577">拡張機能の DOM アクティビティのロギングを無効にする</translation>
 <translation id="1733092875104864334">Google サービスからの WebRTC テキストログの収集を許可しない</translation>
 <translation id="1733768596873041559">デフォルトで SAML IdP にリダイレクトする（<ph name="PRODUCT_NAME" /> 99 より前ではユーザー確認が必要）</translation>
 <translation id="1736032188431871940">シークレット モードでアクセスをブロックする URL のリストを指定する。</translation>
@@ -1321,6 +1322,23 @@ Manifest V2 を使用した拡張機能はサポートの終了が予定され�
 <translation id="1954612656043024615">共有クリップボード機能を有効にする</translation>
 <translation id="1955063069502242812">バッテリー残量低下時のサウンドを有効にする</translation>
 <translation id="1955806069704957172">デスクコネクタ API の設定を管理します。</translation>
+<translation id="1956346847126765379"><ph name="URL_BLOCKLIST_POLICY_NAME" /> ポリシーを設定すると、特定の URL をウェブページで読み込まないようブロックできます。管理者は、ブロックする URL パターンのリストを指定できます。このポリシーを未設定のままにした場合、ブラウザで URL はブロックされません。<ph name="URL_ALLOWLIST_POLICY_NAME" /> で最大 1,000 件の例外を定義できます。URL パターンの指定方法（https://support.google.com/chrome/a?p=url_blocklist_filter_format）をご確認ください。
+
+注: このポリシーは、動的に読み込まれるデータを含むページ内の JavaScript URL には適用されません。たとえば、example.com/abc をブロックした場合でも、XMLHTTPRequest を使用して example.com を読み込むことができます。また、このポリシーを設定した場合も、ウェブページで JavaScript History API を使用して、アドレスバーに表示される URL をブロック対象の URL に更新することは可能です。
+
+<ph name="PRODUCT_NAME" /> バージョン 73 以降では、「javascript://*」の URL をブロックできますが、ブロックされるのはアドレスバーに入力された JavaScript やブックマークレットなどの JavaScript に限られます。
+
+<ph name="PRODUCT_NAME" /> バージョン 92 以降、このポリシーはヘッドレス モードでもサポートされるようになりました。
+
+<ph name="PRODUCT_NAME" /> バージョン 147 以降、ワイルドカード（*）単体では「chrome://」の内部 URL に適用されません。これらの URL をブロックするには「chrome://*」のパターンを明示的に使用する必要があります。
+
+注: 「chrome://*」と「chrome-untrusted://*」の内部 URL をブロックすると、予期しないエラーが発生したり、一部のケースでは回避されたりする可能性があります。内部 URL をブロックする代わりに、使用できる具体的なポリシーがないか確認してください。例を示します。
+
+- 「chrome://settings/certificates」をブロックする代わりに <ph name="CA_CERTIFICATE_MANAGEMENT_ALLOWED_POLICY_NAME" /> を使用します。
+
+「chrome-untrusted://crosh」をブロックする代わりに <ph name="SYSTEM_FEATURES_DISABLE_LIST_POLICY_NAME" /> を使用します。
+
+- 「devtools://*」をブロックする代わりに、<ph name="DEVELOPER_TOOLS_AVAILABILITY_POLICY_NAME" />、<ph name="DEVELOPER_TOOLS_AVAILABILITY_ALLOWLIST_POLICY_NAME" />、<ph name="DEVELOPER_TOOLS_AVAILABILITY_BLOCKLIST_POLICY_NAME" /> のいずれかのポリシーを使用します。</translation>
 <translation id="1957093168333856467">ユーザー補助仮想キーボードを無効にする</translation>
 <translation id="1958110911685486719">PDF の XFA フォームのサポートを有効にする</translation>
 <translation id="1960059835237529462"><ph name="IOS_NAME" /> の App Store の評価に関するプロモーションのユーザーへの表示を許可します</translation>
@@ -1839,6 +1857,7 @@ URI テンプレートに <ph name="HTTP_VARIABLE_DNS" /> 変数が含まれて�
 <translation id="2290270645214705008">このポリシーを無効に設定した場合、リモート アクセス ホストサービスを開始したり、受信方向の接続を許可するよう設定したりできなくなります。このポリシーは、リモート サポートのシナリオには影響しません。
 
           このポリシーを有効に設定するか、空白または未設定のままにした場合、ポリシーは無視されます。</translation>
+<translation id="2291341836547307786">拡張機能の DOM アクティビティのロギングを有効にする</translation>
 <translation id="2292482441027364457">このポリシーを設定した場合、<ph name="PRODUCT_OS_NAME" /> でランチャーバーに表示されるアプリケーション ID が固定され、ユーザーが変更できなくなります。
 
 Chrome アプリの場合は ID（「pjkljhegncpnkpknbcohdijeoejaedia」など）を指定します。
@@ -2078,6 +2097,51 @@ Android アプリの場合はパッケージ名（「com.google.android.gm」な
 <translation id="2489558694350871332">デバイスでの仮想マシンの実行を許可する</translation>
 <translation id="2492240920793040106">セーフ ブラウジングの改善に役立てるためのシステム情報とページ コンテンツのレポートを有効にする</translation>
 <translation id="2496180316473517155">閲覧履歴</translation>
+<translation id="2496898792336137342">接続先の URL と特定のネットワーク条件に基づいてブラウザで使用するプロキシを選択するルールを設定します。
+
+このポリシーは、<ph name="PROXY_SETTINGS_POLICY_NAME" /> ポリシー、<ph name="PROXY_SETTINGS_EXTENSION_API" /> の拡張機能 API、ユーザーの手動による設定より優先されます。このポリシーのルールに一致しない場合、ブラウザは <ph name="PROXY_SETTINGS_POLICY_NAME" /> で定義された設定にフォールバックします。
+
+ブラウザでは、<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> リストのエントリが順番に評価されます。ルールは、次のすべての条件を満たす場合にのみ適用されます。
+
+  * 一致: <ph name="PROXY_OVERRIDE_RULES_DESTINATION_MATCHERS" /> の URL パターンの少なくとも 1 つに一致する。
+
+  * 除外: <ph name="PROXY_OVERRIDE_RULES_EXCLUDE_DESTINATION_MATCHERS" /> の URL パターンのいずれにも一致しない。
+
+  * 条件: <ph name="PROXY_OVERRIDE_RULES_CONDITIONS" /> が指定されている場合は、リストの条件をすべて満たす必要があります。未設定の場合、この要件は無視されます。
+
+マッチャーの URL パターンについては、https://chromium.googlesource.com/chromium/src/+/HEAD/net/docs/proxy.md#proxy-config-url-patterns をご覧ください。
+
+<ph name="PROXY_OVERRIDE_RULES_PROXY_LIST" /> フィールドには、フェイルオーバーのリストを指定します。最初に到達可能なエントリが使用され、無効なエントリは無視されます。PAC スタイルの文字列または URL スタイルの指定子を使用できます。
+
+PAC スタイルの文字列:
+
+  * DIRECT
+
+  * PROXY host:port
+
+  * HTTPS host:port
+
+  * SOCKS4 host:port
+
+  * SOCKS5 host:port
+
+URL スタイルの指定子:
+
+  * http://host:port
+
+  * https://host:port
+
+  * socks4://host:port
+
+  * socks5://host:port
+
+<ph name="PROXY_OVERRIDE_RULES_DNS_PROBE" /> 条件では、<ph name="PROXY_OVERRIDE_RULES_HOST" /> が IP アドレスに解決されるかどうかを確認します。
+
+* ホスト名（例: example.com）または URI スタイルの文字列（例: https://example.com:123）がサポートされています。安全なスキーム（https）を使用すると、HTTPS レコードがリクエストされます（RFC 9460 を参照）。
+
+* 解決が成功したときに条件を満たすには「<ph name="PROXY_OVERRIDE_RULES_RESOLVED" />」、解決が失敗したときに条件を満たすには「<ph name="PROXY_OVERRIDE_RULES_NOT_FOUND" />」に設定します。
+
+管理対象デバイスにこのポリシーを適用した場合は、サポートされているプラットフォームのマシンレベルの <ph name="ENABLE_PROXY_OVERRIDE_RULES_FOR_ALL_USERS_POLICY_NAME" /> ポリシーの影響を受けます。デフォルトでは、外部ドメイン ユーザーが設定したオーバーライド ルールの使用がブロックされます。</translation>
 <translation id="2497751676088107779">ユーザー スクリプト</translation>
 <translation id="249798396824949930"> ブラウザに <ph name="MAC_OS_NAME" /> で必須ポリシー スコープの検出を許可するかどうかを管理します。
 
@@ -6250,6 +6314,7 @@ Protected Audience API のサポートを終了により、このポリシーは
 <translation id="5309944663104291505">自動インストールされた独立したウェブアプリとキオスク アプリケーションに Device Attributes API の使用を許可しない</translation>
 <translation id="5311275381462687162">Cookie に関する以前の <ph name="ATTRIBUTE_SAMESITE_NAME" /> 動作のデフォルト設定</translation>
 <translation id="5312253627576569499">画面が暗くなっているか、オフになった直後にユーザーの操作が検出されたときに、画面を暗くするまでの時間を調整する比率</translation>
+<translation id="5313663675323027439">拡張機能の DOM アクティビティのロギングを制御する</translation>
 <translation id="5316856058059940708">大きいカーソルを無効にする</translation>
 <translation id="5318185076587284965">リモート アクセス ホストで中継サーバーを使用できるようにする</translation>
 <translation id="5321624917465764266">このポリシーを有効に設定するか未設定のままにした場合、閲覧とダウンロードの履歴が Chrome で削除できるようになり、ユーザーはこの設定を変更できません。
@@ -9377,6 +9442,14 @@ URL パターンは、<ph name="WEB_PRINTING_ALLOWED_FOR_URLS_POLICY_NAME" /> �
 
       ユーザーはインポート ダイアログを表示できます。このとき、既定の検索エンジンのチェックボックスは、このポリシーの値に合わせてオンまたはオフになります。</translation>
 <translation id="7383581189726479261">このポリシーは M96 で非推奨になりました。代わりに <ph name="REPORT_DEVICE_NETWORK_CONFIGURATION" /> と <ph name="REPORT_DEVICE_NETWORK_STATUS" /> を使用してください。このポリシーを有効にするか、未設定のままにすると、登録済みデバイスはネットワーク インターフェースのリスト（タイプとハードウェア アドレスを含む）を報告します。このポリシーを無効に設定すると、登録済みデバイスはネットワーク インターフェースを報告しません。</translation>
+<translation id="7387190801932161230">企業ユーザーに対して拡張機能の DOM アクティビティのロギングを有効にするかどうかを制御します。
+
+このポリシーを有効に設定した場合、拡張機能の DOM アクティビティのテレメトリーが有効になります。これには、拡張機能によるコード インジェクションおよびセンシティブ データへのアクセスのモニタリングが含まれます。
+
+このポリシーを有効に設定した場合、<ph name="PRODUCT_NAME" /> は拡張機能とウェブページのインタラクションに関するシグナルを収集し、セキュリティ監査のため拡張機能テレメトリー サービスに送信します。
+このポリシーを無効に設定するか未設定のままにした場合、企業ユーザーに関するこれらのシグナルは収集、送信されません。
+
+センシティブ データの実際の値（Cookie や入力値など）は収集されず、ユーザーがアクセスした事実のみが収集されます。</translation>
 <translation id="7389872682701720082">この設定が有効の場合、新しいプラグインが常に実行されます。
 
       この設定が無効または未設定の場合、承認を必要とするプラグインの実行許可を求めるメッセージがユーザーに表示されます。これらのプラグインはセキュリティを脅かす可能性があります。</translation>

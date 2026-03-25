@@ -111,15 +111,9 @@ void JsInProcessFuzzer::SetUpOnMainThread() {
 base::CommandLine::StringVector
 JsInProcessFuzzer::GetChromiumCommandLineArguments() {
 #if BUILDFLAG(IS_FUZZILLI)
-  base::FilePath dir_parent("/tmp/fuzzilli_tmp");
-  base::ScopedTempDir dir;
-  bool created = dir.CreateUniqueTempDirUnderPath(dir_parent);
-  CHECK(created) << "ScopedTempDir failed to create a unique directory under '"
-                 << dir_parent.value() << "'";
-  // Using Take() instead of GetPath() prevents the directory from being
-  // deleted once `dir` goes out of scope.
-  base::FilePath path_dir = dir.Take();
-  std::string user_data_dir = "--user-data-dir=" + path_dir.value();
+  char template_str[] = "/tmp/fuzzilli_tmp/XXXXXX";
+  char* path_dir = mkdtemp(template_str);
+  std::string user_data_dir = "--user-data-dir=" + std::string(path_dir);
 #endif
   return {
       FILE_PATH_LITERAL("--js-flags=--jit-fuzzing --allow-natives-syntax "

@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/webui/searchbox/contextual_searchbox_test_utils.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_test_utils.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/internal/test_composebox_query_controller.h"
@@ -543,8 +544,9 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery) {
       .WillRepeatedly([&](SessionState session_state) {
         session_states.push_back(session_state);
       });
-  EXPECT_CALL(*metrics_recorder_ptr,
-              NotifyQuerySubmitted(testing::_, testing::_))
+  EXPECT_CALL(
+      *metrics_recorder_ptr,
+      NotifyQuerySubmitted(testing::_, testing::_, testing::_, testing::_))
       .Times(1)
       .WillOnce(testing::Invoke(
           metrics_recorder_ptr,
@@ -612,8 +614,9 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQuery_DelayUpload) {
       .WillRepeatedly([&](SessionState session_state) {
         session_states.push_back(session_state);
       });
-  EXPECT_CALL(*metrics_recorder_ptr,
-              NotifyQuerySubmitted(testing::_, testing::_))
+  EXPECT_CALL(
+      *metrics_recorder_ptr,
+      NotifyQuerySubmitted(testing::_, testing::_, testing::_, testing::_))
       .Times(1)
       .WillOnce(testing::Invoke(
           metrics_recorder_ptr,
@@ -691,7 +694,8 @@ TEST_F(ContextualSearchboxHandlerTest, OnInputStateChanged) {
           GetMetricsRecorderPtr(),
           &MockContextualSearchMetricsRecorder::RecordToolModeBase));
 
-  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_CANVAS);
+  handler_->SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_CANVAS);
+  handler_->RecordToolSelectionAction(omnibox::ToolMode::TOOL_MODE_CANVAS);
   mock_searchbox_page_.FlushForTesting();
   EXPECT_EQ(received_state_1.active_tool, omnibox::ToolMode::TOOL_MODE_CANVAS);
   histogram_tester().ExpectUniqueSample(
@@ -706,6 +710,8 @@ TEST_F(ContextualSearchboxHandlerTest, OnInputStateChanged) {
           &MockContextualSearchMetricsRecorder::RecordModelModeBase));
 
   handler().SetActiveModelMode(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
+  handler().RecordModelSelectionAction(
+      omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
   mock_searchbox_page_.FlushForTesting();
   EXPECT_EQ(received_state_2.active_tool, omnibox::ToolMode::TOOL_MODE_CANVAS);
   EXPECT_EQ(received_state_2.active_model,
@@ -793,6 +799,95 @@ TEST_F(ContextualSearchboxHandlerTest, OpenAutocompleteMatch_ZeroSuggestClick) {
     EXPECT_EQ(user_action_tester.GetActionCount(
                   "ContextualSearch.ZeroSuggestClick.Contextual.NewTabPage"),
               1);
+  }
+}
+
+TEST_F(ContextualSearchboxHandlerTest,
+       OpenAutocompleteMatch_TypedSuggestNavigation) {
+  base::UserActionTester user_action_tester;
+
+  // Set up a typed input (non-zero suggest).
+  AutocompleteInput input(u"test",
+                          metrics::OmniboxEventProto::NTP_OMNIBOX_COMPOSEBOX,
+                          ChromeAutocompleteSchemeClassifier(profile()));
+
+  // Set the page classification on the client's location bar model.
+  static_cast<TestOmniboxClient*>(handler().omnibox_controller()->client())
+      ->location_bar_model()
+      ->set_page_classification(
+          metrics::OmniboxEventProto::NTP_OMNIBOX_COMPOSEBOX);
+
+  // 1. Test verbatim typed click (line == 0).
+  {
+    auto fake_controller =
+        std::make_unique<FakeAutocompleteController>(nullptr);
+    fake_controller->input_ = input;
+
+    AutocompleteMatch match;
+    match.provider = &fake_controller->GetFakeProvider();
+    match.destination_url = GURL("https://www.google.com");
+    match.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+
+    fake_controller->published_result_.AppendMatches({match});
+
+    handler().omnibox_controller()->SetAutocompleteControllerForTesting(
+        std::move(fake_controller));
+
+    EXPECT_CALL(*GetMetricsRecorderPtr(), RecordTypedSuggestNavigation(true))
+        .WillOnce(testing::Invoke(GetMetricsRecorderPtr(),
+                                  &MockContextualSearchMetricsRecorder::
+                                      RecordTypedSuggestNavigationBase));
+
+    handler().OpenAutocompleteMatch(0, GURL("https://www.google.com"),
+                                    /*are_matches_showing=*/true, 0, false,
+                                    false, false, false);
+
+    histogram_tester().ExpectBucketCount(
+        "ContextualSearch.TypedSuggestNavigation.IsVerbatim.NewTabPage", true,
+        1);
+    EXPECT_EQ(
+        user_action_tester.GetActionCount(
+            "ContextualSearch.TypedSuggestNavigation.Verbatim.NewTabPage"),
+        1);
+  }
+
+  // 2. Test non-verbatim typed click (line != 0).
+  {
+    auto fake_controller =
+        std::make_unique<FakeAutocompleteController>(nullptr);
+    fake_controller->input_ = input;
+
+    AutocompleteMatch match0;
+    match0.provider = &fake_controller->GetFakeProvider();
+    match0.destination_url = GURL("https://www.google.com");
+    match0.type = AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED;
+
+    AutocompleteMatch match1;
+    match1.provider = &fake_controller->GetFakeProvider();
+    match1.destination_url = GURL("https://www.google.com/search?q=suggestion");
+    match1.type = AutocompleteMatchType::SEARCH_SUGGEST;
+
+    fake_controller->published_result_.AppendMatches({match0, match1});
+
+    handler().omnibox_controller()->SetAutocompleteControllerForTesting(
+        std::move(fake_controller));
+
+    EXPECT_CALL(*GetMetricsRecorderPtr(), RecordTypedSuggestNavigation(false))
+        .WillOnce(testing::Invoke(GetMetricsRecorderPtr(),
+                                  &MockContextualSearchMetricsRecorder::
+                                      RecordTypedSuggestNavigationBase));
+
+    handler().OpenAutocompleteMatch(
+        1, GURL("https://www.google.com/search?q=suggestion"),
+        /*are_matches_showing=*/true, 0, false, false, false, false);
+
+    histogram_tester().ExpectBucketCount(
+        "ContextualSearch.TypedSuggestNavigation.IsVerbatim.NewTabPage", false,
+        1);
+    EXPECT_EQ(
+        user_action_tester.GetActionCount(
+            "ContextualSearch.TypedSuggestNavigation.SearchSuggest.NewTabPage"),
+        1);
   }
 }
 
@@ -1102,11 +1197,12 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, AddTabContext_DelayUpload) {
   EXPECT_CALL(mock_searchbox_page_, OnContextualInputStatusChanged)
       .Times(1)
       .WillOnce(
-          [&status](const base::UnguessableToken& file_token,
-                    contextual_search::ContextUploadStatus file_upload_status,
-                    std::optional<contextual_search::ContextUploadErrorType>
-                        file_upload_error_type) {
-            status = file_upload_status;
+          [&status](
+              const base::UnguessableToken& context_token,
+              contextual_search::ContextUploadStatus context_upload_status,
+              std::optional<contextual_search::ContextUploadErrorType>
+                  context_upload_error_type) {
+            status = context_upload_status;
           });
   EXPECT_CALL(mock_searchbox_page_, OnInputStateChanged).Times(1);
 
@@ -1509,32 +1605,54 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, GetRecentTabs) {
   auto* about_blank_tab = AddTab(GURL("about:blank"));
   AddTab(GURL("chrome://webui-is-ignored"));
 
-  base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future1;
-  handler().GetRecentTabs(future1.GetCallback());
-  auto tabs = future1.Take();
-  ASSERT_EQ(tabs.size(), 1u);
-  EXPECT_EQ(tabs[0]->tab_id, about_blank_tab->GetHandle().raw_value());
+  {
+    // Add only 1 valid tab, and ensure it is the only one returned.
+    base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
+    handler().GetRecentTabs(future.GetCallback());
+    auto tabs = future.Take();
+    ASSERT_EQ(tabs.size(), 1u);
+    EXPECT_EQ(tabs[0]->tab_id, about_blank_tab->GetHandle().raw_value());
+  }
 
-  // Add more tabs, and ensure no more than the max allowed tabs are returned.
+  auto* contextual_tasks_tab = AddTab(GURL(chrome::kChromeUIContextualTasksURL));
+  tab_strip_model()->ActivateTabAt(tab_strip_model()->GetIndexOfWebContents(
+      contextual_tasks_tab->GetContents()));
+
+  {
+    // Add a contextual tasks tab and ensure it is not returned when it is the
+    // active tab.
+    base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
+    handler().GetRecentTabs(future.GetCallback());
+    auto tabs = future.Take();
+    ASSERT_EQ(tabs.size(), 1u);
+    EXPECT_EQ(tabs[0]->tab_id, about_blank_tab->GetHandle().raw_value());
+  }
+
   AddTab(GURL("https://www.google.com"));
   auto* youtube_tab = AddTab(GURL("https://www.youtube.com"));
   auto* gmail_tab = AddTab(GURL("https://www.gmail.com"));
 
-  base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future2;
-  handler().GetRecentTabs(future2.GetCallback());
-  tabs = future2.Take();
-  ASSERT_EQ(tabs.size(), 2u);
-  EXPECT_EQ(tabs[0]->tab_id, gmail_tab->GetHandle().raw_value());
-  EXPECT_EQ(tabs[1]->tab_id, youtube_tab->GetHandle().raw_value());
+  {
+    // Add more tabs, and ensure no more than the max allowed tabs are returned.
+    base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
+    handler().GetRecentTabs(future.GetCallback());
+    auto tabs = future.Take();
+    ASSERT_EQ(tabs.size(), 2u);
+    EXPECT_EQ(tabs[0]->tab_id, gmail_tab->GetHandle().raw_value());
+    EXPECT_EQ(tabs[1]->tab_id, youtube_tab->GetHandle().raw_value());
+  }
 
-  // Activate an older tab, and ensure it is returned first.
   content::WebContentsTester::For(tab_strip_model()->GetWebContentsAt(0))
       ->SetLastActiveTimeTicks(IncrementTimeTicksAndGet());
-  base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future3;
-  handler().GetRecentTabs(future3.GetCallback());
-  tabs = future3.Take();
-  EXPECT_EQ(tabs[0]->tab_id, about_blank_tab->GetHandle().raw_value());
-  EXPECT_EQ(tabs[1]->tab_id, gmail_tab->GetHandle().raw_value());
+
+  {
+    // Activate an older tab, and ensure it is returned first.
+    base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>> future;
+    handler().GetRecentTabs(future.GetCallback());
+    auto tabs = future.Take();
+    EXPECT_EQ(tabs[0]->tab_id, about_blank_tab->GetHandle().raw_value());
+    EXPECT_EQ(tabs[1]->tab_id, gmail_tab->GetHandle().raw_value());
+  }
 }
 
 class ContextualSearchboxHandlerSignedInTestTabsTest
@@ -1585,10 +1703,6 @@ TEST_F(ContextualSearchboxHandlerSignedInTestTabsTest,
 }
 
 TEST_F(ContextualSearchboxHandlerTestTabsTest, DuplicateTabsShownMetric) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      ContextualSearchboxHandler::kExhaustiveGetRecentTabs);
-
   // Add tabs with duplicate titles.
   AddTab(GURL("https://a1.com"));
   content::WebContentsTester::For(tab_strip_model()->GetWebContentsAt(0))
@@ -1608,14 +1722,20 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, DuplicateTabsShownMetric) {
   AddTab(GURL("https://b2.com"));
   content::WebContentsTester::For(tab_strip_model()->GetWebContentsAt(5))
       ->SetTitle(u"Title B");
+  AddTab(GURL("https://b3.com"));
+  content::WebContentsTester::For(tab_strip_model()->GetWebContentsAt(6))
+      ->SetTitle(u"Title B");
 
   base::test::TestFuture<std::vector<searchbox::mojom::TabInfoPtr>>
       tab_info_future;
   handler().GetRecentTabs(tab_info_future.GetCallback());
   auto tabs = tab_info_future.Take();
 
+  // Even though there are more duplicates above, only three tabs are kept
+  // by `GetRecentTabs` with the default configuration, so there can only
+  // be one title with more than one instance in the list.
   histogram_tester().ExpectUniqueSample(
-      "ContextualSearch.DuplicateTabTitlesShownCount.NewTabPage", 2, 1);
+      "ContextualSearch.DuplicateTabTitlesShownCount.NewTabPage", 1, 1);
 }
 
 TEST_F(ContextualSearchboxHandlerTestTabsTest, ActiveTabsCountMetric) {
@@ -1681,22 +1801,23 @@ TEST_F(ContextualSearchboxHandlerTestTabsTest, GetTabPreview_Success) {
   EXPECT_EQ(preview.value(), webui::GetBitmapDataUrl(bitmap));
 }
 
-class ContextualSearchboxHandlerFileUploadStatusTest
+class ContextualSearchboxHandlerContextUploadStatusTest
     : public ContextualSearchboxHandlerTest,
       public testing::WithParamInterface<
           composebox_query::mojom::ContextUploadStatus> {};
 
-TEST_P(ContextualSearchboxHandlerFileUploadStatusTest,
-       OnFileUploadStatusChanged) {
+TEST_P(ContextualSearchboxHandlerContextUploadStatusTest,
+       OnContextUploadStatusChanged) {
   contextual_search::ContextUploadStatus status;
   EXPECT_CALL(mock_searchbox_page_, OnContextualInputStatusChanged)
       .Times(1)
       .WillOnce(
-          [&status](const base::UnguessableToken& file_token,
-                    contextual_search::ContextUploadStatus file_upload_status,
-                    std::optional<contextual_search::ContextUploadErrorType>
-                        file_upload_error_type) {
-            status = file_upload_status;
+          [&status](
+              const base::UnguessableToken& context_token,
+              contextual_search::ContextUploadStatus context_upload_status,
+              std::optional<contextual_search::ContextUploadErrorType>
+                  context_upload_error_type) {
+            status = context_upload_status;
           });
   EXPECT_CALL(mock_searchbox_page_, OnInputStateChanged).Times(1);
 
@@ -1706,8 +1827,8 @@ TEST_P(ContextualSearchboxHandlerFileUploadStatusTest,
                                 contextual_search::ContextUploadStatus>::
                    FromMojom(expected_status, &status_cpp)));
   base::UnguessableToken token = base::UnguessableToken::Create();
-  handler().OnFileUploadStatusChanged(token, lens::MimeType::kPdf, status_cpp,
-                                      std::nullopt);
+  handler().OnContextUploadStatusChanged(token, lens::MimeType::kPdf,
+                                         status_cpp, std::nullopt);
   mock_searchbox_page_.FlushForTesting();
 
   EXPECT_EQ(status_cpp, status);
@@ -1715,7 +1836,7 @@ TEST_P(ContextualSearchboxHandlerFileUploadStatusTest,
 
 INSTANTIATE_TEST_SUITE_P(
     All,
-    ContextualSearchboxHandlerFileUploadStatusTest,
+    ContextualSearchboxHandlerContextUploadStatusTest,
     testing::Values(
         composebox_query::mojom::ContextUploadStatus::kNotUploaded,
         composebox_query::mojom::ContextUploadStatus::kProcessing,

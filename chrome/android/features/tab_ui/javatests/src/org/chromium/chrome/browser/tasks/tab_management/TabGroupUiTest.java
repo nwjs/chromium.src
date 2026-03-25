@@ -17,6 +17,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstCardFromTabSwitcher;
 import static org.chromium.chrome.browser.tasks.tab_management.TabUiTestHelper.clickFirstTabInDialog;
@@ -473,9 +474,9 @@ public class TabGroupUiTest {
                         .getToolbarManager()
                         .getBottomControlsCoordinatorForTesting();
 
-        // Scene overlay should be visible
-        CriteriaHelper.pollUiThread(
-                () -> coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
+        assertTrue(
+                "Scene overlay should be visible",
+                coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     coordinator.simulateEdgeToEdgeChangeForTesting(
@@ -484,9 +485,9 @@ public class TabGroupUiTest {
                             /* isPageOptedIntoEdgeToEdge= */ true);
                 });
 
-        // Scene overlay should be hidden
-        CriteriaHelper.pollUiThread(
-                () -> !coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
+        assertFalse(
+                "Scene overlay should be hidden.",
+                coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
 
         // Force a bitmap capture.
         ThreadUtils.runOnUiThreadBlocking(
@@ -494,8 +495,8 @@ public class TabGroupUiTest {
                     coordinator.getResourceAdapterForTesting().triggerBitmapCapture();
                 });
 
-        // Scene overlay should visible after bitmap capture
-        CriteriaHelper.pollUiThread(
-                () -> coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
+        assertTrue(
+                "Scene overlay should visible after bitmap capture.",
+                coordinator.getSceneLayerForTesting().isSceneOverlayTreeShowing());
     }
 }

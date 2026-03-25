@@ -34,6 +34,7 @@ macros.
 quote = "1.0"
 ```
 
+*Version requirement: Quote supports rustc 1.68 and up.*<br>
 [*Release notes*](https://github.com/dtolnay/quote/releases)
 
 <br>

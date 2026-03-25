@@ -180,6 +180,7 @@
 #include "components/strings/grit/components_strings.h"
 #else  // !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/autofill/actor/actor_key_metrics_recorder.h"
 #include "chrome/browser/ui/autofill/autofill_ai/autofill_ai_import_data_controller.h"
 #include "chrome/browser/ui/autofill/autofill_field_promo_controller_impl.h"
 #include "chrome/browser/ui/autofill/delete_address_profile_dialog_controller_impl.h"
@@ -1082,6 +1083,14 @@ bool ChromeAutofillClient::IsTabInActorMode() const {
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 
+ActorKeyMetricsRecorder* ChromeAutofillClient::GetActorKeyMetricsRecorder() {
+#if BUILDFLAG(IS_ANDROID)
+  return nullptr;
+#else
+  return actor_key_metrics_recorder_.get();
+#endif
+}
+
 bool ChromeAutofillClient::IsAutofillEnabled() const {
   return IsAutofillProfileEnabled() ||
          AutofillClient::GetPaymentsAutofillClient()
@@ -1287,6 +1296,7 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
   }
 
   form_predictions_tracker_ = std::make_unique<FormPredictionsTracker>(this);
+  actor_key_metrics_recorder_ = std::make_unique<ActorKeyMetricsRecorder>(this);
 #endif
 }
 
@@ -1325,10 +1335,9 @@ void ChromeAutofillClient::ShowAutofillSuggestionsImpl(
   // Deletes or reuses the old `suggestion_controller_`.
   suggestion_controller_ = AutofillSuggestionController::GetOrCreate(
       suggestion_controller_, delegate, web_contents(),
-      PopupControllerCommon(element_bounds_in_screen_space,
-                            open_args.text_direction,
-                            web_contents()->GetNativeView(),
-                            open_args.anchor_type, open_args.show_tabbed_popup),
+      PopupControllerCommon(
+          element_bounds_in_screen_space, open_args.text_direction,
+          web_contents()->GetNativeView(), open_args.anchor_type),
       open_args.form_control_ax_id);
 
   suggestion_controller_->Show(

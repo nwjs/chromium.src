@@ -32,5 +32,13 @@ const base::FeatureParam<bool> kContentAnnotatorEnableFullAnnotation{
     &kContentAnnotator, "content_annotator_enable_full_annotation", false};
 const base::FeatureParam<bool> kContentAnnotatorLanguageCheckEnabled{
     &kContentAnnotator, "content_annotator_language_check_enabled", true};
+const base::FeatureParam<int> kContentAnnotatorMaxCacheAnnotations{
+    &kContentAnnotator, "content_annotator_max_cache_annotations", 10};
+const base::FeatureParam<std::string>
+    kContentAnnotatorClassifierSemanticMatchRules{
+        &kContentAnnotator, "content_annotator_classifier_semantic_match_rules",
+        ""};
+const base::FeatureParam<double> kContentAnnotatorSemanticMatchThreshold{
+    &kContentAnnotator, "content_annotator_semantic_match_threshold", 0.8};
 
 }  // namespace accessibility_annotator

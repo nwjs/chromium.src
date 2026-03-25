@@ -160,8 +160,7 @@ BookmarkContextMenuController::BookmarkContextMenuController(
     Profile* profile,
     BookmarkLaunchLocation opened_from,
     const std::vector<raw_ptr<const BookmarkNode, VectorExperimental>>&
-        selection,
-    bool can_paste)
+        selection)
     : parent_window_(parent_window),
       delegate_(delegate),
       browser_(browser),
@@ -170,8 +169,7 @@ BookmarkContextMenuController::BookmarkContextMenuController(
       selection_(selection),
       bookmark_service_(
           BookmarkMergedSurfaceServiceFactory::GetForProfile(profile)),
-      new_nodes_parent_(GetParentForNewNodes(selection)),
-      can_paste_(can_paste) {
+      new_nodes_parent_(GetParentForNewNodes(selection)) {
   DCHECK(profile_);
   DCHECK(bookmark_service_->loaded());
   CheckSelectionIsValid(selection);
@@ -229,10 +227,10 @@ size_t BookmarkContextMenuController::GetIndexForNewNodes() const {
 void BookmarkContextMenuController::BuildMenu() {
   if (selection_.size() == 1 && selection_[0]->is_url()) {
     AddItem(IDC_BOOKMARK_BAR_OPEN_ALL, IDS_BOOKMARK_BAR_OPEN_IN_NEW_TAB);
-    AddItem(IDC_BOOKMARK_BAR_OPEN_SPLIT_VIEW,
-            IDS_BOOKMARK_BAR_OPEN_IN_SPLIT_VIEW);
     AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW,
             IDS_BOOKMARK_BAR_OPEN_IN_NEW_WINDOW);
+    AddItem(IDC_BOOKMARK_BAR_OPEN_SPLIT_VIEW,
+            IDS_BOOKMARK_BAR_OPEN_IN_SPLIT_VIEW);
     AddItem(IDC_BOOKMARK_BAR_OPEN_ALL_INCOGNITO,
             IDS_BOOKMARK_BAR_OPEN_INCOGNITO);
   } else {
@@ -288,7 +286,8 @@ void BookmarkContextMenuController::BuildMenu() {
     AddCheckboxItem(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT,
                     IDS_BOOKMARK_BAR_SHOW_APPS_SHORTCUT);
   }
-  if (tab_groups::SavedTabGroupUtils::IsEnabledForProfile(profile_)) {
+  if (tab_groups::SavedTabGroupUtils::IsEnabledForProfile(profile_) &&
+      !tab_groups::IsProjectsPanelFeatureEnabled()) {
     AddCheckboxItem(IDC_BOOKMARK_BAR_TOGGLE_SHOW_TAB_GROUPS,
                     IDS_BOOKMARK_BAR_SHOW_TAB_GROUPS);
   }
@@ -593,6 +592,20 @@ bool BookmarkContextMenuController::IsCommandIdChecked(int command_id) const {
 
   DCHECK_EQ(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT, command_id);
   return prefs->GetBoolean(bookmarks::prefs::kShowAppsShortcutInBookmarkBar);
+}
+
+void BookmarkContextMenuController::UpdateCanPaste(base::OnceClosure callback) {
+  BookmarkUIOperationsHelperMergedSurfaces(bookmark_service_,
+                                           new_nodes_parent_.get())
+      .CanPasteFromClipboard(base::BindOnce(
+          [](base::WeakPtr<BookmarkContextMenuController> self,
+             base::OnceClosure callback, bool can_paste) {
+            if (self) {
+              self->can_paste_ = can_paste;
+            }
+            std::move(callback).Run();
+          },
+          weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 bool BookmarkContextMenuController::IsCommandIdEnabled(int command_id) const {

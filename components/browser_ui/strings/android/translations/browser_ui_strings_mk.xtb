@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">Долен лист со стандарден прелистувач</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> сајт во групата сајтови на <ph name="RWS_OWNER" /> што може да ја гледаат вашата активност во групата}one{<ph name="RWS_MEMBERS_COUNT" /> сајт во групата сајтови на <ph name="RWS_OWNER" /> што може да ја гледаат вашата активност во групата}other{<ph name="RWS_MEMBERS_COUNT" /> сајта во групата сајтови на <ph name="RWS_OWNER" /> што може да ја гледаат вашата активност во групата}}</translation>
 <translation id="3676777756440746804">Сајтовите имаат забрана да бараат од вас да ги користат податоците што ги зачувале за вас</translation>
+<translation id="3677897809642449131">Сајтовите може да бараат да користат сензори за движење</translation>
 <translation id="3678318839615834650">Долниот лист со картички на страница во нова картичка е отворен на целосна висина</translation>
 <translation id="3697164069658504920">Кога е вклучено, сајтовите може да бараат да користат USB-уреди. Кога е исклучено, сајтовите не може да користат USB-уреди.</translation>
 <translation id="3703430731944883733">Управувајте со фидот</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">Се споделува екранот</translation>
 <translation id="5922967540311291836">Блокирајте колачиња од трети страни:</translation>
 <translation id="5923512600150154850">Овa ќе ги избрише податоците и колачињата (<ph name="DATASIZE" />) складирани од сајтовите.</translation>
+<translation id="5930707844513754220">Копче „Прикажи повеќе“ на списокот за поставување</translation>
 <translation id="5939518447894949180">Ресетирај</translation>
 <translation id="5948139900367969951">Брзо стигнете до работите што ви се важни</translation>
 <translation id="5964247741333118902">Вметнати содржини</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Вклучете го фидот Discover</translation>
 <translation id="6012967556075291653">Закачена кратенка</translation>
+<translation id="6013003831291591200">Задачата е завршена</translation>
 <translation id="6015775454662021376">Контролирајте го пристапот на сајтов до вашиот уред</translation>
 <translation id="6022659036123304283">Направете го Chrome свој</translation>
 <translation id="6040143037577758943">Затвори</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">Сајтовите може да бараат да ја користат камерата</translation>
 <translation id="8712637175834984815">Сфатив</translation>
 <translation id="8715862698998036666">Повлечете одозгора и повлечете од левиот или десниот раб за да излезете од цел екран.</translation>
+<translation id="8716050156658570300">Сајтовите може да бараат да користат сензори за движење и светлина</translation>
 <translation id="8719283222052720129">Вклучете ја дозволата за <ph name="APP_NAME" /> во <ph name="BEGIN_LINK" />Поставки за Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Кога е вклучено, сајтовите може да бараат да пребаруваат уреди со Bluetooth. Кога е исклучено, сајтовите не може да пребаруваат уреди со Bluetooth.</translation>
 <translation id="8725066075913043281">Обидете се повторно</translation>

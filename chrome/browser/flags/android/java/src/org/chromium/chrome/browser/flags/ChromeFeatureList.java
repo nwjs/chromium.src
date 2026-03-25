@@ -1448,12 +1448,6 @@ public abstract class ChromeFeatureList {
     public static final BooleanCachedFeatureParam sAndroidComposeplateSkipLocaleCheck =
             newBooleanCachedFeatureParam(ANDROID_COMPOSEPLATE, "skip_locale_check", false);
 
-    public static final BooleanCachedFeatureParam sAndroidComposeplateHideIncognitoButton =
-            newBooleanCachedFeatureParam(ANDROID_COMPOSEPLATE, "hide_incognito_button", false);
-
-    public static final BooleanCachedFeatureParam sAndroidComposeplateV2Enabled =
-            newBooleanCachedFeatureParam(ANDROID_COMPOSEPLATE, "v2_enabled", true);
-
     public static final BooleanCachedFeatureParam
             sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox =
                     newBooleanCachedFeatureParam(
@@ -1623,6 +1617,14 @@ public abstract class ChromeFeatureList {
     public static final BooleanCachedFeatureParam sNewTabPageCustomizationV2EnableLogs =
             newBooleanCachedFeatureParam(NEW_TAB_PAGE_CUSTOMIZATION_V2, "enable_logs", false);
 
+    /**
+     * Param for the OEMs that need an exception for min versions. Its value should be a comma
+     * separated list of integers, and its index should match {@link #sEdgeToEdgeBottomChinOemList}.
+     */
+    public static final StringCachedFeatureParam sEdgeToEdgeBottomChinOemMinVersions =
+            newStringCachedFeatureParam(
+                    EDGE_TO_EDGE_BOTTOM_CHIN, "e2e_field_trial_oem_min_versions", "34,34");
+
     public static final StringCachedFeatureParam sEdgeToEdgeEverywhereOemMinVersions =
             newStringCachedFeatureParam(
                     EDGE_TO_EDGE_EVERYWHERE, "e2e_field_trial_oem_min_versions", "35");
@@ -1632,6 +1634,15 @@ public abstract class ChromeFeatureList {
                     EDGE_TO_EDGE_USE_BACKUP_NAVBAR_INSETS,
                     "e2e_backup_navbar_insets_oem_min_versions",
                     "");
+
+    /**
+     * Param for the OEMs that need an exception for min versions. Its value should be a comma
+     * separated list of manufacturer, and its index should match {@link
+     * #sEdgeToEdgeBottomChinOemMinVersions}.
+     */
+    public static final StringCachedFeatureParam sEdgeToEdgeBottomChinOemList =
+            newStringCachedFeatureParam(
+                    EDGE_TO_EDGE_BOTTOM_CHIN, "e2e_field_trial_oem_list", "oppo,xiaomi");
 
     public static final StringCachedFeatureParam sEdgeToEdgeEverywhereOemList =
             newStringCachedFeatureParam(
@@ -1774,9 +1785,7 @@ public abstract class ChromeFeatureList {
                     sAndroidBookmarkBarShowBookmarkBar,
                     sAndroidBottomToolbarV2ForceBottomForFocusedOmnibox,
                     sAndroidBottomToolbarV2ReverseOrderSuggestionsList,
-                    sAndroidComposeplateHideIncognitoButton,
                     sAndroidComposeplateSkipLocaleCheck,
-                    sAndroidComposeplateV2Enabled,
                     sAndroidThemeModuleForceDependencies,
                     sAndroidThemeResourceProviderForceLight,
                     sAndroidTipsNotificationsAlwaysShowOptInPromo,
@@ -1804,6 +1813,8 @@ public abstract class ChromeFeatureList {
                     sDefaultBrowserPromoEntryPointShowAppMenu,
                     sDefaultBrowserPromoFreArm,
                     sDesktopUAAllowedOnExternalDisplayForOem,
+                    sEdgeToEdgeBottomChinOemList,
+                    sEdgeToEdgeBottomChinOemMinVersions,
                     sEdgeToEdgeEverywhereOemList,
                     sEdgeToEdgeEverywhereOemMinVersions,
                     sEdgeToEdgeTabletInvisibleBottomChinMinWidth,

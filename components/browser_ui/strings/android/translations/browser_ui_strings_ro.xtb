@@ -269,6 +269,7 @@ Protecția avansată gestionează următoarele setări Chrome:
 <translation id="3658847490588580244">Foaia din partea de jos a browserului prestabilit</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> site din grupul utilizatorului <ph name="RWS_OWNER" /> care îți poate vedea activitatea în grup}few{<ph name="RWS_MEMBERS_COUNT" /> site-uri din grupul utilizatorului <ph name="RWS_OWNER" /> care îți pot vedea activitatea în grup}other{<ph name="RWS_MEMBERS_COUNT" /> de site-uri din grupul utilizatorului <ph name="RWS_OWNER" /> care îți pot vedea activitatea în grup}}</translation>
 <translation id="3676777756440746804">Site-urile nu au permisiunea de a-ți solicita să folosească informațiile pe care le-au salvat despre tine</translation>
+<translation id="3677897809642449131">Site-urile pot solicita permisiunea de a folosi senzorii de mișcare</translation>
 <translation id="3678318839615834650">Foaia din partea de jos a cardurilor din pagina Filă nouă deschisă la înălțimea completă</translation>
 <translation id="3697164069658504920">Când opțiunea este activată, site-urile pot solicita permisiunea de a folosi dispozitive USB. Când opțiunea este dezactivată, site-urile nu pot folosi dispozitive USB.</translation>
 <translation id="3703430731944883733">Gestionează feedul</translation>
@@ -490,6 +491,7 @@ Protecția avansată gestionează următoarele setări Chrome:
 <translation id="5922853908706496913">Se permite accesul la ecran</translation>
 <translation id="5922967540311291836">Blochează cookie-urile terță parte:</translation>
 <translation id="5923512600150154850">Astfel, se vor șterge <ph name="DATASIZE" /> din datele și cookie-urile stocate de site-uri.</translation>
+<translation id="5930707844513754220">Vezi mai multe în lista de configurare</translation>
 <translation id="5939518447894949180">Resetează</translation>
 <translation id="5948139900367969951">Accesează rapid informații care te interesează</translation>
 <translation id="5964247741333118902">Conținut încorporat</translation>
@@ -498,6 +500,7 @@ Protecția avansată gestionează următoarele setări Chrome:
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Activează feedul Discover</translation>
 <translation id="6012967556075291653">Comandă rapidă fixată</translation>
+<translation id="6013003831291591200">Activitate finalizată</translation>
 <translation id="6015775454662021376">Gestionează accesul acestui site la dispozitivul tău</translation>
 <translation id="6022659036123304283">Personalizează Chrome</translation>
 <translation id="6040143037577758943">Închide</translation>
@@ -748,6 +751,7 @@ Protecția avansată gestionează următoarele setări Chrome:
 <translation id="8707904142362025782">Site-ul poate solicita permisiunea de a folosi camera</translation>
 <translation id="8712637175834984815">Am înțeles</translation>
 <translation id="8715862698998036666">Trage din partea de sus și glisează dinspre marginea stângă sau dreaptă pentru a ieși din ecranul complet.</translation>
+<translation id="8716050156658570300">Site-urile pot solicita permisiunea de a folosi senzorii de mișcare și de lumină</translation>
 <translation id="8719283222052720129">Activează permisiunea pentru <ph name="APP_NAME" /> în <ph name="BEGIN_LINK" />Setări Android<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Când opțiunea este activată, site-urile pot solicita permisiunea de a căuta dispozitive Bluetooth. Când opțiunea este dezactivată, site-urile nu pot căuta dispozitive Bluetooth.</translation>
 <translation id="8725066075913043281">Încearcă din nou</translation>

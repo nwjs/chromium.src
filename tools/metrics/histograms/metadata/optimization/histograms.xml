@@ -29,6 +29,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <variants name="AnnotationType">
+  <variant name="CategoryClassifier" summary="Category Classifier"/>
   <variant name="ContentVisibility" summary="Content Visibility"/>
   <variant name="Deprecated PageEntities" summary="Deprecated - Page Entities"/>
   <variant name="Unknown" summary="Unknown"/>
@@ -1790,6 +1791,28 @@ chromium-metrics-reviews@google.com.
     BatchAnnotate.
   </summary>
   <token key="AnnotationType" variants="AnnotationType"/>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.PageContentAnnotations.CategoryClassifier.EducationScore"
+    units="%" expires_after="2026-09-10">
+  <owner>zekunjiang@google.com</owner>
+  <owner>chrome-intelligence-core@google.com</owner>
+  <summary>
+    Records the score (0-100) produced by the On Device Category Classifier for
+    the Education category. Recorded once for every page load.
+  </summary>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.PageContentAnnotations.CategoryClassifier.ShoppingScore"
+    units="%" expires_after="2026-09-10">
+  <owner>zekunjiang@google.com</owner>
+  <owner>chrome-intelligence-core@google.com</owner>
+  <summary>
+    Records the score (0-100) produced by the On Device Category Classifier for
+    the Shopping category. Recorded once for every page load.
+  </summary>
 </histogram>
 
 <histogram

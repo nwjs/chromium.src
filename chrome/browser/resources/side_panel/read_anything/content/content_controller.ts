@@ -208,7 +208,7 @@ export class ContentController {
       this.listeners_.forEach(l => l.onContentChange());
     }
     const root = this.nodeStore_.getDomNode(chrome.readingMode.rootId);
-    if (this.hasContent() && !root?.textContent) {
+    if (this.hasContent() && !root?.textContent?.trim()) {
       this.setState(this.getNoContentType_());
       chrome.readingMode.onNoTextContent();
     }
@@ -227,7 +227,7 @@ export class ContentController {
 
     this.speechController_.saveReadAloudState();
     this.speechController_.resetForNewContent();
-    this.nodeStore_.clearDomNodes();
+    this.nodeStore_.clear();
 
     if (isDistilledByReadability()) {
       return this.updateContentForReadability();
@@ -241,7 +241,7 @@ export class ContentController {
       const title = chrome.readingMode.htmlTitle;
       const contentHtml = chrome.readingMode.htmlContent;
 
-      if (!contentHtml) {
+      if (!contentHtml || !contentHtml.trim()) {
         this.setEmpty();
         return null;
       }
@@ -274,11 +274,23 @@ export class ContentController {
         }
       }
 
-      // Set before updateImages to avoid early return.
+      // Process images from distillation. If images are disabled or there is
+      // no text content, images shouldn't be considered "content" and the
+      // empty state page should be shown. If there is a valid selection, then
+      // the images may be shown.
+      // TODO: crbug.com/483140075- Right now, selection with Readability does
+      // not work, so selected images will not be distilled.
+      const hasImages = this.updateImagesForReadability_(contentContainer);
+      const hasImagesAsContent = chrome.readingMode.imagesEnabled &&
+          chrome.readingMode.hasValidSelection && hasImages;
+
+      if (!contentContainer.textContent?.trim() && !hasImagesAsContent) {
+        this.setEmpty();
+        return null;
+      }
+
       this.setState(ContentType.HAS_CONTENT);
 
-      // Process images from distillation.
-      this.updateImages(contentContainer);
       contentFragment.appendChild(contentContainer);
 
       // Ensure link visibility is updated with user preferences.
@@ -309,7 +321,13 @@ export class ContentController {
     const node = this.buildSubtree_(rootId);
     // If there is no text or images in the tree, do not proceed. The empty
     // state container will show instead.
-    if (!node.textContent && !this.nodeStore_.hasImagesToFetch()) {
+    // We should only consider images as content when determining whether or
+    // not to show the empty state page if they are enabled and if
+    // the user specifically selected the content.
+    const hasImagesAsContent = chrome.readingMode.imagesEnabled &&
+        chrome.readingMode.hasValidSelection &&
+        this.nodeStore_.hasImagesToFetch();
+    if (!node.textContent?.trim() && !hasImagesAsContent) {
       // Sometimes the controller thinks there will be content and redraws
       // without showing the empty page, but we end up not actually having any
       // content and also not showing the empty page sometimes. In this case,
@@ -623,16 +641,28 @@ export class ContentController {
     }
   }
 
-  updateImages(root?: ParentNode) {
-    if (!root || !this.hasContent()) {
+  updateImages(shadowRoot?: ShadowRoot) {
+    if (!shadowRoot || !this.hasContent()) {
       return;
     }
 
     const imagesUpdated = isDistilledByReadability() ?
-        this.updateImagesForReadability_(root) :
-        this.updateImagesForAxTree_(root);
-    if (imagesUpdated) {
-      this.listeners_.forEach(l => l.onContentChange());
+        this.updateImagesForReadability_(shadowRoot) :
+        this.updateImagesForAxTree_(shadowRoot);
+    if (!imagesUpdated) {
+      return;
+    }
+    this.listeners_.forEach(l => l.onContentChange());
+
+    // Update read aloud state to ensure it's updated for text related to
+    // image captions.
+    if (this.speechController_.hasSpeechBeenTriggered()) {
+      this.speechController_.saveReadAloudState();
+      this.speechController_.resetForNewContent();
+      const container = shadowRoot.getElementById('container') || shadowRoot;
+      this.updateReadAloudState(container as Node);
+    } else if (!chrome.readingMode.isPhraseHighlightingEnabled) {
+      getReadAloudModel().resetModel?.();
     }
   }
 

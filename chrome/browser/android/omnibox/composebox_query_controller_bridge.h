@@ -31,7 +31,7 @@ class Profile;
 class GURL;
 
 class ComposeboxQueryControllerBridge
-    : public ComposeboxQueryController::FileUploadStatusObserver {
+    : public ComposeboxQueryController::ContextUploadStatusObserver {
  public:
   explicit ComposeboxQueryControllerBridge(
       Profile* profile,
@@ -57,6 +57,17 @@ class ComposeboxQueryControllerBridge
   void GetImageGenerationUrl(JNIEnv* env,
                              GURL url,
                              const base::android::JavaRef<jobject>& j_callback);
+
+  // Builds the URL to use for a navigation, supplementing the passed in URL
+  // with additional parameters. This will do things such as include the current
+  // tool (image gen, deep search, etc). The input state will be polled for this
+  // information. This reduces client side knowledge of how to use tools (and
+  // soon models), as the information of what parameters to add is coming from
+  // the server.
+  void GetAimUrlFromInputState(
+      JNIEnv* env,
+      GURL url,
+      const base::android::JavaRef<jobject>& j_callback);
   void RemoveAttachment(JNIEnv* env, const std::string& token);
   bool IsFuseboxEligible(JNIEnv* env);
   bool IsPdfUploadEligible(JNIEnv* env);
@@ -67,11 +78,11 @@ class ComposeboxQueryControllerBridge
   std::unique_ptr<lens::proto::LensOverlaySuggestInputs>
   CreateLensOverlaySuggestInputs() const;
 
-  // ComposeboxQueryController::FileUploadStatusObserver:
-  void OnFileUploadStatusChanged(
-      const base::UnguessableToken& file_token,
+  // ComposeboxQueryController::ContextUploadStatusObserver:
+  void OnContextUploadStatusChanged(
+      const base::UnguessableToken& context_token,
       lens::MimeType mime_type,
-      contextual_search::ContextUploadStatus file_upload_status,
+      contextual_search::ContextUploadStatus context_upload_status,
       const std::optional<contextual_search::ContextUploadErrorType>&
           error_type) override;
 
@@ -80,14 +91,17 @@ class ComposeboxQueryControllerBridge
   base::WeakPtr<ComposeboxQueryControllerBridge> AsWeakPtr();
 
  private:
-  void OnGetTabPageContext(
-      JNIEnv* env,
-      const base::UnguessableToken& context_token,
-      std::unique_ptr<lens::ContextualInputData> page_content_data);
   void OnGetPageContentFromCache(
       JNIEnv* env,
       const base::UnguessableToken& context_token,
+      base::TimeTicks start_time,
       std::optional<optimization_guide::proto::PageContext> page_context);
+  void StartTabContextUploadFlow(
+      JNIEnv* env,
+      const base::UnguessableToken& context_token,
+      bool was_cached,
+      base::TimeTicks start_time,
+      std::unique_ptr<lens::ContextualInputData> page_content_data);
   void OnInputStateChanged(const contextual_search::InputState& state);
 
   std::unique_ptr<ComposeboxQueryController::CreateSearchUrlRequestInfo>

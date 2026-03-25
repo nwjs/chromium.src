@@ -6,9 +6,10 @@
 
 #include <algorithm>
 
-#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/tabs/projects/projects_panel_state_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
@@ -16,13 +17,14 @@
 
 ProjectsPanelController::ProjectsPanelController(
     BrowserWindowInterface* browser,
+    ProjectsPanelStateController* state_controller,
     tab_groups::TabGroupSyncService* tab_group_sync_service,
-    contextual_tasks::ContextualTasksService* contextual_tasks_service,
-    contextual_tasks::ContextualTasksUiService* contextual_tasks_ui_service)
+    contextual_tasks::ContextualTasksService* contextual_tasks_service)
     : browser_(browser),
+      state_controller_(state_controller),
       tab_group_sync_service_(tab_group_sync_service),
-      contextual_tasks_service_(contextual_tasks_service),
-      contextual_tasks_ui_service_(contextual_tasks_ui_service) {
+      contextual_tasks_service_(contextual_tasks_service) {
+  CHECK(tab_group_sync_service);
   tab_group_sync_service_observer_.Observe(tab_group_sync_service);
 
   if (contextual_tasks_service) {
@@ -73,9 +75,33 @@ void ProjectsPanelController::MoveTabGroup(const base::Uuid& group_guid,
   }
 }
 
-const std::vector<contextual_tasks::Thread>&
+const std::vector<contextual_tasks::Thread>
 ProjectsPanelController::GetThreads() {
-  return threads_;
+  std::vector<contextual_tasks::Thread> eligible_threads;
+  if (!state_controller_) {
+    return eligible_threads;
+  }
+
+  for (const auto& thread : threads_) {
+    switch (thread.type) {
+      case contextual_tasks::ThreadType::kAiMode:
+        if (!state_controller_->CanShowAimThreads()) {
+          continue;
+        }
+        eligible_threads.push_back(thread);
+        break;
+      case contextual_tasks::ThreadType::kGemini:
+        if (!state_controller_->CanShowGeminiThreads()) {
+          continue;
+        }
+        eligible_threads.push_back(thread);
+        break;
+      case contextual_tasks::ThreadType::kUnknown:
+        NOTREACHED();
+    }
+  }
+
+  return eligible_threads;
 }
 
 void ProjectsPanelController::OpenThread(const std::string& thread_server_id) {
@@ -84,16 +110,18 @@ void ProjectsPanelController::OpenThread(const std::string& thread_server_id) {
   }
 
   const base::Uuid task_id = thread_server_id_to_task_id_[thread_server_id];
-  contextual_tasks_ui_service_->GetThreadUrlFromTaskId(
-      task_id, base::BindOnce(
-                   [](base::WeakPtr<ProjectsPanelController> weak_this,
-                      GURL thread_url) {
-                     if (!weak_this) {
-                       return;
-                     }
-                     weak_this->OnGotThreadUrlForResumption(thread_url);
-                   },
-                   weak_ptr_factory_.GetWeakPtr()));
+  contextual_tasks_service_->GetThreadUrlFromTaskId(
+      task_id, g_browser_process->GetApplicationLocale(),
+      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
+      base::BindOnce(
+          [](base::WeakPtr<ProjectsPanelController> weak_this,
+             GURL thread_url) {
+            if (!weak_this) {
+              return;
+            }
+            weak_this->OnGotThreadUrlForResumption(thread_url);
+          },
+          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void ProjectsPanelController::AddObserver(Observer* observer) {
@@ -202,48 +230,74 @@ void ProjectsPanelController::OnContextualTasksServiceInitialized() {
           }
         }
 
+        weak_this->SortThreads();
+
         for (auto& observer : weak_this->observers_) {
-          observer.OnThreadsInitialized(weak_this->threads_);
+          observer.OnThreadsInitialized(weak_this->GetThreads());
         }
       },
       weak_ptr_factory_.GetWeakPtr()));
 }
 
-void ProjectsPanelController::OnGotThreadUrlForResumption(GURL thread_url) {
-  // Look across all browser windows, in activation order, for a tab with the
-  // thread URL.
-  BrowserWindowInterface* browser_with_thread_tab = nullptr;
-  std::optional<int> thread_tab_index_in_browser;
-  ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
-      [&](BrowserWindowInterface* browser_window) {
-        if (browser_window->GetProfile() != browser_->GetProfile()) {
-          return true;
-        }
-
-        auto* tab_strip_model = browser_window->GetTabStripModel();
-        if (!tab_strip_model) {
-          return true;
-        }
-
-        for (int i = 0; i < tab_strip_model->count(); ++i) {
-          auto* web_contents = tab_strip_model->GetWebContentsAt(i);
-          if (web_contents->GetLastCommittedURL().EqualsIgnoringRef(
-                  thread_url)) {
-            browser_with_thread_tab = browser_window;
-            thread_tab_index_in_browser = i;
-            return false;
-          }
-        }
-        return true;
-      });
-
-  if (browser_with_thread_tab && thread_tab_index_in_browser.has_value()) {
-    browser_with_thread_tab->GetTabStripModel()->ActivateTabAt(
-        thread_tab_index_in_browser.value());
-    browser_with_thread_tab->GetWindow()->Activate();
+void ProjectsPanelController::OnTaskAdded(
+    const contextual_tasks::ContextualTask& task,
+    contextual_tasks::ContextualTasksService::TriggerSource source) {
+  if (!task.GetThread().has_value()) {
     return;
   }
 
-  // If no tab exists for the thread, create a new one.
+  const contextual_tasks::Thread thread = task.GetThread().value();
+  threads_.insert(threads_.begin(), thread);
+  thread_server_id_to_task_id_.emplace(thread.server_id, task.GetTaskId());
+
+  SortThreads();
+}
+
+void ProjectsPanelController::OnTaskUpdated(
+    const contextual_tasks::ContextualTask& task,
+    contextual_tasks::ContextualTasksService::TriggerSource source) {
+  std::optional<contextual_tasks::Thread> thread = task.GetThread();
+  if (!thread.has_value()) {
+    return;
+  }
+
+  auto existing_thread = std::ranges::find(
+      threads_, thread->server_id, &contextual_tasks::Thread::server_id);
+  if (existing_thread == threads_.end()) {
+    OnTaskAdded(task, source);
+    return;
+  }
+  *existing_thread = thread.value();
+
+  SortThreads();
+}
+
+void ProjectsPanelController::OnTaskRemoved(
+    const base::Uuid& task_id,
+    contextual_tasks::ContextualTasksService::TriggerSource source) {
+  auto it = std::ranges::find_if(
+      thread_server_id_to_task_id_,
+      [&](const auto& pair) { return pair.second == task_id; });
+  if (it == thread_server_id_to_task_id_.end()) {
+    return;
+  }
+
+  const std::string server_id = it->first;
+  thread_server_id_to_task_id_.erase(it);
+
+  std::erase_if(threads_, [&](const contextual_tasks::Thread& thread) {
+    return thread.server_id == server_id;
+  });
+}
+
+void ProjectsPanelController::SortThreads() {
+  std::ranges::sort(threads_, std::ranges::greater(),
+                    &contextual_tasks::Thread::last_turn_time);
+}
+
+void ProjectsPanelController::OnGotThreadUrlForResumption(GURL thread_url) {
+  // TODO(crbug.com/491192199): Open threads in either the side panel or full
+  // tab depending on where the last turn was taken. For now, always open the
+  // thread in a new tab.
   browser_->OpenGURL(thread_url, WindowOpenDisposition::NEW_FOREGROUND_TAB);
 }

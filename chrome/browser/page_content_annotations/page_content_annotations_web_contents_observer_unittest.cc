@@ -118,7 +118,6 @@ class FakePageContentAnnotationsService : public PageContentAnnotationsService {
                                       nullptr,
                                       nullptr,
                                       nullptr,
-                                      nullptr,
                                       nullptr) {}
   ~FakePageContentAnnotationsService() override = default;
 

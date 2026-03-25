@@ -1,11 +1,7 @@
 <!DOCTYPE html>
-<html class=reftest-wait>
 <link rel=author href="mailto:jarhar@chromium.org">
 <link rel=help href="https://open-ui.org/components/combobox.explainer/">
 <link rel=match href="customizable-combobox-appearance-ref.html">
-<script src="/resources/testdriver.js"></script>
-<script src="/resources/testdriver-vendor.js"></script>
-<script src="/resources/testdriver-actions.js"></script>
 
 <style>
 input, datalist {
@@ -24,13 +20,5 @@ input {
 </datalist>
 
 <script>
-(async () => {
-  document.querySelector('input').focus();
-  const arrowDown = '\uE015';
-  await (new test_driver.Actions()
-    .keyDown(arrowDown)
-    .keyUp(arrowDown))
-    .send();
-  document.documentElement.classList.remove('reftest-wait');
-})();
+document.querySelector('input').focus();
 </script>

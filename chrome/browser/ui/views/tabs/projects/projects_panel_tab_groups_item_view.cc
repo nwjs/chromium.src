@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/tabs/projects/projects_panel_tab_groups_item_view.h"
 
+#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/app/vector_icons/vector_icons.h"
@@ -19,6 +20,7 @@
 #include "ui/color/color_provider.h"
 #include "ui/compositor/canvas_painter.h"
 #include "ui/compositor/layer.h"
+#include "ui/events/event.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -46,16 +48,6 @@ constexpr auto kMoreButtonSize = gfx::Size(24, 24);
 constexpr gfx::Insets kMoreButtonMargins =
     gfx::Insets::TLBR(0, projects_panel::kListItemSpacingBetweenChildren, 0, 0);
 
-// Insets for share Tab icon.
-constexpr gfx::Insets kShareIconMargins =
-    gfx::Insets::TLBR(4,
-                      4 + projects_panel::kListItemSpacingBetweenChildren,
-                      4,
-                      4);
-
-// Height and width of shared Tab group icon and more button icon.
-constexpr int kTrailingIconSize = 16;
-
 // Whether animations should be disabled.
 static bool disable_animations_for_testing_ = false;
 
@@ -79,6 +71,7 @@ ProjectsPanelTabGroupsItemView::ProjectsPanelTabGroupsItemView(
   projects_panel::ConfigureInkDropForButton(this);
 
   tab_group_icon_ = AddChildView(std::make_unique<views::ImageView>());
+  tab_group_icon_->SetCanProcessEventsWithinSubtree(false);
   tab_group_icon_->SetProperty(views::kMarginsKey,
                                projects_panel::kTabGroupIconMargins);
 
@@ -98,9 +91,12 @@ ProjectsPanelTabGroupsItemView::ProjectsPanelTabGroupsItemView(
 
   if (group.is_shared_tab_group()) {
     shared_icon_ = AddChildView(std::make_unique<views::ImageView>());
-    shared_icon_->SetProperty(views::kMarginsKey, kShareIconMargins);
+    shared_icon_->SetCanProcessEventsWithinSubtree(false);
+    shared_icon_->SetProperty(views::kMarginsKey,
+                              projects_panel::kTrailingIconMargins);
     ui::ImageModel shared_group_image_model = ui::ImageModel::FromVectorIcon(
-        kPeopleGroupIcon, kColorProjectsPanelButtonIcon, kTrailingIconSize);
+        kPeopleGroupIcon, kColorProjectsPanelButtonIcon,
+        projects_panel::kTrailingIconSize);
     shared_icon_->SetImage(shared_group_image_model);
     shared_icon_->SetProperty(
         views::kElementIdentifierKey,
@@ -112,25 +108,38 @@ ProjectsPanelTabGroupsItemView::ProjectsPanelTabGroupsItemView(
     shared_icon_->layer()->SetFillsBoundsOpaquely(false);
   }
 
-  more_button_ = AddChildView(std::make_unique<views::MenuButton>(
-      base::BindRepeating(&ProjectsPanelTabGroupsItemView::OnMoreButtonPressed,
-                          base::Unretained(this))));
+  more_button_ =
+      AddChildView(std::make_unique<views::MenuButton>(base::BindRepeating(
+          [](base::WeakPtr<ProjectsPanelTabGroupsItemView> weak_this) {
+            if (!weak_this) {
+              return;
+            }
+            weak_this->OnMoreButtonPressed();
+          },
+          weak_ptr_factory_.GetWeakPtr())));
   ui::ImageModel menu_icon_image_model = ui::ImageModel::FromVectorIcon(
       kBrowserToolsChromeRefreshIcon, kColorProjectsPanelButtonIcon,
-      kTrailingIconSize);
+      projects_panel::kTrailingIconSize);
   more_button_->SetPreferredSize(kMoreButtonSize);
   more_button_->SetImageModel(ButtonState::STATE_NORMAL, menu_icon_image_model);
   auto more_button_accessibility_label =
       l10n_util::GetStringUTF16(IDS_TAB_GROUP_MORE_OPTIONS);
   more_button_->GetViewAccessibility().SetName(more_button_accessibility_label);
   more_button_->SetTooltipText(more_button_accessibility_label);
+  more_button_->SetFocusBehavior(views::View::FocusBehavior::ACCESSIBLE_ONLY);
+  views::FocusRing::Install(more_button_);
   more_button_->SetProperty(views::kElementIdentifierKey,
                             kProjectsPanelTabGroupsItemViewMoreButtonElementId);
   more_button_->SetProperty(views::kMarginsKey, kMoreButtonMargins);
   more_button_state_subscription_ =
       more_button_->AddStateChangedCallback(base::BindRepeating(
-          &ProjectsPanelTabGroupsItemView::OnMoreButtonStateChanged,
-          base::Unretained(this)));
+          [](base::WeakPtr<ProjectsPanelTabGroupsItemView> weak_this) {
+            if (!weak_this) {
+              return;
+            }
+            weak_this->OnMoreButtonStateChanged();
+          },
+          weak_ptr_factory_.GetWeakPtr()));
   ConfigureInkDropForToolbar(more_button_);
 
   // Paint the more button to a layer so we can adjust its opacity during the
@@ -199,6 +208,16 @@ void ProjectsPanelTabGroupsItemView::PaintButtonContents(gfx::Canvas* canvas) {
   views::Button::PaintButtonContents(canvas);
 }
 
+void ProjectsPanelTabGroupsItemView::AddedToWidget() {
+  views::Button::AddedToWidget();
+  GetFocusManager()->AddFocusChangeListener(this);
+}
+
+void ProjectsPanelTabGroupsItemView::RemovedFromWidget() {
+  GetFocusManager()->RemoveFocusChangeListener(this);
+  views::Button::RemovedFromWidget();
+}
+
 void ProjectsPanelTabGroupsItemView::PaintChildren(
     const views::PaintInfo& paint_info) {
   // If this view is being dragged, a placeholder is drawn in its original
@@ -239,6 +258,26 @@ void ProjectsPanelTabGroupsItemView::OnMouseMoved(const ui::MouseEvent& event) {
   UpdateHoverState();
 }
 
+bool ProjectsPanelTabGroupsItemView::OnMousePressed(
+    const ui::MouseEvent& event) {
+  // Right-clicking will trigger the context menu when the mouse is released.
+  if (event.IsRightMouseButton()) {
+    return true;
+  }
+  return views::Button::OnMousePressed(event);
+}
+
+void ProjectsPanelTabGroupsItemView::OnMouseReleased(
+    const ui::MouseEvent& event) {
+  if (event.IsRightMouseButton()) {
+    if (GetLocalBounds().Contains(event.location())) {
+      more_button_callback_.Run(group_guid_, *more_button_);
+    }
+    return;
+  }
+  views::Button::OnMouseReleased(event);
+}
+
 void ProjectsPanelTabGroupsItemView::OnDragDone() {
   views::Button::OnDragDone();
   SetIsDragging(false);
@@ -267,6 +306,44 @@ void ProjectsPanelTabGroupsItemView::AnimationProgressed(
   more_button_->layer()->SetOpacity(value);
 }
 
+void ProjectsPanelTabGroupsItemView::OnWillChangeFocus(
+    views::View* focused_before,
+    views::View* focused_now) {
+  if (!Contains(focused_now)) {
+    return;
+  }
+
+  // If navigating upward from below, the more button is initially hidden and
+  // gets skipped. We detect reverse focus traversal (from either a view
+  // physically below this one or the first focusable view in the panel) and
+  // manually forward the focus to the more button.
+  if (focused_now == this && focused_before && !Contains(focused_before) &&
+      (focused_before->GetBoundsInScreen().y() > GetBoundsInScreen().y() ||
+       projects_panel::IsFirstFocusableViewInPanel(focused_before))) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            [](base::WeakPtr<ProjectsPanelTabGroupsItemView> weak_this) {
+              if (weak_this && weak_this->more_button_) {
+                weak_this->GetFocusManager()->SetFocusedViewWithReason(
+                    weak_this->more_button_,
+                    views::FocusManager::FocusChangeReason::kFocusTraversal);
+              }
+            },
+            weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
+void ProjectsPanelTabGroupsItemView::OnDidChangeFocus(
+    views::View* focused_before,
+    views::View* focused_now) {
+  if (!Contains(focused_now) && !Contains(focused_before)) {
+    return;
+  }
+
+  UpdateHoverState();
+}
+
 // static
 void ProjectsPanelTabGroupsItemView::disable_animations_for_testing() {
   disable_animations_for_testing_ = true;
@@ -291,9 +368,11 @@ void ProjectsPanelTabGroupsItemView::UpdateHoverState() {
 }
 
 void ProjectsPanelTabGroupsItemView::UpdateHoverStateForced(bool is_hovered) {
+  views::View* focused_view = GetFocusManager()->GetFocusedView();
+  const bool has_focus = focused_view && Contains(focused_view);
   const bool show_more =
-      !dragging_ &&
-      (is_hovered || more_button_->GetState() == views::Button::STATE_PRESSED);
+      !dragging_ && (is_hovered || has_focus ||
+                     more_button_->GetState() == views::Button::STATE_PRESSED);
 
   if (!disable_animations_for_testing_) {
     if (show_more) {

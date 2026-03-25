@@ -1,5 +1,5 @@
 {
-  "mac-arm64-rel": {
+  "Mac Builder": {
     "additional_compile_targets": [
       "all"
     ],
@@ -27,9 +27,10 @@
       }
     ]
   },
-  "mac15-arm64-rel-tests": {
+  "mac15-x64-rel-tests": {
     "gtest_tests": [
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -39,13 +40,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -53,6 +49,7 @@
         "test_id_prefix": "ninja://third_party/abseil-cpp:absl_hardening_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -62,13 +59,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -76,6 +68,7 @@
         "test_id_prefix": "ninja://ui/accessibility:accessibility_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -85,13 +78,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -100,6 +88,7 @@
         "use_isolated_scripts_api": true
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -109,13 +98,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -123,6 +107,7 @@
         "test_id_prefix": "ninja://extensions/shell:app_shell_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -132,13 +117,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -146,6 +126,7 @@
         "test_id_prefix": "ninja://base:base_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -155,13 +136,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -169,6 +145,7 @@
         "test_id_prefix": "ninja://third_party/blink/common:blink_common_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -178,13 +155,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -192,6 +164,7 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_fuzzer_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -201,13 +174,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -218,6 +186,7 @@
         "args": [
           "--git-revision=${got_revision}"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -232,13 +201,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -246,6 +210,7 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_platform_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -255,13 +220,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -269,6 +229,7 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/controller:blink_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -278,13 +239,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -292,6 +248,7 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_crypto_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -301,13 +258,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -315,9 +267,31 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
       },
       {
+        "ci_only": true,
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//chrome/test:browser_tests",
+        "module_scheme": "gtest",
+        "name": "browser_tests",
+        "retry_only_failed_tests": true,
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-15"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 20
+        },
+        "test": "browser_tests",
+        "test_id_prefix": "ninja://chrome/test:browser_tests/"
+      },
+      {
         "args": [
           "--gtest_filter=-*UsingRealWebcam*"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -327,13 +301,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -341,6 +310,7 @@
         "test_id_prefix": "ninja://media/capture:capture_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -350,13 +320,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -364,6 +329,7 @@
         "test_id_prefix": "ninja://media/cast:cast_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -373,13 +339,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -387,6 +348,7 @@
         "test_id_prefix": "ninja://cc:cc_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -396,13 +358,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -410,6 +367,7 @@
         "test_id_prefix": "ninja://chrome/test:chrome_app_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -419,13 +377,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -433,6 +386,7 @@
         "test_id_prefix": "ninja://chrome/test/chromedriver:chromedriver_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -442,13 +396,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -456,6 +405,7 @@
         "test_id_prefix": "ninja://components:components_browsertests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -465,13 +415,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 3
@@ -480,6 +425,7 @@
         "test_id_prefix": "ninja://components:components_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -489,16 +435,17 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 8
+          "shards": 12
         },
         "test": "content_browsertests",
         "test_id_prefix": "ninja://content/test:content_browsertests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -508,20 +455,17 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 2
         },
         "test": "content_unittests",
         "test_id_prefix": "ninja://content/test:content_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -531,13 +475,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -545,6 +484,7 @@
         "test_id_prefix": "ninja://third_party/crashpad/crashpad:crashpad_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -554,13 +494,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -568,6 +503,7 @@
         "test_id_prefix": "ninja://crypto:crypto_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -577,13 +513,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -591,6 +522,7 @@
         "test_id_prefix": "ninja://device:device_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -600,13 +532,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -615,6 +542,7 @@
       },
       {
         "ci_only": true,
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -624,13 +552,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -638,6 +561,7 @@
         "test_id_prefix": "ninja://third_party/leveldatabase:env_chromium_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -647,13 +571,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -661,6 +580,7 @@
         "test_id_prefix": "ninja://ui/events:events_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -670,13 +590,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -684,6 +599,7 @@
         "test_id_prefix": "ninja://extensions:extensions_browsertests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -693,13 +609,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -707,6 +618,7 @@
         "test_id_prefix": "ninja://extensions:extensions_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -716,13 +628,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -730,6 +637,7 @@
         "test_id_prefix": "ninja://components/services/filesystem:filesystem_service_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -739,13 +647,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -753,6 +656,7 @@
         "test_id_prefix": "ninja://testing/libfuzzer/tests:fuzzing_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -762,13 +666,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -776,6 +675,7 @@
         "test_id_prefix": "ninja://google_apis/gcm:gcm_unit_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -785,13 +685,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -799,6 +694,7 @@
         "test_id_prefix": "ninja://ui/gfx:gfx_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -808,13 +704,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -822,6 +713,7 @@
         "test_id_prefix": "ninja://gin:gin_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -831,13 +723,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -845,6 +732,7 @@
         "test_id_prefix": "ninja://google_apis:google_apis_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -854,13 +742,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -868,6 +751,7 @@
         "test_id_prefix": "ninja://gpu:gpu_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -877,13 +761,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -891,6 +770,7 @@
         "test_id_prefix": "ninja://components/gwp_asan:gwp_asan_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -900,13 +780,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -914,6 +789,7 @@
         "test_id_prefix": "ninja://headless:headless_browsertests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -923,13 +799,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -937,6 +808,7 @@
         "test_id_prefix": "ninja://headless:headless_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -946,21 +818,17 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 7
+          "shards": 14
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -970,13 +838,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -984,6 +847,7 @@
         "test_id_prefix": "ninja://ipc:ipc_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -993,13 +857,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1007,7 +866,31 @@
         "test_id_prefix": "ninja://ui/latency:latency_unittests/"
       },
       {
+        "args": [
+          "--test-launcher-filter-file=../../testing/buildbot/filters/layer_list_mode.cc_unittests.filter",
+          "--enable-features=UseLayerListsByDefault"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//cc:cc_unittests",
+        "module_scheme": "gtest",
+        "name": "layer_list_mode_cc_unittests",
+        "retry_only_failed_tests": true,
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-15"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cc_unittests",
+        "test_id_prefix": "ninja://cc:cc_unittests/"
+      },
+      {
         "ci_only": true,
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1017,13 +900,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1031,6 +909,7 @@
         "test_id_prefix": "ninja://third_party/leveldatabase:leveldb_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1040,13 +919,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1054,6 +928,7 @@
         "test_id_prefix": "ninja://third_party/libjingle_xmpp:libjingle_xmpp_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1063,13 +938,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1077,6 +947,7 @@
         "test_id_prefix": "ninja://third_party/liburlpattern:liburlpattern_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1086,13 +957,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1100,6 +966,7 @@
         "test_id_prefix": "ninja://media:media_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1109,13 +976,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1123,6 +985,7 @@
         "test_id_prefix": "ninja://ui/message_center:message_center_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1132,13 +995,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1146,6 +1004,7 @@
         "test_id_prefix": "ninja://media/midi:midi_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1155,13 +1014,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1169,6 +1023,7 @@
         "test_id_prefix": "ninja://mojo:mojo_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1178,13 +1033,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1192,6 +1042,7 @@
         "test_id_prefix": "ninja://ui/native_theme:native_theme_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1201,13 +1052,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1215,6 +1061,7 @@
         "test_id_prefix": "ninja://net:net_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1224,13 +1071,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1238,6 +1080,7 @@
         "test_id_prefix": "ninja://chrome/browser/media/router:openscreen_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1247,13 +1090,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1261,6 +1099,7 @@
         "test_id_prefix": "ninja://pdf:pdf_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1270,13 +1109,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1284,6 +1118,7 @@
         "test_id_prefix": "ninja://third_party/perfetto:perfetto_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1293,13 +1128,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1307,6 +1137,7 @@
         "test_id_prefix": "ninja://tools/mac/power:power_sampler_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1316,13 +1147,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1330,6 +1156,7 @@
         "test_id_prefix": "ninja://printing:printing_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1339,13 +1166,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1353,6 +1175,7 @@
         "test_id_prefix": "ninja://remoting:remoting_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1362,13 +1185,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1376,6 +1194,7 @@
         "test_id_prefix": "ninja://sandbox:sandbox_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1385,13 +1204,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1399,6 +1213,7 @@
         "test_id_prefix": "ninja://services:services_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1408,13 +1223,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1422,6 +1232,7 @@
         "test_id_prefix": "ninja://ui/shell_dialogs:shell_dialogs_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1431,13 +1242,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1445,6 +1251,7 @@
         "test_id_prefix": "ninja://skia:skia_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1454,13 +1261,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1468,6 +1270,7 @@
         "test_id_prefix": "ninja://ui/snapshot:snapshot_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1477,13 +1280,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1491,6 +1289,7 @@
         "test_id_prefix": "ninja://sql:sql_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1500,13 +1299,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1515,6 +1309,7 @@
       },
       {
         "ci_only": true,
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1524,21 +1319,69 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 3
+          "shards": 4
         },
         "test": "sync_integration_tests",
         "test_id_prefix": "ninja://chrome/test:sync_integration_tests/"
       },
       {
+        "args": [
+          "--enable-features=TreesInViz",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
+          "--git-revision=${got_revision}"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//third_party/blink/renderer/platform:blink_platform_unittests",
+        "module_scheme": "gtest",
+        "name": "trees_in_viz_blink_platform_unittests",
+        "precommit_args": [
+          "--gerrit-issue=${patch_issue}",
+          "--gerrit-patchset=${patch_set}",
+          "--buildbucket-id=${buildbucket_build_id}"
+        ],
+        "retry_only_failed_tests": true,
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-15"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "blink_platform_unittests",
+        "test_id_prefix": "ninja://third_party/blink/renderer/platform:blink_platform_unittests/"
+      },
+      {
+        "args": [
+          "--enable-features=TreesInViz",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.cc_unittests.filter"
+        ],
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//cc:cc_unittests",
+        "module_scheme": "gtest",
+        "name": "trees_in_viz_cc_unittests",
+        "retry_only_failed_tests": true,
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-15"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "cc_unittests",
+        "test_id_prefix": "ninja://cc:cc_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1548,13 +1391,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1562,6 +1400,7 @@
         "test_id_prefix": "ninja://ui/base:ui_base_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1571,13 +1410,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1585,6 +1419,7 @@
         "test_id_prefix": "ninja://ui/touch_selection:ui_touch_selection_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1594,13 +1429,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1608,6 +1438,7 @@
         "test_id_prefix": "ninja://ui/tests:ui_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1617,20 +1448,17 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
-          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 2
         },
         "test": "unit_tests",
         "test_id_prefix": "ninja://chrome/test:unit_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1640,13 +1468,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1654,6 +1477,7 @@
         "test_id_prefix": "ninja://chrome/updater:updater_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1663,13 +1487,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1677,6 +1496,7 @@
         "test_id_prefix": "ninja://url:url_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1686,13 +1506,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1700,6 +1515,7 @@
         "test_id_prefix": "ninja://ui/views:views_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1709,13 +1525,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1723,6 +1534,7 @@
         "test_id_prefix": "ninja://components/viz:viz_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1732,13 +1544,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1746,6 +1553,7 @@
         "test_id_prefix": "ninja://third_party/blink/renderer/platform/wtf:wtf_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1755,13 +1563,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1769,6 +1572,7 @@
         "test_id_prefix": "ninja://chrome/test:xr_browser_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -1778,13 +1582,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1794,6 +1593,7 @@
     ],
     "isolated_scripts": [
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -1806,13 +1606,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1824,6 +1619,7 @@
           "--num-retries=3",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "args": [
             "--verbose"
@@ -1841,11 +1637,12 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
+            "gpu": null,
             "os": "Mac-15"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 5
+          "shards": 12
         },
         "test": "blink_web_tests",
         "test_id_prefix": "ninja://:blink_web_tests/"
@@ -1855,6 +1652,7 @@
           "--num-retries=3",
           "--write-run-histories-to=${ISOLATED_OUTDIR}/run_histories.json"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "args": [
             "--verbose"
@@ -1872,11 +1670,12 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
+            "gpu": null,
             "os": "Mac-15"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 7
+          "shards": 6
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
@@ -1885,6 +1684,7 @@
         "args": [
           "--test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/chrome.filter"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "args": [
             "--verbose"
@@ -1902,13 +1702,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1919,6 +1714,7 @@
         "args": [
           "--test-type=integration"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -1930,7 +1726,7 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1942,6 +1738,7 @@
         "args": [
           "--test-type=integration"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -1953,7 +1750,7 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
@@ -1962,6 +1759,7 @@
         "test_id_prefix": "ninja://chrome/test/chromedriver:chromedriver_py_tests_headless_shell/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -1971,13 +1769,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -1988,6 +1781,7 @@
         "args": [
           "--gtest-benchmark-name=components_perftests"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "args": [
             "--smoke-test-mode"
@@ -2000,13 +1794,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -2014,6 +1803,7 @@
         "test_id_prefix": "ninja://components:components_perftests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2027,13 +1817,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -2041,6 +1826,7 @@
         "test_id_prefix": "ninja://content/shell:content_shell_crash_test/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2054,13 +1840,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -2068,6 +1849,7 @@
         "test_id_prefix": "ninja://third_party/flatbuffers:flatbuffers_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2080,13 +1862,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -2103,6 +1880,7 @@
           "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/chrome.filter",
           "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/content_shell.filter"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "args": [
             "--verbose"
@@ -2120,7 +1898,7 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -2130,6 +1908,7 @@
         "test_id_prefix": "ninja://:headless_shell_wpt/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2139,13 +1918,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -2153,6 +1927,7 @@
         "test_id_prefix": "ninja://chrome/installer/mac:mac_signing_tests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2165,13 +1940,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
@@ -2179,6 +1949,7 @@
         "test_id_prefix": "ninja://mojo/public/tools:mojo_python_unittests/"
       },
       {
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2191,15 +1962,10 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "idempotent": false,
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },
         "test": "telemetry_gpu_unittests",
@@ -2210,6 +1976,7 @@
           "--extra-browser-args=--enable-crashpad"
         ],
         "ci_only": true,
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2222,15 +1989,10 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "idempotent": false,
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 12
         },
@@ -2242,6 +2004,7 @@
           "--jobs=1",
           "--extra-browser-args=--disable-gpu"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
         },
@@ -2254,15 +2017,10 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
           },
           "idempotent": false,
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
-          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 8
         },
@@ -2273,6 +2031,7 @@
         "args": [
           "--gtest-benchmark-name=views_perftests"
         ],
+        "isolate_profile_data": true,
         "merge": {
           "args": [
             "--smoke-test-mode"
@@ -2285,13 +2044,8 @@
         "retry_only_failed_tests": true,
         "swarming": {
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Mac-15"
-          },
-          "optional_dimensions": {
-            "30": {
-              "cpu": "Apple_(Virtual)"
-            }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
         },

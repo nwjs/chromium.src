@@ -309,7 +309,7 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) WebNNContextImpl
       graph_builder_impls_;
 
   // GraphImpls owned by the context. Graphs use a WeakPtr to safely access the
-  // context during build operations.
+  // context during operations.
   base::flat_set<
       scoped_refptr<WebNNGraphImpl>,
       WebNNObjectImpl<mojom::WebNNGraph,

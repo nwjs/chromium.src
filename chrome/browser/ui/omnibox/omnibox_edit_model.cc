@@ -511,19 +511,6 @@ ui::ImageModel OmniboxEditModel::GetSuperGIcon(int image_size,
 #endif
 }
 
-bool OmniboxEditModel::ShouldShowAddContextButton() const {
-  const bool aim_button_pref =
-      GetPrefService()->GetBoolean(omnibox::kShowAiModeOmniboxButton);
-  const bool is_aim_popup_enabled = controller_->client()->IsAimPopupEnabled();
-  const bool is_variant_inline =
-      omnibox::kWebUIOmniboxAimPopupAddContextButtonVariantParam.Get() ==
-      omnibox::AddContextButtonVariant::kInline;
-  const bool is_popup_open = controller_->IsPopupOpen();
-
-  return aim_button_pref && is_aim_popup_enabled && is_variant_inline &&
-         is_popup_open;
-}
-
 ui::ImageModel OmniboxEditModel::GetAddContextIcon(int image_size) const {
   return ui::ImageModel::FromVectorIcon(kAddChromeRefreshIcon,
                                         ui::kColorSysPrimary, image_size);
@@ -773,12 +760,31 @@ void OmniboxEditModel::EnterKeywordModeForDefaultSearchProvider(
                    u"");
 }
 
+void OmniboxEditModel::RecordAiModeButtonClick() {
+  OmniboxEventProto::PageClassification classification =
+      GetPageClassification();
+  const char* surface = "WebOmnibox";
+  if (omnibox::IsNtpOmnibox(classification)) {
+    surface = "NtpOmnibox";
+  } else if (omnibox::IsSearchResultsPage(classification)) {
+    surface = "SrpOmnibox";
+  }
+  std::string action =
+      base::StrCat({"ContextualSearch.AiModeButtonClick.", surface});
+  base::RecordAction(base::UserMetricsAction(action.c_str()));
+  base::UmaHistogramBoolean(action, true);
+}
+
 void OmniboxEditModel::OpenAiMode(bool via_keyboard, bool via_context_menu) {
   std::u16string query_text =
       AutocompleteMatch::IsSearchType(current_match_.type)
           ? current_match_.contents
           : u"";
   RecordAiModeMetrics(query_text, /*activated=*/true, via_keyboard);
+
+  if (!via_context_menu) {
+    RecordAiModeButtonClick();
+  }
 
   bool force_navigation_to_aim =
       !via_context_menu &&
@@ -818,9 +824,9 @@ void OmniboxEditModel::OpenAiMode(bool via_keyboard, bool via_context_menu) {
 
   // Queries from the AI mode button will never have context.
   base::RecordAction(base::UserMetricsAction(
-      "ContextualSearch.UserAction.SubmitQuery.WithoutContext.Omnibox"));
+      "ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.Omnibox"));
   base::UmaHistogramBoolean(
-      "ContextualSearch.UserAction.SubmitQuery.WithoutContext.Omnibox", true);
+      "ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.Omnibox", true);
 
   GURL ai_mode_url =
       GetUrlForAim(controller_->client()->GetTemplateURLService(),

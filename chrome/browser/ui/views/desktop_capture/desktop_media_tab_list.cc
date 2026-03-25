@@ -251,8 +251,6 @@ std::unique_ptr<views::View> DesktopMediaTabList::BuildUI(
     std::unique_ptr<views::TableView> table) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   auto preview_wrapper = std::make_unique<views::View>();
-  preview_wrapper->SetBackground(
-      views::CreateRoundedRectBackground(ui::kColorSysTonalContainer, 8));
   preview_wrapper->SetPreferredSize(desktopcapture::kPreviewSize);
 
   auto preview = std::make_unique<views::ImageView>();
@@ -268,10 +266,6 @@ std::unique_ptr<views::View> DesktopMediaTabList::BuildUI(
   empty_preview_label->SetMultiLine(true);
   empty_preview_label->SetPreferredSize(desktopcapture::kPreviewSize);
   empty_preview_label->SetSize(desktopcapture::kPreviewSize);
-  empty_preview_label->SetEnabledColor(ui::kColorSysOnTonalContainer);
-  empty_preview_label->SetBackground(
-      views::CreateRoundedRectBackground(ui::kColorSysTonalContainer, 8));
-  empty_preview_label->SetBackgroundColor(ui::kColorSysTonalContainer);
   empty_preview_label_ =
       preview_wrapper->AddChildView(std::move(empty_preview_label));
 
@@ -295,8 +289,6 @@ std::unique_ptr<views::View> DesktopMediaTabList::BuildUI(
 
   scroll_view_ =
       full_panel->AddChildView(CreateScrollViewWithTable(std::move(table)));
-  scroll_view_->SetBackground(
-      views::CreateRoundedRectBackground(ui::kColorSysSurface4, 8));
   scroll_view_->SetPreferredSize(gfx::Size(kListWidth, 0));
   full_panel->AddChildView(std::move(preview_sidebar));
 
@@ -343,8 +335,19 @@ gfx::Size DesktopMediaTabList::CalculatePreferredSize(
 
 void DesktopMediaTabList::OnThemeChanged() {
   DesktopMediaListController::ListView::OnThemeChanged();
-  scroll_view_->SetBackground(
-      views::CreateRoundedRectBackground(ui::kColorSysSurface4, 8));
+
+  const ui::ColorProvider* const color_provider = GetColorProvider();
+  table_->SetBorder(nullptr);
+
+  scroll_view_->SetBackground(views::CreateRoundedRectBackground(
+      GetColorProvider()->GetColor(ui::kColorSysSurface4), 8));
+  const SkColor background_color =
+      color_provider->GetColor(ui::kColorSysTonalContainer);
+  preview_wrapper_->SetBackground(
+      views::CreateRoundedRectBackground(background_color, 8));
+  empty_preview_label_->SetBackground(
+      views::CreateRoundedRectBackground(background_color, 8));
+  empty_preview_label_->SetBackgroundColor(background_color);
 }
 
 std::optional<content::DesktopMediaID> DesktopMediaTabList::GetSelection() {

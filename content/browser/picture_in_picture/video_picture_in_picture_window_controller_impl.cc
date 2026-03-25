@@ -578,12 +578,8 @@ void VideoPictureInPictureWindowControllerImpl::MediaStoppedPlaying(
 }
 
 void VideoPictureInPictureWindowControllerImpl::WebContentsDestroyed() {
-  if (window_) {
+  if (window_)
     window_->Close();
-  }
-
-  // The web contents are being destroyed. Stop observing.
-  Observe(nullptr);
 }
 
 void VideoPictureInPictureWindowControllerImpl::OnLeavingPictureInPicture(

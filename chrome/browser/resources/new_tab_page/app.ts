@@ -16,11 +16,11 @@ import 'chrome://resources/cr_components/composebox/threads_rail.js';
 import type {CustomizeButtonsElement} from 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
-import type {ContextualUpload} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxElement} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {VoiceSearchAction as ComposeVoiceSearchAction} from 'chrome://resources/cr_components/composebox/composebox.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
-import type {OpenComposeboxEventDetail, SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
+import type {ComposeboxState} from 'chrome://resources/cr_components/composebox/common.js';
+import type {SearchboxElement} from 'chrome://resources/cr_components/searchbox/searchbox.js';
 import type {CrToastElement} from 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
 import type {ClickInfo} from 'chrome://resources/js/browser_command.mojom-webui.js';
@@ -33,7 +33,6 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
-import {ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
 import {ActionChipsRetrievalState} from './action_chips/action_chips.js';
@@ -188,35 +187,9 @@ export class AppElement extends AppElementBase {
 
   static override get properties() {
     return {
-      oneGoogleBarIframeOrigin_: {type: String},
-      oneGoogleBarIframePath_: {type: String},
-      oneGoogleBarLoaded_: {type: Boolean},
-      theme_: {type: Object},
-      showCustomize_: {type: Boolean},
-      showCustomizeChromeText_: {type: Boolean},
-
-      showWallpaperSearch_: {type: Boolean},
-
-      isActionChipsVisible_: {type: Boolean},
-
-      isFooterVisible_: {type: Boolean},
-
-      selectedCustomizeDialogPage_: {type: String},
-      showVoiceSearchOverlay_: {type: Boolean},
-
-      showBackgroundImage_: {
-        reflect: true,
-        type: Boolean,
-      },
-
-      backgroundImageAttribution1_: {type: String},
-      backgroundImageAttribution2_: {type: String},
-      backgroundImageAttributionUrl_: {type: String},
-
-      // Used in cr-searchbox component via host-context.
-      colorSourceIsBaseline: {type: Boolean},
-      logoColor_: {type: String},
-      singleColoredLogo_: {type: Boolean},
+      // =======================================================================
+      // Public properties
+      // =======================================================================
 
       /**
        * Whether the secondary side can be shown based on the feature state and
@@ -237,26 +210,61 @@ export class AppElement extends AppElementBase {
         notify: true,
       },
 
-      composeboxCloseByClickOutside_: {type: Boolean},
-      composeboxEnabled: {type: Boolean},
       composeButtonEnabled: {type: Boolean},
+      composeboxEnabled: {type: Boolean},
 
-      browserPromoType_: {type: String},
-      browserPromoLimit_: {type: Number},
-      browserPromoCompletedLimit_: {type: Number},
-      showBrowserPromo_: {type: Boolean},
+      // =======================================================================
+      // Protected properties
+      // =======================================================================
+
+      composeboxState_: {type: Object},
+      oneGoogleBarIframeOrigin_: {type: String},
+      oneGoogleBarIframePath_: {type: String},
+      oneGoogleBarLoaded_: {type: Boolean},
+      theme_: {type: Object},
+      showCustomize_: {type: Boolean},
+      showCustomizeChromeText_: {type: Boolean},
+      showWallpaperSearch_: {type: Boolean},
+      showVoiceSearchOverlay_: {type: Boolean},
+
+      showBackgroundImage_: {
+        reflect: true,
+        type: Boolean,
+      },
+
+      backgroundImageAttribution1_: {type: String},
+      backgroundImageAttribution2_: {type: String},
+      backgroundImageAttributionUrl_: {type: String},
+
+      // Used in cr-searchbox component via host-context.
+      colorSourceIsBaseline: {type: Boolean},
+      logoColor_: {type: String},
+      singleColoredLogo_: {type: Boolean},
 
       realboxShown_: {type: Boolean},
+
+      /**
+       * Whether the composebox has been opened at least once.
+       */
+      wasComposeboxOpened_: {type: Boolean},
+
+      showLensUploadDialog_: {type: Boolean},
+
+      showComposebox_: {
+        type: Boolean,
+        reflect: true,
+      },
+
       logoEnabled_: {type: Boolean},
       oneGoogleBarEnabled_: {type: Boolean},
       shortcutsEnabled_: {type: Boolean},
       middleSlotPromoEnabled_: {type: Boolean},
       modulesEnabled_: {type: Boolean},
-      middleSlotPromoLoaded_: {type: Boolean},
-      modulesLoadedStatus_: {
-        type: Number,
-        reflect: true,
-      },
+
+      browserPromoType_: {type: String},
+      browserPromoLimit_: {type: Number},
+      browserPromoCompletedLimit_: {type: Number},
+      showBrowserPromo_: {type: Boolean},
 
       modulesShownToUser: {
         type: Boolean,
@@ -268,33 +276,12 @@ export class AppElement extends AppElementBase {
 
       multiLineEnabled_: {type: Boolean},
 
-      ntpRealboxNextEnabled_: {
-        type: Boolean,
-        reflect: true,
-      },
-
       /**
        * In order to avoid flicker, the promo and modules are hidden until both
        * are loaded. If modules are disabled, the promo is shown as soon as it
        * is loaded.
        */
       promoAndModulesLoaded_: {type: Boolean},
-
-      realboxLayoutMode_: {
-        type: String,
-        reflect: true,
-      },
-
-      searchboxCyclingPlaceholders_: {
-        type: Boolean,
-      },
-
-      showComposebox_: {
-        type: Boolean,
-        reflect: true,
-      },
-
-      showLensUploadDialog_: {type: Boolean},
 
       /**
        * If true, renders additional elements that were not deemed crucial to
@@ -305,28 +292,41 @@ export class AppElement extends AppElementBase {
       scrolledToTop_: {type: Boolean},
 
       wallpaperSearchButtonAnimationEnabled_: {type: Boolean},
-
       wallpaperSearchButtonEnabled_: {type: Boolean},
-
       showWallpaperSearchButton_: {type: Boolean},
+      composeboxCloseByClickOutside_: {type: Boolean},
+      isActionChipsVisible_: {type: Boolean},
+      isFooterVisible_: {type: Boolean},
 
-      /**
-       * Whether the composebox has been opened at least once.
-       */
-      wasComposeboxOpened_: {type: Boolean},
+      ntpRealboxNextEnabled_: {
+        type: Boolean,
+        reflect: true,
+      },
+
+      realboxLayoutMode_: {
+        type: String,
+        reflect: true,
+      },
+
+      searchboxCyclingPlaceholders_: {
+        type: Boolean,
+      },
 
       ntpNextFeaturesEnabled_: {type: Boolean},
       maxTilesBeforeShowMore_: {type: Number},
-
       containerFocused_: {type: Boolean},
+
       /**
        * Whether the scrim is shown in Realbox Next.
        */
-      showScrim_: {type: Boolean, reflect: true},
+      showScrim_: {
+        type: Boolean,
+        reflect: true,
+      },
 
       contextMenuGlifAnimationState_: {type: String},
-      undoAutoRemovalCallback_: {type: Object},
-      undoAutoRemovalMessage_: {type: Object},
+      undoToastCallback_: {type: Object},
+      undoToastMessage_: {type: Object},
 
       /**
        * Whether to show the AIM threads rail when composebox is open.
@@ -336,9 +336,29 @@ export class AppElement extends AppElementBase {
         type: Boolean,
         reflect: true,
       },
+
+      // =======================================================================
+      // Private properties
+      // =======================================================================
+
+      selectedCustomizeDialogPage_: {type: String},
+      middleSlotPromoLoaded_: {type: Boolean},
+
+      modulesLoadedStatus_: {
+        type: Number,
+        reflect: true,
+      },
     };
   }
 
+  accessor realboxCanShowSecondarySide: boolean = false;
+  accessor realboxHadSecondarySide: boolean = false;
+  accessor composeButtonEnabled: boolean =
+      loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
+  accessor composeboxEnabled: boolean =
+      loadTimeData.getBoolean('searchboxShowComposebox');
+
+  protected accessor composeboxState_: ComposeboxState|null = null;
   protected accessor oneGoogleBarIframeOrigin_: string = OGB_IFRAME_ORIGIN;
   protected accessor oneGoogleBarIframePath_: string|undefined;
   protected accessor oneGoogleBarLoaded_: boolean = false;
@@ -346,7 +366,6 @@ export class AppElement extends AppElementBase {
   protected accessor showCustomize_: boolean = false;
   protected accessor showCustomizeChromeText_: boolean = false;
   protected accessor showWallpaperSearch_: boolean = false;
-  private accessor selectedCustomizeDialogPage_: string|null = null;
   protected accessor showVoiceSearchOverlay_: boolean = false;
   protected accessor showBackgroundImage_: boolean = false;
   protected accessor backgroundImageAttribution1_: string = '';
@@ -355,8 +374,6 @@ export class AppElement extends AppElementBase {
   protected accessor colorSourceIsBaseline: boolean = false;
   protected accessor logoColor_: SkColor|null = null;
   protected accessor singleColoredLogo_: boolean = false;
-  accessor realboxCanShowSecondarySide: boolean = false;
-  accessor realboxHadSecondarySide: boolean = false;
   protected accessor realboxShown_: boolean = false;
   protected accessor wasComposeboxOpened_: boolean = false;
   protected accessor showLensUploadDialog_: boolean = false;
@@ -380,9 +397,6 @@ export class AppElement extends AppElementBase {
   protected accessor browserPromoCompletedLimit_: number =
       loadTimeData.getInteger('browserPromoCompletedLimit');
   protected accessor showBrowserPromo_: boolean = false;
-  private accessor middleSlotPromoLoaded_: boolean = false;
-  private accessor modulesLoadedStatus_: ModuleLoadStatus =
-      ModuleLoadStatus.MODULE_LOAD_IN_PROGRESS;
   protected accessor modulesShownToUser: boolean = false;
   protected accessor microsoftModuleEnabled_: boolean =
       loadTimeData.getBoolean('microsoftModuleEnabled');
@@ -398,12 +412,8 @@ export class AppElement extends AppElementBase {
   protected accessor wallpaperSearchButtonEnabled_: boolean =
       loadTimeData.getBoolean('wallpaperSearchButtonEnabled');
   protected accessor showWallpaperSearchButton_: boolean = false;
-  accessor composeButtonEnabled: boolean =
-      loadTimeData.getBoolean('searchboxShowComposeEntrypoint');
   protected accessor composeboxCloseByClickOutside_: boolean =
       loadTimeData.getBoolean('composeboxCloseByClickOutside');
-  accessor composeboxEnabled: boolean =
-      loadTimeData.getBoolean('searchboxShowComposebox');
   protected accessor isActionChipsVisible_: boolean =
       loadTimeData.getBoolean('actionChipsEnabled');
   protected accessor isFooterVisible_: boolean = false;
@@ -419,13 +429,12 @@ export class AppElement extends AppElementBase {
       loadTimeData.getInteger('maxTilesBeforeShowMore');
   protected accessor containerFocused_: boolean = false;
   protected accessor showScrim_: boolean = false;
-
   protected accessor contextMenuGlifAnimationState_: GlifAnimationState =
       this.ntpNextFeaturesEnabled_ && this.isActionChipsVisible_ ?
       GlifAnimationState.SPINNER_ONLY :
       GlifAnimationState.INELIGIBLE;
-  protected accessor undoAutoRemovalCallback_: (() => void)|null = null;
-  protected accessor undoAutoRemovalMessage_: string|null = null;
+  protected accessor undoToastCallback_: (() => void)|null = null;
+  protected accessor undoToastMessage_: string|null = null;
   protected ephemeralContextMenuDescriptionEnabled_: boolean =
       loadTimeData.getBoolean('enableEphemeralContextMenuDescription') ?? false;
   protected showContextMenuDescription_: boolean =
@@ -433,6 +442,10 @@ export class AppElement extends AppElementBase {
   protected accessor enableThreadsRail_: boolean =
       loadTimeData.getBoolean('enableThreadsRail');
 
+  private accessor selectedCustomizeDialogPage_: string|null = null;
+  private accessor middleSlotPromoLoaded_: boolean = false;
+  private accessor modulesLoadedStatus_: ModuleLoadStatus =
+      ModuleLoadStatus.MODULE_LOAD_IN_PROGRESS;
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
   private customizeButtonsCallbackRouter_:
@@ -450,12 +463,7 @@ export class AppElement extends AppElementBase {
   private backgroundImageLoadStartEpoch_: number = 0;
   private backgroundImageLoadStart_: number = 0;
   private showWebstoreToastListenerId_: number|null = null;
-  private pendingComposeboxContextFiles_: ContextualUpload[] = [];
-  private pendingComposeboxText_: string = '';
-  private pendingComposeboxMode_: ToolMode = ToolMode.kUnspecified;
-  private pendingComposeboxModel_: ModelMode = ModelMode.kUnspecified;
-  private pendingAutoRemovalToasts_:
-      Array<{message: string, undo: () => void}> = [];
+  private pendingUndoToasts_: Array<{message: string, undo: () => void}> = [];
 
   constructor() {
     performance.mark('app-creation-start');
@@ -593,6 +601,13 @@ export class AppElement extends AppElementBase {
     this.eventTracker_.add(document, 'scroll', () => {
       this.scrolledToTop_ = document.documentElement.scrollTop <= 0;
     });
+    this.eventTracker_.add(
+        WindowProxy.getInstance().matchMedia('(prefers-color-scheme: dark)'),
+        'change', (e: MediaQueryListEvent) => {
+          if (e.matches) {
+            this.updateOneGoogleBarAppearance_();
+          }
+        });
     if (loadTimeData.getString('backgroundImageUrl')) {
       this.backgroundManager_.getBackgroundImageLoadTime().then(
           time => {
@@ -784,8 +799,8 @@ export class AppElement extends AppElementBase {
   // Called to update the OGB of relevant NTP state changes.
   private updateOneGoogleBarAppearance_() {
     if (this.oneGoogleBarLoaded_) {
-      const isNtpDarkTheme = this.theme_ &&
-            (!!this.theme_.backgroundImage || this.theme_.isDark);
+      const isNtpDarkTheme =
+          this.theme_ && (!!this.theme_.backgroundImage || this.theme_.isDark);
       $$<IframeElement>(this, '#oneGoogleBar')!.postMessage({
         type: 'updateAppearance',
         // We should be using a light OGB for dark themes and vice versa.
@@ -852,33 +867,13 @@ export class AppElement extends AppElementBase {
     return false;
   }
 
-  protected onComposeboxInitialized_(e: CustomEvent<{
-    initializeComposeboxState:
-        (text: string, files: ContextualUpload[], mode: ToolMode,
-         model: number) => void,
-  }>) {
-    e.detail.initializeComposeboxState(
-        this.pendingComposeboxText_, this.pendingComposeboxContextFiles_,
-        this.pendingComposeboxMode_, this.pendingComposeboxModel_);
-    this.pendingComposeboxContextFiles_ = [];
-    this.pendingComposeboxText_ = '';
-    this.pendingComposeboxMode_ = ToolMode.kUnspecified;
-    this.pendingComposeboxModel_ = ModelMode.kUnspecified;
-  }
-
-  protected onActionChipClick_(e: CustomEvent<OpenComposeboxEventDetail>) {
+  protected onActionChipClick_(e: CustomEvent<ComposeboxState>) {
     this.onOpenComposebox_(e);
   }
 
-  protected onOpenComposebox_(e: CustomEvent<OpenComposeboxEventDetail>) {
-    if (e.detail.searchboxText) {
-      this.pendingComposeboxText_ = e.detail.searchboxText;
-    }
-    if (e.detail.contextFiles && e.detail.contextFiles.length > 0) {
-      this.pendingComposeboxContextFiles_ = e.detail.contextFiles;
-    }
-    this.pendingComposeboxMode_ = e.detail.mode;
-    this.pendingComposeboxModel_ = e.detail.model;
+  protected onOpenComposebox_(e: CustomEvent<ComposeboxState>) {
+    this.composeboxState_ = e.detail;
+
     this.toggleComposebox_();
   }
 
@@ -1474,18 +1469,23 @@ export class AppElement extends AppElementBase {
    */
   protected onMostVisitedAutoRemoved_(
       undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
-    this.showAutoRemovedToast_(undoToastContext);
+    this.showUndoToast_(undoToastContext);
   }
 
   protected onModulesAutoRemoved_(
       undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
-    this.showAutoRemovedToast_(undoToastContext);
+    this.showUndoToast_(undoToastContext);
   }
 
-  protected showAutoRemovedToast_(
+  protected onActionChipsDisabled_(
       undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
-    this.pendingAutoRemovalToasts_.push(undoToastContext.detail);
-    this.processPendingAutoRemovalToasts_();
+    this.showUndoToast_(undoToastContext);
+  }
+
+  protected showUndoToast_(
+      undoToastContext: CustomEvent<{message: string, undo: () => void}>) {
+    this.pendingUndoToasts_.push(undoToastContext.detail);
+    this.processPendingUndoToasts_();
   }
 
   /**
@@ -1497,8 +1497,8 @@ export class AppElement extends AppElementBase {
    * multiple toasts at the same time. Otherwise, the first pending toast is
    * popped and shown.
    */
-  private processPendingAutoRemovalToasts_() {
-    if (this.pendingAutoRemovalToasts_.length === 0) {
+  private processPendingUndoToasts_() {
+    if (this.pendingUndoToasts_.length === 0) {
       return;
     }
 
@@ -1506,9 +1506,9 @@ export class AppElement extends AppElementBase {
       return;
     }
 
-    const undoToastContext = this.pendingAutoRemovalToasts_.shift()!;
-    this.undoAutoRemovalCallback_ = undoToastContext.undo;
-    this.undoAutoRemovalMessage_ = undoToastContext.message;
+    const undoToastContext = this.pendingUndoToasts_.shift()!;
+    this.undoToastCallback_ = undoToastContext.undo;
+    this.undoToastMessage_ = undoToastContext.message;
     this.$.undoToast.show();
   }
 
@@ -1517,12 +1517,12 @@ export class AppElement extends AppElementBase {
    * undo callback, and call the processing function to handle the next queued
    * toast (if any).
    */
-  protected onAutoRemovalUndoClick_() {
+  protected onUndoButtonClick_() {
     this.$.undoToast.hide();
-    this.undoAutoRemovalCallback_?.();
-    this.undoAutoRemovalCallback_ = null;
-    this.undoAutoRemovalMessage_ = null;
-    this.processPendingAutoRemovalToasts_();
+    this.undoToastCallback_?.();
+    this.undoToastCallback_ = null;
+    this.undoToastMessage_ = null;
+    this.processPendingUndoToasts_();
   }
 }
 

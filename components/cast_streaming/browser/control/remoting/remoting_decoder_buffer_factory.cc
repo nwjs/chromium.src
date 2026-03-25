@@ -20,13 +20,22 @@ RemotingDecoderBufferFactory::~RemotingDecoderBufferFactory() = default;
 scoped_refptr<media::DecoderBuffer>
 RemotingDecoderBufferFactory::ToDecoderBuffer(
     const openscreen::cast::EncodedFrame& encoded_frame,
-    base::span<const uint8_t> frame_data) {
+    FrameContents& frame_contents) {
   scoped_refptr<media::DecoderBuffer> decoder_buffer =
-      media::cast::ByteArrayToDecoderBuffer(frame_data);
+      media::cast::ByteArrayToDecoderBuffer(frame_contents.Get());
   if (!decoder_buffer) {
     DLOG(WARNING) << "Deserialization failed!";
     return nullptr;
   }
+
+  if (!frame_contents.Reset(decoder_buffer->size())) {
+    DLOG(WARNING) << "Buffer overflow!";
+    return nullptr;
+  }
+
+  // Replace the old contents of `frame_contents` (the entire `DecoderBuffer`)
+  // with just the `DecoderBuffer`'s byte data per method contract.
+  frame_contents.Get().copy_from(base::span(*decoder_buffer));
 
   return decoder_buffer;
 }

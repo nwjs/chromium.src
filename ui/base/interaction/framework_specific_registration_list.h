@@ -6,7 +6,6 @@
 #define UI_BASE_INTERACTION_FRAMEWORK_SPECIFIC_REGISTRATION_LIST_H_
 
 #include <concepts>
-#include <iterator>
 #include <memory>
 #include <vector>
 
@@ -30,8 +29,6 @@ class FrameworkSpecificRegistrationList {
   template <class It = typename ListType::iterator>
   class Iterator {
    public:
-    using difference_type = std::iter_difference_t<It>;
-
     Iterator() = default;
     ~Iterator() = default;
     Iterator(const Iterator&) = default;

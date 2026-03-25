@@ -59,6 +59,9 @@ using mojom::OnDeviceTranslationServiceConfigPtr;
 const char kOnDeviceTranslationServiceDisplayNamePrefix[] =
     "On-device Translation Service: ";
 
+constexpr char kCreateTranslatorMetricActionName[] = "CreateTranslator";
+constexpr char kCanTranslateMetricActionName[] = "CanTranslate";
+
 // TODO(crbug.com/419848973): This is a workaround until the "he" language code
 // is fully supported.
 std::string SwitchLanguageCodeToIwIfHe(std::string_view language_code) {
@@ -89,7 +92,7 @@ std::string ToString(const base::FilePath& path) {
 std::vector<base::FilePath> GetLanguagePackInfo(
     std::vector<mojom::OnDeviceTranslationLanguagePackagePtr>& packages) {
   CHECK(packages.empty());
-  std::vector<base::FilePath> package_pathes;
+  std::vector<base::FilePath> package_paths;
   for (const auto& it : kLanguagePackComponentConfigMap) {
     auto file_path =
         OnDeviceTranslationInstaller::GetInstance()->GetLanguagePackPath(
@@ -98,11 +101,11 @@ std::vector<base::FilePath> GetLanguagePackInfo(
       packages.push_back(mojom::OnDeviceTranslationLanguagePackage::New(
           std::string(ToLanguageCode(it.second->language1)),
           std::string(ToLanguageCode(it.second->language2))));
-      package_pathes.push_back(file_path);
+      package_paths.push_back(file_path);
     }
   }
 
-  return package_pathes;
+  return package_paths;
 }
 
 LanguagePackRequirements GetLanguagePackRequirements(
@@ -193,12 +196,21 @@ void OnDeviceTranslationServiceController::CreateTranslator(
       GetBestFitLanguageCode(source_lang);
   std::optional<std::string> best_fit_target_language =
       GetBestFitLanguageCode(target_lang);
+
+  RecordOnDeviceTranslationSupportedSourceLanguage(
+      "CreateTranslator", best_fit_source_language.has_value());
+  RecordOnDeviceTranslationSupportedTargetLanguage(
+      "CreateTranslator", best_fit_target_language.has_value());
   if (!best_fit_source_language.has_value() ||
       !best_fit_target_language.has_value()) {
     std::move(callback).Run(
         base::unexpected(CreateTranslatorError::kNotSupportedLanguage));
     return;
   }
+
+  RecordOnDeviceTranslationCallForLanguagePair(
+      kCreateTranslatorMetricActionName, *best_fit_source_language,
+      *best_fit_target_language);
 
   LanguagePackRequirements language_pack_requirements =
       GetLanguagePackRequirements(source_lang, target_lang);
@@ -292,12 +304,19 @@ void OnDeviceTranslationServiceController::CanTranslate(
       GetBestFitLanguageCode(source_lang_arg);
   std::optional<std::string> best_fit_target_language =
       GetBestFitLanguageCode(target_lang_arg);
+  RecordOnDeviceTranslationSupportedSourceLanguage(
+      "CanTranslate", best_fit_source_language.has_value());
+  RecordOnDeviceTranslationSupportedTargetLanguage(
+      "CanTranslate", best_fit_target_language.has_value());
   if (!best_fit_source_language.has_value() ||
       !best_fit_target_language.has_value()) {
     std::move(callback).Run(CanTranslateResult::kNoNotSupportedLanguage);
     return;
   }
 
+  RecordOnDeviceTranslationCallForLanguagePair(kCanTranslateMetricActionName,
+                                               *best_fit_source_language,
+                                               *best_fit_target_language);
   std::string source_lang = std::move(*best_fit_source_language);
   std::string target_lang = std::move(*best_fit_target_language);
   std::move(callback).Run(CanTranslateImpl(source_lang, target_lang));
@@ -346,13 +365,6 @@ void OnDeviceTranslationServiceController::OnLanguagePackInstallationChanged(
 }
 
 void OnDeviceTranslationServiceController::OnInstallationChanged() {
-  service_remote_.reset();
-  MaybeRunPendingTasks();
-}
-
-// Called when the TranslateKitBinaryPath pref is changed.
-void OnDeviceTranslationServiceController::OnTranslateKitBinaryPathChanged(
-    const std::string& pref_name) {
   service_remote_.reset();
   MaybeRunPendingTasks();
 }

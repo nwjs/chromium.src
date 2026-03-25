@@ -109,11 +109,25 @@ should be able to be added at any place in this file.
   <variant name=".UnpinItem" summary="Remove a custom item."/>
 </variants>
 
+<variants name="ContextualSearchAiModeButtonSurface">
+  <variant name="NtpOmnibox" summary="NTP Omnibox"/>
+  <variant name="NtpRealbox" summary="NTP Realbox"/>
+  <variant name="SrpOmnibox" summary="SRP Omnibox"/>
+  <variant name="WebOmnibox" summary="Web Omnibox"/>
+</variants>
+
 <variants name="ContextualSearchContextState">
+  <variant name="WithContextNoText" summary="with context but no typed text"/>
   <variant name="WithNonTabContext"
       summary="with non-tab context (e.g. files)"/>
   <variant name="WithoutContext" summary="without any context"/>
   <variant name="WithTabContext" summary="with tab context"/>
+</variants>
+
+<variants name="ContextualSearchInputStateDeletionType">
+  <variant name="File" summary="file"/>
+  <variant name="Tab" summary="tab"/>
+  <variant name="Tool" summary="tool"/>
 </variants>
 
 <variants name="ContextualSearchSource">
@@ -856,6 +870,8 @@ should be able to be added at any place in this file.
   <variant name=".AddedToComparisonTable" summary="Added to comparison table"/>
   <variant name=".AddedToReadingList" summary="Added to reading list"/>
   <variant name=".DiceUserMigrated" summary="DICe user migrated"/>
+  <variant name=".SkillDeleted" summary="Skill deleted"/>
+  <variant name=".SkillSaved" summary="Skill saved"/>
   <variant name=".SyncEsbOff"
       summary="Enhanced Protection setting has been synced to Off"/>
   <variant name=".SyncEsbOn"
@@ -10730,6 +10746,18 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action
+    name="ContextualSearch.AiModeButtonClick.{ContextualSearchAiModeButtonSurface}">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when the AI mode button is clicked on the
+    {ContextualSearchAiModeButtonSurface}.
+  </description>
+  <token key="ContextualSearchAiModeButtonSurface"
+      variants="ContextualSearchAiModeButtonSurface"/>
+</action>
+
 <action name="ContextualSearch.BackPressClose">
   <owner>donnd@chromium.org</owner>
   <description>
@@ -10923,6 +10951,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action
+    name="ContextualSearch.TypedSuggestNavigation.{TypedSuggestType}.{ContextualSearchSource}">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <description>
+    Recorded when a user navigates to a {TypedSuggestType} suggestion in the
+    typed mode from {ContextualSearchSource}.
+  </description>
+  <token key="TypedSuggestType">
+    <variant name="SearchSuggest"
+        summary="The user selected a suggestion from the dropdown."/>
+    <variant name="Verbatim"
+        summary="The user submitted the query verbatim (e.g. typed out the
+                 entire query and then pressed enter)."/>
+  </token>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</action>
+
 <action name="ContextualSearch.UncommonClose">
   <owner>donnd@chromium.org</owner>
   <description>
@@ -10941,15 +10987,40 @@ should be able to be added at any place in this file.
 </action>
 
 <action
-    name="ContextualSearch.UserAction.SubmitQuery.{ContextualSearchContextState}.{ContextualSearchSource}">
+    name="ContextualSearch.UserAction.InputStateDeletion.{ContextualSearchInputStateDeletionType}.{ContextualSearchSource}">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-desktop-search@google.com</owner>
+  <description>
+    Recorded when a user deletes a {ContextualSearchInputStateDeletionType} from
+    the composebox on {ContextualSearchSource}.
+  </description>
+  <token key="ContextualSearchInputStateDeletionType"
+      variants="ContextualSearchInputStateDeletionType"/>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</action>
+
+<action
+    name="ContextualSearch.UserAction.SubmitQueryV2.{ContextualSearchContextState}.{ContextualSearchSource}">
   <owner>niharm@google.com</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <description>
     Recorded when a query is submitted {ContextualSearchContextState} from
-    {ContextualSearchSource}.
+    {ContextualSearchSource}. Note that more than one entry can be submitted per
+    query submission if it overlaps with WithContextNoText.
   </description>
   <token key="ContextualSearchContextState"
       variants="ContextualSearchContextState"/>
+  <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
+</action>
+
+<action
+    name="ContextualSearch.UserAction.SubmitVoiceQuery.{ContextualSearchSource}">
+  <owner>niharm@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    Recorded when a query is submitted through a voice query from
+    {ContextualSearchSource}.
+  </description>
   <token key="ContextualSearchSource" variants="ContextualSearchSource"/>
 </action>
 
@@ -11110,6 +11181,16 @@ should be able to be added at any place in this file.
     <variant name=".CloseSidePanel" summary="The user closed the side panel."/>
     <variant name=".OpenSidePanel" summary="The user opened the side panel."/>
   </token>
+</action>
+
+<action
+    name="ContextualTasks.ToolbarCloseTabButton.UserAction.CloseTabAndExpandSidePanel">
+  <owner>yuhengh@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <description>
+    The user interacted with the contextual tasks toolbar close tab button. The
+    current tab will be closed and side panel will expand to a new tab.
+  </description>
 </action>
 
 <action name="ContextualTasks.WebUI.UserAction{ActionType}">
@@ -27257,6 +27338,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiEntryPointAvailable">
+  <owner>yasamans@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the Gemini entry point is available. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiEntryPointImpression">
   <owner>kanouche@google.com</owner>
   <description>
@@ -32502,12 +32591,6 @@ should be able to be added at any place in this file.
     <variant name=".MoveTabToOtherWindow.MultiTab"
         summary="User moved multiple tabs to another window via the tab
                  context menu on tab strip on Android."/>
-    <variant name=".MuteSite"
-        summary="User muted a site via the tab context menu on tab strip on
-                 Android."/>
-    <variant name=".MuteSite.MultiTab"
-        summary="User muted site(s) from multiple selected tabs via the tab
-                 context menu on tab strip on Android."/>
     <variant name=".NewGroup"
         summary="User created a new tab group via the tab context menu on tab
                  strip on Android."/>
@@ -32534,12 +32617,6 @@ should be able to be added at any place in this file.
     <variant name=".Shown.MultiTab"
         summary="Recorded when the tab context menu is shown with multiple
                  tabs selected."/>
-    <variant name=".UnmuteSite"
-        summary="User unmuted a site via the tab context menu on tab strip on
-                 Android."/>
-    <variant name=".UnmuteSite.MultiTab"
-        summary="User unmuted site(s) from multiple selected tabs via the tab
-                 context menu on tab strip on Android."/>
     <variant name=".UnpinTab"
         summary="User unpinned a tab via the tab context menu on tab strip on
                  Android."/>

@@ -54,10 +54,10 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
  public:
   FakeWebNNGraphImpl(
       mojo::PendingAssociatedReceiver<mojom::WebNNGraph> receiver,
-      WebNNContextImpl& context,
+      base::WeakPtr<WebNNContextImpl> context,
       ComputeResourceInfo compute_resource_info)
       : WebNNGraphImpl(std::move(receiver),
-                       context,
+                       std::move(context),
                        std::move(compute_resource_info),
                        /*devices=*/{}) {}
 
@@ -68,7 +68,8 @@ class FakeWebNNGraphImpl final : public WebNNGraphImpl {
       ComputeResourceInfo compute_resource_info,
       WebNNContextImpl::CreateGraphImplCallback callback) {
     std::move(callback).Run(base::MakeRefCounted<FakeWebNNGraphImpl>(
-        std::move(receiver), *context, std::move(compute_resource_info)));
+        std::move(receiver), std::move(context),
+        std::move(compute_resource_info)));
   }
 
  private:
@@ -1281,6 +1282,20 @@ TEST_F(WebNNGraphImplTest, Conv2dTest) {
         .output = {.type = OperandDataType::kFloat32,
                    .dimensions = {1, 1, 3, 3}},
         .expected = false}
+        .Test(*this);
+  }
+  {
+    // Test invalid conv2d: output_channels is not a multiple of groups.
+    // output_channels (7) % groups (2) != 0.
+    Conv2dTester{.type = mojom::Conv2d::Kind::kDirect,
+                 .input = {.type = OperandDataType::kFloat32,
+                           .dimensions = {1, 4, 5, 5}},
+                 .filter = {.type = OperandDataType::kFloat32,
+                            .dimensions = {7, 2, 3, 3}},
+                 .attributes = {.groups = 2},
+                 .output = {.type = OperandDataType::kFloat32,
+                            .dimensions = {1, 7, 3, 3}},
+                 .expected = false}
         .Test(*this);
   }
   {

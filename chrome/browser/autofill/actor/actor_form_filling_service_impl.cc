@@ -22,9 +22,11 @@
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/types/zip.h"
 #include "chrome/browser/autofill/actor/actor_filling_observer.h"
+#include "chrome/browser/autofill/actor/actor_key_metrics_recorder.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/autofill_client_provider.h"
 #include "chrome/browser/ui/autofill/autofill_client_provider_factory.h"
@@ -32,6 +34,7 @@
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/filling/form_filler.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
@@ -71,7 +74,7 @@ void RecordMetrics(std::string_view histogram_prefix,
 // Records the latency and result of filling suggestions. `is_payments_fill`
 // indicates whether any of the accepted suggestions was a payments suggestion.
 // It returns the unmodified `result` to enable usage in chained callbacks.
-base::expected<void, ActorFormFillingError> RecordFillSuggestionsMetrics(
+void RecordFillSuggestionsMetrics(
     base::TimeTicks start_time,
     bool is_payments_fill,
     base::expected<void, ActorFormFillingError> result) {
@@ -83,7 +86,6 @@ base::expected<void, ActorFormFillingError> RecordFillSuggestionsMetrics(
           ? "Autofill.Actor.FillSuggestions.WithPaymentInformation"
           : "Autofill.Actor.FillSuggestions.WithoutPaymentInformation",
       start_time, outcome);
-  return result;
 }
 
 // Records the latency and result of getting suggestions.
@@ -496,7 +498,6 @@ void ActorFormFillingServiceImpl::GetSuggestions(
   AutofillManager& autofill_manager = maybe_manager.value();
   LogManager* const log_manager =
       autofill_manager.client().GetCurrentLogManager();
-  ObserveManager(autofill_manager);
 
   // Fill requests should not be empty.
   if (fill_requests.empty()) {
@@ -643,8 +644,11 @@ void ActorFormFillingServiceImpl::GetSuggestions(
     }
   }
 
-  for (auto& [form_id, products] : products_by_form) {
-    metrics_recorder_.OnSuggestionsGenerated(form_id, products);
+  if (ActorKeyMetricsRecorder* recorder =
+          autofill_manager.client().GetActorKeyMetricsRecorder()) {
+    for (const auto& [form_id, products] : products_by_form) {
+      recorder->OnSuggestionsGenerated(form_id, products);
+    }
   }
 
   std::move(callback_with_metrics).Run(std::move(requests));
@@ -661,63 +665,28 @@ void ActorFormFillingServiceImpl::FillSuggestions(
             base::FindOrNull(fill_data_, selection.selected_suggestion_id);
         return fill_data && fill_data->HasPaymentsPayload();
       });
-  auto callback_with_metrics =
-      base::BindOnce(&RecordFillSuggestionsMetrics, base::TimeTicks::Now(),
-                     is_payments_fill)
-          .Then(std::move(callback));
+  auto callback_with_metrics = base::BindOnce(
+      [](base::WeakPtr<ActorFormFillingServiceImpl> service,
+         bool is_payments_fill,
+         base::OnceCallback<void(base::expected<void, ActorFormFillingError>)>
+             callback,
+         base::expected<void, ActorFormFillingError> result) {
+        if (!service) {
+          return;
+        }
+        RecordFillSuggestionsMetrics(base::TimeTicks::Now(), is_payments_fill,
+                                     result);
+        std::move(callback).Run(
+            service->errors_per_session_.empty()
+                ? result
+                : base::unexpected(service->errors_per_session_.front()));
 
-  // Helper to make the early returns less verbose.
-  auto post_error = [&callback_with_metrics](const base::Location& location,
-                                             ActorFormFillingError error) {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        location, base::BindOnce(std::move(callback_with_metrics),
-                                 base::unexpected(error)));
-  };
+        service->filling_observer_.reset();
+        service->errors_per_session_.clear();
+      },
+      weak_ptr_factory_.GetWeakPtr(), is_payments_fill, std::move(callback));
 
-  using enum ActorFormFillingError;
-  base::expected<std::reference_wrapper<BrowserAutofillManager>,
-                 ActorFormFillingError>
-      maybe_manager = GetAutofillManager(tab);
-  if (!maybe_manager.has_value()) {
-    post_error(FROM_HERE, maybe_manager.error());
-    return;
-  }
-  BrowserAutofillManager& autofill_manager = maybe_manager.value();
-  LogManager* const log_manager =
-      autofill_manager.client().GetCurrentLogManager();
-  ObserveManager(autofill_manager);
-
-  // All suggestion ids must have been generated by this service.
-  if (!std::ranges::all_of(
-          chosen_suggestions,
-          [&](ActorSuggestionId id) { return fill_data_.contains(id); },
-          &ActorFormFillingSelection::selected_suggestion_id)) {
-    LOG_AF(log_manager) << LoggingScope::kAutofillActor
-                        << "A suggestion id is invalid.";
-    post_error(FROM_HERE, kOther);
-    return;
-  }
-
-  std::vector<FieldGlobalId> all_field_ids;
-  for (const ActorFormFillingSelection& selection : chosen_suggestions) {
-    base::Extend(all_field_ids,
-                 fill_data_[selection.selected_suggestion_id].field_ids);
-  }
-
-  // Create a filling observer and keep it around until the maximum timeout is
-  // reached.
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::DoNothingWithBoundArgs(std::make_unique<ActorFillingObserver>(
-          autofill_manager.client(), all_field_ids,
-          std::move(callback_with_metrics))),
-      ActorFillingObserver::GetMaximumTimeout());
-
-  // Fill.
-  for (const ActorFormFillingSelection& selection : chosen_suggestions) {
-    FillOrPreviewFormImpl(tab, selection.selected_suggestion_id,
-                          mojom::ActionPersistence::kFill);
-  }
+  CHECK_DEREF(filling_observer_).Activate(std::move(callback_with_metrics));
 }
 
 void ActorFormFillingServiceImpl::ScrollToForm(const tabs::TabInterface& tab,
@@ -768,11 +737,15 @@ void ActorFormFillingServiceImpl::FillForm(
     const tabs::TabInterface& tab,
     int form_index,
     ActorFormFillingSelection selection) {
-  FillOrPreviewFormImpl(tab, selection.selected_suggestion_id,
-                        mojom::ActionPersistence::kFill);
+  std::optional<ActorFormFillingError> potential_error = FillOrPreviewFormImpl(
+      tab, selection.selected_suggestion_id, mojom::ActionPersistence::kFill);
+  if (potential_error) {
+    errors_per_session_.push_back(*potential_error);
+  }
 }
 
-void ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
+std::optional<ActorFormFillingError>
+ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
     const tabs::TabInterface& tab,
     ActorSuggestionId suggestion_id,
     mojom::ActionPersistence action_persistence) {
@@ -782,7 +755,7 @@ void ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
                  ActorFormFillingError>
       maybe_manager = GetAutofillManager(tab);
   if (!maybe_manager.has_value()) {
-    return;
+    return ActorFormFillingError::kAutofillNotAvailable;
   }
   BrowserAutofillManager& autofill_manager = maybe_manager.value();
   LogManager* const log_manager =
@@ -793,26 +766,39 @@ void ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
     LOG_AF(log_manager) << LoggingScope::kAutofillActor
                         << "Fill/Preview aborted: Could not find the "
                            "`FillData` with the given `ActorSuggestionId`.";
-    return;
+    return ActorFormFillingError::kOther;
   }
 
   if (fill_data->field_ids.empty()) {
     LOG_AF(log_manager) << LoggingScope::kAutofillActor
                         << "Fill/Preview aborted: The corresponding `FillData` "
                            "had no associated fields.";
-    return;
+    return ActorFormFillingError::kOther;
+  }
+
+  if (action_persistence == mojom::ActionPersistence::kFill) {
+    if (!filling_observer_) {
+      filling_observer_ =
+          std::make_unique<ActorFillingObserver>(autofill_manager.client());
+    }
+    filling_observer_->ObserveNewFilling(fill_data->field_ids);
   }
 
   for (FieldGlobalId trigger_field_id : fill_data->field_ids) {
     if (const FormStructure* const form_structure =
             autofill_manager.FindCachedFormById(trigger_field_id)) {
-      forms_to_fill_.insert(form_structure->global_id());
+      if (ActorKeyMetricsRecorder* recorder =
+              autofill_manager.client().GetActorKeyMetricsRecorder()) {
+        if (action_persistence == mojom::ActionPersistence::kFill) {
+          recorder->RecordFormToFill(form_structure->global_id());
+        }
+      }
       std::visit(absl::Overload{
                      [&](const AutofillProfile& autofill_profile) {
                        base::flat_set<FieldGlobalId> blocked_fields =
                            actor::GetBlockedFieldsForSplit(
                                *form_structure, trigger_field_id,
-                               fill_data->split_part);
+                               fill_data->split_part, action_persistence);
                        autofill_manager.FillOrPreviewFields(
                            action_persistence, form_structure->ToFormData(),
                            trigger_field_id, &autofill_profile,
@@ -834,51 +820,7 @@ void ActorFormFillingServiceImpl::FillOrPreviewFormImpl(
                  fill_data->filling_payload);
     }
   }
-}
-
-void ActorFormFillingServiceImpl::OnAfterFormsSeen(
-    AutofillManager& manager,
-    base::span<const FormGlobalId> updated_forms,
-    base::span<const FormGlobalId> removed_forms) {
-  metrics_recorder_.OnFormsRemoved(removed_forms);
-  for (const FormGlobalId& form_id : removed_forms) {
-    forms_to_fill_.erase(form_id);
-  }
-}
-
-void ActorFormFillingServiceImpl::OnAfterFormSubmitted(AutofillManager& manager,
-                                                       const FormData& form) {
-  if (const FormStructure* form_structure =
-          manager.FindCachedFormById(form.global_id())) {
-    metrics_recorder_.RecordKeyMetrics(manager, *form_structure);
-  }
-  forms_to_fill_.erase(form.global_id());
-}
-
-void ActorFormFillingServiceImpl::OnFillOrPreviewForm(
-    AutofillManager& manager,
-    FormGlobalId form_id,
-    mojom::ActionPersistence action_persistence,
-    const base::flat_set<FieldGlobalId>& filled_field_ids,
-    const FillingPayload& filling_payload) {
-  if (!forms_to_fill_.contains(form_id)) {
-    return;
-  }
-
-  metrics_recorder_.OnFormFilled(
-      form_id, filled_field_ids,
-      {std::holds_alternative<const CreditCard*>(filling_payload)
-           ? FillingProduct::kCreditCard
-           : FillingProduct::kAddress});
-}
-
-void ActorFormFillingServiceImpl::ObserveManager(AutofillManager& manager) {
-  if (managers_observation_.autofill_driver_factory() == nullptr) {
-    managers_observation_.Observe(
-        &manager.client(),
-        ScopedAutofillManagersObservation::InitializationPolicy::
-            kObservePreexistingManagers);
-  }
+  return std::nullopt;
 }
 
 }  // namespace autofill

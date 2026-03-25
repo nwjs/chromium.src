@@ -27,7 +27,6 @@ s! {
         pub iov_len: size_t,
     }
 
-    #[derive(Default)]
     pub struct timespec {
         pub tv_sec: time_t,
         pub tv_nsec: c_long,

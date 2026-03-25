@@ -197,7 +197,6 @@
 #include "components/feed/feed_feature_list.h"
 #else
 #include "chrome/common/record_replay/record_replay_features.h"
-#include "chrome/renderer/indigo/indigo_agent.h"
 #include "chrome/renderer/record_replay/record_replay_agent.h"
 #include "chrome/renderer/searchbox/searchbox.h"
 #include "chrome/renderer/searchbox/searchbox_extension.h"
@@ -719,7 +718,6 @@ void ChromeContentRendererClient::RenderFrameCreated(
           record_replay::features::kRecordReplayBase)) {
     new record_replay::RecordReplayAgent(render_frame, associated_interfaces);
   }
-  indigo::IndigoAgent::MaybeCreate(render_frame, associated_interfaces);
 #endif
 
   if (content_capture::features::IsContentCaptureEnabled()) {

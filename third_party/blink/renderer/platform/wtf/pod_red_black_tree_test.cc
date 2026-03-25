@@ -82,6 +82,7 @@ TEST(PodRedBlackTreeTest, TestDuplicateElementInsertion) {
   ASSERT_TRUE(tree.CheckInvariants());
   tree.Add(3);
   ASSERT_TRUE(tree.CheckInvariants());
+  EXPECT_EQ(3, tree.size());
   EXPECT_TRUE(tree.Contains(3));
 }
 
@@ -118,6 +119,7 @@ TEST(PodRedBlackTreeTest, TestMultipleElementInsertionAndDeletion) {
   EXPECT_TRUE(tree.Contains(3));
   EXPECT_FALSE(tree.Contains(4));
   EXPECT_FALSE(tree.Contains(5));
+  EXPECT_EQ(1, tree.size());
 }
 
 TEST(PodRedBlackTreeTest, TestDuplicateElementInsertionAndDeletion) {
@@ -128,14 +130,17 @@ TEST(PodRedBlackTreeTest, TestDuplicateElementInsertionAndDeletion) {
   ASSERT_TRUE(tree.CheckInvariants());
   tree.Add(3);
   ASSERT_TRUE(tree.CheckInvariants());
+  EXPECT_EQ(3, tree.size());
   EXPECT_TRUE(tree.Contains(3));
   tree.Remove(3);
   ASSERT_TRUE(tree.CheckInvariants());
   tree.Remove(3);
   ASSERT_TRUE(tree.CheckInvariants());
+  EXPECT_EQ(1, tree.size());
   EXPECT_TRUE(tree.Contains(3));
   tree.Remove(3);
   ASSERT_TRUE(tree.CheckInvariants());
+  EXPECT_EQ(0, tree.size());
   EXPECT_FALSE(tree.Contains(3));
 }
 

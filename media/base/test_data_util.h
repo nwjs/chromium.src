@@ -25,7 +25,15 @@ extern const char kErrorEventTitle[];
 extern const char kErrorTitle[];
 
 // A simple external memory wrapper around base::span for testing purposes.
-using ExternalMemoryAdapterForTesting = DecoderBuffer::UnownedExternalMemory;
+struct ExternalMemoryAdapterForTesting : public DecoderBuffer::ExternalMemory {
+ public:
+  explicit ExternalMemoryAdapterForTesting(base::span<const uint8_t> span)
+      : span_(std::move(span)) {}
+  const base::span<const uint8_t> Span() const override;
+
+ private:
+  const base::raw_span<const uint8_t> span_;
+};
 
 // Returns a file path for a file in the media/test/data directory.
 base::FilePath GetTestDataFilePath(std::string_view name);

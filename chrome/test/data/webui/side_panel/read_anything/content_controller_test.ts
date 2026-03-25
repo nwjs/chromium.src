@@ -201,6 +201,20 @@ suite('ContentController', () => {
     assertTrue(contentController.isEmpty());
   });
 
+  test('onNodeWillBeDeleted shows empty if only whitespace nodes', () => {
+    const id = 10;
+    const node = document.createTextNode('   ');
+    chrome.readingMode.rootId = id;
+    nodeStore.setDomNode(node, id);
+    contentController.setState(ContentType.HAS_CONTENT);
+
+    contentController.onNodeWillBeDeleted(id);
+
+    assertFalse(!!nodeStore.getDomNode(id));
+    assertFalse(contentController.hasContent());
+    assertTrue(contentController.isEmpty());
+  });
+
   test('onNodeWillBeDeleted notifies of new content', () => {
     const id = 12;
     chrome.readingMode.rootId = id;
@@ -262,6 +276,44 @@ suite('ContentController', () => {
       assertTrue(contentController.isEmpty());
     });
 
+    test('sets empty if only whitespace content', () => {
+      readingMode.getHtmlTag = () => '';
+      readingMode.getTextContent = () => '   ';
+      contentController.setState(ContentType.LOADING);
+
+      const root = contentController.updateContent();
+
+      assertFalse(!!root);
+      assertFalse(contentController.hasContent());
+      assertTrue(contentController.isEmpty());
+    });
+
+    test('sets empty if only whitespace content with readability', () => {
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      readingMode.htmlContent = '   ';
+      contentController.setState(ContentType.LOADING);
+
+      const root = contentController.updateContent();
+
+      assertFalse(!!root);
+      assertFalse(contentController.hasContent());
+      assertTrue(contentController.isEmpty());
+    });
+
+    test('sets empty if whitespace content with tags in readability', () => {
+      chrome.readingMode.activeDistillationMethod =
+          chrome.readingMode.distillationTypeReadability;
+      readingMode.htmlContent = '<div>   </div>';
+      contentController.setState(ContentType.LOADING);
+
+      const root = contentController.updateContent();
+
+      assertFalse(!!root);
+      assertFalse(contentController.hasContent());
+      assertTrue(contentController.isEmpty());
+    });
+
     test('logs new page with new tree', () => {
       readingMode.getHtmlTag = () => '';
       readingMode.getTextContent = () => 'okay like I know I ramble';
@@ -277,18 +329,49 @@ suite('ContentController', () => {
     });
 
     test('loads images with flag enabled', () => {
+      const rootId = 1;
       const imgId1 = 89;
       const imgId2 = 88;
+      const textId = 90;
       readingMode.imagesFeatureEnabled = true;
-      readingMode.getHtmlTag = () => '';
-      readingMode.getTextContent = () => 'okay like I know I ramble';
+      chrome.readingMode.rootId = rootId;
+
+      readingMode.getHtmlTag = (id) => {
+        if (id === rootId) {
+          return 'div';
+        }
+        if (id === imgId1 || id === imgId2) {
+          return 'img';
+        }
+        return '';
+      };
+
+      readingMode.getTextContent = (id) => {
+        if (id === textId) {
+          return 'I don\'t own a motorbike.';
+        }
+        return '';
+      };
+
+      // So that nodeStore.addImageToFetch(imgId1) is called in updateContent
+      readingMode.getChildren = (id) => {
+        if (id === rootId) {
+          return [imgId1, textId];
+        }
+        return [];
+      };
 
       readingMode.imagesEnabled = true;
-      nodeStore.addImageToFetch(imgId1);
       contentController.updateContent();
 
+      // So that nodeStore.addImageToFetch(imgId2) is called in updateContent
+      readingMode.getChildren = (id) => {
+        if (id === rootId) {
+          return [imgId2, textId];
+        }
+        return [];
+      };
       readingMode.imagesEnabled = false;
-      nodeStore.addImageToFetch(imgId2);
       contentController.updateContent();
 
       assertArrayEquals([imgId1, imgId2], readingMode.fetchedImages);
@@ -1063,6 +1146,48 @@ suite('ContentController', () => {
 
       assertTrue(receivedContentChange);
     });
+
+    test('updates read aloud state when images are updated', async () => {
+      const containerElement = document.createElement('div');
+      containerElement.id = 'container';
+      shadowRoot.appendChild(containerElement);
+
+      const imageElement = document.createElement('img');
+      const captionElement = document.createElement('figcaption');
+      captionElement.textContent = 'Image caption';
+      figure.appendChild(imageElement);
+      figure.appendChild(captionElement);
+      containerElement.appendChild(figure);
+
+      chrome.readingMode.imagesFeatureEnabled = true;
+      chrome.readingMode.imagesEnabled = true;
+      contentController.setState(ContentType.HAS_CONTENT);
+
+      let savedReadAloudState = false;
+      let resetForNewContent = false;
+      let updateReadAloudStateCalled = false;
+      let containerPassedToUpdateReadAloudState = false;
+
+      speechController.hasSpeechBeenTriggered = () => true;
+      speechController.saveReadAloudState = () => {
+        savedReadAloudState = true;
+      };
+      speechController.resetForNewContent = () => {
+        resetForNewContent = true;
+      };
+      contentController.updateReadAloudState = (node: Node) => {
+        updateReadAloudStateCalled = true;
+        containerPassedToUpdateReadAloudState = (node === containerElement);
+      };
+
+      contentController.updateImages(shadowRoot);
+      await microtasksFinished();
+
+      assertTrue(savedReadAloudState);
+      assertTrue(resetForNewContent);
+      assertTrue(updateReadAloudStateCalled);
+      assertTrue(containerPassedToUpdateReadAloudState);
+    });
   });
 
   suite('updateAnchorsForReadability', () => {
@@ -1263,5 +1388,48 @@ suite('ContentController', () => {
       // 4 status calls.
       assertEquals(4, metrics.getCallCount('recordCount'));
     });
+  });
+
+  suite('hidden images empty state', () => {
+    setup(() => {
+      readingMode.imagesFeatureEnabled = true;
+      readingMode.rootId = 1;
+      readingMode.getHtmlTag = (id) => id === 1 ? 'img' : '';
+      readingMode.getChildren = (id) => id === 1 ? [] : [];
+      readingMode.getTextContent = () => '';
+      readingMode.hasValidSelection = false;
+    });
+
+    test('Images enabled, images available, no text -> empty state', () => {
+      readingMode.imagesEnabled = true;
+      contentController.updateContent();
+      assertTrue(contentController.isEmpty());
+    });
+
+    test('Images disabled with images and no text -> empty state', () => {
+      readingMode.imagesEnabled = false;
+      contentController.updateContent();
+      assertTrue(contentController.isEmpty());
+    });
+
+    test(
+        'Images enabled, with images and no text, with selection -> has content',
+        () => {
+          readingMode.imagesEnabled = true;
+          readingMode.hasValidSelection = true;
+          const root = contentController.updateContent();
+          assertFalse(contentController.isEmpty());
+          assertTrue(contentController.hasContent());
+          assertTrue(root instanceof HTMLCanvasElement);
+        });
+
+    test(
+        'Images disabled, with images and no text, with selection -> empty state',
+        () => {
+          readingMode.imagesEnabled = false;
+          readingMode.hasValidSelection = true;
+          contentController.updateContent();
+          assertTrue(contentController.isEmpty());
+        });
   });
 });

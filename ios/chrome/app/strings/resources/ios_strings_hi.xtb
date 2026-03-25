@@ -298,7 +298,6 @@
 <translation id="2012723204723845092">आपका फिर से स्वागत है!</translation>
 <translation id="2015722694326466240">पासवर्ड देखने के लिए, आपको सबसे पहले अपने डिवाइस पर एक पासवर्ड सेट करना होगा.</translation>
 <translation id="201759455285471444">टैब ग्रुप को बड़ा करें.</translation>
-<translation id="202070562065520783">मुझे इसके बारे में पूरी जानकारी दो</translation>
 <translation id="2044394949148788042">टैब ग्रिड खोलें</translation>
 <translation id="2044681667265133332"><ph name="USER_EMAIL" /> खाते को <ph name="HOSTED_DOMAIN" /> मैनेज करता है. यह कुछ जानकारी देख सकता है. <ph name="BEGIN_LINK" />ज़्यादा जानें<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">नया आइटम</translation>
@@ -527,6 +526,7 @@
 <translation id="286382692684806520">{COUNT,plural, =1{1 साइट (सिंक किए गए डिवाइसों पर और भी साइटों का डेटा है)}one{# साइट (सिंक किए गए डिवाइसों पर और भी साइटों का डेटा है)}other{# साइटें (सिंक किए गए डिवाइसों पर और भी साइटों का डेटा है)}}</translation>
 <translation id="2870560284913253234">साइट</translation>
 <translation id="2876369937070532032">आपकी सुरक्षा को खतरा होने पर उन पेज के यूआरएल भेजे जाते हैं जिन पर आप Google के ज़रिए जाते हैं.</translation>
+<translation id="2877733045396505765">ऐसा करने पर, इस डिवाइस और आपके Google खाते <ph name="USER_EMAIL" /> में सेव की गई जानकारी में से, चुनी गई जानकारी मिट जाएगी.</translation>
 <translation id="2883151425485251736">अपने खाते से छिपाए गए विषयों को देखें और उनमें बदलाव करें</translation>
 <translation id="288655811176831528">टैब बंद करें</translation>
 <translation id="2888631381369839306">कीमत ट्रैक करने से जुड़ी सूचनाएं पाने की सुविधा चालू की गई</translation>
@@ -636,6 +636,7 @@
 <translation id="3324193307694657476">पता 2</translation>
 <translation id="3328801116991980348">साइट जानकारी</translation>
 <translation id="333229797575847124">इस सुविधा को चालू करने का तरीका</translation>
+<translation id="334004756946755423">मुझे इसके बारे में पूरी जानकारी दो:</translation>
 <translation id="3344233834747405775">कार्ड के मालिक का नाम अमान्य है</translation>
 <translation id="3344485292736684439">{count,plural, =1{आपके खाते, {email} में मौजूद "{title}" में बुकमार्क सेव किया गया}one{आपके खाते, {email} में मौजूद "{title}" में बुकमार्क सेव किया गया}other{आपके खाते, {email} में मौजूद "{title}" में बुकमार्क सेव किए गए}}</translation>
 <translation id="334690320928261823">हाल ही के टैब</translation>
@@ -1878,6 +1879,7 @@ Handoff को Settings के General अनुभाग में भी स�
 <translation id="775755486779745798">समयसीमा खत्म होने के महीने का नाम <ph name="MONTH" /> ऑटोमैटिक भरने का विकल्प चुनें</translation>
 <translation id="7758789811447313947">बैंगनी रंग वाली थीम</translation>
 <translation id="7759809451544302770">वैकल्पिक</translation>
+<translation id="7763878244904387570">ऐसा करने पर, इस डिवाइस में सेव की गई जानकारी में से, चुनी गई जानकारी मिट जाएगी.</translation>
 <translation id="7765158879357617694">ले जाएं</translation>
 <translation id="7772032839648071052">'पासफ़्रेज' की पुष्टि करें</translation>
 <translation id="7772948288262733182">आपका फिर से स्वागत है</translation>

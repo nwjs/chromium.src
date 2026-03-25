@@ -502,7 +502,7 @@ public class TabStateStore implements TabPersistentStore {
     }
 
     private void onTabStateDirtinessChanged(Tab tab, @DirtinessState int dirtiness) {
-        if (dirtiness != DirtinessState.CLEAN && !tab.isDestroyed()) {
+        if (dirtiness == DirtinessState.DIRTY && !tab.isDestroyed()) {
             saveTab(tab);
         }
     }
@@ -538,7 +538,7 @@ public class TabStateStore implements TabPersistentStore {
         TabStateAttributes attributes = TabStateAttributes.from(tab);
         assumeNonNull(attributes);
         // Save every clean tab on registration if we are not authoritative, we are catching up.
-        if (attributes.addObserver(mAttributesObserver) != DirtinessState.CLEAN
+        if (attributes.addObserver(mAttributesObserver) == DirtinessState.DIRTY
                 || mIsAuthoritative) {
             saveTab(tab);
         }

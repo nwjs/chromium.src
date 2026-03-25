@@ -48,6 +48,7 @@
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/integrators/compose/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_suggestion.h"
@@ -61,7 +62,6 @@
 #include "components/autofill/core/browser/metrics/suggestions_list_metrics.h"
 #include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
 #include "components/autofill/core/browser/payments/bnpl_manager.h"
-#include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
@@ -417,16 +417,12 @@ void AutofillExternalDelegate::AttemptToDisplayAutofillSuggestions(
 #else
       PopupAnchorType::kField;
 #endif
-
-  const bool show_tabbed_popup = ShouldShowPayNowPayLaterTabs();
-
   AutofillClient::PopupOpenArgs open_args(
       should_use_caret_bounds ? gfx::RectF(caret_bounds_)
                               : query_field_.bounds(),
       query_field_.text_direction(), suggestions, trigger_source_,
       query_field_.form_control_ax_id(),
-      should_use_caret_bounds ? PopupAnchorType::kCaret : default_anchor_type,
-      show_tabbed_popup);
+      should_use_caret_bounds ? PopupAnchorType::kCaret : default_anchor_type);
   manager_->client().ShowAutofillSuggestions(open_args, GetWeakPtr());
 }
 
@@ -1403,7 +1399,8 @@ void AutofillExternalDelegate::FillAutofillAiFormAndHidePopup(
             if (entity) {
               manager->FillOrPreviewForm(mojom::ActionPersistence::kFill, form,
                                          field_id, &*entity, trigger_source);
-            } else {
+            } else if (base::FeatureList::IsEnabled(
+                           features::kAutofillAiWalletPrivatePasses)) {
               manager->client().ShowAutofillAiFailureNotification(
                   l10n_util::GetStringUTF16(
                       IDS_AUTOFILL_AI_WALLET_FETCH_FAILURE_NOTIFICATION));
@@ -1466,11 +1463,13 @@ void AutofillExternalDelegate::FillAutofillAiFormAndHidePopup(
         // BUILDFLAG(IS_IOS)
   base::OnceCallback<std::optional<EntityInstance>(bool)>
       convert_auth_response = base::BindOnce(
-          [](EntityInstance masked_entity, bool auth_succeeded) {
+          [](const FieldTypeSet& ai_field_types, EntityInstance masked_entity,
+             bool auth_succeeded) {
+            LogReauthToFillResultPerFieldType(ai_field_types, auth_succeeded);
             return auth_succeeded ? std::move(masked_entity)
                                   : std::optional<EntityInstance>();
           },
-          *entity);
+          autofill_field->Type().GetAutofillAiTypes(), *entity);
   MaybeAuthenticateBeforeFilling(
       message, "Autofill.Ai.ReauthToFill",
       std::move(convert_auth_response).Then(std::move(fill_and_hide)));
@@ -1481,18 +1480,6 @@ void AutofillExternalDelegate::OnReauthCompleted(
     bool auth_succeeded) {
   authenticator_.reset();
   std::move(callback).Run(auth_succeeded);
-}
-
-bool AutofillExternalDelegate::ShouldShowPayNowPayLaterTabs() {
-  if (GetQueriedField()) {
-    return GetMainFillingProduct() == FillingProduct::kCreditCard &&
-           payments::ShouldShowBnplSuggestions(
-               manager_->client(),
-               GetQueriedField()->Type().GetCreditCardType()) &&
-           base::FeatureList::IsEnabled(
-               features::kAutofillEnablePayNowPayLaterTabs);
-  }
-  return false;
 }
 
 }  // namespace autofill

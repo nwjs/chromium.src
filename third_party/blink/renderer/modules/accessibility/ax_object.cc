@@ -39,6 +39,7 @@
 #include "build/build_config.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
+#include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom-blink.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink.h"
@@ -155,7 +156,6 @@
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_source.h"
-#include "ui/base/mojom/menu_source_type.mojom-blink.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/gfx/geometry/transform.h"
@@ -2961,15 +2961,11 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
   //  * Parent is a focusgroup owner whose role was implied (parent has no
   //    explicit role attribute and was generic before inference).
   //  * Current element has no explicit ARIA role (aria_role_ still kUnknown).
-  //  * Current element's native role is generic container, button, or popup
-  //    button (to avoid overriding richer native semantics like <a>, <input>,
-  //    etc.). Button and popup button are included because they are the most
-  //    common interactive elements used inside focusgroup patterns (e.g. tabs,
-  //    menu items, submenu triggers) and authors expect their roles to be
-  //    inferred from the focusgroup behavior. Toggle button (kToggleButton,
-  //    from aria-pressed) is intentionally excluded: aria-pressed declares
-  //    explicit stateful semantics that should not be overridden by implied
-  //    role inference.
+  //  * Current element's native role is generic container or button (to avoid
+  //    overriding richer native semantics like <a>, <input>, etc.).
+  //    Button is included because it is the most common interactive element
+  //    used inside focusgroup patterns (e.g. tabs, menu items) and authors
+  //    expect its role to be inferred from the focusgroup behavior.
   //  * The focusgroup owner's behavior maps to a child role (e.g. tablist->tab,
   //    radiogroup->radio, etc.).
   // TODO(crbug.com/40074157): Investigate why we need to check
@@ -2985,8 +2981,7 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
           element->GetExecutionContext()) &&
       (role_ == ax::mojom::blink::Role::kGenericContainer ||
        role_ == ax::mojom::blink::Role::kUnknown ||
-       role_ == ax::mojom::blink::Role::kButton ||
-       role_ == ax::mojom::blink::Role::kPopUpButton)) {
+       role_ == ax::mojom::blink::Role::kButton)) {
     // Avoid calling GetFocusgroupOwnerOfItem here to prevent
     // unnecessary style recalcs, and state-associated CHECKS.
     // Calling IsKeyboardFocusableSlow is safe here because we are passing the
@@ -7878,7 +7873,7 @@ bool AXObject::OnNativeShowContextMenuAction() {
   ContextMenuAllowedScope scope;
   WebInputEventResult result =
       document->GetFrame()->GetEventHandler().ShowNonLocatedContextMenu(
-          element, ui::mojom::blink::MenuSourceType::kKeyboard);
+          element, kMenuSourceKeyboard);
 
   // The node may have ceased to exist due to the event handler actions, so we
   // check its detached state. We also check the result of the contextMenu

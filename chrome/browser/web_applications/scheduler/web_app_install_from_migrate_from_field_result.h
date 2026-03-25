@@ -11,33 +11,28 @@
 
 namespace web_app {
 
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-// LINT.IfChange(WebAppInstallFromMigrateFromFieldResult)
 enum class WebAppInstallFromMigrateFromFieldResult {
   // The target app was already installed.
-  kAlreadyInstalled = 0,
+  kAlreadyInstalled,
   // The target app was not installed, and it was successfully installed with
   // the SUGGESTED_FROM_MIGRATION state.
-  kSuccessInstalled = 1,
+  kSuccessInstalled,
   // No migration source app from the manifest's migrate_from field is
   // currently installed.
-  kNoSourceAppInstalled = 2,
+  kNoSourceAppInstalled,
   // The manifest could not be converted to WebAppInstallInfo.
-  kManifestToWebAppInstallInfoError = 3,
+  kManifestToWebAppInstallInfoError,
   // The install from info job failed.
-  kInstallFromInfoFailed = 4,
+  kInstallFromInfoFailed,
   // The manifest update job failed.
-  kUpdateFailed = 5,
+  kUpdateFailed,
   // The web contents was destroyed before the command could complete.
-  kWebContentsWasDestroyed = 6,
+  kWebContentsWasDestroyed,
   // The user navigated away from the page before the command could complete.
-  kUserNavigated = 7,
+  kUserNavigated,
   // The system is shutting down.
-  kSystemShutdown = 8,
-  kMaxValue = kSystemShutdown,
+  kSystemShutdown,
 };
-// LINT.ThenChange(//tools/metrics/histograms/metadata/webapps/enums.xml:WebAppInstallFromMigrateFromFieldResult)
 
 std::ostream& operator<<(std::ostream& os,
                          WebAppInstallFromMigrateFromFieldResult result);

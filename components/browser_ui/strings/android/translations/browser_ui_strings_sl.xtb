@@ -269,6 +269,7 @@ Dodatna zaščita upravlja te nastavitve za Chrome:
 <translation id="3658847490588580244">Razdelek na dnu zaslona za privzeti brskalnik</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> spletno mesto v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}one{<ph name="RWS_MEMBERS_COUNT" /> spletno mesto v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}two{<ph name="RWS_MEMBERS_COUNT" /> spletni mesti v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}few{<ph name="RWS_MEMBERS_COUNT" /> spletna mesta v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}other{<ph name="RWS_MEMBERS_COUNT" /> spletnih mest v skupini spletnih mest <ph name="RWS_OWNER" />, ki si lahko ogledajo vašo dejavnost v skupini}}</translation>
 <translation id="3676777756440746804">Spletnim mestom je preprečeno, da bi od vas zahtevala uporabo podatkov, ki so jih shranila o vas</translation>
+<translation id="3677897809642449131">Spletna mesta lahko zahtevajo uporabo tipal gibanja</translation>
 <translation id="3678318839615834650">Razdelek na dnu zaslona za kartice strani »Nov zavihek« je odprt pri polni višini</translation>
 <translation id="3697164069658504920">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo uporabo naprav USB. Če je ta možnost izklopljena, spletna mesta ne smejo uporabljati naprav USB.</translation>
 <translation id="3703430731944883733">Upravljanje vira</translation>
@@ -490,6 +491,7 @@ Dodatna zaščita upravlja te nastavitve za Chrome:
 <translation id="5922853908706496913">Deljenje zaslona</translation>
 <translation id="5922967540311291836">Blokiranje piškotkov tretjih oseb:</translation>
 <translation id="5923512600150154850">S tem boste izbrisali <ph name="DATASIZE" /> podatkov in piškotkov, ki so jih shranila spletna mesta.</translation>
+<translation id="5930707844513754220">Prikaz več nastavitev seznama</translation>
 <translation id="5939518447894949180">Ponastavi</translation>
 <translation id="5948139900367969951">Hitro dostopajte do vsebine, ki vam je pomembna</translation>
 <translation id="5964247741333118902">Vdelana vsebina</translation>
@@ -498,6 +500,7 @@ Dodatna zaščita upravlja te nastavitve za Chrome:
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Vklop vira Odkrivanje</translation>
 <translation id="6012967556075291653">Pripeta bližnjica</translation>
+<translation id="6013003831291591200">Opravilo je končano</translation>
 <translation id="6015775454662021376">Nadziranje dostopa spletnega mesta do naprave</translation>
 <translation id="6022659036123304283">Prilagodite si Chrome</translation>
 <translation id="6040143037577758943">Zapri</translation>
@@ -748,6 +751,7 @@ Dodatna zaščita upravlja te nastavitve za Chrome:
 <translation id="8707904142362025782">Spletno mesto lahko zahteva uporabo fotoaparata</translation>
 <translation id="8712637175834984815">Razumem</translation>
 <translation id="8715862698998036666">Za izhod iz celozaslonskega načina povlecite z vrha in levega ali desnega roba.</translation>
+<translation id="8716050156658570300">Spletna mesta lahko zahtevajo uporabo tipal gibanja in svetlobe</translation>
 <translation id="8719283222052720129">V <ph name="BEGIN_LINK" />nastavitvah za Android<ph name="END_LINK" /> vklopite dovoljenje za aplikacijo <ph name="APP_NAME" />.</translation>
 <translation id="8721719390026067591">Če je ta možnost vklopljena, spletna mesta lahko zahtevajo iskanje naprav Bluetooth. Če je ta možnost izklopljena, spletna mesta ne smejo iskati naprav Bluetooth.</translation>
 <translation id="8725066075913043281">Poskusite znova</translation>

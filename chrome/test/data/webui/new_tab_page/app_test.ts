@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ActionChipsHandlerRemote, IconType, PageCallbackRouter as ActionChipsPageCallbackRouter} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
+import {ActionChipsHandlerRemote, IconType, PageCallbackRouter as ActionChipsPageCallbackRouter, ToolMode} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
 import type {PageRemote as ActionChipsPageRemote, TabInfo} from 'chrome://new-tab-page/action_chips.mojom-webui.js';
 import type {CustomizeButtonsDocumentRemote} from 'chrome://new-tab-page/customize_buttons.mojom-webui.js';
 import {CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerRemote, SidePanelOpenTrigger} from 'chrome://new-tab-page/customize_buttons.mojom-webui.js';
@@ -1305,7 +1305,7 @@ suite('NewTabPageAppTest', () => {
 
       // Act.
       ($$(app, '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       })));
       await microtasksFinished();
 
@@ -1324,7 +1324,7 @@ suite('NewTabPageAppTest', () => {
       const searchbox = $$(app, '#searchbox');
       assertTrue(!!searchbox);
       searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       }));
       await microtasksFinished();
 
@@ -1440,7 +1440,7 @@ suite('NewTabPageAppTest', () => {
       const searchbox = $$(app, '#searchbox');
       assertTrue(!!searchbox);
       searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       }));
       await microtasksFinished();
       const composebox = $$(app, '#composebox');
@@ -1463,7 +1463,7 @@ suite('NewTabPageAppTest', () => {
             const searchbox = $$(app, '#searchbox');
             assertTrue(!!searchbox);
             searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-              detail: {searchboxText: '', contextFiles: []},
+              detail: {text: '', files: []},
             }));
             await microtasksFinished();
             const composebox = app.shadowRoot.querySelector('cr-composebox');
@@ -1511,7 +1511,7 @@ suite('NewTabPageAppTest', () => {
             searchboxHandler.getCallCount('notifySessionAbandoned'), 0);
         ($$(app,
             '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {searchboxText: '', contextFiles: []},
+          detail: {text: '', files: []},
         })));
         await microtasksFinished();
         const escapeKeyEvent = new KeyboardEvent('keydown', {
@@ -1547,7 +1547,7 @@ suite('NewTabPageAppTest', () => {
             searchboxHandler.getCallCount('notifySessionAbandoned'), 0);
         ($$(app,
             '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
-          detail: {searchboxText: '', contextFiles: []},
+          detail: {text: '', files: []},
         })));
         await microtasksFinished();
         const composeboxScrim =
@@ -2173,7 +2173,7 @@ suite('NewTabPageAppTest', () => {
           const realbox = $$(app, '#searchbox');
           assertTrue(!!realbox);
           realbox.dispatchEvent(new CustomEvent('open-composebox', {
-            detail: {searchboxText: '', contextFiles: []},
+            detail: {text: '', files: []},
           }));
           await microtasksFinished();
           const composebox = app.shadowRoot.querySelector('cr-composebox');
@@ -2212,7 +2212,7 @@ suite('NewTabPageAppTest', () => {
       // Click on the context menu (the plus `+` button).
       // This fires open-composebox on the searchbox element.
       searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       }));
       await microtasksFinished();
       assertFalse(scrim.hidden);
@@ -2232,7 +2232,7 @@ suite('NewTabPageAppTest', () => {
 
       // 3 & 4. Open composebox (Deep Search tool).
       searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       }));
       await microtasksFinished();
       assertTrue((app as any).showComposebox_);
@@ -2260,7 +2260,7 @@ suite('NewTabPageAppTest', () => {
 
       // Act.
       ($$(app, '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: 'text', contextFiles: []},
+        detail: {text: 'text', files: []},
       })));
       await microtasksFinished();
 
@@ -2314,6 +2314,7 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kFavicon,
               primaryText: {text: 'TabContext', a11yText: null},
               secondaryText: {text: 'tab-subtitle', a11yText: null},
+              preselectedTool: ToolMode.kUnspecified,
             },
             tab: fakeTab,
           },
@@ -2323,6 +2324,7 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kBanana,
               primaryText: {text: 'Nano Banana', a11yText: null},
               secondaryText: {text: 'image-subtitle', a11yText: null},
+              preselectedTool: ToolMode.kImageGen,
             },
             tab: null,
           },
@@ -2332,6 +2334,7 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kGlobeWithSearchLoop,
               primaryText: {text: 'DeepSearch', a11yText: null},
               secondaryText: {text: 'ds-subtitle', a11yText: null},
+              preselectedTool: ToolMode.kDeepSearch,
             },
             tab: null,
           },
@@ -2423,7 +2426,8 @@ suite('NewTabPageAppTest', () => {
               app.shadowRoot.querySelector('ntp-action-chips');
           assertTrue(!!actionChipsElement);
           const nanoBananaChip =
-              actionChipsElement.shadowRoot.getElementById('nano-banana');
+              actionChipsElement.shadowRoot.querySelector<HTMLDivElement>(
+                  '.icon-type-banana');
           assertTrue(!!nanoBananaChip);
 
           // Act.
@@ -2447,7 +2451,8 @@ suite('NewTabPageAppTest', () => {
 
           // Setup.
           const deepSearchChip =
-              actionChipsElement.shadowRoot.getElementById('deep-search');
+              actionChipsElement.shadowRoot.querySelector<HTMLDivElement>(
+                  '.icon-type-globe-with-search-loop');
           assertTrue(!!deepSearchChip);
           deepSearchChip.click();
           await microtasksFinished();
@@ -2467,7 +2472,8 @@ suite('NewTabPageAppTest', () => {
 
       // Setup.
       const tabChip =
-          actionChipsElement.shadowRoot.getElementById('tab-context');
+          actionChipsElement.shadowRoot.querySelector<HTMLDivElement>(
+              '.icon-type-favicon');
       assertTrue(!!tabChip);
       tabChip.click();
       await microtasksFinished();
@@ -2491,6 +2497,7 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kSubArrowRight,
               primaryText: {text: 'Deep dive', a11yText: null},
               secondaryText: {text: subtitle, a11yText: null},
+              preselectedTool: ToolMode.kUnspecified,
             },
             tab: {
               tabId: 1,
@@ -2506,7 +2513,8 @@ suite('NewTabPageAppTest', () => {
 
           // Setup.
           const deepDiveChip =
-              actionChipsElement.shadowRoot.getElementById('deep-dive-0');
+              actionChipsElement.shadowRoot.querySelector<HTMLButtonElement>(
+                  'button:has(.icon-type-sub-arrow-right)');
           assertTrue(!!deepDiveChip);
 
           const chipBody = deepDiveChip.querySelector('.chip-body');
@@ -2544,7 +2552,7 @@ suite('NewTabPageAppTest', () => {
       const searchbox = $$(app, '#searchbox');
       assertTrue(!!searchbox);
       searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       }));
       await microtasksFinished();
 
@@ -2557,7 +2565,7 @@ suite('NewTabPageAppTest', () => {
       const searchbox = $$(app, '#searchbox');
       assertTrue(!!searchbox);
       searchbox.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       }));
       await microtasksFinished();
 
@@ -2569,7 +2577,7 @@ suite('NewTabPageAppTest', () => {
       await setThreadsRailEnabled(true);
       // Act: Open composebox to show threads rail.
       ($$(app, '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       })));
       await microtasksFinished();
 
@@ -2581,7 +2589,7 @@ suite('NewTabPageAppTest', () => {
       await setThreadsRailEnabled(true);
       // Arrange: Open composebox.
       ($$(app, '#searchbox')!.dispatchEvent(new CustomEvent('open-composebox', {
-        detail: {searchboxText: '', contextFiles: []},
+        detail: {text: '', files: []},
       })));
       await microtasksFinished();
 
@@ -2678,6 +2686,8 @@ suite('NewTabPageAppReducedMotionTest', () => {
         disabledModels: [],
         disabledTools: [],
         disabledInputTypes: [],
+        toolConfigs: [],
+        modelConfigs: [],
       },
     }));
     installMock(

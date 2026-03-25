@@ -71,10 +71,11 @@
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
-class BookmarksPageHandler::BookmarkContextMenu
-    : public ui::SimpleMenuModel,
-      public ui::SimpleMenuModel::Delegate,
-      public BookmarkContextMenuControllerDelegate {
+namespace {
+
+class BookmarkContextMenu : public ui::SimpleMenuModel,
+                            public ui::SimpleMenuModel::Delegate,
+                            public BookmarkContextMenuControllerDelegate {
  public:
   explicit BookmarkContextMenu(
       BrowserWindowInterface* browser_window,
@@ -82,8 +83,7 @@ class BookmarksPageHandler::BookmarkContextMenu
       std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
           bookmarks,
       const side_panel::mojom::ActionSource& source,
-      commerce::ShoppingListContextMenuController* shopping_list_controller,
-      bool can_paste)
+      commerce::ShoppingListContextMenuController* shopping_list_controller)
       : ui::SimpleMenuModel(this),
         embedder_(embedder),
         controller_(base::WrapUnique(new BookmarkContextMenuController(
@@ -94,8 +94,7 @@ class BookmarksPageHandler::BookmarkContextMenu
             browser_window->GetBrowserForMigrationOnly(),
             browser_window->GetProfile(),
             BookmarkLaunchLocation::kSidePanelContextMenu,
-            bookmarks,
-            can_paste))),
+            bookmarks))),
         shopping_list_controller_(shopping_list_controller),
         bookmarks_(bookmarks) {
     if (bookmarks.size() == 0) {
@@ -164,6 +163,8 @@ class BookmarksPageHandler::BookmarkContextMenu
     return controller_->IsCommandIdVisible(command_id);
   }
 
+  BookmarkContextMenuController* controller() { return controller_.get(); }
+
   // BookmarkContextMenuControllerDelegate:
   void CloseMenu() override {
     if (embedder_) {
@@ -187,11 +188,14 @@ class BookmarksPageHandler::BookmarkContextMenu
       bookmarks_;
 };
 
-namespace {
-
-std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
-BookmarksFromNodeIds(const std::vector<int64_t> node_ids,
-                     bookmarks::BookmarkModel* bookmark_model) {
+std::unique_ptr<BookmarkContextMenu> ContextMenuFromNodes(
+    const std::vector<int64_t> node_ids,
+    base::WeakPtr<TopChromeWebUIController::Embedder> embedder,
+    side_panel::mojom::ActionSource source,
+    commerce::ShoppingListContextMenuController* shopping_list_controller,
+    BrowserWindowInterface* browser_window) {
+  bookmarks::BookmarkModel* bookmark_model =
+      BookmarkModelFactory::GetForBrowserContext(browser_window->GetProfile());
   std::vector<raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>
       bookmarks = {};
   for (const int64_t id : node_ids) {
@@ -201,7 +205,11 @@ BookmarksFromNodeIds(const std::vector<int64_t> node_ids,
       bookmarks.push_back(bookmark);
     }
   }
-  return bookmarks;
+
+  return bookmarks.empty() ? nullptr
+                           : std::make_unique<BookmarkContextMenu>(
+                                 browser_window, embedder, bookmarks, source,
+                                 shopping_list_controller);
 }
 
 // Returns the Side Panel merged ID for permanent folders.
@@ -620,16 +628,22 @@ void BookmarksPageHandler::ExecuteContextMenuCommand(
     const std::vector<int64_t>& node_ids,
     side_panel::mojom::ActionSource source,
     int command_id) {
-  CreateContextMenuForNodes(
+  std::unique_ptr<BookmarkContextMenu> context_menu = ContextMenuFromNodes(
       node_ids, bookmarks_ui_->embedder(), source,
-      base::BindOnce(
-          [](int command_id,
-             std::unique_ptr<BookmarkContextMenu> context_menu) {
-            if (context_menu && context_menu->IsCommandIdEnabled(command_id)) {
-              context_menu->ExecuteCommand(command_id, 0);
-            }
-          },
-          command_id));
+      bookmarks_ui_->GetShoppingListContextMenuController(),
+      browser_window_interface_);
+  if (!context_menu) {
+    return;
+  }
+
+  BookmarkContextMenu* context_menu_ptr = context_menu.get();
+  context_menu_ptr->controller()->UpdateCanPaste(base::BindOnce(
+      [](std::unique_ptr<BookmarkContextMenu> context_menu, int command_id) {
+        if (context_menu->IsCommandIdEnabled(command_id)) {
+          context_menu->ExecuteCommand(command_id, 0);
+        }
+      },
+      std::move(context_menu), command_id));
 }
 
 void BookmarksPageHandler::OpenBookmark(
@@ -754,17 +768,11 @@ void BookmarksPageHandler::ShowContextMenu(
 
   auto embedder = bookmarks_ui_->embedder();
   if (embedder) {
-    CreateContextMenuForNodes(
+    std::unique_ptr<BookmarkContextMenu> context_menu = ContextMenuFromNodes(
         {id}, embedder, source,
-        base::BindOnce(
-            [](gfx::Point point,
-               base::WeakPtr<TopChromeWebUIController::Embedder> embedder,
-               std::unique_ptr<BookmarkContextMenu> context_menu) {
-              if (context_menu && embedder) {
-                embedder->ShowContextMenu(point, std::move(context_menu));
-              }
-            },
-            point, embedder));
+        bookmarks_ui_->GetShoppingListContextMenuController(),
+        browser_window_interface_);
+    embedder->ShowContextMenu(point, std::move(context_menu));
   }
 }
 
@@ -860,45 +868,6 @@ void BookmarksPageHandler::SendAllBookmarks(GetAllBookmarksCallback callback) {
   }
 
   std::move(callback).Run(std::move(mojo_nodes));
-}
-
-void BookmarksPageHandler::CreateContextMenuForNodes(
-    const std::vector<int64_t> node_ids,
-    base::WeakPtr<TopChromeWebUIController::Embedder> embedder,
-    side_panel::mojom::ActionSource source,
-    base::OnceCallback<void(std::unique_ptr<BookmarkContextMenu>)> callback) {
-  auto bookmarks = BookmarksFromNodeIds(
-      node_ids, BookmarkModelFactory::GetForBrowserContext(
-                    browser_window_interface_->GetProfile()));
-  auto parent = BookmarkContextMenuController::GetParentForNewNodes(bookmarks);
-  if (!parent) {
-    std::move(callback).Run(nullptr);
-    return;
-  }
-  BookmarkUIOperationsHelperMergedSurfaces(bookmark_merged_surface_,
-                                           parent.get())
-      .CanPasteFromClipboard(
-          base::BindOnce(&BookmarksPageHandler::OnCanPasteFromClipboard,
-                         weak_ptr_factory_.GetWeakPtr(), node_ids, embedder,
-                         source, std::move(callback)));
-}
-
-void BookmarksPageHandler::OnCanPasteFromClipboard(
-    const std::vector<int64_t> node_ids,
-    base::WeakPtr<TopChromeWebUIController::Embedder> embedder,
-    side_panel::mojom::ActionSource source,
-    base::OnceCallback<void(std::unique_ptr<BookmarkContextMenu>)> callback,
-    bool can_paste) {
-  auto bookmarks = BookmarksFromNodeIds(
-      node_ids, BookmarkModelFactory::GetForBrowserContext(
-                    browser_window_interface_->GetProfile()));
-  std::move(callback).Run(
-      bookmarks.empty()
-          ? nullptr
-          : std::make_unique<BookmarkContextMenu>(
-                browser_window_interface_, embedder, bookmarks, source,
-                bookmarks_ui_->GetShoppingListContextMenuController(),
-                can_paste));
 }
 
 void BookmarksPageHandler::BookmarkNodeAdded(const BookmarkParentFolder& parent,

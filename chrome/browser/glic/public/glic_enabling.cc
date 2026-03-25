@@ -537,12 +537,22 @@ bool GlicEnabling::IsTrustFirstOnboardingEnabledForProfile(Profile* profile) {
          base::FeatureList::IsEnabled(features::kGlicTrustFirstOnboarding);
 }
 
-bool GlicEnabling::ShouldBypassFreUi(
-    Profile* profile,
-    mojom::InvocationSource invocation_source) {
-  return invocation_source == mojom::InvocationSource::kAutoOpenedForPdf &&
-         base::FeatureList::IsEnabled(features::kAutoOpenGlicForPdf) &&
-         !HasConsentedForProfile(profile);
+bool GlicEnabling::IsAutoOpenForPdfEnabled(Profile* profile) {
+  if (!IsMultiInstanceEnabled() ||
+      !base::FeatureList::IsEnabled(features::kAutoOpenGlicForPdf)) {
+    return false;
+  }
+
+  if (HasConsentedForProfile(profile)) {
+    return true;
+  }
+
+  // If the user has not consented and with onboarding is enabled, the auto open
+  // behavior is gated by the Trust First onboarding feature.
+  if (features::kAutoOpenGlicForPdfWithOnboarding.Get()) {
+    return base::FeatureList::IsEnabled(features::kGlicTrustFirstOnboarding);
+  }
+  return false;
 }
 
 bool GlicEnabling::IsMultiInstanceEnabledByFlags() {

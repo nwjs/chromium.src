@@ -55,12 +55,13 @@ BASE_FEATURE(kContextualTasksRemoveTasksWithoutThreadsOrTabAssociations,
 BASE_FEATURE(kEnableNotifyZeroStateRenderedCapability,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kContextualTasksExpandButton, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kContextualTasksSendFullVersionListEnabled,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kContextualTasksUrlRedirectToAimUrl,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kContextualTasksUseStratusDarkModeColors,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, animates the caret.
@@ -109,6 +110,11 @@ const base::FeatureParam<double> kContentVisibilityThreshold{
     &kContextualTasksContext,
     "ContextualTasksContextContentVisibilityThreshold", 0.7};
 
+const base::FeatureParam<bool> kContextualTasksContextSmartTabSharing(
+    &kContextualTasksContext,
+    "ContextualTasksContextSmartTabSharing",
+    false);
+
 const base::FeatureParam<double> kContextualTasksContextLoggingSampleRate{
     &kContextualTasksContextLogging, "ContextualTasksContextLoggingSampleRate",
     1.0};
@@ -121,6 +127,10 @@ const base::FeatureParam<bool> kContextualTasksTabAutoSuggestionChipEnabled(
 const base::FeatureParam<std::string> kContextualTasksAiPageUrl{
     &kContextualTasks, "contextual-tasks-ai-page-url",
     "https://www.google.com/search?udm=50&sourceid=chrome"};
+
+const base::FeatureParam<std::string> kContextualTasksGeminiBaseUrl{
+    &kContextualTasks, "contextual-tasks-gemini-base-url",
+    "https://gemini.google.com/app/"};
 
 // The host that any URL loaded in the embedded WebUi page will be routed to.
 const base::FeatureParam<std::string> kContextualTasksForcedEmbeddedPageHost{
@@ -181,16 +191,6 @@ const base::FeatureParam<bool> kForceGscInTabMode(
 // Version 2.0: M146 respin launch candidate.
 const base::FeatureParam<std::string> kContextualTasksUserAgentSuffix{
     &kContextualTasks, "contextual-tasks-user-agent-suffix", "Cobrowsing/2.0"};
-
-const base::FeatureParam<bool> kEnableSteadyComposeboxVoiceSearch(
-    &kContextualTasks,
-    "ContextualTasksEnableSteadyComposeboxVoiceSearch",
-    true);
-
-const base::FeatureParam<bool> kEnableExpandedComposeboxVoiceSearch(
-    &kContextualTasks,
-    "ContextualTasksEnableExpandedComposeboxVoiceSearch",
-    true);
 
 // TODO(b/481079194): Remove `kAutoSubmitVoiceSearchQuery` and the code that
 // respects its disabled state.
@@ -268,7 +268,7 @@ const base::FeatureParam<std::string> kContextualTasksDisplayUrlPath(
 const base::FeatureParam<bool> kContextualTasksShowExpandedSecurityChip(
     &kContextualTasks,
     "ContextualTasksShowExpandedSecurityChip",
-    true);
+    false);
 
 const base::FeatureParam<bool>
     kContextualTasksForceBasicModeIfOpeningThreadHistory(
@@ -301,14 +301,6 @@ int ContextualTasksInactiveSidePanelKeepInCacheMinutes() {
   return kContextualTasksInactiveSidePanelKeepInCacheMinutes.Get();
 }
 
-bool GetIsExpandedComposeboxVoiceSearchEnabled() {
-  return kEnableExpandedComposeboxVoiceSearch.Get();
-}
-
-bool GetIsSteadyComposeboxVoiceSearchEnabled() {
-  return kEnableSteadyComposeboxVoiceSearch.Get();
-}
-
 bool GetAutoSubmitVoiceSearchQuery() {
   return kAutoSubmitVoiceSearchQuery.Get();
 }
@@ -335,6 +327,10 @@ bool ShouldForceCountryCodeUS() {
 
 std::string GetContextualTasksAiPageUrl() {
   return kContextualTasksAiPageUrl.Get();
+}
+
+std::string GetContextualTasksGeminiBaseUrl() {
+  return kContextualTasksGeminiBaseUrl.Get();
 }
 
 std::string GetContextualTasksDisplayUrlScheme() {
@@ -389,11 +385,13 @@ const base::FeatureParam<int> kContextualTasksNextboxMaxFileSize{
     &kContextualTasksContextMenu, "ContextualTasksNextboxMaxFileSize",
     20 * 1024 * 1024};
 
-const base::FeatureParam<int> kContextualTasksNextboxMaxFileCount{
-    &kContextualTasksContextMenu, "ContextualTasksNextboxMaxFileCount", 10};
-
 bool GetIsContextualTasksSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(kContextualTasksSuggestionsEnabled);
+}
+
+bool GetIsSmartTabSharingEnabled() {
+  return base::FeatureList::IsEnabled(kContextualTasksContext) &&
+         kContextualTasksContextSmartTabSharing.Get();
 }
 
 bool GetIsTabAutoSuggestionChipEnabled() {
@@ -454,6 +452,10 @@ bool ShouldEnableLockAndUnlockInputCapability() {
          kContextualTasksLockAndUnlockInputCapability.Get();
 }
 
+bool ShouldUseStratusDarkModeColors() {
+  return base::FeatureList::IsEnabled(kContextualTasksUseStratusDarkModeColors);
+}
+
 bool GetEnableFileHint() {
   return base::FeatureList::IsEnabled(kContextualTasksEnableFileHint);
 }
@@ -476,12 +478,6 @@ const char kContextualTasksContextLibraryName[] =
     "Contextual Tasks Context Library";
 const char kContextualTasksContextLibraryDescription[] =
     "Enables integration with the server side context library.";
-
-const char kContextualTasksExpandButtonName[] =
-    "Contextual Tasks Expand Button";
-const char kContextualTasksExpandButtonDescription[] =
-    "Replace the overflow menu in the side panel with a button to move the "
-    "thread to a new tab.";
 
 const char kContextualTasksSuggestionsEnabledName[] =
     "Contextual Tasks Suggestions Enabled";

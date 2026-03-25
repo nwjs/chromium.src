@@ -12,7 +12,6 @@
 #include "chrome/browser/ui/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/page_action/page_action_controller.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
 #include "read_anything_entry_point_controller.h"
@@ -27,6 +26,10 @@ ReadAnythingOmniboxController::ReadAnythingOmniboxController(
   // enabled.
   CHECK(features::IsReadAnythingOmniboxChipEnabled() &&
         base::FeatureList::IsEnabled(features::kPageActionsMigration));
+
+  read_anything::ReadAnythingEntryPointController::
+      RegisterForSuggestReadingMode(
+          tab_->GetBrowserWindowInterface()->GetProfile());
 
   RegisterAsPageActionObserver(
       *tab_->GetTabFeatures()->page_action_controller());
@@ -91,8 +94,7 @@ void ReadAnythingOmniboxController::Activate(
     // Hide the omnibox entrypoint now that RM is already showing.
     read_anything::ReadAnythingEntryPointController::UpdatePageActionVisibility(
         /*should_show_page_action=*/false, tab_->GetBrowserWindowInterface());
-  } else if (!features::IsImmersiveReadAnythingEnabled() &&
-             tab_->IsActivated()) {
+  } else if (!features::IsImmersiveReadAnythingEnabled()) {
     // Show the entrypoint again once RM is closed. In immersive mode, do this
     // in OnReadingModePresenterChanged instead since the presentation state
     // does not change right away.
@@ -138,18 +140,15 @@ void ReadAnythingOmniboxController::PrimaryPageChanged(content::Page& page) {
     return;
   }
 
-  UpdateIgnored(GetCurrentPageActionState().showing);
-  if (!read_anything::ReadAnythingEntryPointController::
-          CheckIfShouldSuggestReadingModeNaive(
-              tab_->GetBrowserWindowInterface())) {
-    UpdateVisibility(false);
-  }
-
   StopTimers();
+  UpdateIgnored(GetCurrentPageActionState().showing);
+  DebounceCheckSuggestion();
 }
 
 void ReadAnythingOmniboxController::DidStopLoading() {
-  DebounceCheckSuggestion();
+  if (check_suggestion_debouncer_ && check_suggestion_debouncer_->IsRunning()) {
+    check_suggestion_debouncer_->Reset();
+  }
 }
 
 void ReadAnythingOmniboxController::DebounceCheckSuggestion() {

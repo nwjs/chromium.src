@@ -38,6 +38,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/vector2d.h"
+#include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/view_utils.h"
 
 DEFINE_UI_CLASS_PROPERTY_TYPE(gfx::Vector2d*)
@@ -479,7 +480,12 @@ TabDragContext* VerticalTabDragHandlerImpl::GetDragContext() {
 }
 
 bool VerticalTabDragHandlerImpl::IsDragging() const {
-  return drag_controller_ && drag_controller_->started_drag() &&
+  // We check if the drag controller is attached to this context instead of
+  // `started_drag()` because `started_drag()` only becomes true after the
+  // initial selection reset that occurs when a drag truly begins. If we
+  // relied on `started_drag()`, the vertical tab strip might incorrectly
+  // expand a collapsed group during that initial selection change.
+  return drag_controller_ && drag_controller_->attached_context() == this &&
          drag_controller_->active();
 }
 
@@ -578,6 +584,19 @@ VerticalTabDragHandlerImpl::GetLinkDropIndexForNode(
     const TabCollectionNode& node,
     std::optional<DragPositionHint> position_hint) const {
   return link_drop_handler_->GetDropIndexForNode(node, position_hint);
+}
+
+void VerticalTabDragHandlerImpl::OnTabWillBeAdded() {
+  if (drag_controller_) {
+    drag_controller_->EndDrag(EndDragReason::kModelAddedTab);
+  }
+}
+
+void VerticalTabDragHandlerImpl::OnTabWillBeRemoved(
+    content::WebContents* contents) {
+  if (drag_controller_) {
+    drag_controller_->OnTabWillBeRemoved(contents);
+  }
 }
 
 bool VerticalTabDragHandlerImpl::CanAcceptEvent(const ui::Event& event) {
@@ -772,6 +791,13 @@ VerticalTabDragHandlerImpl::GetPositioningDelegate() {
   // Positioning is implemented through `TabDragDelegate` on individual
   // containers.
   return nullptr;
+}
+
+bool VerticalTabDragHandlerImpl::NotifyCustomEvent(
+    ui::CustomElementEventType event_type,
+    TabSlotView* tab_slot_view) {
+  return views::ElementTrackerViews::GetInstance()->NotifyCustomEvent(
+      event_type, ViewFromTabSlot(tab_slot_view));
 }
 
 TabCollectionNode* VerticalTabDragHandlerImpl::GetNodeForContents(

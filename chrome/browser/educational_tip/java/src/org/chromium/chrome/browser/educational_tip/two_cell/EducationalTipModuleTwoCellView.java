@@ -79,6 +79,7 @@ public class EducationalTipModuleTwoCellView extends LinearLayout {
 
     public void setItem1OnClickListener(OnClickListener listener) {
         mItem1Layout.setOnClickListener(listener);
+        mItem1Layout.setOnLongClickListener(v -> false);
     }
 
     public void setItem2Title(String title) {
@@ -100,6 +101,7 @@ public class EducationalTipModuleTwoCellView extends LinearLayout {
 
     public void setItem2OnClickListener(OnClickListener listener) {
         mItem2Layout.setOnClickListener(listener);
+        mItem2Layout.setOnLongClickListener(v -> false);
     }
 
     private void applyCompletedStyle(
@@ -113,10 +115,12 @@ public class EducationalTipModuleTwoCellView extends LinearLayout {
             descriptionView.setPaintFlags(
                     descriptionView.getPaintFlags() | android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
 
-            // Disable clicks on the item layout
+            itemLayout.setForeground(null);
+
+            // Accessibility
             itemLayout.setOnClickListener(null);
             itemLayout.setClickable(false);
-            itemLayout.setForeground(null);
+            SetupListModuleUtils.setCompletedAccessibilityStateDescription(itemLayout);
         } else {
             int titleColor = getContext().getColor(R.color.default_text_color_list);
             int descriptionColor = getContext().getColor(R.color.default_text_color_secondary_list);
@@ -129,6 +133,7 @@ public class EducationalTipModuleTwoCellView extends LinearLayout {
                             & ~android.graphics.Paint.STRIKE_THRU_TEXT_FLAG);
 
             itemLayout.setClickable(true);
+            SetupListModuleUtils.clearAccessibilityStateDescription(itemLayout);
         }
     }
 

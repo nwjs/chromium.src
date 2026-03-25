@@ -812,8 +812,7 @@ DocumentFragment* ParseHTMLFragment(const String& markup,
   }
 
   const ParserContentPolicy content_policy =
-      (RuntimeEnabledFeatures::SetHTMLCanRunScriptsEnabled() &&
-       options.run_scripts() == FragmentParserOptions::RunScripts::kRunScripts)
+      options.run_scripts() == FragmentParserOptions::RunScripts::kRunScripts
           ? kAllowScriptingContentAndDoNotMarkAlreadyStarted
           : kAllowScriptingContent;
 
@@ -1000,23 +999,16 @@ DocumentFragment* CreateContextualFragment(const String& html,
     return nullptr;
   }
 
-  // Use null registry to create fragment if the context element is a
-  // template element as the container of the document fragment will be a
-  // document fragment without browsing context.
-  CustomElementRegistry* registry =
-      RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()
-          ? (IsA<HTMLTemplateElement>(*element)
-                 ? nullptr
-                 : element->customElementRegistry())
-          : element->GetDocument().customElementRegistry();
-
   DocumentFragment* fragment = blink::ParseHTMLFragment(
       html,
       {
           .interface_name = trusted_types_names::kRange,
           .property_name = trusted_types_names::kCreateContextualFragment,
           .context_element = element,
-          .registry = registry,
+          .registry =
+              RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()
+                  ? element->customElementRegistry()
+                  : element->GetDocument().customElementRegistry(),
       },
       FragmentParserOptions(FragmentParserOptions::RunScripts::kRunScripts),
       exception_state);

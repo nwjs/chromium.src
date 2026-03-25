@@ -360,9 +360,7 @@ void GlicKeyedService::ToggleUIInternal(
   }
 
   // Show the FRE if not yet completed, and if we have a browser to use.
-  // Ignore ShouldBypassFreUi if auto_send is true.
-  if ((!GlicEnabling::ShouldBypassFreUi(profile_, source) || auto_send) &&
-      fre_controller_->ShouldShowFreDialog()) {
+  if (fre_controller_->ShouldShowFreDialog()) {
     fre_controller_->MarkFreStartAttempt();
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
     if (!GlicEnabling::IsUnifiedFreEnabled(profile_)) {
@@ -777,6 +775,11 @@ void GlicKeyedService::CaptureRegion(
     tabs::TabInterface* tab,
     mojo::PendingRemote<mojom::CaptureRegionObserver> observer) {
   region_capture_controller_->CaptureRegion(tab, std::move(observer));
+}
+
+void GlicKeyedService::DeleteCapturedRegion(tabs::TabInterface* tab,
+                                            const base::UnguessableToken& id) {
+  region_capture_controller_->DeleteRegion(tab, id);
 }
 #endif
 

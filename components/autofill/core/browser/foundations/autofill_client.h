@@ -91,6 +91,7 @@ class AccessibilityQueryService;
 
 namespace autofill {
 
+class ActorKeyMetricsRecorder;
 class AutofillManager;
 class AddressNormalizer;
 class AutocompleteHistoryManager;
@@ -219,8 +220,7 @@ class AutofillClient {
                   std::vector<Suggestion> suggestions,
                   AutofillSuggestionTriggerSource trigger_source,
                   int32_t form_control_ax_id,
-                  PopupAnchorType anchor_type,
-                  bool show_tabbed_popup = false);
+                  PopupAnchorType anchor_type);
     PopupOpenArgs(const PopupOpenArgs&);
     PopupOpenArgs(PopupOpenArgs&&);
     PopupOpenArgs& operator=(const PopupOpenArgs&);
@@ -237,7 +237,6 @@ class AutofillClient {
         AutofillSuggestionTriggerSource::kUnspecified;
     int32_t form_control_ax_id = 0;
     PopupAnchorType anchor_type = PopupAnchorType::kField;
-    bool show_tabbed_popup = false;
   };
 
   using EntityImportPromptResultCallback =
@@ -585,6 +584,9 @@ class AutofillClient {
   // Returns whether there is an active actor task for this client's tab (if
   // one exists).
   virtual bool IsTabInActorMode() const;
+
+  // Returns the `ActorKeyMetricsRecorder` for the current tab (if one exists).
+  virtual ActorKeyMetricsRecorder* GetActorKeyMetricsRecorder();
 
   // Returns true if either Profile or CreditCard Autofill is enabled.
   virtual bool IsAutofillEnabled() const = 0;

@@ -1131,6 +1131,14 @@ const FeatureEntry::FeatureVariation kComposeboxDevToolsVariations[] = {
     {"Slow Load (1s)", kComposeboxDevToolsSlowLoad, nullptr},
     {"Slow Upload (3s)", kComposeboxDevToolsSlowUpload, nullptr}};
 
+const FeatureEntry::FeatureParam kComposeboxConditionalPlusButtonHidePreEdit[] =
+    {{kComposeboxConditionalPlusButtonParam, "1"}};
+
+const FeatureEntry::FeatureVariation
+    kComposeboxConditionalPlusButtonVariations[] = {
+        {"(Hide Plus button in pre-edit)",
+         kComposeboxConditionalPlusButtonHidePreEdit, nullptr}};
+
 const FeatureEntry::FeatureParam kMobilePromoOnDesktopLens[] = {
     {kMobilePromoOnDesktopPromoTypeParam, "1"},
     {kMobilePromoOnDesktopNotificationParam, "false"}};
@@ -1246,12 +1254,15 @@ const FeatureEntry::FeatureParam kGeminiCopresenceResponseReadyIntervalParam[] =
 const FeatureEntry::FeatureParam
     kGeminiCopresenceWithFullscreenDisablerParam[] = {
         {kGeminiCopresenceWithFullscreenDisabler, "true"}};
+const FeatureEntry::FeatureParam kGeminiCopresenceTrackSourcesParam[] = {
+    {kGeminiCopresenceTrackSources, "true"}};
 
 const FeatureEntry::FeatureVariation kGeminiCopresenceVariations[] = {
     {"Response Ready Interval", kGeminiCopresenceResponseReadyIntervalParam,
      nullptr},
     {"With Fullscreen Disabler", kGeminiCopresenceWithFullscreenDisablerParam,
      nullptr},
+    {"Track Sources", kGeminiCopresenceTrackSourcesParam, nullptr},
 };
 
 const char kFRESignInHeaderTextUpdateParamName[] =
@@ -2507,6 +2518,13 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
      flag_descriptions::kComposeboxCloseButtonTopAlignName,
      flag_descriptions::kComposeboxCloseButtonTopAlignDescription,
      flags_ui::kOsIos, FEATURE_VALUE_TYPE(kComposeboxCloseButtonTopAlign)},
+    {"composebox-conditional-plus-button",
+     flag_descriptions::kComposeboxConditionalPlusButtonName,
+     flag_descriptions::kComposeboxConditionalPlusButtonDescription,
+     flags_ui::kOsIos,
+     FEATURE_WITH_PARAMS_VALUE_TYPE(kComposeboxConditionalPlusButton,
+                                    kComposeboxConditionalPlusButtonVariations,
+                                    "ComposeboxConditionalPlusButton")},
     {"composebox-compact-mode", flag_descriptions::kComposeboxCompactModeName,
      flag_descriptions::kComposeboxCompactModeDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kComposeboxCompactMode)},
@@ -2761,6 +2779,10 @@ constexpr auto kFeatureEntries = std::to_array<flags_ui::FeatureEntry>({
      FEATURE_WITH_PARAMS_VALUE_TYPE(kMobilePromoOnDesktopWithReminderWave1,
                                     kMobilePromoOnDesktopWave1Variations,
                                     "MobilePromoOnDesktopWithReminderWave1")},
+    {"reader-mode-ignore-badge-threshold",
+     flag_descriptions::kReaderModeIgnoreBadgeThresholdName,
+     flag_descriptions::kReaderModeIgnoreBadgeThresholdDescription,
+     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kReaderModeIgnoreBadgeThreshold)},
 });
 
 bool SkipConditionalFeatureEntry(const flags_ui::FeatureEntry& entry) {

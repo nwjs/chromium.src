@@ -119,7 +119,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.WEB_VIEW_NAVIGATION_CLIENT_BASIC_USAGE,
                 Features.PROVIDER_WEAKLY_REF_WEBVIEW,
                 Features.PAYMENT_REQUEST,
-                Features.WEBVIEW_BUILDER + Features.DEV_SUFFIX,
+                Features.WEBVIEW_BUILDER,
                 Features.COOKIE_INTERCEPT,
                 Features.WARM_UP_RENDERER_PROCESS,
                 Features.EXTRA_HEADER_FOR_ORIGINS,
@@ -135,11 +135,12 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                 Features.ON_NAVIGATION_COMPLETED_NON_COMMITTED,
                 Features.COMMITTED_NAVIGATION_GET_PAGE_NON_NULL,
                 Features.WEB_VIEW_NAVIGATION_LISTENER_V2,
-                Features.WEBVIEW_BUILDER_V2 + Features.DEV_SUFFIX,
+                Features.WEBVIEW_BUILDER_V2,
                 Features.BACK_FORWARD_CACHE_SETTINGS_V3,
                 Features.PAGE_GET_URL,
                 Features.JS_INJECTION_IN_FRAME_AND_WORLD,
                 Features.NAVIGATION_GET_WEB_RESOURCE_ERROR,
+                Features.BACK_FORWARD_CACHE_SETTINGS_V4,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The final
                 // feature should have a trailing comma for cleaner diffs.
@@ -330,6 +331,8 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         ApiCall.SET_MAX_PRERENDERS,
         ApiCall.SET_MAX_PREFETCHES,
         ApiCall.SET_PREFETCH_TTL_SECONDS,
+        ApiCall.BACK_FORWARD_CACHE_SETTINGS_GET_KEEP_FORWARD_ENTRIES,
+        ApiCall.BACK_FORWARD_CACHE_SETTINGS_SET_KEEP_FORWARD_ENTRIES,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -520,8 +523,10 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         int SET_MAX_PRERENDERS = 179;
         int SET_MAX_PREFETCHES = 180;
         int SET_PREFETCH_TTL_SECONDS = 181;
+        int BACK_FORWARD_CACHE_SETTINGS_GET_KEEP_FORWARD_ENTRIES = 182;
+        int BACK_FORWARD_CACHE_SETTINGS_SET_KEEP_FORWARD_ENTRIES = 183;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 182;
+        int COUNT = 184;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)

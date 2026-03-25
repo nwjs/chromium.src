@@ -241,14 +241,6 @@ constexpr auto kPageActionProperties =
                 .element_identifier = kBookmarkStarViewElementId,
             },
         },
-        {
-            kActionFederation,
-            {
-                .histogram_name = "Federation",
-                .type = PageActionIconType::kFederation,
-                .element_identifier = kFederationElementId,
-            },
-        },
     });
 
 constexpr bool CheckIgnoreFlagUsage() {

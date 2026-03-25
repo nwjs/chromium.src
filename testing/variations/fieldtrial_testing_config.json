@@ -3564,6 +3564,21 @@
             ]
         }
     ],
+    "AvoidDoubleMultiwindowChanges": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "AvoidDoubleMultiwindowChanges"
+                    ]
+                }
+            ]
+        }
+    ],
     "AvoidEntryCreationForNoStore": [
         {
             "platforms": [
@@ -4243,6 +4258,21 @@
                     "name": "Enabled",
                     "enable_features": [
                         "BookmarksImportOnFirstRun"
+                    ]
+                }
+            ]
+        }
+    ],
+    "BookmarksMigrateUiChanges": [
+        {
+            "platforms": [
+                "chromeos"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "BookmarksMigrateUiChanges"
                     ]
                 }
             ]
@@ -10782,21 +10812,6 @@
             ]
         }
     ],
-    "FixStaticIpForTwoManagedEthPorts": [
-        {
-            "platforms": [
-                "chromeos"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "FixStaticIpForTwoManagedEthPorts"
-                    ]
-                }
-            ]
-        }
-    ],
     "FlingSchedulingImprovements": [
         {
             "platforms": [
@@ -11350,6 +11365,21 @@
                     "name": "Control",
                     "disable_features": [
                         "GlicButtonPressedState"
+                    ]
+                }
+            ]
+        }
+    ],
+    "GlicChromeStatusIcon": [
+        {
+            "platforms": [
+                "mac"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "GlicChromeStatusIcon"
                     ]
                 }
             ]
@@ -12706,9 +12736,6 @@
                 {
                     "name": "Enabled",
                     "params": {
-                        "RemovePageContext": "true",
-                        "ShowAboveSearchImage": "true",
-                        "ShowBelowSearchImage": "false",
                         "ShowFRERow": "true"
                     },
                     "enable_features": [
@@ -15467,7 +15494,6 @@
                 {
                     "name": "Enabled",
                     "params": {
-                        "AskGeminiChipAllowNonconsentedUsers": "true",
                         "PopupBlocker": "false"
                     },
                     "enable_features": [
@@ -17506,7 +17532,6 @@
     "OnDeviceModelLitertLmBackend": [
         {
             "platforms": [
-                "chromeos",
                 "windows",
                 "mac",
                 "linux"
@@ -22187,27 +22212,6 @@
             ]
         }
     ],
-    "ServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement": [
-        {
-            "platforms": [
-                "android",
-                "chromeos",
-                "fuchsia",
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "ServiceWorkerStaticRouterRaceNetworkRequestPerformanceImprovement",
-                        "ServiceWorkerStaticRouterRaceRequestFix2"
-                    ]
-                }
-            ]
-        }
-    ],
     "ServiceWorkerSyntheticResponse": [
         {
             "platforms": [
@@ -22954,6 +22958,24 @@
                     },
                     "enable_features": [
                         "SkiaGraphiteSmallPathAtlas"
+                    ]
+                }
+            ]
+        }
+    ],
+    "Skills": [
+        {
+            "platforms": [
+                "chromeos",
+                "linux",
+                "mac",
+                "windows"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "SkillsEnabled"
                     ]
                 }
             ]
@@ -24984,21 +25006,6 @@
                     "name": "Enabled",
                     "enable_features": [
                         "UseSceneViewController"
-                    ]
-                }
-            ]
-        }
-    ],
-    "UseSimpleScheduler": [
-        {
-            "platforms": [
-                "android"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "enable_features": [
-                        "UseSimpleScheduler"
                     ]
                 }
             ]
@@ -27518,26 +27525,6 @@
                     },
                     "enable_features": [
                         "HappinessTrackingSurveysForDesktopWhatsNew"
-                    ]
-                }
-            ]
-        }
-    ],
-    "WhatsNewRefresh": [
-        {
-            "platforms": [
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled",
-                    "params": {
-                        "en_site_id": "p5xavcMU50ugnJ3q1cK0R26c3Tsi"
-                    },
-                    "enable_features": [
-                        "WhatsNewDesktopRefresh"
                     ]
                 }
             ]

@@ -37,6 +37,8 @@
 
 // #define CONFIG_LOG 1 -- Logging is controlled by Chromium
 
+#define CONFIG_MACOS_KPERF 0
+
 #define ENDIANNESS_BIG 0
 
 #define HAVE_ALIGNED_ALLOC 1
@@ -84,8 +86,6 @@
 #define HAVE_PTHREAD_SETNAME_NP 1
 
 #define HAVE_PTHREAD_SET_NAME_NP 0
-
-#define HAVE_SIGACTION 1
 
 #define HAVE_SVE 1
 

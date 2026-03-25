@@ -156,6 +156,19 @@ BASE_DECLARE_FEATURE(kSideBySide);
 
 BASE_DECLARE_FEATURE(kSideBySideLinkMenuNewBadge);
 
+BASE_DECLARE_FEATURE(kSplitViewTabDraggingUpdates);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kShowDropTargetForTabDelay);
+
+// Overrides the `kSplitViewTabDraggingUpdates` feature flag if set.
+// The drop target is only shown if the mouse hasn't moved a certain distance
+// over a period of time. The timer and distance used scales linearly with the
+// size of the drop target.
+BASE_DECLARE_FEATURE(kSplitViewDragAndDropVelocity);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSplitViewDragAndDropMinDelay);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSplitViewDragAndDropMaxDelay);
+BASE_DECLARE_FEATURE_PARAM(int, kSplitViewDragAndDropMinDistanceThreshold);
+BASE_DECLARE_FEATURE_PARAM(int, kSplitViewDragAndDropMaxDistanceThreshold);
+
 BASE_DECLARE_FEATURE(kTabDuplicateMetrics);
 
 BASE_DECLARE_FEATURE(kTabGroupsCollapseFreezing);
@@ -223,6 +236,8 @@ BASE_DECLARE_FEATURE_PARAM(double, kTabOrganizationTriggerSensitivityThreshold);
 // Enable 'demo mode' for Tab Organization triggering, which triggers much more
 // predictably and frequently.
 BASE_DECLARE_FEATURE_PARAM(bool, KTabOrganizationTriggerDemoMode);
+
+BASE_DECLARE_FEATURE(kTabOrganizationAppMenuItem);
 
 BASE_DECLARE_FEATURE(kTabOrganizationModelStrategy);
 

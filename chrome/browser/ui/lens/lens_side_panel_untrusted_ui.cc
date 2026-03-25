@@ -172,6 +172,8 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
 
   // Support no file types.
   html_source->AddString("composeboxImageFileTypes", "");
+  html_source->AddBoolean("lensSendRawFileMediaTypesEnabled",
+                     lens::features::IsLensSendRawFileMediaTypesEnabled());
   html_source->AddString("composeboxAttachmentFileTypes", "");
   html_source->AddInteger("composeboxFileMaxSize", 0);
   html_source->AddInteger("composeboxFileMaxCount", 0);
@@ -255,9 +257,6 @@ LensSidePanelUntrustedUI::LensSidePanelUntrustedUI(content::WebUI* web_ui)
   html_source->AddBoolean("composeboxSmartComposeEnabled", false);
   html_source->AddBoolean("composeboxShowDeepSearchButton", false);
   html_source->AddBoolean("composeboxShowCreateImageButton", false);
-  html_source->AddBoolean("composeboxContextDragAndDropEnabled", false);
-  html_source->AddBoolean("steadyComposeboxShowVoiceSearch", false);
-  html_source->AddBoolean("expandedComposeboxShowVoiceSearch", false);
 
   // If the ThemeSource isn't added here, since this WebUI is
   // chrome-untrusted, it will be unable to load stylesheets until a new tab

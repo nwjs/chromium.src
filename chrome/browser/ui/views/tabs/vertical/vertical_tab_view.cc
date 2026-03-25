@@ -178,7 +178,7 @@ VerticalTabView::VerticalTabView(TabCollectionNode* collection_node)
                      /*expand=*/false),
       TabChildConfig(alert_indicator_, kIconDesignWidth, kDefaultPadding,
                      /*align_leading=*/false,
-                     /*expand=*/false),
+                     /*expand=*/false, /*decorate_on_collapse=*/true),
       TabChildConfig(icon_, kIconDesignWidth, kHorizontalInset,
                      /*align_leading=*/true,
                      /*expand=*/false),
@@ -342,8 +342,6 @@ bool VerticalTabView::OnKeyPressed(const ui::KeyEvent& event) {
       break;
     }
   }
-
-  RequestFocus();
 
   return true;
 }
@@ -688,12 +686,10 @@ VerticalTabView::CalculateChildVisibilities() const {
 
   if (pinned_) {
     child_visibility_map[close_button_] = false;
-  } else if (active_) {
-    child_visibility_map[close_button_] = true;
   } else if (collapsed_) {
-    child_visibility_map[close_button_] = false;
+    child_visibility_map[close_button_] = active_ && hovered_;
   } else {
-    child_visibility_map[close_button_] = hovered_;
+    child_visibility_map[close_button_] = active_ || hovered_;
   }
 
   return child_visibility_map;
@@ -741,6 +737,10 @@ views::ProposedLayout VerticalTabView::CalculateProposedLayout(
       }
 
       placed_children += 1;
+    } else if (child.decorate_on_collapse) {
+      layouts.child_layouts.emplace_back(
+          child.view.get(), child_visibility_map[child.view],
+          gfx::Rect(width / 2, height / 2, 0, 0));
     } else {
       layouts.child_layouts.emplace_back(
           child.view.get(), child_visibility_map[child.view],

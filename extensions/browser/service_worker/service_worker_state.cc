@@ -181,26 +181,21 @@ void ServiceWorkerState::RendererDidInitializeServiceWorkerContext(
   }
 
   if (renderer_state() != RendererState::kNotActive) {
-    // If the new token is different from the preexisting token, and it's still
-    // live, we are in an unexpected situation in which the content layer is
-    // tracking two different service workers.
-    auto renderer_state_debug = renderer_state_;
-    base::debug::Alias(&renderer_state_debug);
+    // Must be set because the renderer state must have gone through
+    // `kInitialized`, and set the `worker_id`.
     CHECK(worker_id_.has_value());
     auto preexisting_version_id = worker_id_->version_id;
-    auto preexisting_token = *worker_id_->start_token;
     auto new_version_id = worker_id.version_id;
-    auto new_token = *worker_id.start_token;
-    base::debug::Alias(&preexisting_version_id);
-    base::debug::Alias(&new_version_id);
-    if (preexisting_token != new_token &&
-        service_worker_context_->IsLiveServiceWorkerWithToken(
-            preexisting_version_id, preexisting_token)) {
-      base::debug::DumpWithoutCrashing();
+    if (new_version_id < preexisting_version_id) {
+      // Drop the IPC message. It is from a stale worker version.
+      // TODO(andreaorru): we can also see a stale service worker instance with
+      // the same `version_id` and an "older" service worker token. However, we
+      // do not currently have a way to order service worker tokens. We should
+      // introduce a sequence id.
       return;
     }
-    // However, if the preexisting instance is actually not running anymore,
-    // then we should set a new `worker_id` here.
+    // TODO(andreaorru): if the preexisting `version_id` / service worker token
+    // is not valid anymore, should we untrack it from `ProcessManager` here?
   }
 
   SetWorkerId(worker_id);
@@ -214,6 +209,23 @@ void ServiceWorkerState::RendererDidStartServiceWorkerContext(
   if (!service_worker_context_->IsLiveServiceWorkerWithToken(
           worker_id.version_id, *worker_id.start_token)) {
     // Drop the IPC message. It is from a stale worker instance.
+    return;
+  }
+
+  if (renderer_state() != RendererState::kInitialized) {
+    // We should always see `RendererDidInitializeServiceWorkerContext`
+    // before `RendererDidStartServiceWorkerContext`, so if that's not the
+    // case, we drop this IPC message, because it must be from a stale service
+    // worker.
+    return;
+  }
+
+  // Must be set because the renderer state is `kInitialized`.
+  CHECK(worker_id_.has_value());
+  if (worker_id.start_token != worker_id_->start_token) {
+    // Drop the IPC message. It's from a different worker instance than the one
+    // associated with the `RendererDidInitializeServiceWorkerContext`, so it
+    // must be stale.
     return;
   }
 
@@ -236,32 +248,30 @@ void ServiceWorkerState::RendererDidStopServiceWorkerContext(
     const WorkerId& worker_id,
     const GURL& scope) {
   CHECK(worker_id.start_token);
-  if (!worker_id_ || worker_id.start_token != worker_id_->start_token) {
-    // Drop the IPC message. It is from a different worker instance than the one
-    // we're tracking (or we aren't tracking any).
-    return;
-  }
-
-  HandleStop(worker_id.version_id, scope);
+  HandleStop(worker_id.version_id, scope, *worker_id.start_token);
 }
 
-void ServiceWorkerState::OnStoppingSync(int64_t version_id, const GURL& scope) {
-  // NOTE: we are not tracking the `start_token` here as we do for
-  // `RendererDidStopServiceWorkerContext`, but we are not as concerned because
-  // this method is called synchronously when the worker is stopping/stops,
-  // so it should be carrying up to date info.
+void ServiceWorkerState::OnStoppingSync(
+    int64_t version_id,
+    const GURL& scope,
+    const blink::ServiceWorkerToken& service_worker_token) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  HandleStop(version_id, scope);
+  HandleStop(version_id, scope, service_worker_token);
 }
 
-void ServiceWorkerState::OnStoppedSync(int64_t version_id, const GURL& scope) {
-  // If `OnStoppingSync` was not called for some reason, try again here.
-  OnStoppingSync(version_id, scope);
+void ServiceWorkerState::OnStoppedSync(
+    int64_t version_id,
+    const GURL& scope,
+    const blink::ServiceWorkerToken& service_worker_token) {
+  HandleStop(version_id, scope, service_worker_token);
 }
 
-void ServiceWorkerState::HandleStop(int64_t version_id, const GURL& scope) {
+void ServiceWorkerState::HandleStop(
+    int64_t version_id,
+    const GURL& scope,
+    const blink::ServiceWorkerToken& service_worker_token) {
   // NOTE: this method may be called multiple times for the same service worker,
-  // or even for service workers whose `version_id` is not tracked by this class
+  // or even for service workers whose token is not tracked by this class
   // anymore. It needs to handle those cases gracefully.
 
   // Service workers registered for subscopes via
@@ -272,9 +282,9 @@ void ServiceWorkerState::HandleStop(int64_t version_id, const GURL& scope) {
     return;
   }
 
-  // Check that the version ID of the worker that is stopping refers to an
-  // extension service worker that is tracked by this class.
-  if (worker_id_ && worker_id_->version_id == version_id) {
+  // Check that the worker that is stopping refers to an extension service
+  // worker that is tracked by this class.
+  if (worker_id_ && worker_id_->start_token == service_worker_token) {
     // Untrack all the worker state because once a worker begin stopping or
     // stops, a new instance must start before the worker can be considered
     // ready to receive tasks/events again and the renderer stop notifications
@@ -288,7 +298,7 @@ void ServiceWorkerState::HandleStop(int64_t version_id, const GURL& scope) {
   // testing purposes. Importantly, ServiceWorkerTaskQueue needs this to untrack
   // old service worker versions from ProcessManager. See crbug.com/40936639.
   for (auto& observer : observers_) {
-    observer.OnWorkerStop(version_id, scope);
+    observer.OnWorkerStop(version_id, service_worker_token, scope);
   }
 }
 

@@ -143,7 +143,7 @@ public class HomeModulesMediator {
 
         // 3. Create InputContext for segmentation, excluding manually ranked ones, to perform an
         // async fetch.
-        InputContext inputContext = createInputContextForSegmentation(enabledModuleSet);
+        InputContext inputContext = createInputContextForSegmentation();
 
         HomeModulesRankingHelper.fetchModulesRank(
                 profile,
@@ -201,13 +201,12 @@ public class HomeModulesMediator {
     /**
      * Creates an InputContext for the segmentation platform, excluding manually ranked modules.
      *
-     * @param enabledModuleSet The set of currently enabled (eligible) modules.
      * @return An {@link InputContext} containing signals from non-manually ranked modules.
      */
     @VisibleForTesting
-    InputContext createInputContextForSegmentation(Set<Integer> enabledModuleSet) {
+    InputContext createInputContextForSegmentation() {
         InputContext inputContext = new InputContext();
-        for (@ModuleType int moduleType : enabledModuleSet) {
+        for (@ModuleType int moduleType : mModuleRegistry.getAllRegisteredModuleTypes()) {
             ModuleProviderBuilder builder = mModuleRegistry.getModuleProviderBuilder(moduleType);
             if (builder.getManualRank() == null) {
                 inputContext.mergeFrom(builder.createInputContext());
@@ -671,42 +670,11 @@ public class HomeModulesMediator {
     }
 
     /**
-     * Updates the ranking of the given module type in the magic stack.
-     *
-     * @param moduleType The type of the module to update ranking.
-     */
-    void maybeMoveModuleToTheEnd(@ModuleType int moduleType) {
-        if (mModuleListToShow == null) return;
-
-        // 1. Find and remove the item to trigger a vanish animation.
-        int oldIndex = INVALID_INDEX;
-        for (int i = 0; i < mModel.size(); i++) {
-            if (mModel.get(i).type == moduleType) {
-                oldIndex = i;
-                break;
-            }
-        }
-
-        if (oldIndex == INVALID_INDEX) return;
-
-        MVCListAdapter.ListItem item = mModel.removeAt(oldIndex);
-
-        // 2. Update the ranking list by moving the module to the end.
-        if (mModuleListToShow.remove(Integer.valueOf(moduleType))) {
-            mModuleListToShow.add(moduleType);
-            cacheRanking(mModuleListToShow);
-        }
-
-        // 3. Append the item to the end of the model list to trigger an insertion animation.
-        mModel.add(item);
-    }
-
-    /**
      * Records whether the magic stack is scrollable and has been scrolled or not before it is
      * hidden or destroyed.
      */
     void recordMagicStackScroll(boolean hasHomeModulesBeenScrolled) {
-        if (mModel.size() < 1) {
+        if (mModel.isEmpty()) {
             return;
         }
 

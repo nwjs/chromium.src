@@ -17,7 +17,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "remoting/base/constants.h"
 #include "remoting/base/name_value_map.h"
 #include "remoting/signaling/content_description.h"
@@ -485,8 +484,7 @@ bool ParseContentTags(const XmlElement* jingle_tag,
 
   std::string content_name = tags.content->Attr(kQNameName);
   if (content_name != ContentDescription::kChromotingContentName) {
-    *error =
-        base::StringPrintf("Unexpected content name: %s", content_name.c_str());
+    *error = "Unexpected content name: " + content_name;
     return false;
   }
 
@@ -976,8 +974,7 @@ bool JingleMessageFromXml(const jingle_xmpp::XmlElement* stanza,
   std::string type = stanza->Attr(kQNameType);
   if (type != "set") {
     // This might be a result or error reply.
-    *error =
-        base::StringPrintf("Not a Jingle set message (type=%s)", type.c_str());
+    *error = "Not a Jingle set message (type=" + type + ")";
     return false;
   }
 
@@ -1012,7 +1009,7 @@ bool JingleMessageFromXml(const jingle_xmpp::XmlElement* stanza,
 
   JingleMessage::ActionType action;
   if (!NameToValue(kActionTypes, action_str, &action)) {
-    *error = base::StringPrintf("Unknown action %s", action_str.c_str());
+    *error = "Unknown action " + action_str;
     return false;
   }
 
@@ -1182,8 +1179,7 @@ std::unique_ptr<jingle_xmpp::XmlElement> AttachmentToXml(
     auto config_tag = std::make_unique<XmlElement>(kQNameHostConfiguration);
     std::vector<std::string> pairs;
     for (const auto& setting : attachment.host_config->settings) {
-      pairs.push_back(base::StringPrintf("%s:%s", setting.first.c_str(),
-                                         setting.second.c_str()));
+      pairs.push_back(setting.first + ":" + setting.second);
     }
     config_tag->SetBodyText(base::JoinString(pairs, ","));
     result->AddElement(config_tag.release());

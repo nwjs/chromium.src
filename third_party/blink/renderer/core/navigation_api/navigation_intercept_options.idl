@@ -11,7 +11,7 @@ callback NavigationInterceptPrecommitHandler = Promise<undefined>(NavigationPrec
 
 dictionary NavigationInterceptOptions {
   NavigationInterceptHandler handler;
-  NavigationInterceptPrecommitHandler precommitHandler;
+  [RuntimeEnabled=NavigateEventCommitBehavior] NavigationInterceptPrecommitHandler precommitHandler;
   NavigationFocusReset focusReset;
   NavigationScrollBehavior scroll;
 };

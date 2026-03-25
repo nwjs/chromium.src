@@ -2142,6 +2142,7 @@ Called by update_net_error_codes.py.-->
   <int value="-102" label="CONNECTION_REFUSED"/>
   <int value="-101" label="CONNECTION_RESET"/>
   <int value="-100" label="CONNECTION_CLOSED"/>
+  <int value="-36" label="LOCAL_NETWORK_PERMISSION_MISSING"/>
   <int value="-35" label="BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR"/>
   <int value="-34" label="BLOCKED_BY_FINGERPRINTING_PROTECTION"/>
   <int value="-33" label="NETWORK_ACCESS_REVOKED"/>
@@ -10799,6 +10800,7 @@ from previous Chrome versions.
   <int value="-1248478422" label="enable-zip-archiver-packer"/>
   <int value="-1248232229"
       label="UsernameFirstFlowWithIntermediateValuesPredictions:enabled"/>
+  <int value="-1247919270" label="SyncGeminiThread:enabled"/>
   <int value="-1246840031" label="OptInImeMenu:disabled"/>
   <int value="-1246477455" label="ClipboardUnsanitizedContent:disabled"/>
   <int value="-1246125067" label="SearchInSettings:enabled"/>
@@ -12164,6 +12166,7 @@ from previous Chrome versions.
   <int value="-780798969" label="disable-single-click-autofill"/>
   <int value="-780646596"
       label="CustomizeChromeWallpaperSearchInspirationCard:enabled"/>
+  <int value="-780566251" label="SyncAIThread:enabled"/>
   <int value="-779220222" label="WebXRLayers:disabled"/>
   <int value="-778126349" label="DownloadsLocationChange:enabled"/>
   <int value="-778098896" label="EnableAggregatedMlSearchRanking:disabled"/>
@@ -13636,7 +13639,6 @@ from previous Chrome versions.
       label="ExperimentalWebAppStoragePartitionIsolation:disabled"/>
   <int value="-282070727" label="DevToolsIndividualRequestThrottling:disabled"/>
   <int value="-281844827" label="AutofillCreditCardAblationExperiment:enabled"/>
-  <int value="-280658018" label="FedCmAmbientUI:enabled"/>
   <int value="-280129257" label="MacLoopbackAudioForScreenShare:enabled"/>
   <int value="-280064896" label="HelpAppAppsDiscovery:disabled"/>
   <int value="-279940662" label="SkiaGraphitePrecompilation:disabled"/>
@@ -14469,7 +14471,6 @@ from previous Chrome versions.
   <int value="-1978322" label="BlinkExtension:enabled"/>
   <int value="-1594236" label="NewTabAddsToActiveGroup:disabled"/>
   <int value="-1164379" label="EnterpriseReportingInChromeOS:disabled"/>
-  <int value="-1130360" label="FedCmAmbientUI:disabled"/>
   <int value="-319686" label="AccessibilityFaceGaze:disabled"/>
   <int value="0" label="BAD_FLAG_FORMAT">
     Command-line flag doesn't start with two dashes.
@@ -18724,6 +18725,7 @@ from previous Chrome versions.
       label="CCTRealTimeEngagementSignalsAlternativeImpl:enabled"/>
   <int value="1442854659"
       label="IncrementLocalSurfaceIdForMainframeSameDocNavigation:enabled"/>
+  <int value="1443079902" label="SyncAIThread:disabled"/>
   <int value="1443542260" label="WebAppManifestProtocolHandlerSupport:enabled"/>
   <int value="1443830588" label="VerticalSnap:disabled"/>
   <int value="1443836294"
@@ -18845,6 +18847,7 @@ from previous Chrome versions.
   <int value="1474268803" label="TabCaptureInfobarLinks:enabled"/>
   <int value="1474433736" label="NtpRealboxTailSuggest:enabled"/>
   <int value="1474707811" label="Jelly:enabled"/>
+  <int value="1474822376" label="SyncGeminiThread:disabled"/>
   <int value="1474861626" label="disable-multi-mirroring"/>
   <int value="1475210901" label="AvatarToolbarButton:disabled"/>
   <int value="1475771788" label="BackgroundResourceFetch:enabled"/>
@@ -21561,6 +21564,7 @@ Called by update_net_error_codes.py.-->
   <int value="33" label="NETWORK_ACCESS_REVOKED"/>
   <int value="34" label="BLOCKED_BY_FINGERPRINTING_PROTECTION"/>
   <int value="35" label="BLOCKED_IN_INCOGNITO_BY_ADMINISTRATOR"/>
+  <int value="36" label="LOCAL_NETWORK_PERMISSION_MISSING"/>
   <int value="100" label="CONNECTION_CLOSED"/>
   <int value="101" label="CONNECTION_RESET"/>
   <int value="102" label="CONNECTION_REFUSED"/>

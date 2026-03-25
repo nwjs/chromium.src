@@ -1091,7 +1091,8 @@ void WebUIBrowserWindow::ShowCaretBrowsingDialog() {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 
-void WebUIBrowserWindow::CreateTabSearchBubble() {
+void WebUIBrowserWindow::CreateTabSearchBubble(
+    tab_search::mojom::TabSearchSection section) {
   NOTIMPLEMENTED_LOG_ONCE();
 }
 

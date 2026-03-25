@@ -155,7 +155,6 @@ void GlicInstanceCoordinatorImpl::OnInstanceActivationChanged(
   if (is_active && active_instance_ != instance) {
     active_instance_ = instance;
     last_active_instance_ = active_instance_;
-    MaybeStopListeningFloaty(instance);
   } else if (!is_active && active_instance_ == instance) {
     active_instance_ = nullptr;
   } else {
@@ -346,9 +345,6 @@ void GlicInstanceCoordinatorImpl::InvokeInternal(
     // TODO(crbug.com/483387751): Show default toast here once implemented.
     return;
   }
-
-  instance->Show(ShowOptions::ForSidePanel(
-      *tab, GlicPinTrigger::kInstanceCreation, options.invocation_source));
 
   invoke_handlers_[instance] = std::make_unique<GlicInvokeHandler>(
       *instance, tab, std::move(options), auto_submit_passkey,
@@ -746,14 +742,6 @@ void GlicInstanceCoordinatorImpl::ToggleSidePanel(
   // newly created instance, so we provide the instance creation trigger.
   ShowOptions options = ShowOptions::ForSidePanel(
       *tab, GlicPinTrigger::kInstanceCreation, source);
-
-  // If the user has not consented, don't pin the tab.
-  if (GlicEnabling::ShouldBypassFreUi(profile_, source)) {
-    if (auto* side_panel_options =
-            std::get_if<SidePanelShowOptions>(&options.embedder_options)) {
-      side_panel_options->pin_on_bind = false;
-    }
-  }
 
   instance->Toggle(std::move(options), prevent_close, source, prompt_suggestion,
                    auto_send);
@@ -1158,24 +1146,6 @@ void GlicInstanceCoordinatorImpl::RestoreTab(
       pinned_instance->sharing_manager().PinTabs({tab->GetHandle()},
                                                  GlicPinTrigger::kRestore);
     }
-  }
-}
-
-void GlicInstanceCoordinatorImpl::MaybeStopListeningFloaty(
-    GlicInstanceImpl* instance) {
-  if (!instance) {
-    return;
-  }
-  auto* floaty_instance = GetInstanceWithFloaty();
-  if (!floaty_instance || instance == floaty_instance) {
-    return;
-  }
-
-  // Another instance has become active, so stop the floaty instance
-  // from listening to ensure a single active instance.
-  if (floaty_instance->host().microphone_status() ==
-      mojom::MicrophoneStatus::kListening) {
-    floaty_instance->host().StopMicrophone(base::DoNothing());
   }
 }
 

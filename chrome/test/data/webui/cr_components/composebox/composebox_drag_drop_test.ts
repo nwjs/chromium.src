@@ -233,7 +233,7 @@ suite('ComposeboxDragAndDrop', () => {
         toolsSectionConfig: null,
         modelSectionConfig: null,
         hintText: '',
-        maxInstances: {
+        maxInputsByType: {
           [InputType.kBrowserTab]: 1,
           [InputType.kLensImage]: 1,
           [InputType.kLensFile]: 1,
@@ -336,6 +336,7 @@ suite('ComposeboxDragAndDrop', () => {
       name: 'foo.pdf',
       status: 0,
       type: 'application/pdf',
+      inputType: InputType.kLensFile,
       isDeletable: true,
       objectUrl: null,
       dataUrl: null,
@@ -409,6 +410,7 @@ suite('ComposeboxDragAndDrop', () => {
       name: 'a.pdf',
       status: 0,
       type: 'application/pdf',
+      inputType: InputType.kLensFile,
       isDeletable: true,
       objectUrl: null,
       dataUrl: null,
@@ -472,7 +474,7 @@ suite('ComposeboxDragAndDrop', () => {
         toolsSectionConfig: null,
         modelSectionConfig: null,
         hintText: '',
-        maxInstances: {[InputType.kLensImage]: 1, [InputType.kLensFile]: 1},
+        maxInputsByType: {[InputType.kLensImage]: 1, [InputType.kLensFile]: 1},
         maxTotalInputs: 2,
       },
     }));
@@ -524,7 +526,7 @@ suite('ComposeboxDragAndDrop', () => {
         toolsSectionConfig: null,
         modelSectionConfig: null,
         hintText: '',
-        maxInstances: {[InputType.kLensImage]: 1, [InputType.kLensFile]: 1},
+        maxInputsByType: {[InputType.kLensImage]: 1, [InputType.kLensFile]: 1},
         maxTotalInputs: 2,
       },
     }));

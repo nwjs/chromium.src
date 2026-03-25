@@ -94,8 +94,6 @@ class CorpMessagingClient {
   CorpMessagingClient();
 
  private:
-  friend class CorpMessagingClientTest;
-
   template <typename CallbackFunctor>
   void ExecuteRequest(const net::NetworkTrafficAnnotationTag& tag,
                       const std::string& path,

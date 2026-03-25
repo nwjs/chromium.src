@@ -13,14 +13,20 @@ namespace features {
 BASE_DECLARE_FEATURE(kGlicTabRestoration);
 BASE_DECLARE_FEATURE(kGlicDaisyChainViaCoordinator);
 BASE_DECLARE_FEATURE(kGlicChromeStatusIcon);
+extern const base::FeatureParam<int> kGlicChromeStatusIconSizePx;
 
 BASE_DECLARE_FEATURE(kGlicOrphanedReattachment);
 
 BASE_DECLARE_FEATURE(kAutoOpenGlicForPdf);
+extern const base::FeatureParam<bool> kAutoOpenGlicForPdfWithOnboarding;
 
 BASE_DECLARE_FEATURE(kGlicInvoke);
 
 BASE_DECLARE_FEATURE(kGlicSelectionPrompt);
+
+BASE_DECLARE_FEATURE(kGlicSummarizeVideoSuggestion);
+
+BASE_DECLARE_FEATURE(kGlicFixTimeToFirstQueryKillSwitch);
 
 }  // namespace features
 

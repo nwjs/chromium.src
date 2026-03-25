@@ -21,8 +21,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.content_public.browser.WebContents;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
@@ -58,24 +56,11 @@ public class AppBannerManager {
     public static final InstallStringPair NON_PWA_PAIR =
             new InstallStringPair(R.string.menu_add_to_homescreen, R.string.add);
 
-    // Using ScopedJavaGlobalRef in the owning C++ object to keep the Java object alive consumes an
-    // entry per instance in the finite global ref table. This scales poorly with a large number of
-    // WebContents. As a workaround, the C++ owner uses a JavaObjectWeakGlobalRef and an entry is
-    // kept in the a static map of the native pointer to Java objects to prevent garbage collection.
-    private static final Map<Long, AppBannerManager> sAppBannerManagerMap = new HashMap<>();
-
     /** Retrieves information about a given package. */
     private static @Nullable AppDetailsDelegate sAppDetailsDelegate;
 
     /** Pointer to the native side AppBannerManager. */
     private long mNativePointer;
-
-    /**
-     * The AppData associated with last app details update. Retained as a ref so C++ can hold a weak
-     * reference to it.
-     */
-    @SuppressWarnings("unused")
-    private @Nullable AppData mNativeAppData;
 
     private static final CopyOnWriteArraySet<Observer> sObservers = new CopyOnWriteArraySet<>();
 
@@ -126,8 +111,6 @@ public class AppBannerManager {
      */
     private AppBannerManager(long nativePointer) {
         mNativePointer = nativePointer;
-        var oldValue = sAppBannerManagerMap.put(nativePointer, this);
-        assert oldValue == null;
     }
 
     @CalledByNative
@@ -137,8 +120,6 @@ public class AppBannerManager {
 
     @CalledByNative
     private void destroy() {
-        var removedValue = sAppBannerManagerMap.remove(mNativePointer);
-        assert removedValue == this;
         mNativePointer = 0;
     }
 
@@ -179,8 +160,6 @@ public class AppBannerManager {
 
                 String imageUrl = data.imageUrl();
                 if (TextUtils.isEmpty(imageUrl)) return;
-
-                mNativeAppData = data;
 
                 AppBannerManagerJni.get()
                         .onAppDetailsRetrieved(

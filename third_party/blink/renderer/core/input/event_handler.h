@@ -32,6 +32,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/time/time.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_menu_source_type.h"
 #include "third_party/blink/public/platform/web_input_event_result.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/events/text_event_input_type.h"
@@ -45,7 +46,6 @@
 #include "third_party/blink/renderer/core/page/event_with_hit_test_results.h"
 #include "third_party/blink/renderer/core/page/touch_adjustment.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
-#include "ui/base/mojom/menu_source_type.mojom-blink-forward.h"
 
 namespace ui {
 class Cursor;
@@ -212,8 +212,7 @@ class CORE_EXPORT EventHandler final : public GarbageCollected<EventHandler> {
       Element* override_target_element = nullptr);
   WebInputEventResult ShowNonLocatedContextMenu(
       Element* override_target_element = nullptr,
-      ui::mojom::blink::MenuSourceType =
-          ui::mojom::blink::MenuSourceType::kNone);
+      WebMenuSourceType = kMenuSourceNone);
 
   // See PointerEventManager::AppendTouchIdForCanceledPointerDown().
   void AppendTouchIdForCanceledPointerDown(uint32_t unique_touch_event_id);

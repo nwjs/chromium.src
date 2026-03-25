@@ -116,8 +116,6 @@ void PopulateChromeWebUIFrameBindersPartsFeatures(
                                            glic::GlicUI>(map);
     RegisterWebUIControllerInterfaceBinder<
         glic::mojom::GlicPreloadHandlerFactory, glic::GlicUI>(map);
-    RegisterWebUIControllerInterfaceBinder<
-        glic::mojom::InternalsPageHandlerFactory, glic::GlicUI>(map);
   }
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   RegisterWebUIControllerInterfaceBinder<guest_view::mojom::PageHandlerFactory,

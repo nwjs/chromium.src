@@ -2,9 +2,7 @@
 //!
 //! https://github.com/NetBSD/src/tree/trunk/sys/sys
 
-pub(crate) mod file;
 pub(crate) mod ipc;
-pub(crate) mod socket;
 pub(crate) mod statvfs;
 pub(crate) mod time;
 pub(crate) mod timex;

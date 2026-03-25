@@ -115,6 +115,7 @@ public class LocationBarCoordinator
             mDeferredIMEWindowInsetApplicationCallback;
 
     private OmniboxSuggestionsDropdownEmbedderImpl mOmniboxDropdownEmbedderImpl;
+    private int mPreviousFuseboxState = FuseboxState.DISABLED;
 
     /** Identifies coordinators with methods specific to a device type. */
     public interface SubCoordinator {
@@ -142,7 +143,6 @@ public class LocationBarCoordinator
     private @Nullable View mNavigateButton;
     private @Nullable View mMicButton;
     private @Nullable View mLensButton;
-    private @Nullable View mComposeplateButton;
     private @Nullable View mBookmarksButton;
     private @Nullable View mInstallButton;
     private @Nullable PageZoomIndicatorCoordinator mPageZoomIndicatorCoordinator;
@@ -269,7 +269,6 @@ public class LocationBarCoordinator
                         context,
                         windowAndroid,
                         mLocationBarLayout,
-                        profileObservableSupplier,
                         tabModelSelectorSupplier,
                         templateUrlServiceSupplier,
                         snackbarManager);
@@ -407,19 +406,13 @@ public class LocationBarCoordinator
         mLensButton = mLocationBarLayout.findViewById(R.id.lens_camera_button);
         mLensButton.setOnClickListener(mLocationBarMediator::lensButtonClicked);
 
-        if (ChromeFeatureList.sAndroidComposeplate.isEnabled()
-                && !ChromeFeatureList.sAndroidComposeplateV2Enabled.getValue()) {
-            mComposeplateButton = mLocationBarLayout.findViewById(R.id.composeplate_button);
-            mComposeplateButton.setOnClickListener(mLocationBarMediator::composeplateButtonClicked);
-        }
-
         mZoomButton = mLocationBarLayout.findViewById(R.id.zoom_button);
         mZoomButton.setOnClickListener(mLocationBarMediator::zoomButtonClicked);
 
         mInstallButton = mLocationBarLayout.findViewById(R.id.install_button);
         mInstallButton.setOnClickListener(mLocationBarMediator::installButtonClicked);
 
-        mUrlCoordinator.setTextChangeListener(mAutocompleteCoordinator::onTextChanged);
+        mUrlCoordinator.setTextChangeListener(mLocationBarMediator::onUrlTextChanged);
         mUrlCoordinator.setKeyDownListener(mLocationBarMediator);
 
         // The LocationBar's direction is tied to the UrlBar's text direction. Icons inside the
@@ -502,11 +495,6 @@ public class LocationBarCoordinator
 
         mLensButton.setOnClickListener(null);
         mLensButton = null;
-
-        if (mComposeplateButton != null) {
-            mComposeplateButton.setOnClickListener(null);
-            mComposeplateButton = null;
-        }
 
         if (mNavigateButton != null) {
             mNavigateButton.setOnClickListener(null);
@@ -691,11 +679,6 @@ public class LocationBarCoordinator
 
     // AutocompleteDelegate implementation.
     @Override
-    public void onUrlTextChanged() {
-        mLocationBarMediator.onUrlTextChanged();
-    }
-
-    @Override
     public void onSuggestionsChanged(
             @Nullable AutocompleteMatch defaultMatch, boolean hasSuggestions) {
         assert defaultMatch == null || defaultMatch.allowedToBeDefaultMatch();
@@ -869,6 +852,14 @@ public class LocationBarCoordinator
         View addButton = mLocationBarLayout.findViewById(R.id.location_bar_attachments_add);
         if (addButton == null) return;
 
+        // The Fade and and ChangeBounds anims below are only intended for animating between compact
+        // <--> expanded; they don't look good otherwise.
+        if (mPreviousFuseboxState == FuseboxState.DISABLED || state == FuseboxState.DISABLED) {
+            mPreviousFuseboxState = state;
+            return;
+        }
+
+        mPreviousFuseboxState = state;
         ChangeBounds changeBounds = new ChangeBounds();
         changeBounds
                 .setDuration(COMPACT_MODE_ANIMATION_DURATION_MS)

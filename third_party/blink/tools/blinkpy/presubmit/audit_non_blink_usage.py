@@ -391,10 +391,7 @@ _CONFIG = [
         ],
     },
     {
-        'paths': [
-            'third_party/blink/common/context_menu_data/',
-            'third_party/blink/common/input/',
-        ],
+        'paths': ['third_party/blink/common/context_menu_data/'],
         'allowed': [
             'ui::mojom::MenuSourceType',
         ],
@@ -1407,7 +1404,6 @@ _CONFIG = [
             # and must use the regular variants.
             'mojom::.+',
             'network::mojom::.+',
-            'ui::mojom::MenuSourceType',
             'ui::mojom::WindowShowState',
             'ui::mojom::WindowShowState::.+',
 
@@ -2679,8 +2675,8 @@ _CONFIG = [
     },
     {
         'paths': [
-            'third_party/blink/renderer/core/ad_tracker/ad_tracker.cc',
-            'third_party/blink/renderer/core/ad_tracker/ad_tracker.h',
+            'third_party/blink/renderer/core/frame/ad_tracker.cc',
+            'third_party/blink/renderer/core/frame/ad_tracker.h',
         ],
         'allowed': [
             'subresource_filter::ScopedRule',

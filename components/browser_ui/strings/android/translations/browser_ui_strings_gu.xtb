@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">ડિફૉલ્ટ બ્રાઉઝરની બોટમ શીટ</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_OWNER" />ના સાઇટના ગ્રૂપમાંની <ph name="RWS_MEMBERS_COUNT" /> સાઇટ, જે ગ્રૂપમાંની તમારી ઍક્ટિવિટી જોઈ શકે છે}one{<ph name="RWS_OWNER" />ના સાઇટના ગ્રૂપમાંની <ph name="RWS_MEMBERS_COUNT" /> સાઇટ, જે ગ્રૂપમાંની તમારી ઍક્ટિવિટી જોઈ શકે છે}other{<ph name="RWS_OWNER" />ના સાઇટના ગ્રૂપમાંની <ph name="RWS_MEMBERS_COUNT" /> સાઇટ, જે ગ્રૂપમાંની તમારી ઍક્ટિવિટી જોઈ શકે છે}}</translation>
 <translation id="3676777756440746804">આ સાઇટને, તેમણે તમારા વિશે સાચવેલી માહિતીનો ઉપયોગ કરવા માટે તમને પૂછવાથી બ્લૉક કરવામાં આવી છે</translation>
+<translation id="3677897809642449131">મોશન સેન્સરનો ઉપયોગ કરવાનું સાઇટ પૂછી શકે છે</translation>
 <translation id="3678318839615834650">નવા ટૅબ પેજ કાર્ડની બોટમ શીટ સંપૂર્ણ ઊંચાઈએ ખોલવામાં આવી</translation>
 <translation id="3697164069658504920">ચાલુ હોય ત્યારે, સાઇટ USB ડિવાઇસનો ઉપયોગ કરવાનું પૂછી શકે છે. બંધ હોય ત્યારે, સાઇટ USB ડિવાઇસનો ઉપયોગ કરી શકતી નથી.</translation>
 <translation id="3703430731944883733">તમારા ફીડને મેનેજ કરો</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">તમારી સ્ક્રીન શેર કરીએ છીએ</translation>
 <translation id="5922967540311291836">ત્રીજા પક્ષની કુકીને બ્લૉક કરો:</translation>
 <translation id="5923512600150154850">આમ કરવાથી સાઇટ દ્વારા સ્ટોર કરવામાં આવેલા <ph name="DATASIZE" /> ડેટા અને કુકીને ડિલીટ કરવામાં આવશે.</translation>
+<translation id="5930707844513754220">સેટઅપની વધુ સૂચિ જુઓ</translation>
 <translation id="5939518447894949180">રીસેટ કરો</translation>
 <translation id="5948139900367969951">તમારા માટે મહત્ત્વપૂર્ણ હોય તે ઝડપથી મેળવો</translation>
 <translation id="5964247741333118902">શામેલ કરેલું કન્ટેન્ટ</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Discover ફીડ ચાલુ કરો</translation>
 <translation id="6012967556075291653">પિન કરેલો શૉર્ટકટ</translation>
+<translation id="6013003831291591200">કાર્ય પૂર્ણ થયું</translation>
 <translation id="6015775454662021376">આ સાઇટના તમારા ડિવાઇસના ઍક્સેસનું નિયંત્રણ કરો</translation>
 <translation id="6022659036123304283">Chromeને તમારી જરૂરિયાત અનુરૂપ બનાવો</translation>
 <translation id="6040143037577758943">બંધ કરો</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">સાઇટ તમારા કૅમેરા માટે પૂછી શકે છે</translation>
 <translation id="8712637175834984815">સમજાઈ ગયું</translation>
 <translation id="8715862698998036666">સૌથી ઉપરની બાજુએથી ખેંચો અને પૂર્ણ સ્ક્રીનમાંથી બહાર નીકળવા માટે ડાબી અથવા જમણી કિનારીએથી સ્વાઇપ કરો.</translation>
+<translation id="8716050156658570300">મોશન અને લાઇટ સેન્સરનો ઉપયોગ કરવાનું સાઇટ પૂછી શકે છે</translation>
 <translation id="8719283222052720129"><ph name="BEGIN_LINK" />Android સેટિંગ<ph name="END_LINK" />માં <ph name="APP_NAME" /> માટે પરવાનગી ચાલુ કરો.</translation>
 <translation id="8721719390026067591">ચાલુ હોય ત્યારે, સાઇટ બ્લૂટૂથ ડિવાઇસ શોધવાનું પૂછી શકે છે. બંધ હોય ત્યારે, સાઇટ બ્લૂટૂથ ડિવાઇસ શોધી શકતી નથી.</translation>
 <translation id="8725066075913043281">ફરી પ્રયાસ કરો</translation>

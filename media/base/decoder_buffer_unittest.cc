@@ -196,14 +196,15 @@ TEST(DecoderBufferTest, FromSharedMemoryRegion_ZeroSize) {
 }
 
 TEST(DecoderBufferTest, FromExternalMemory) {
-  static constexpr uint8_t kData[] = "hello";
-  static constexpr base::span<const uint8_t> kDataSpan(kData);
+  constexpr uint8_t kData[] = "hello";
+  constexpr size_t kDataSize = std::size(kData);
 
-  const auto buffer = DecoderBuffer::FromExternalMemory(
-      std::make_unique<ExternalMemoryAdapterForTesting>(kDataSpan));
+  auto external_memory = std::make_unique<ExternalMemoryAdapterForTesting>(
+      UNSAFE_TODO(base::span(kData, kDataSize)));
+  auto buffer = DecoderBuffer::FromExternalMemory(std::move(external_memory));
   ASSERT_TRUE(buffer.get());
-  EXPECT_EQ(buffer->size(), kDataSpan.size());
-  EXPECT_EQ(base::span(*buffer), kDataSpan);
+  EXPECT_EQ(buffer->size(), kDataSize);
+  EXPECT_EQ(base::span(*buffer), base::span(kData));
   EXPECT_FALSE(buffer->end_of_stream());
   EXPECT_FALSE(buffer->is_key_frame());
 }

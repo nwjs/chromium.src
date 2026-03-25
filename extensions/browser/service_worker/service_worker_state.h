@@ -67,7 +67,10 @@ class ServiceWorkerState
     // TODO(crbug.com/485056792): observers should be aware that there's
     // currently no guarantee that the `version_id` matches the one this class
     // is currently tracking.
-    virtual void OnWorkerStop(int64_t version_id, const GURL& scope) {}
+    virtual void OnWorkerStop(
+        int64_t version_id,
+        const blink::ServiceWorkerToken& service_worker_token,
+        const GURL& scope) {}
   };
 
   void AddObserver(Observer* observer);
@@ -141,18 +144,26 @@ class ServiceWorkerState
   // It is considered the "browser-side" signal that the worker is stopping.
   // NOTE: this can be called before or after
   // `RendererDidStopServiceWorkerContext`.
-  void OnStoppingSync(int64_t version_id, const GURL& scope) override;
+  void OnStoppingSync(
+      int64_t version_id,
+      const GURL& scope,
+      const blink::ServiceWorkerToken& service_worker_token) override;
 
   // Called when an extension service worker has stopped.
   // It is considered the "browser-side" signal that the worker has stopped.
   // NOTE: this can be called before or after
   // `RendererDidStopServiceWorkerContext`.
-  void OnStoppedSync(int64_t version_id, const GURL& scope) override;
+  void OnStoppedSync(
+      int64_t version_id,
+      const GURL& scope,
+      const blink::ServiceWorkerToken& service_worker_token) override;
 
  private:
   void SetWorkerId(const WorkerId& worker_id);
   void NotifyObserversIfReady(const SequencedContextId& context_id);
-  void HandleStop(int64_t version_id, const GURL& scope);
+  void HandleStop(int64_t version_id,
+                  const GURL& scope,
+                  const blink::ServiceWorkerToken& service_worker_token);
 
   BrowserState browser_state_ = BrowserState::kNotActive;
   RendererState renderer_state_ = RendererState::kNotActive;

@@ -96,7 +96,7 @@ SingleThreadTaskRunner::GetMainThreadDefault() {
       << "Error: The main thread's handle is not initialized yet. This "
          "probably means that you're calling this function too early in the "
          "process's lifetime. If you're in a test, you can use "
-         "base::test::TaskEnvironment";
+         "base::test::TaskEnvironement";
   return handle->task_runner_;
 }
 

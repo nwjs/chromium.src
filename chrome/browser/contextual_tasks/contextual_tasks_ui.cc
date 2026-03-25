@@ -279,15 +279,23 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       "child-src 'self' https://*.google.com;");
 
   // Add required resources for the searchbox.
+  bool session_allows_drag_and_drop = false;
+  if (auto* session_handle = GetOrCreateContextualSessionHandle()) {
+    session_allows_drag_and_drop =
+        session_handle->CheckSearchContentSharingSettings(profile->GetPrefs());
+  }
+
   SearchboxHandler::SetupWebUIDataSource(source, profile,
                                          /*enable_voice_search=*/true,
-                                         /*enable_lens_search=*/false);
+                                         /*enable_lens_search=*/false,
+                                         session_allows_drag_and_drop);
   // Add strings.js
   source->UseStringsJs();
 
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
       {"closeTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CLOSE_TOOL_TIP},
       {"contextTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CONTEXT_TOOL_TIP},
+      {"continueThread", IDS_CONTEXTUAL_TASKS_CONTINUE_THREAD_MESSAGE},
       {"feedback", IDS_LENS_SEND_FEEDBACK},
       {"help", IDS_CONTEXTUAL_TASKS_MENU_HELP},
       {"moreOptionsTooltip",
@@ -295,6 +303,7 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
       {"myActivity", IDS_CONTEXTUAL_TASKS_MENU_MY_ACTIVITY},
       {"newThreadTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_NEW_THREAD_TOOL_TIP},
       {"openInNewTab", IDS_CONTEXTUAL_TASKS_MENU_OPEN_IN_NEW_TAB},
+      {"reopenTab", IDS_CONTEXTUAL_TASKS_REOPEN_TABS_BUTTON_TEXT},
       {"sourcesMenuTitle", IDS_CONTEXTUAL_TASKS_SOURCES_MENU_TITLE},
       {"threadHistoryTooltip",
        IDS_CONTEXTUAL_TASKS_SIDE_PANEL_HISTORY_TOOL_TIP},
@@ -330,12 +339,11 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   source->AddString(
       "composeboxAttachmentFileTypes",
       contextual_tasks::kContextualTasksNextboxAttachmentFileTypes.Get());
+  source->AddBoolean("lensSendRawFileMediaTypesEnabled",
+                     lens::features::IsLensSendRawFileMediaTypesEnabled());
   source->AddInteger(
       "composeboxFileMaxSize",
       contextual_tasks::kContextualTasksNextboxMaxFileSize.Get());
-  source->AddInteger(
-      "composeboxFileMaxCount",
-      contextual_tasks::kContextualTasksNextboxMaxFileCount.Get());
   source->AddBoolean("composeboxNoFlickerSuggestionsFix", false);
   // Enable typed suggest.
   source->AddBoolean("composeboxShowTypedSuggest", false);
@@ -396,14 +404,9 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   AddContextMenuItemEligibilityLoadTimeData(source, profile);
   source->AddBoolean("composeboxShowLensSearchChip", false);
   source->AddBoolean("composeboxShowRecentTabChip", false);
+  // TODO(b/477969358): Remove `composeboxShowSubmit` boolean. This has the same
+  // value everywhere it is used.
   source->AddBoolean("composeboxShowSubmit", true);
-  source->AddBoolean("composeboxContextDragAndDropEnabled", true);
-  source->AddBoolean(
-      "steadyComposeboxShowVoiceSearch",
-      contextual_tasks::GetIsExpandedComposeboxVoiceSearchEnabled());
-  source->AddBoolean(
-      "expandedComposeboxShowVoiceSearch",
-      contextual_tasks::GetIsSteadyComposeboxVoiceSearchEnabled());
   source->AddBoolean("composeboxShowContextMenuTabPreviews", false);
   source->AddBoolean("composeboxContextMenuEnableMultiTabSelection", true);
   source->AddBoolean(
@@ -470,6 +473,16 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
   source->AddResourcePath(
       "internals/",
       IDR_CONTEXTUAL_TASKS_INTERNALS_CONTEXTUAL_TASKS_INTERNALS_HTML);
+
+  source->AddBoolean(
+      "useStratusDarkModeColors",
+      contextual_tasks::ShouldUseStratusDarkModeColors());
+  source->AddString(
+      "useStratusDarkModeColorsAttr",
+      contextual_tasks::ShouldUseStratusDarkModeColors() ? "true" : "false");
+
+  source->AddBoolean("smartTabSharingEnabled",
+                     contextual_tasks::GetIsSmartTabSharingEnabled());
 
   AddZeroStateStrings(source, profile);
   contextual_tasks_service_observation_.Observe(contextual_tasks_service_);
@@ -670,6 +683,8 @@ void ContextualTasksUI::CreatePageHandler(
       base::BindRepeating(
           &ContextualTasksUI::GetOrCreateContextualSessionHandle,
           base::Unretained(this)),
+      base::BindRepeating(&ContextualTasksUI::ClearContextualSessionHandle,
+                          base::Unretained(this)),
       base::BindRepeating(&ContextualTasksUI::TakeInputStateModel,
                           base::Unretained(this)));
   composebox_handler_->SetPage(std::move(pending_searchbox_page));
@@ -725,6 +740,11 @@ ContextualTasksUI::GetOrCreateContextualSessionHandle() {
       controller, web_contents, task_id_.value());
   return helper->session_handle();
 }
+
+// Empty implementation, does not need to be cleared in contextual tasks. Only
+// needs to be cleared when transferring ownership to a new web contents / UI
+// controller which never happens for contextual tasks.
+void ContextualTasksUI::ClearContextualSessionHandle() {}
 
 std::unique_ptr<contextual_search::InputStateModel>
 ContextualTasksUI::TakeInputStateModel() {
@@ -929,7 +949,9 @@ void ContextualTasksUI::OnActiveTabContextStatusChanged() {
       GetOrCreateContextualSessionHandle()->AsWeakPtr();
   contextual_tasks_service_->GetContextForTask(
       GetTaskId().value(),
-      {contextual_tasks::ContextualTaskContextSource::kPendingContextDecorator},
+      {contextual_tasks::ContextualTaskContextSource::kUploadedContextDecorator,
+       contextual_tasks::ContextualTaskContextSource::
+           kSubmittedContextDecorator},
       std::move(context_decoration_params),
       base::BindOnce(&ContextualTasksUI::OnContextRetrievedForActiveTab,
                      weak_ptr_factory_.GetWeakPtr(),
@@ -1044,6 +1066,7 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
           << url;
   bool is_ai_page = ui_service_->IsAiUrl(url);
   task_info_delegate_->SetIsAiPage(is_ai_page);
+  task_info_delegate_->SetAimUrl(url);
 
   OMNIBOX_LOG("embedded_page_nav") << navigation_handle->GetURL().spec();
 
@@ -1196,8 +1219,6 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
       contextual_tasks::ThreadType::kAiMode, url_thread_id, mstk,
       task_info_delegate_->GetThreadTitle());
   task_info_delegate_->SetThreadTurnId(mstk);
-
-  task_info_delegate_->SetAimUrl(url);
 
   if (task_changed) {
     OMNIBOX_LOG("embedded_page_nav")

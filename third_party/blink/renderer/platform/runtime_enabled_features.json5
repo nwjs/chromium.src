@@ -1347,7 +1347,11 @@
       // https://chromestatus.com/feature/5189864286978048
       // https://github.com/explainers-by-googlers/cpu-performance
       name: "CpuPerformance",
-      status: "experimental"
+      status: "experimental",
+      origin_trial_feature_name: "CpuPerformance",
+      origin_trial_allows_third_party: true,
+      base_feature_status: "enabled",
+      copied_from_base_feature_if: "overridden",
     },
     {
       name: "CrashReportingStorageAPI",
@@ -2710,8 +2714,8 @@
       // This fixes the suppression of markers for <details> and
       // list items for appearance:auto.
       // This was added in M146 and can be removed after M148.
+      // Note that as-is, this flag triggers crbug.com/408002786.
       name: "FixMarkerSuppressionForAppearanceAuto",
-      status: "stable",
     },
     {
       // crbug.com/411739501
@@ -3769,8 +3773,23 @@
       status: "stable",
     },
     {
+      name: "NavigateEventCanTransition",
+    },
+    {
+      name: "NavigateEventCommitBehavior",
+      status: "stable",
+    },
+    {
       name: "NavigateEventDeferCrossDocumentCommit",
       status: "experimental",
+    },
+    {
+      name: "NavigateEventPopstateLimitations",
+      status: "stable",
+    },
+    {
+      name: "NavigateEventSourceElement",
+      status: "stable",
     },
     {
       name: "NavigationEventTiming",
@@ -3780,6 +3799,10 @@
       status: "experimental",
       origin_trial_feature_name: "SoftNavigationHeuristics",
       implied_by: ["SoftNavigationHeuristics"],
+    },
+    {
+      name: "NavigationTransitionDestination",
+      status: "stable",
     },
     {
       name: "NavigatorContentUtils",
@@ -4963,8 +4986,8 @@
       status: "stable",
     },
     {
-      // Killswitch for crbug.com/451833352.
-      name: "SelectionEdgeVisibilityUsesFullEdge",
+      // Killswitch M141.
+      name: "SelectionHandleWithBottomClipped",
       status: "stable",
     },
     {
@@ -5472,7 +5495,7 @@
     },
     {
       name: "SyntheticMouseHoverOverInactivePage",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "SystemDefaultAccentColors",

@@ -215,6 +215,7 @@ void VerticalTabGroupView::ToggleCollapsedState(
 
   collection_node_->GetController()->ToggleTabGroupCollapsedState(
       GetTabGroupFromNode(collection_node_), origin);
+  InvalidateLayout();
 }
 
 views::Widget* VerticalTabGroupView::ShowGroupEditorBubble(
@@ -236,6 +237,13 @@ views::Widget* VerticalTabGroupView::ShowGroupEditorBubble(
       stop_context_menu_propagation);
 }
 
+bool VerticalTabGroupView::IsDragging() const {
+  if (!collection_node_ || !collection_node_->GetController()) {
+    return false;
+  }
+  return GetDragHandler().IsDragging();
+}
+
 bool VerticalTabGroupView::IsViewDragging(const views::View& child_view) const {
   if (!collection_node_ || !collection_node_->GetController()) {
     return false;
@@ -247,6 +255,11 @@ bool VerticalTabGroupView::ShouldAnimateOpacityForAddAndRemove(
     const views::View& child_view) const {
   // Only animate opacity for tab views.
   return views::IsViewClass<VerticalTabView>(&child_view);
+}
+
+bool VerticalTabGroupView::ShouldSnapToTarget(
+    const views::View& child_view) const {
+  return views::IsViewClass<VerticalSplitTabView>(&child_view);
 }
 
 void VerticalTabGroupView::OnAnimationEnded() {

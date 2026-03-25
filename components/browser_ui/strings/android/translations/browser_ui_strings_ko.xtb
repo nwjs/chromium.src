@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">기본 브라우저 하단 시트</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{사이트 <ph name="RWS_MEMBERS_COUNT" />개는 <ph name="RWS_OWNER" />의 사이트 그룹에 있으며, 여기에서는 그룹 내 활동을 볼 수 있습니다.}other{사이트 <ph name="RWS_MEMBERS_COUNT" />개는 <ph name="RWS_OWNER" />의 사이트 그룹에 있으며, 여기에서는 그룹 내 활동을 볼 수 있습니다.}}</translation>
 <translation id="3676777756440746804">사이트에서 나에 관해 저장된 정보 사용을 요청하지 못하도록 차단</translation>
+<translation id="3677897809642449131">사이트에서 움직임 감지 센서를 사용하도록 요청할 수 있음</translation>
 <translation id="3678318839615834650">새 탭 페이지 카드 하단 시트가 전체 높이로 열림</translation>
 <translation id="3697164069658504920">사용 설정하면 사이트에서 USB 기기 사용을 요청할 수 있습니다. 사용 중지하면 사이트에서 USB 기기를 사용할 수 없습니다.</translation>
 <translation id="3703430731944883733">피드 관리</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">화면 공유</translation>
 <translation id="5922967540311291836">서드 파티 쿠키 차단:</translation>
 <translation id="5923512600150154850">이렇게 하면 사이트에서 저장한 <ph name="DATASIZE" />의 데이터와 쿠키가 삭제됩니다.</translation>
+<translation id="5930707844513754220">설정 목록 더보기</translation>
 <translation id="5939518447894949180">초기화</translation>
 <translation id="5948139900367969951">나에게 중요한 항목을 빠르게 확인하세요</translation>
 <translation id="5964247741333118902">삽입한 콘텐츠</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">디스커버 피드 사용 설정</translation>
 <translation id="6012967556075291653">고정된 바로가기</translation>
+<translation id="6013003831291591200">작업 완료됨</translation>
 <translation id="6015775454662021376">기기에 대한 이 사이트의 액세스를 제어합니다.</translation>
 <translation id="6022659036123304283">나만의 Chrome 만들기</translation>
 <translation id="6040143037577758943">닫기</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">사이트에서 카메라를 요청할 수 있음</translation>
 <translation id="8712637175834984815">확인</translation>
 <translation id="8715862698998036666">전체 화면을 종료하려면 위에서 드래그하고 왼쪽 또는 오른쪽 가장자리에서 스와이프하세요.</translation>
+<translation id="8716050156658570300">사이트에서 움직임 감지 센서 및 조도 센서를 사용하도록 요청할 수 있음</translation>
 <translation id="8719283222052720129"><ph name="BEGIN_LINK" />Android 설정<ph name="END_LINK" />에서 <ph name="APP_NAME" /> 관련 권한을 설정합니다.</translation>
 <translation id="8721719390026067591">사용 설정하면 사이트에서 블루투스 기기 검색을 요청할 수 있습니다. 사용 중지하면 사이트에서 블루투스 기기를 검색할 수 없습니다.</translation>
 <translation id="8725066075913043281">다시 시도하기</translation>

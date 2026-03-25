@@ -479,6 +479,9 @@ found in the LICENSE file.
     <h1>Region Capture</h1>
     <button id="captureRegionBtn">Capture Region</button>
     <ul id="captureRegionResultList"></ul>
+    <label for="deleteCaptureRegion">Delete Region ID:</label>
+    <input type="text" id="deleteCaptureRegion" name="deleteCaptureRegion" />
+    <button id="deleteCaptureRegionBtn">Delete Region</button>
   </div>
   <div class="section">
     <h1>Scroll-To and Highlight</h1>
@@ -635,6 +638,24 @@ found in the LICENSE file.
     </ul>
     <div>
       <label>Skill ID: <input id="skillIdInput" type="text" /></label>
+    </div>
+    <div>
+      <label>Skill Name: <input id="skillNameInput" type="text" /></label>
+    </div>
+    <div>
+      <label>Skill Icon: <input id="skillIconInput" type="text" /></label>
+    </div>
+    <div>
+      <!-- LINT.IfChange(SkillSource) -->
+      <label>Skill Source:
+        <select id="skillSourceSelect">
+          <option value="0">Unknown</option>
+          <option value="1" selected>First Party</option>
+          <option value="2">User Created</option>
+          <option value="3">Derived from First Party</option>
+        </select>
+      </label>
+      <!-- LINT.ThenChange(//components/skills/public/skill.mojom:SkillSource) -->
     </div>
     <div>
       <label>Skill Prompt: <input id="skillPromptInput" type="text" /></label>

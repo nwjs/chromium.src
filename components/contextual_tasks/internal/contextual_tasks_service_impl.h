@@ -26,6 +26,7 @@
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/sessions/core/session_id.h"
 #include "components/sync/model/data_type_store.h"
+#include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "url/gurl.h"
 
 class AimEligibilityService;
@@ -53,7 +54,8 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
       signin::IdentityManager* identity_manager,
       PrefService* pref_service,
       bool supports_ephemeral_only,
-      base::RepeatingCallback<size_t()> get_active_task_count_callback);
+      base::RepeatingCallback<size_t()> get_active_task_count_callback,
+      base::RepeatingCallback<bool()> is_gemini_threads_enabled);
   ~ContextualTasksServiceImpl() override;
 
   ContextualTasksServiceImpl(const ContextualTasksServiceImpl&) = delete;
@@ -102,12 +104,17 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
       std::unique_ptr<ContextDecorationParams> params,
       base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
           context_callback) override;
+  void GetThreadUrlFromTaskId(const base::Uuid& task_id,
+                              const std::string& locale,
+                              omnibox::ChromeAimEntryPoint entry_point,
+                              base::OnceCallback<void(GURL)> callback) override;
   void AddObserver(ContextualTasksService::Observer* observer) override;
   void RemoveObserver(ContextualTasksService::Observer* observer) override;
   base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetAiThreadControllerDelegate() override;
   base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetGeminiThreadControllerDelegate() override;
+  bool IsGeminiThreadsEligible() override;
 
   size_t GetTabIdMapSizeForTesting() const;
 
@@ -181,6 +188,9 @@ class ContextualTasksServiceImpl : public ContextualTasksService,
 
   // Callback to retrieve the number of active tasks.
   base::RepeatingCallback<size_t()> get_active_task_count_callback_;
+
+  // Callback to determine if the profile is eligible for Gemini threads.
+  base::RepeatingCallback<bool()> is_gemini_threads_enabled_callback_;
 
   // Whether the service is initialized.
   bool is_initialized_ = false;

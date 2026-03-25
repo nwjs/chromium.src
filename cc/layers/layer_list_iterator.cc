@@ -8,8 +8,6 @@
 
 namespace cc {
 
-LayerListIterator::LayerListIterator() = default;
-
 LayerListIterator::LayerListIterator(Layer* root_layer)
     : current_layer_(root_layer) {
   DCHECK(!root_layer || !root_layer->parent());
@@ -49,8 +47,6 @@ LayerListIterator& LayerListIterator::operator++() {
 }
 
 LayerListIterator::~LayerListIterator() = default;
-
-LayerListConstIterator::LayerListConstIterator() = default;
 
 LayerListConstIterator::LayerListConstIterator(const Layer* root_layer)
     : current_layer_(root_layer) {
@@ -92,8 +88,6 @@ LayerListConstIterator& LayerListConstIterator::operator++() {
 }
 
 LayerListConstIterator::~LayerListConstIterator() = default;
-
-LayerListReverseIterator::LayerListReverseIterator() = default;
 
 LayerListReverseIterator::LayerListReverseIterator(Layer* root_layer)
     : current_layer_(root_layer) {
@@ -142,8 +136,6 @@ void LayerListReverseIterator::DescendToRightmostInSubtree() {
 }
 
 LayerListReverseIterator::~LayerListReverseIterator() = default;
-
-LayerListReverseConstIterator::LayerListReverseConstIterator() = default;
 
 LayerListReverseConstIterator::LayerListReverseConstIterator(
     const LayerListReverseConstIterator& other) = default;

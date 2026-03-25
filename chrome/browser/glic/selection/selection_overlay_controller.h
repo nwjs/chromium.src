@@ -7,6 +7,8 @@
 
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
+#include "base/observer_list.h"
+#include "base/observer_list_types.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/glic/host/context/glic_page_context_fetcher.h"
 #include "chrome/browser/glic/host/glic.mojom-forward.h"
@@ -18,6 +20,15 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
+
+namespace content {
+class WebContents;
+}
+
+namespace input {
+struct NativeWebKeyboardEvent;
+}
 
 namespace glic {
 
@@ -25,6 +36,11 @@ class SelectionOverlayController
     : public OverlayBaseController,
       public selection::SelectionOverlayPageHandler {
  public:
+  class Observer : public base::CheckedObserver {
+   public:
+    virtual void OnOverlayClosed() = 0;
+  };
+
   SelectionOverlayController(tabs::TabInterface* tab,
                              PrefService* pref_service);
   ~SelectionOverlayController() override;
@@ -55,12 +71,30 @@ class SelectionOverlayController
   void Show();
   void Close();
 
+  void AddListener(Observer* observer);
+  void RemoveListener(Observer* observer);
+
+  // `selection::SelectionOverlayPageHandler`:
+  void DeleteRegion(const base::UnguessableToken& id) override;
+
   std::optional<std::vector<uint8_t>>& GetEncodedData() { return encoded_; }
 
  private:
+  void WillDiscardContents(tabs::TabInterface* tab,
+                           content::WebContents* old_contents,
+                           content::WebContents* new_contents);
+  void WillDetach(tabs::TabInterface* tab,
+                  tabs::TabInterface::DetachReason reason);
+  void TabDeactivated(tabs::TabInterface* tab);
+
   void InitializeOverlay();
 
+  // `content::WebContentsDelegate`:
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
+
   // OverlayBaseController overrides:
+  void CloseUI() override;
   void RequestSyncClose(DismissalSource dismissal_source) override;
   void StartScreenshotFlow() override;
   void NotifyOverlayClosing() override;
@@ -81,7 +115,6 @@ class SelectionOverlayController
   // `selection::SelectionOverlayPageHandler`:
   void DismissOverlay(selection::DismissOverlayReason reason) override;
   void AdjustRegion(selection::SelectedRegionPtr target) override;
-  void DeleteRegion(const base::UnguessableToken& id) override;
   void ClosePreselectionBubble() override;
   void AddBackgroundBlur() override;
   void SetLiveBlur(bool enabled) override;
@@ -102,7 +135,7 @@ class SelectionOverlayController
 
   void Reset();
   glic::mojom::AdditionalContextPtr CreateAdditionalContext(
-      const std::vector<gfx::Rect>& regions);
+      const std::vector<std::pair<base::UnguessableToken, gfx::Rect>>& regions);
 
   // Connections to and from the overlay WebUI. Only valid while
   // `OverlayBaseController::overlay_view_` is showing and the underlying
@@ -123,6 +156,13 @@ class SelectionOverlayController
 
   ui::ScopedUnownedUserData<SelectionOverlayController>
       scoped_unowned_user_data_;
+
+  base::ObserverList<Observer> observers_;
+
+  // Holds subscriptions for TabInterface callbacks.
+  std::vector<base::CallbackListSubscription> tab_subscriptions_;
+
+  views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 
   // Must be the last member.
   base::WeakPtrFactory<SelectionOverlayController> weak_factory_{this};

@@ -2594,11 +2594,7 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
     ScrollOffset old_offset =
         scrollable_area->GetScrollOffset() + scroll_origin;
     ScrollOffset new_offset;
-
-    if (old_offset == scroll_origin) {
-      CHECK(previous_snap_targets.x == first_data.element_id ||
-            previous_snap_targets.y == first_data.element_id);
-
+    if (previous_snap_targets.x == first_data.element_id) {
       gfx::RectF target_rect = second_data.rect;
 
       PhysicalSize box_size = overscroll_area_object->PhysicalContentBoxSize();
@@ -2631,8 +2627,6 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
       // absolute space though).
       new_offset += old_offset;
     } else {
-      CHECK(previous_snap_targets.x != first_data.element_id ||
-            previous_snap_targets.y != first_data.element_id);
       new_offset = scroll_origin;
     }
 

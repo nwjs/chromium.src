@@ -431,7 +431,6 @@ s! {
         pub si_value: crate::sigval,
     }
 
-    #[derive(Default)]
     pub struct timespec {
         pub tv_sec: __time_t,
         pub tv_nsec: __syscall_slong_t,

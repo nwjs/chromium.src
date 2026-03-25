@@ -202,6 +202,9 @@ extern const char kComposeboxCloseButtonTopAlignDescription[];
 extern const char kComposeboxCompactModeName[];
 extern const char kComposeboxCompactModeDescription[];
 
+extern const char kComposeboxConditionalPlusButtonName[];
+extern const char kComposeboxConditionalPlusButtonDescription[];
+
 extern const char kComposeboxDeepSearchName[];
 extern const char kComposeboxDeepSearchDescription[];
 
@@ -863,6 +866,9 @@ extern const char kRcapsDynamicProfileCountryDescription[];
 
 extern const char kReaderModeContentSettingsForLinksName[];
 extern const char kReaderModeContentSettingsForLinksDescription[];
+
+extern const char kReaderModeIgnoreBadgeThresholdName[];
+extern const char kReaderModeIgnoreBadgeThresholdDescription[];
 
 extern const char kReaderModeOmniboxEntrypointInUSName[];
 extern const char kReaderModeOmniboxEntrypointInUSDescription[];

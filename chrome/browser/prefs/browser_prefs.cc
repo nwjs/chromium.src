@@ -1004,9 +1004,6 @@ constexpr char kTabOrganizationFeature[] = "tab_organization.feature";
 // Deprecated 03/2026.
 constexpr char kTabDeclutterUsageCount[] = "tab_declutter.usage_count";
 
-// Deprecated 03/2026.
-inline constexpr char kTabSearchTabIndex[] = "tab_search.tab_index";
-
 // Register local state used only for migration (clearing or moving to a new
 // key).
 void RegisterLocalStatePrefsForMigration(PrefRegistrySimple* registry) {
@@ -1405,9 +1402,6 @@ void RegisterProfilePrefsForMigration(
 
   // Deprecated 03/2026.
   registry->RegisterIntegerPref(kTabDeclutterUsageCount, 0);
-
-  // Deprecated 03/2026.
-  registry->RegisterIntegerPref(kTabSearchTabIndex, 1);
 }
 
 }  // namespace
@@ -2710,9 +2704,6 @@ void MigrateObsoleteProfilePrefs(PrefService* profile_prefs,
 
   // Added 03/2026.
   profile_prefs->ClearPref(kTabDeclutterUsageCount);
-
-  // Added 03/2026.
-  profile_prefs->ClearPref(kTabSearchTabIndex);
 
 #if !BUILDFLAG(IS_ANDROID)
   // Added 02/2026.

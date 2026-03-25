@@ -257,7 +257,9 @@ class TestBrowserWindow : public BrowserWindow,
 
   void SetCloseCallback(base::OnceClosure close_callback);
 
-  void CreateTabSearchBubble() override {}
+  void CreateTabSearchBubble(
+      tab_search::mojom::TabSearchSection section =
+          tab_search::mojom::TabSearchSection::kSearch) override {}
   void CloseTabSearchBubble() override {}
 
   bool IsTabModalPopupDeprecated() const override;

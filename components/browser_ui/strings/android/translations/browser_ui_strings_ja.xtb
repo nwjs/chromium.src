@@ -9,7 +9,7 @@
 <translation id="1074758928858737435">サイトの PC 版を表示するようリクエストできます</translation>
 <translation id="1109482864356262001">モーション センサーまたは光センサーを必要とする機能は動作しなくなります</translation>
 <translation id="1126523729897810826">Chrome を最大限に活用するには、下記のおすすめの設定を行ってください</translation>
-<translation id="113098737392899175">キーボードが接続されているときにテキスト カーソルを使ってページ間を移動する</translation>
+<translation id="113098737392899175">キーボードが接続されているときにテキスト カーソルを使ってページ内を移動する</translation>
 <translation id="1148624853678088576">設定完了。</translation>
 <translation id="1149644372535087155">Chrome でパスワードを保存</translation>
 <translation id="1178015372320901893">カスタム ショートカットのボトムシート</translation>
@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">デフォルトのブラウザのボトムシート</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_OWNER" /> のサイトグループに属する <ph name="RWS_MEMBERS_COUNT" /> 件のサイトが、グループでのあなたのアクティビティを確認できます}other{<ph name="RWS_OWNER" /> のサイトグループに属する <ph name="RWS_MEMBERS_COUNT" /> 件のサイトが、グループでのあなたのアクティビティを確認できます}}</translation>
 <translation id="3676777756440746804">サイトがあなたに関する保存済みの情報の使用を要求できないようにする</translation>
+<translation id="3677897809642449131">サイトがモーション センサーの使用を要求できるようにする</translation>
 <translation id="3678318839615834650">新しいタブページのカードのボトムシートが画面全体に表示されています</translation>
 <translation id="3697164069658504920">オンにすると、サイトは USB デバイスの使用を要求できます。オフにすると、サイトは USB デバイスを使用できません。</translation>
 <translation id="3703430731944883733">フィードを管理</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">画面を共有しています</translation>
 <translation id="5922967540311291836">サードパーティの Cookie をブロックする:</translation>
 <translation id="5923512600150154850">サイトにより保存された <ph name="DATASIZE" /> のデータと Cookie が削除されます。</translation>
+<translation id="5930707844513754220">設定リストをもっと見る</translation>
 <translation id="5939518447894949180">リセット</translation>
 <translation id="5948139900367969951">必要な情報をすばやくチェックできます</translation>
 <translation id="5964247741333118902">埋め込みコンテンツ</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" />～<ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Discover フィードをオンにする</translation>
 <translation id="6012967556075291653">固定されたショートカット</translation>
+<translation id="6013003831291591200">タスクが完了しました</translation>
 <translation id="6015775454662021376">このサイトによるデバイスへのアクセスを管理します</translation>
 <translation id="6022659036123304283">Chrome を自分用にカスタマイズ</translation>
 <translation id="6040143037577758943">閉じる</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">サイトがカメラへのアクセスを要求できるようにする</translation>
 <translation id="8712637175834984815">理解しました</translation>
 <translation id="8715862698998036666">全画面表示を終了するには、上からドラッグして、左端または右端からスワイプします。</translation>
+<translation id="8716050156658570300">サイトがモーション センサーと光センサーの使用を要求できるようにする</translation>
 <translation id="8719283222052720129"><ph name="BEGIN_LINK" />Android の設定<ph name="END_LINK" />で <ph name="APP_NAME" /> の権限を有効にしてください。</translation>
 <translation id="8721719390026067591">オンにすると、サイトは Bluetooth デバイスの検出を要求できます。オフにすると、サイトは Bluetooth デバイスを検出できません。</translation>
 <translation id="8725066075913043281">もう一度試す</translation>

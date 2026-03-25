@@ -144,6 +144,12 @@ void ServiceWorkerTaskQueue::RendererDidInitializeServiceWorkerContext(
   // active.
   CHECK(process_host);
 
+  // A stale IPC could arrive from the renderer process after the extension has
+  // been deactivated, reloaded and immediately reactivated.
+  if (!IsCurrentActivation(extension_id, activation_token)) {
+    return;
+  }
+
   util::InitializeFileSchemeAccessForExtension(
       render_process_id.GetUnsafeValue(), extension_id, browser_context_);
   ProcessManager::Get(browser_context_)
@@ -490,14 +496,17 @@ void ServiceWorkerTaskQueue::OnWorkerStartFail(
   pending_storage_registrations_.erase(context_id.extension_id);
 }
 
-void ServiceWorkerTaskQueue::OnWorkerStop(int64_t version_id,
-                                          const GURL& scope) {
+void ServiceWorkerTaskQueue::OnWorkerStop(
+    int64_t version_id,
+    const blink::ServiceWorkerToken& service_worker_token,
+    const GURL& scope) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // Stop tracking the worker for extension API purposes.
   const ExtensionId& extension_id = scope.GetHost();
   ProcessManager::Get(browser_context_)
-      ->StopTrackingServiceWorkerRunningInstance(extension_id, version_id);
+      ->StopTrackingServiceWorkerRunningInstance(extension_id, version_id,
+                                                 service_worker_token);
 
   if (g_test_observer) {
     g_test_observer->UntrackServiceWorkerState(scope);

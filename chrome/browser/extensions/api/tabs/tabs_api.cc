@@ -180,33 +180,39 @@ bool IsValidStateForWindowsCreateFunction(
 
 // Sets the opener of the given `tab` to `opener`. Returns true on success;
 // on failure, populates `error`.
-bool SetOpenerOfTab(Profile& profile,
-                    ::tabs::TabInterface& tab,
-                    ::tabs::TabInterface& opener,
+bool SetOpenerOfTab(content::WebContents& tab,
+                    content::WebContents& opener,
                     std::string& error) {
   // Bug fix for crbug.com/1197888. Don't let the extension update the tab
   // if the user is dragging tabs.
-  if (!ExtensionTabUtil::IsTabStripEditable(profile)) {
+  if (!ExtensionTabUtil::IsTabStripEditable(
+          *Profile::FromBrowserContext(tab.GetBrowserContext()))) {
     error = ExtensionTabUtil::kTabStripNotEditableError;
     return false;
   }
 
   BrowserWindowInterface* opener_browser =
-      browser_window_util::GetBrowserForTabContents(*opener.GetContents());
+      browser_window_util::GetBrowserForTabContents(opener);
   // NOTE: This would be more efficient if there were a
   // TabListInterface::GetIndexOfWebContents() or similar, since then we could
   // just check `opener_browser->GetIndexOfWebContents(&tab)` instead of looking
   // up the tab's browser.
   BrowserWindowInterface* tab_browser =
-      browser_window_util::GetBrowserForTabContents(*tab.GetContents());
+      browser_window_util::GetBrowserForTabContents(tab);
   if (!opener_browser || opener_browser != tab_browser) {
     error = "Tab opener must be in the same window as the updated tab.";
     return false;
   }
 
-  TabListInterface* tab_list = TabListInterface::From(tab_browser);
-  CHECK(tab_list);
-  tab_list->SetOpenerForTab(tab.GetHandle(), opener.GetHandle());
+  // TODO(https://crbug.com/371432155): Support this on desktop android.
+#if !BUILDFLAG(IS_ANDROID)
+  TabStripModel* tab_strip =
+      tab_browser->GetBrowserForMigrationOnly()->tab_strip_model();
+  int tab_index = tab_strip->GetIndexOfWebContents(&tab);
+  CHECK_NE(TabStripModel::kNoTab, tab_index);
+  tab_strip->SetOpenerOfTabAt(tab_index,
+                              ::tabs::TabInterface::GetFromContents(&opener));
+#endif
 
   return true;
 }
@@ -2379,23 +2385,7 @@ void TabsCreateFunction::OpenTabInBrowser(BrowserWindowInterface& browser,
 
   if (opener_tab) {
     std::string error;
-
-    // We know these should never be null:
-    // * We just created the tab in OpenTabHelper::OpenTab() above, and verified
-    //   it returned a valid contents.
-    // * The `opener_tab` is fetched from GetTabById(), which only returns tab
-    //   contents, so if `opener_tab` is non-null, there should always be a
-    //   TabInterface for it.
-    ::tabs::TabInterface* tab_interface =
-        ::tabs::TabInterface::GetFromContents(new_contents);
-    CHECK(tab_interface);
-    ::tabs::TabInterface* opener_interface =
-        ::tabs::TabInterface::GetFromContents(opener_tab);
-    CHECK(opener_interface);
-    Profile* profile =
-        Profile::FromBrowserContext(new_contents->GetBrowserContext());
-    SetOpenerOfTab(*profile, *tab_interface, *opener_interface, error);
-
+    SetOpenerOfTab(*new_contents, *opener_tab, error);
     // Since we've already created the new browser, we ignore the error (if
     // any).
   }
@@ -2643,10 +2633,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
                                          base::NumberToString(opener_id))));
     }
 
-    ::tabs::TabInterface* opener_tab =
-        ::tabs::TabInterface::GetFromContents(opener_contents);
-    CHECK(opener_tab);
-    if (!SetOpenerOfTab(*window->profile(), *target_tab, *opener_tab, error)) {
+    if (!SetOpenerOfTab(*original_contents, *opener_contents, error)) {
       return RespondNow(Error(std::move(error)));
     }
   }
@@ -3156,7 +3143,12 @@ bool TabsRemoveFunction::RemoveTab(int tab_id, std::string* error) {
   }
 
   // Don't let the extension remove a tab if the user is dragging tabs around.
-  if (!ExtensionTabUtil::IsTabStripEditable(*window->profile())) {
+  // TODO(https://crbug.com/482088886): Update this to check all tab lists for
+  // a profile.
+  TabListInterface* tab_list =
+      TabListInterface::From(window->GetBrowserWindowInterface());
+  CHECK(tab_list);
+  if (!tab_list->IsThisTabListEditable()) {
     *error = ExtensionTabUtil::kTabStripNotEditableError;
     return false;
   }

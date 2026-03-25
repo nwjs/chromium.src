@@ -672,6 +672,7 @@ VISIT_PROTO_FIELDS(const sync_pb::FeatureSpecificFields& proto) {
   VISIT_ENUM(send_tab_to_self_receiving_type);
   VISIT(auto_sign_out_last_signin_timestamp_windows_epoch_micros);
   VISIT(desktop_to_ios_promo_receiving_enabled);
+  VISIT_REP(desktop_to_ios_promo_receiving_types);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SharingSpecificFields& proto) {
@@ -1301,6 +1302,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroup& proto) {
   VISIT_ENUM(color);
   VISIT(pinned_position);
   VISIT(bookmark_node_id);
+  VISIT(projects_position);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SavedTabGroupTab& proto) {

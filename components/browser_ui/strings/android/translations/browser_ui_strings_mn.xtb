@@ -269,6 +269,7 @@
 <translation id="3658847490588580244">Өгөгдмөл хөтчийн доод хүснэгт</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{Бүлэг дэх таны үйл ажиллагааг харах боломжтой <ph name="RWS_OWNER" />-н бүлэг сайтууд дахь <ph name="RWS_MEMBERS_COUNT" /> сайт}other{Бүлэг дэх таны үйл ажиллагааг харах боломжтой <ph name="RWS_OWNER" />-н бүлэг сайтууд дахь <ph name="RWS_MEMBERS_COUNT" /> сайт}}</translation>
 <translation id="3676777756440746804">Сайтыг танаас таны талаар хадгалсан мэдээллээ ашиглахыг хүсэхийг блоклосон</translation>
+<translation id="3677897809642449131">Сайтууд хөдөлгөөн мэдрэгч ашиглахыг хүсэж чадна</translation>
 <translation id="3678318839615834650">Шинэ таб хуудасны картын доод хүснэгтийг бүтэн өндрөөр нээсэн</translation>
 <translation id="3697164069658504920">Асаалттай үед сайтууд USB төхөөрөмжүүдийг ашиглахыг хүсэх боломжтой. Унтраалттай үед сайтууд USB төхөөрөмжүүдийг ашиглах боломжгүй.</translation>
 <translation id="3703430731944883733">Хангамжаа удирдах</translation>
@@ -490,6 +491,7 @@
 <translation id="5922853908706496913">Таны дэлгэцийг хуваалцаж байна</translation>
 <translation id="5922967540311291836">Гуравдагч талын күүкиг блоклох:</translation>
 <translation id="5923512600150154850">Энэ нь сайтаас хадгалсан <ph name="DATASIZE" />-н өгөгдөл болон күүкиг устгана.</translation>
+<translation id="5930707844513754220">Бусад тохируулгын жагсаалтыг харах</translation>
 <translation id="5939518447894949180">Дахин сэргээх</translation>
 <translation id="5948139900367969951">Чухал зүйлсдээ шуурхай очоорой</translation>
 <translation id="5964247741333118902">Оруулсан контент</translation>
@@ -498,6 +500,7 @@
 <translation id="5976059395673079613"><ph name="PERMISSION" /> - <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Discover-н хангамжийг асаах</translation>
 <translation id="6012967556075291653">Бэхэлсэн товчлол</translation>
+<translation id="6013003831291591200">Даалгаврыг дуусгасан</translation>
 <translation id="6015775454662021376">Таны төхөөрөмж рүү хандах энэ сайтын хандалтыг удирдах</translation>
 <translation id="6022659036123304283">Chrome-г хүссэнээрээ тохируулаарай</translation>
 <translation id="6040143037577758943">Хаах</translation>
@@ -748,6 +751,7 @@
 <translation id="8707904142362025782">Сайт таны камерыг ашиглахыг хүсэх боломжтой</translation>
 <translation id="8712637175834984815">Ойлголоо</translation>
 <translation id="8715862698998036666">Бүтэн дэлгэцээс гарахын тулд дээрээс чирээд, зүүн эсвэл баруун ирмэгээс шударна уу.</translation>
+<translation id="8716050156658570300">Сайтууд хөдөлгөөн, гэрэл мэдрэгчдийг ашиглахыг хүсэж чадна</translation>
 <translation id="8719283222052720129"><ph name="APP_NAME" />-н зөвшөөрлийг <ph name="BEGIN_LINK" />Андройдын тохиргоо<ph name="END_LINK" />-нд асаагаарай.</translation>
 <translation id="8721719390026067591">Асаалттай үед сайтууд Bluetooth төхөөрөмжүүдийг хайхыг хүсэх боломжтой. Унтраалттай үед сайтууд Bluetooth төхөөрөмжүүдийг хайх боломжгүй.</translation>
 <translation id="8725066075913043281">Дахин оролдож үзнэ үү.</translation>

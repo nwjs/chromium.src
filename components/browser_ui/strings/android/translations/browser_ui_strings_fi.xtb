@@ -269,6 +269,7 @@ Lisäsuojaus ohjaa näitä Chromen asetuksia:
 <translation id="3658847490588580244">Oletusselainsyöte</translation>
 <translation id="3669841141196828854">{COUNT,plural, =1{<ph name="RWS_MEMBERS_COUNT" /> sivusto osoitteen <ph name="RWS_OWNER" /> sivustoryhmässä (toimintasi siellä näkyy sivustoille)}other{<ph name="RWS_MEMBERS_COUNT" /> sivustoa osoitteen <ph name="RWS_OWNER" /> sivustoryhmässä (toimintasi siellä näkyy sivustoille)}}</translation>
 <translation id="3676777756440746804">Sivustoja estetään pyytämästä lupaa sinusta tallennettujen tietojen käytölle</translation>
+<translation id="3677897809642449131">Sivustot voivat pyytää lupaa käyttää liiketunnistimia</translation>
 <translation id="3678318839615834650">Uusi välilehti ‐sivun korttien alapaneeli avattu koko näytölle</translation>
 <translation id="3697164069658504920">Kun tämä on päällä, sivustot voivat pyytää lupaa käyttää USB-laitteita. Kun tämä on pois päältä, sivustot eivät voi käyttää USB-laitteita.</translation>
 <translation id="3703430731944883733">Ylläpidä fiidiä</translation>
@@ -490,6 +491,7 @@ Lisäsuojaus ohjaa näitä Chromen asetuksia:
 <translation id="5922853908706496913">Näyttösi jaetaan</translation>
 <translation id="5922967540311291836">Estä kolmannen osapuolen evästeet:</translation>
 <translation id="5923512600150154850">Tämä poistaa <ph name="DATASIZE" /> dataa ja sivustojen tallentamat evästeet</translation>
+<translation id="5930707844513754220">Näytä enemmän käyttöönottolistaa</translation>
 <translation id="5939518447894949180">Tyhjennä</translation>
 <translation id="5948139900367969951">Löydä tärkeät asiat nopeasti</translation>
 <translation id="5964247741333118902">Upotettu sisältö</translation>
@@ -498,6 +500,7 @@ Lisäsuojaus ohjaa näitä Chromen asetuksia:
 <translation id="5976059395673079613"><ph name="PERMISSION" /> – <ph name="WARNING_MESSAGE" /></translation>
 <translation id="5998071268779572583">Laita Discover-fiidi päälle</translation>
 <translation id="6012967556075291653">Kiinnitetty pikakuvake</translation>
+<translation id="6013003831291591200">Valmis tehtävä</translation>
 <translation id="6015775454662021376">Valitse, mitä tämä sivusto saa tehdä laitteellasi</translation>
 <translation id="6022659036123304283">Tee Chromesta näköisesi</translation>
 <translation id="6040143037577758943">Sulje</translation>
@@ -748,6 +751,7 @@ Lisäsuojaus ohjaa näitä Chromen asetuksia:
 <translation id="8707904142362025782">Sivusto voi pyytää kameran käyttölupaa</translation>
 <translation id="8712637175834984815">Ymmärretty</translation>
 <translation id="8715862698998036666">Poistu koko näytön tilasta vetämällä näytön yläreunasta ja pyyhkäisemällä vasemmasta tai oikeasta reunasta.</translation>
+<translation id="8716050156658570300">Sivustot voivat pyytää lupaa käyttää liike- ja valoantureita</translation>
 <translation id="8719283222052720129">Laita lupa (<ph name="APP_NAME" />) päälle <ph name="BEGIN_LINK" />Androidin asetuksista<ph name="END_LINK" />.</translation>
 <translation id="8721719390026067591">Kun tämä on päällä, sivustot voivat pyytää lupaa etsiä Bluetooth-laitteita. Kun tämä on pois päältä, sivustot eivät voi etsiä Bluetooth-laitteita.</translation>
 <translation id="8725066075913043281">Yritä uudelleen</translation>

@@ -1773,11 +1773,11 @@ TEST_F(OmniboxEditModelPopupTest, AimPopupEnabled_ForcedNavigationEnabled) {
             controller()->popup_state_manager()->popup_state());
 
   EXPECT_EQ(user_action_tester.GetActionCount(
-                "ContextualSearch.UserAction.SubmitQuery.WithoutContext."
+                "ContextualSearch.UserAction.SubmitQueryV2.WithoutContext."
                 "Omnibox"),
             1);
   histogram_tester.ExpectUniqueSample(
-      "ContextualSearch.UserAction.SubmitQuery.WithoutContext.Omnibox", true,
+      "ContextualSearch.UserAction.SubmitQueryV2.WithoutContext.Omnibox", true,
       1);
 
   testing::Mock::VerifyAndClearExpectations(client());
@@ -1788,6 +1788,97 @@ TEST_F(OmniboxEditModelPopupTest, AimPopupEnabled_ForcedNavigationEnabled) {
 
   EXPECT_EQ(OmniboxPopupState::kAim,
             controller()->popup_state_manager()->popup_state());
+}
+
+TEST_F(OmniboxEditModelPopupTest, AiModeButtonClickNtpOmnibox) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
+  client()->location_bar_model()->set_page_classification(
+      metrics::OmniboxEventProto::INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS);
+
+  EXPECT_CALL(*client(), IsAimPopupEnabled()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*client(), OpenUrl(_)).Times(0);
+
+  model()->OpenAiMode(/*via_keyboard=*/false, /*via_context_menu=*/false);
+
+  EXPECT_EQ(OmniboxPopupState::kAim,
+            controller()->popup_state_manager()->popup_state());
+
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "ContextualSearch.AiModeButtonClick.NtpOmnibox"),
+            1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.AiModeButtonClick.NtpOmnibox", true, 1);
+
+  model()->OpenAiMode(/*via_keyboard=*/false, /*via_context_menu=*/true);
+
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "ContextualSearch.AiModeButtonClick.NtpOmnibox"),
+            1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.AiModeButtonClick.NtpOmnibox", true, 1);
+}
+
+TEST_F(OmniboxEditModelPopupTest, AiModeButtonClickSrpOmnibox) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
+  client()->location_bar_model()->set_page_classification(
+      metrics::OmniboxEventProto::
+          SEARCH_RESULT_PAGE_NO_SEARCH_TERM_REPLACEMENT);
+
+  EXPECT_CALL(*client(), IsAimPopupEnabled()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*client(), OpenUrl(_)).Times(0);
+
+  model()->OpenAiMode(/*via_keyboard=*/true, /*via_context_menu=*/false);
+
+  EXPECT_EQ(OmniboxPopupState::kAim,
+            controller()->popup_state_manager()->popup_state());
+
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "ContextualSearch.AiModeButtonClick.SrpOmnibox"),
+            1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.AiModeButtonClick.SrpOmnibox", true, 1);
+
+  model()->OpenAiMode(/*via_keyboard=*/true, /*via_context_menu=*/true);
+
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "ContextualSearch.AiModeButtonClick.SrpOmnibox"),
+            1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.AiModeButtonClick.SrpOmnibox", true, 1);
+}
+
+TEST_F(OmniboxEditModelPopupTest, AiModeButtonClickWebOmnibox) {
+  base::HistogramTester histogram_tester;
+  base::UserActionTester user_action_tester;
+
+  client()->location_bar_model()->set_page_classification(
+      metrics::OmniboxEventProto::OTHER);
+
+  EXPECT_CALL(*client(), IsAimPopupEnabled()).WillRepeatedly(Return(true));
+  EXPECT_CALL(*client(), OpenUrl(_)).Times(0);
+
+  model()->OpenAiMode(/*via_keyboard=*/true, /*via_context_menu=*/false);
+
+  EXPECT_EQ(OmniboxPopupState::kAim,
+            controller()->popup_state_manager()->popup_state());
+
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "ContextualSearch.AiModeButtonClick.WebOmnibox"),
+            1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.AiModeButtonClick.WebOmnibox", true, 1);
+
+  model()->OpenAiMode(/*via_keyboard=*/true, /*via_context_menu=*/true);
+
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "ContextualSearch.AiModeButtonClick.WebOmnibox"),
+            1);
+  histogram_tester.ExpectUniqueSample(
+      "ContextualSearch.AiModeButtonClick.WebOmnibox", true, 1);
 }
 
 // Test observer that clears results when OnContentsChanged is called,

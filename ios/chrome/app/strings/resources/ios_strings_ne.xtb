@@ -298,7 +298,6 @@
 <translation id="2012723204723845092">तपाईंलाई फेरि स्वागत छ!</translation>
 <translation id="2015722694326466240">पासवर्डहरू हेर्नका लागि सर्वप्रथम तपाईंले अनिवार्य रूपमा आफ्नो यन्त्रमा कुनै पासकोड सेट गर्नुपर्छ।</translation>
 <translation id="201759455285471444">ट्याब समूह एक्स्पान्ड गर्नुहोस्।</translation>
-<translation id="202070562065520783">यसका बारेमा वर्णन गर</translation>
 <translation id="2044394949148788042">ट्याब ग्रिड खोल्नुहोस्</translation>
 <translation id="2044681667265133332"><ph name="HOSTED_DOMAIN" /> ले <ph name="USER_EMAIL" /> खाता व्यवस्थापन गर्छ र यसले केही जानकारी हेर्न सक्ने सम्भावना हुन्छ। <ph name="BEGIN_LINK" />थप जान्नुहोस्<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">नयाँ सामग्री</translation>
@@ -527,6 +526,7 @@
 <translation id="286382692684806520">{COUNT,plural, =1{एउटा साइट (सिंक गरिएका डिभाइसमा थप साइट)}other{# वटा साइट (सिंक गरिएका डिभाइसमा थप साइट)}}</translation>
 <translation id="2870560284913253234">साइट</translation>
 <translation id="2876369937070532032">यसले तपाईंको सुरक्षा जोखिममा हुँदा तपाईंले भ्रमण गर्ने केही पृष्ठका URL हरू Google मा पठाउँछ</translation>
+<translation id="2877733045396505765">तपाईंले यसो गर्नुभयो भने यो डिभाइस र तपाईंको Google खाता <ph name="USER_EMAIL" /> मा सेभ गरिएका चयन गरिएका जानकारी मेटाइन्छन्।</translation>
 <translation id="2883151425485251736">तपाईंले आफ्नो खाताबाट लुकाएका विषयहरू हेर्नुहोस् र बदल्नुहोस्</translation>
 <translation id="288655811176831528">ट्याब बन्द गर्नुहोस्</translation>
 <translation id="2888631381369839306">मूल्यको ट्र्याकिङसम्बन्धी नोटिफिकेसन प्राप्त गर्ने सुविधा अन गरिएको छ</translation>
@@ -636,6 +636,7 @@
 <translation id="3324193307694657476">ठेगाना 2</translation>
 <translation id="3328801116991980348">साइट जानकारी</translation>
 <translation id="333229797575847124">यो सुविधा अन गर्ने तरिका</translation>
+<translation id="334004756946755423">यसका बारेमा वर्णन गर</translation>
 <translation id="3344233834747405775">कार्डवालाको नाम अवैध छ</translation>
 <translation id="3344485292736684439">{count,plural, =1{यो बुकमार्क तपाईंको खाता ({email}) मा भएको "{title}" मा सेभ गरियो}other{यी बुकमार्कहरू तपाईंको खाता ({email}) मा भएको "{title}" मा सेभ गरिए}}</translation>
 <translation id="334690320928261823">हालसालै बन्द गरिएका ट्याबहरू</translation>
@@ -1878,6 +1879,7 @@
 <translation id="775755486779745798">म्याद सकिने महिना (<ph name="MONTH" />) स्वतः भर्नुहोस्</translation>
 <translation id="7758789811447313947">बैजनी थिम</translation>
 <translation id="7759809451544302770">वैकल्पिक</translation>
+<translation id="7763878244904387570">तपाईंले यसो गर्नुभयो भने यो डिभाइसमा सेभ गरिएका चयन गरिएका जानकारी मेटाइन्छन्।</translation>
 <translation id="7765158879357617694">सार्नुहोस्</translation>
 <translation id="7772032839648071052">पासफ्रेज पक्का</translation>
 <translation id="7772948288262733182">फेरि स्वागत छ</translation>

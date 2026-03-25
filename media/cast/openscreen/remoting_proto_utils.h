@@ -47,9 +47,7 @@ namespace media::cast {
 base::HeapArray<uint8_t> DecoderBufferToByteArray(
     const media::DecoderBuffer& decoder_buffer);
 
-// Converts byte array into DecoderBufferSegment. The returned DecoderBuffer
-// does not own the media data, and its lifetime is tied to the input `data`
-// span.
+// Converts byte array into DecoderBufferSegment.
 scoped_refptr<media::DecoderBuffer> ByteArrayToDecoderBuffer(
     base::span<const uint8_t> data);
 
